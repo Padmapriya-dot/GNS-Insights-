@@ -8,8 +8,9 @@ from app.core.permissions import require_permission, tenant_scope
 from app.models.user import User
 from app.schemas.company_settings import CompanySettingsRead, CompanySettingsUpdate
 from app.services import company_settings_service
-from app.services.account_overview_service import get_account_overview
 from app.services import subscription_service
+from app.services.account_overview_service import get_account_overview
+from app.services.address_lookup_service import lookup_indian_pincode
 from app.utils.api_response import success_response
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
@@ -20,6 +21,16 @@ MODULE = "admin"
 class SalesInquiryRequest(BaseModel):
     message: str | None = Field(None, max_length=2000)
     preferred_plan: str | None = Field(None, max_length=64)
+
+
+@router.get("/address/pincode/{pincode}")
+def lookup_pincode_endpoint(
+    pincode: str,
+    _: User = Depends(get_current_user),
+) -> dict:
+    """Resolve Indian PIN Code → state / city (India Post + fallback)."""
+    data = lookup_indian_pincode(pincode)
+    return success_response("Address details retrieved", data)
 
 
 @router.get("/account-overview")
@@ -88,7 +99,8 @@ def contact_sales_endpoint(
 def get_company_settings(
     tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
 ) -> CompanySettingsRead:
-    return company_settings_service.get_or_create_settings(db, tenant_id)
+    row = company_settings_service.get_or_create_settings(db, tenant_id)
+    return company_settings_service.to_settings_read(row)
 
 
 @router.put("/company", response_model=CompanySettingsRead)
@@ -97,4 +109,5 @@ def update_company_settings(
     user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ) -> CompanySettingsRead:
-    return company_settings_service.update_settings(db, user.tenant_id, payload)
+    row = company_settings_service.update_settings(db, user.tenant_id, payload)
+    return company_settings_service.to_settings_read(row)

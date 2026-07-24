@@ -206,7 +206,23 @@ def update_user(
     if "designation" in data:
         user.designation = data["designation"]
     if data.get("password"):
+        from app.services.password_history_service import (
+            assert_password_not_reused,
+            record_password_history,
+        )
+        from app.services.security_service import revoke_all_refresh_tokens_for_user
+
+        try:
+            assert_password_not_reused(db, user, data["password"])
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+        if user.hashed_password:
+            record_password_history(db, user.id, user.hashed_password)
         user.hashed_password = hash_password(data["password"])
+        revoke_all_refresh_tokens_for_user(db, user.id)
 
     if "is_active" in data and data["is_active"] is not None:
         if not data["is_active"] and user.id == acting_user.id:

@@ -159,6 +159,23 @@ def revoke_refresh_token(db: Session, raw_token: str) -> None:
         db.commit()
 
 
+def revoke_all_refresh_tokens_for_user(db: Session, user_id: int) -> int:
+    """Invalidate every refresh token for a user (password change / forced logout)."""
+    rows = list(
+        db.scalars(
+            select(RefreshToken).where(
+                RefreshToken.user_id == user_id,
+                RefreshToken.revoked.is_(False),
+            )
+        ).all()
+    )
+    for row in rows:
+        row.revoked = True
+    if rows:
+        db.commit()
+    return len(rows)
+
+
 def rotate_refresh_token(
     db: Session, old_raw: str, user: User, *, ip_address: str | None = None, user_agent: str | None = None
 ) -> str:

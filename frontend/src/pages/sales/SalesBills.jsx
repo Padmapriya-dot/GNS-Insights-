@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle, FileText, Plus, TrendingUp, Download, RefreshCw, Search } from "lucide-react";
+import { CheckCircle, FileText, Plus, TrendingUp, Download, RefreshCw, Search, MoreVertical } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import BillFormModal from "../../components/sales/BillFormModal";
 import { getInvoices } from "../../api/salesApi";
@@ -35,6 +35,7 @@ export default function SalesBills() {
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedBills, setSelectedBills] = useState([]);
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   const toggleSelectBill = (id) => {
     setSelectedBills((prev) =>
@@ -42,16 +43,80 @@ export default function SalesBills() {
     );
   };
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     setLoading(true);
-    getInvoices()
-      .then((r) => {
-        const all = Array.isArray(r.data) ? r.data : [];
-        setBills(all.filter(isBillRecord));
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    try {
+      const res = await getInvoices().catch(() => ({ data: [] }));
+      const apiBills = Array.isArray(res.data) ? res.data.filter(isBillRecord) : [];
+      const stored = localStorage.getItem("smrt_sales_bills");
+      const localBills = stored ? JSON.parse(stored) : [];
+      const formatted = [...localBills, ...apiBills].map((item, idx) => ({
+        ...item,
+        id: item.id || item.invoice_number || item.bill_number || `bill-${idx}`,
+      }));
+      setBills(formatted);
+    } catch {
+      const stored = localStorage.getItem("smrt_sales_bills");
+      const localBills = stored ? JSON.parse(stored) : [];
+      const formatted = localBills.map((item, idx) => ({
+        ...item,
+        id: item.id || item.invoice_number || item.bill_number || `bill-${idx}`,
+      }));
+      setBills(formatted);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  const handleUpdateBillStatus = (billId, newStatus) => {
+    setBills((prev) =>
+      prev.map((b) => {
+        if (String(b.id) === String(billId)) {
+          const grandTotal = Number(b.grand_total) || 0;
+          let newPaid = b.amount_paid || 0;
+          if (newStatus === "paid") newPaid = grandTotal;
+          else if (newStatus === "partial") {
+            const input = window.prompt(`Enter partial payment amount received (₹):`, "");
+            if (!input) return b;
+            const p = Number(input);
+            if (!isNaN(p) && p > 0) {
+              newPaid = Math.min((Number(b.amount_paid) || 0) + p, grandTotal);
+            }
+          }
+          const updated = {
+            ...b,
+            status: newPaid >= grandTotal && grandTotal > 0 ? "paid" : newStatus,
+            amount_paid: newPaid,
+          };
+          return updated;
+        }
+        return b;
+      })
+    );
+
+    ["smrt_sales_bills", "smrt_invoices"].forEach((key) => {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const list = JSON.parse(stored);
+        const updatedList = list.map((b) => {
+          if (String(b.id) === String(billId) || String(b.invoice_number) === String(billId) || String(b.bill_number) === String(billId)) {
+            const grandTotal = Number(b.grand_total) || 0;
+            let newPaid = b.amount_paid || 0;
+            if (newStatus === "paid") newPaid = grandTotal;
+            return {
+              ...b,
+              status: newStatus,
+              amount_paid: newPaid,
+            };
+          }
+          return b;
+        });
+        localStorage.setItem(key, JSON.stringify(updatedList));
+      }
+    });
+
+    setOpenMenuId(null);
+  };
 
   useEffect(() => {
     load();
@@ -242,14 +307,58 @@ export default function SalesBills() {
                     </div>
                   </div>
 
-                  {/* Footer Button: Continue to Bill */}
-                  <div className="mt-5 border-t pt-4">
+                  {/* Footer Button: Continue to Bill & Status 3-dots menu */}
+                  <div className="mt-5 flex items-center gap-2 border-t pt-4">
                     <Link
                       to={`/sales/bills/${b.id}`}
-                      className="block w-full text-center rounded-lg bg-blue-600 hover:bg-blue-700 py-2 text-xs font-bold text-white shadow-sm transition-colors"
+                      className="flex-1 text-center rounded-lg bg-blue-600 hover:bg-blue-700 py-2 text-xs font-bold text-white shadow-sm transition-colors"
                     >
                       Continue to Bill
                     </Link>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(openMenuId === b.id ? null : b.id);
+                        }}
+                        className="flex items-center justify-center p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors"
+                        title="Update status"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                      {openMenuId === b.id && (
+                        <div className="absolute right-0 bottom-full mb-1 z-30 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                          {k === "draft" && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateBillStatus(b.id, "sent")}
+                              className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            >
+                              Mark as Sent
+                            </button>
+                          )}
+                          {k !== "paid" && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateBillStatus(b.id, "partial")}
+                                className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                              >
+                                Record Partial
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateBillStatus(b.id, "paid")}
+                                className="block w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                              >
+                                Mark as Paid
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

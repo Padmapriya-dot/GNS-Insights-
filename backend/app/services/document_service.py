@@ -7,8 +7,9 @@ from app.schemas.document import DocumentCreate, DocumentUpdate
 
 def create_document(db: Session, payload: DocumentCreate) -> Document:
     data = payload.model_dump()
-    if not data.get("tenant_id"):
-        data["tenant_id"] = 1
+    tenant_id = data.get("tenant_id")
+    if not tenant_id:
+        raise ValueError("tenant_id is required")
     doc = Document(**data)
     db.add(doc)
     db.commit()
@@ -21,7 +22,7 @@ def list_documents(
     tenant_id: int,
     doc_type: str | None = None,
 ) -> list[Document]:
-    stmt = select(Document)
+    stmt = select(Document).where(Document.tenant_id == tenant_id)
     if doc_type:
         dt = doc_type.lower()
         stmt = stmt.where(or_(Document.doc_type == doc_type, Document.doc_type == dt))
@@ -30,7 +31,12 @@ def list_documents(
 
 
 def get_document(db: Session, document_id: int, tenant_id: int | None = None) -> Document | None:
-    return db.get(Document, document_id)
+    doc = db.get(Document, document_id)
+    if not doc:
+        return None
+    if tenant_id is not None and doc.tenant_id != tenant_id:
+        return None
+    return doc
 
 
 def update_document(
@@ -39,10 +45,12 @@ def update_document(
     tenant_id: int | None = None,
     payload: DocumentUpdate = None,
 ) -> Document | None:
-    doc = get_document(db, document_id)
+    doc = get_document(db, document_id, tenant_id)
     if not doc:
         return None
     data = payload.model_dump(exclude_unset=True) if payload else {}
+    # Never allow tenant reassignment via update
+    data.pop("tenant_id", None)
     for key, value in data.items():
         setattr(doc, key, value)
     db.commit()
@@ -51,7 +59,7 @@ def update_document(
 
 
 def delete_document(db: Session, document_id: int, tenant_id: int | None = None) -> bool:
-    doc = get_document(db, document_id)
+    doc = get_document(db, document_id, tenant_id)
     if not doc:
         return False
     db.delete(doc)

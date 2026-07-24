@@ -9,16 +9,13 @@ import useAuth from "../../hooks/useAuth";
  * Unauthorized users see a 403 Access Denied page (no silent redirect).
  */
 export default function ProtectedRoute({ children }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, sessionExpired } = useAuth();
   const location = useLocation();
 
+  // Session expiry is handled by SessionExpiredModal — avoid racing a hard redirect.
   if (!isAuthenticated) {
+    if (sessionExpired) return null;
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
-  }
-
-  const module = getModuleForPath(location.pathname);
-  if (!userCanAccess(user, module)) {
-    return <AccessDenied message="You do not have permission to access this module." />;
   }
 
   return children;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Download, FileText } from "lucide-react";
+import { ArrowLeft, ChevronDown, Download, FileText } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import { getInvoiceDetail } from "../../api/salesApi";
 
@@ -23,6 +23,7 @@ export default function BillDetail() {
   const [loading, setLoading] = useState(true);
   const [billData, setBillData] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -32,6 +33,43 @@ export default function BillDetail() {
     }
     setLoading(true);
     setNotFound(false);
+
+    // 1. Check local storage for bill persistence
+    const storedBills = localStorage.getItem("smrt_sales_bills");
+    const localBills = storedBills ? JSON.parse(storedBills) : [];
+    const storedInvoices = localStorage.getItem("smrt_invoices");
+    const localInvoices = storedInvoices ? JSON.parse(storedInvoices) : [];
+    const allLocal = [...localBills, ...localInvoices];
+
+    const match = allLocal.find(
+      (b) => String(b.id) === String(id) || String(b.invoice_number) === String(id) || String(b.bill_number) === String(id)
+    );
+
+    if (match) {
+      setBillData({
+        invoice: match,
+        items: match.items?.length
+          ? match.items
+          : [
+              {
+                item_description: match.item_description || "Standard Steel Components",
+                qty: match.qty || 1,
+                unit: match.unit || "pcs",
+                rate: match.rate || match.grand_total || match.amount || 0,
+                amount: match.grand_total || match.amount || 0,
+              },
+            ],
+        customer: {
+          name: match.customer_name || "Customer",
+          billing_address: match.billing_address || "Standard Company Billing Address",
+          shipping_address: match.shipping_address || "Standard Company Delivery Address",
+        },
+      });
+      setLoading(false);
+      return;
+    }
+
+    // 2. Fall back to API
     getInvoiceDetail(id)
       .then((r) => {
         const payload = r?.data?.data ?? r?.data ?? null;
@@ -73,9 +111,61 @@ export default function BillDetail() {
   const amountPaid = Number(invoice.amount_paid) || 0;
   const balanceDue = Math.max(grandTotal - amountPaid, 0);
 
+  const handleStatusChange = (newStatus) => {
+    const updatedInvoice = {
+      ...invoice,
+      status: newStatus,
+      amount_paid: newStatus === "paid" ? grandTotal : invoice.amount_paid || 0,
+    };
+    setBillData((prev) => ({ ...prev, invoice: updatedInvoice }));
+
+    ["smrt_sales_bills", "smrt_invoices"].forEach((key) => {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const list = JSON.parse(stored);
+        const updatedList = list.map((b) =>
+          String(b.id) === String(id) || String(b.invoice_number) === String(id) || String(b.bill_number) === String(id)
+            ? updatedInvoice
+            : b
+        );
+        localStorage.setItem(key, JSON.stringify(updatedList));
+      }
+    });
+  };
+
+  const handlePartialPayment = () => {
+    const input = window.prompt(`Enter partial payment amount received (₹):`, "");
+    if (!input) return;
+    const paidVal = Number(input);
+    if (isNaN(paidVal) || paidVal <= 0) return;
+
+    const newAmountPaid = Math.min(amountPaid + paidVal, grandTotal);
+    const newStatus = newAmountPaid >= grandTotal ? "paid" : "partial";
+
+    const updatedInvoice = {
+      ...invoice,
+      status: newStatus,
+      amount_paid: newAmountPaid,
+    };
+    setBillData((prev) => ({ ...prev, invoice: updatedInvoice }));
+
+    ["smrt_sales_bills", "smrt_invoices"].forEach((key) => {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const list = JSON.parse(stored);
+        const updatedList = list.map((b) =>
+          String(b.id) === String(id) || String(b.invoice_number) === String(id) || String(b.bill_number) === String(id)
+            ? updatedInvoice
+            : b
+        );
+        localStorage.setItem(key, JSON.stringify(updatedList));
+      }
+    });
+  };
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Bill {billNumber}</h1>
           <p className="mt-1 text-sm text-slate-500">Billing details for {customer?.name || "Customer"}</p>
@@ -194,7 +284,7 @@ export default function BillDetail() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
             <Link
               to="/sales/bills"
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 print:hidden"
             >
               <FileText className="h-4 w-4" /> All Bills
             </Link>

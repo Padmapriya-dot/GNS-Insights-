@@ -86,8 +86,8 @@ class CreateCompanyRequest(BaseModel):
     trial_days: int | None = Field(default=7, ge=0, le=365)
     billing_cycle: str | None = Field(default=None, max_length=32)
     # Optional — if omitted, a secure temporary password is generated
-    password: str | None = Field(default=None, min_length=8, max_length=128)
-    confirm_password: str | None = Field(default=None, min_length=8, max_length=128)
+    password: str | None = Field(default=None, min_length=12, max_length=128)
+    confirm_password: str | None = Field(default=None, min_length=12, max_length=128)
 
     @field_validator("company_name", "admin_name", "address", "city", "state", "country")
     @classmethod
@@ -212,7 +212,7 @@ class UpdateCompanyRequest(BaseModel):
 
 
 class ResetCompanyPasswordRequest(BaseModel):
-    new_password: str = Field(..., min_length=8, max_length=128)
+    new_password: str = Field(..., min_length=12, max_length=128)
 
     @field_validator("new_password")
     @classmethod

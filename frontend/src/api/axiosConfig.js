@@ -99,10 +99,8 @@ api.interceptors.response.use(
         window.location.assign("/login");
       }
     } else if (typeof onApiError === "function" && !error.config?.skipGlobalError) {
-      if (!status || status >= 500) {
-        const message = !status
-          ? "Network error - please check your connection."
-          : error.response?.data?.detail || "Something went wrong. Please try again.";
+      if (status && status >= 500) {
+        const message = error.response?.data?.detail || "Server error. Please try again later.";
         onApiError(message);
       }
     }

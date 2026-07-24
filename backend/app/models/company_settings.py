@@ -26,9 +26,11 @@ class CompanySettings(Base, TimestampMixin):
     website: Mapped[str | None] = mapped_column(String(255))
     address_line1: Mapped[str | None] = mapped_column(String(512))
     address_line2: Mapped[str | None] = mapped_column(String(512))
+    landmark: Mapped[str | None] = mapped_column(String(255))
     city: Mapped[str | None] = mapped_column(String(128))
     state: Mapped[str | None] = mapped_column(String(128))
     state_code: Mapped[str | None] = mapped_column(String(16))
+    country: Mapped[str | None] = mapped_column(String(128))
     pincode: Mapped[str | None] = mapped_column(String(16))
 
     # Tax options
@@ -50,3 +52,9 @@ class CompanySettings(Base, TimestampMixin):
     # Payment terms
     default_payment_terms_days: Mapped[int | None] = mapped_column(Integer)
     payment_terms_note: Mapped[str | None] = mapped_column(Text)
+
+    # Security / MFA (company-wide policy; authenticator app reserved for later)
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    mfa_email_otp: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    mfa_sms_otp: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    mfa_authenticator: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

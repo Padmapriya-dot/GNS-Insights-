@@ -3,10 +3,13 @@ import { Link } from "react-router-dom";
 import { Download, Filter, IndianRupee, Plus, RefreshCw, ShoppingCart, Truck } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
-import Loader from "../../components/common/Loader";
+import EmptyState from "../../components/common/EmptyState";
+import SkeletonTable from "../../components/common/SkeletonTable";
+import { ErrorState, NoResultsState, OfflineState } from "../../components/common/states";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import SODetailModal from "../../components/sales/SODetailModal";
 import { useToast } from "../../context/ToastContext";
+import { useNetworkStatus } from "../../context/NetworkStatusContext";
 import { getSOSummary, getSalesOrdersEnriched } from "../../api/salesApi";
 import { DEMO_SO_LIST, formatInr, statusColor } from "../../data/salesMasterData";
 import { exportToExcel } from "../../utils/exportUtils";
@@ -15,8 +18,15 @@ function KpiCard({ label, value, icon: Icon, color }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p></div>
-        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+        <div>
+          <p className="text-xs font-medium text-slate-500">{label}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p>
+        </div>
+        {Icon && (
+          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
+            <Icon className="h-5 w-5 text-white" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -26,7 +36,9 @@ const defaultFilters = { customer: "", status: "", sales_person: "" };
 
 export default function SalesOrders() {
   const { addToast } = useToast();
+  const { online, markRequestStart, markRequestEnd } = useNetworkStatus();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [rows, setRows] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -34,23 +46,23 @@ export default function SalesOrders() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
+    if (typeof markRequestStart === "function") markRequestStart();
     try {
-      const [sumRes, listRes] = await Promise.allSettled([getSOSummary(), getSalesOrdersEnriched()]);
+      const res = await getSalesOrdersEnriched().catch(() => ({ data: [] }));
+      const apiOrders = Array.isArray(res?.data) ? res.data : [];
       const stored = localStorage.getItem("smrt_sales_orders");
       const localOrders = stored ? JSON.parse(stored) : [];
-      let baseOrders = DEMO_SO_LIST || [];
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length) {
-        baseOrders = listRes.value.data;
-      }
-      setRows([...localOrders, ...baseOrders]);
+      setRows([...localOrders, ...apiOrders, ...(DEMO_SO_LIST || [])]);
     } catch {
       const stored = localStorage.getItem("smrt_sales_orders");
       const localOrders = stored ? JSON.parse(stored) : [];
       setRows([...localOrders, ...(DEMO_SO_LIST || [])]);
     } finally {
+      if (typeof markRequestEnd === "function") markRequestEnd();
       setLoading(false);
     }
-  }, [addToast]);
+  }, [markRequestStart, markRequestEnd]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -74,6 +86,10 @@ export default function SalesOrders() {
     if (filters.sales_person) list = list.filter((r) => r.sales_person?.toLowerCase().includes(filters.sales_person.toLowerCase()));
     return list;
   }, [rows, filters]);
+
+  const hasAdvancedFilters = Boolean(
+    filters.customer || filters.status || filters.sales_person
+  );
 
   const columns = [
     {
@@ -110,19 +126,40 @@ export default function SalesOrders() {
     },
   ];
 
-  if (loading) return <Loader label="Loading sales orders..." />;
-
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Sales Orders</h1>
-          <p className="mt-1 text-sm text-slate-500">Manage orders from quotation to dispatch with production and inventory integration.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Manage orders from quotation to dispatch with production and inventory integration.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/sales/orders/create" className="ui-btn-primary"><Plus className="h-4 w-4" /> New Sales Order</Link>
-          <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "sales-orders")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+          <Link to="/sales/orders/create" className="ui-btn-primary">
+            <Plus className="h-4 w-4" /> New Sales Order
+          </Link>
+          <button
+            type="button"
+            onClick={() =>
+              exportToExcel(
+                filtered,
+                columns.filter((c) => !c.render),
+                "sales-orders"
+              )
+            }
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            <Download className="h-4 w-4" /> Export
+          </button>
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </button>
         </div>
       </header>
 
@@ -140,18 +177,81 @@ export default function SalesOrders() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-700"><Filter className="h-4 w-4" /> Filters</button>
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-700"
+        >
+          <Filter className="h-4 w-4" /> Filters
+        </button>
         {showAdvanced && (
           <div className="mb-4 grid gap-3 sm:grid-cols-3">
-            <input value={filters.customer} onChange={(e) => setFilters({ ...filters, customer: e.target.value })} placeholder="Customer" className="rounded-lg border px-3 py-2 text-sm" />
-            <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="rounded-lg border px-3 py-2 text-sm">
+            <input
+              value={filters.customer}
+              onChange={(e) => setFilters({ ...filters, customer: e.target.value })}
+              placeholder="Customer"
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              className="rounded-lg border px-3 py-2 text-sm"
+            >
               <option value="">All Status</option>
-              {["draft", "pending", "confirmed", "packed", "shipped", "delivered", "cancelled"].map((s) => <option key={s} value={s}>{s}</option>)}
+              {["draft", "pending", "confirmed", "packed", "shipped", "delivered", "cancelled"].map(
+                (s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                )
+              )}
             </select>
-            <input value={filters.sales_person} onChange={(e) => setFilters({ ...filters, sales_person: e.target.value })} placeholder="Sales Person" className="rounded-lg border px-3 py-2 text-sm" />
+            <input
+              value={filters.sales_person}
+              onChange={(e) => setFilters({ ...filters, sales_person: e.target.value })}
+              placeholder="Sales Person"
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
           </div>
         )}
-        <DataTable columns={columns} data={filtered} searchPlaceholder="Search SO, customer..." searchKeys={["order_number", "customer_name", "sales_person"]} />
+
+        {loading ? (
+          <SkeletonTable rows={8} cols={6} />
+        ) : !online && loadError ? (
+          <OfflineState onRetry={load} />
+        ) : loadError ? (
+          <ErrorState description={loadError} onRetry={load} />
+        ) : (
+          <DataTable
+            columns={columns}
+            data={filtered}
+            searchPlaceholder="Search SO, customer..."
+            searchKeys={["order_number", "customer_name", "sales_person"]}
+            emptyState={
+              rows.length === 0 ? (
+                <EmptyState
+                  icon="clipboard"
+                  title="No sales orders yet"
+                  description="Create your first sales order to start the order-to-cash flow."
+                  actionLabel="New Sales Order"
+                  actionHref="/sales/orders/create"
+                />
+              ) : hasAdvancedFilters ? (
+                <NoResultsState
+                  query={filters.customer || filters.status || filters.sales_person}
+                  onClear={() => setFilters(defaultFilters)}
+                />
+              ) : (
+                <EmptyState
+                  title="No sales orders yet"
+                  description="Create your first sales order to get started."
+                  actionLabel="New Sales Order"
+                  actionHref="/sales/orders/create"
+                />
+              )
+            }
+          />
+        )}
       </div>
 
       {selected && (

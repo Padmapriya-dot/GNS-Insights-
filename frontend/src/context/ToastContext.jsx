@@ -9,11 +9,20 @@ export function ToastProvider({ children }) {
   const lastErrorRef = useRef({ message: null, at: 0 });
 
   const addToast = useCallback((message, type = "success") => {
+    if (
+      typeof message === "string" &&
+      (message.toLowerCase().includes("permission") ||
+        message.toLowerCase().includes("access to") ||
+        message.toLowerCase().includes("not allowed"))
+    ) {
+      return;
+    }
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, type }]);
+    const ttl = type === "error" ? 5000 : 3200;
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
+    }, ttl);
   }, []);
 
   useEffect(() => {
@@ -41,13 +50,35 @@ export function ToastProvider({ children }) {
             key={t.id}
             className="pointer-events-auto max-w-xs rounded-lg border px-3 py-2 text-xs font-medium shadow-md animate-in slide-in-from-right-2"
             style={{
-              background: t.type === "success" ? "#f0fdf4" : t.type === "error" ? "#fef2f2" : "#f8fafc",
-              color: t.type === "success" ? "#166534" : t.type === "error" ? "#b91c1c" : "#334155",
-              borderColor: t.type === "success" ? "#bbf7d0" : t.type === "error" ? "#fecaca" : "#e2e8f0",
+              background:
+                t.type === "success"
+                  ? "#f0fdf4"
+                  : t.type === "error"
+                    ? "#fef2f2"
+                    : t.type === "warning"
+                      ? "#fffbeb"
+                      : "#f8fafc",
+              color:
+                t.type === "success"
+                  ? "#166534"
+                  : t.type === "error"
+                    ? "#b91c1c"
+                    : t.type === "warning"
+                      ? "#92400e"
+                      : "#334155",
+              borderColor:
+                t.type === "success"
+                  ? "#bbf7d0"
+                  : t.type === "error"
+                    ? "#fecaca"
+                    : t.type === "warning"
+                      ? "#fde68a"
+                      : "#e2e8f0",
             }}
           >
             {t.type === "success" && "✓ "}
             {t.type === "error" && "✕ "}
+            {t.type === "warning" && "! "}
             {t.message}
           </div>
         ))}

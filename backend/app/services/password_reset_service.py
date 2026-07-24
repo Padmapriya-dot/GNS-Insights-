@@ -198,9 +198,26 @@ class PasswordResetService:
                 detail=MSG_TOKEN_INVALID,
             )
 
+        from app.services.password_history_service import (
+            assert_password_not_reused,
+            record_password_history,
+        )
+        from app.services.security_service import revoke_all_refresh_tokens_for_user
+
+        try:
+            assert_password_not_reused(self.db, user, new_password)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
+        if user.hashed_password:
+            record_password_history(self.db, user.id, user.hashed_password)
         self.repo.update_user_password(user, hash_password(new_password))
         self.repo.delete_reset_token(row)
         self.repo.invalidate_active_reset_tokens(user.id)
+        revoke_all_refresh_tokens_for_user(self.db, user.id)
         self.repo.commit()
 
         log_audit(

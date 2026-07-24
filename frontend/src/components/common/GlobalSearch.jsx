@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Search } from "lucide-react";
+import { Search, SearchX } from "lucide-react";
 
 import useAuth from "../../hooks/useAuth";
 import { userCanAccess } from "../../config/permissions";
@@ -14,11 +14,7 @@ const EXTRA_ROUTES = [
 ];
 
 function routeLabel(route, t) {
-  const label = t(route.labelKey);
-  if (route.sectionKey) {
-    return `${t(route.sectionKey)} › ${label}`;
-  }
-  return label;
+  return t(route.labelKey);
 }
 
 export default function GlobalSearch({ onSelect, placeholderKey = "common.searchMenuReports" }) {
@@ -30,6 +26,7 @@ export default function GlobalSearch({ onSelect, placeholderKey = "common.search
   const [focus, setFocus] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef(null);
+  const listRef = useRef(null);
 
   const routes = useMemo(() => {
     const all = [...flattenNavForSearch(), ...EXTRA_ROUTES];
@@ -51,14 +48,21 @@ export default function GlobalSearch({ onSelect, placeholderKey = "common.search
           t(r.labelKey).toLowerCase().includes(q) ||
           r.path.toLowerCase().includes(q)
       )
-      .slice(0, 10);
+      .slice(0, 12);
   }, [query, routes, t]);
 
   const showDropdown = open && (focus || query);
+  const hasQuery = Boolean(query.trim());
 
   useEffect(() => {
     setHighlight(0);
   }, [query]);
+
+  useEffect(() => {
+    if (!showDropdown || !listRef.current) return;
+    const el = listRef.current.querySelector(`[data-index="${highlight}"]`);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [highlight, showDropdown]);
 
   const handleSelect = useCallback(
     (path) => {
@@ -97,7 +101,7 @@ export default function GlobalSearch({ onSelect, placeholderKey = "common.search
 
   return (
     <div className="relative w-full">
-      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
       <input
         ref={inputRef}
         type="search"
@@ -116,39 +120,72 @@ export default function GlobalSearch({ onSelect, placeholderKey = "common.search
         aria-label={t("common.search")}
         aria-expanded={showDropdown}
         aria-controls="global-search-results"
+        aria-activedescendant={
+          showDropdown && matches[highlight] ? `global-search-option-${highlight}` : undefined
+        }
         role="combobox"
         autoComplete="off"
       />
       {showDropdown && (
         <div
           id="global-search-results"
+          ref={listRef}
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-hidden overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl"
+          className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl sm:min-w-[22rem]"
         >
+          {!hasQuery ? (
+            <p className="border-b border-slate-100 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Suggested pages
+            </p>
+          ) : null}
+
           {matches.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-slate-500">
-              {t("common.noSearchResults", { defaultValue: "No matches — try \"inventory\" or \"sales\"" })}
+            <div className="flex flex-col items-center px-4 py-8 text-center" role="status">
+              <SearchX className="mb-2 h-8 w-8 text-slate-300" aria-hidden />
+              <p className="text-sm font-medium text-slate-700">
+                No results for “{query.trim()}”
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Try another keyword like inventory, sales, or work orders.
+              </p>
+              <button
+                type="button"
+                className="mt-3 text-xs font-semibold text-[#2563EB] hover:underline"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setQuery("");
+                  inputRef.current?.focus();
+                }}
+              >
+                Clear search
+              </button>
             </div>
           ) : (
-            matches.map((r, i) => (
-              <button
-                key={r.path}
-                type="button"
-                role="option"
-                aria-selected={i === highlight}
-                onMouseEnter={() => setHighlight(i)}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleSelect(r.path)}
-                className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm ${
-                  i === highlight
-                    ? "bg-blue-50 text-[#2563EB]"
-                    : "text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                <span className="truncate font-medium">{routeLabel(r, t)}</span>
-                <span className="ml-auto shrink-0 text-xs text-slate-400">{r.path}</span>
-              </button>
-            ))
+            matches.map((r, i) => {
+              const label = routeLabel(r, t);
+              const selected = i === highlight;
+              return (
+                <button
+                  key={r.path}
+                  id={`global-search-option-${i}`}
+                  data-index={i}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  title={label}
+                  onMouseEnter={() => setHighlight(i)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelect(r.path)}
+                  className={`flex w-full items-center px-4 py-2.5 text-left text-sm font-medium transition-colors ${
+                    selected
+                      ? "bg-blue-50 text-[#2563EB]"
+                      : "text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="truncate">{label}</span>
+                </button>
+              );
+            })
           )}
         </div>
       )}

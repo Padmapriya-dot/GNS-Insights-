@@ -18,6 +18,9 @@ import { getCompanySettings, updateCompanySettings } from "../../api/settingsApi
 import useAuth from "../../hooks/useAuth";
 import useSettings from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
+import CompanyAddressFields, {
+  validateCompanyAddress,
+} from "../../components/common/CompanyAddressFields";
 import AuditLogsPanel from "../../components/settings/AuditLogsPanel";
 import LoginHistoryPanel from "../../components/settings/LoginHistoryPanel";
 import AccountOverviewCard from "../../components/settings/AccountOverviewCard";
@@ -63,6 +66,7 @@ function CompanySection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [baseline, setBaseline] = useState({});
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     let active = true;
@@ -86,12 +90,16 @@ function CompanySection() {
           website: "",
           address_line1: "",
           address_line2: "",
+          landmark: "",
           city: "",
           state: "",
+          state_code: "",
+          country: "India",
           pincode: "",
           ...(res.data || {}),
         };
         data.country = data.country || regional.country || "India";
+        data.landmark = data.landmark || "";
         data.timezone = data.timezone || regional.timezone || "Asia/Kolkata";
         data.currency = data.currency || regional.currency || currency || "INR";
         data.language = data.language || regional.language || language || "English";
@@ -108,9 +116,19 @@ function CompanySection() {
     };
   }, [addToast, currency, language]);
 
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  const set = (key) => (e) => {
+    setForm((f) => ({ ...f, [key]: e.target.value }));
+    setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
+  };
 
   const handleSave = async () => {
+    const addressErrors = validateCompanyAddress(form, { pinKey: "pincode" });
+    if (Object.keys(addressErrors).length) {
+      setFieldErrors(addressErrors);
+      addToast("Please fix the highlighted address fields.", "error");
+      return;
+    }
+    setFieldErrors({});
     setSaving(true);
     try {
       const payload = {
@@ -123,8 +141,11 @@ function CompanySection() {
         website: form.website || null,
         address_line1: form.address_line1 || null,
         address_line2: form.address_line2 || null,
+        landmark: form.landmark || null,
         city: form.city || null,
         state: form.state || null,
+        state_code: form.state_code || null,
+        country: form.country || "India",
         pincode: form.pincode || null,
       };
       await updateCompanySettings(payload);
@@ -223,27 +244,22 @@ function CompanySection() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Address">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Address" className="sm:col-span-2">
-            <input className={inputClass} value={form.address_line1 || ""} onChange={set("address_line1")} />
-          </Field>
-          <Field label="Address Line 2" className="sm:col-span-2">
-            <input className={inputClass} value={form.address_line2 || ""} onChange={set("address_line2")} />
-          </Field>
-          <Field label="City">
-            <input className={inputClass} value={form.city || ""} onChange={set("city")} />
-          </Field>
-          <Field label="State">
-            <input className={inputClass} value={form.state || ""} onChange={set("state")} />
-          </Field>
-          <Field label="Country">
-            <input className={inputClass} value={form.country || ""} onChange={set("country")} />
-          </Field>
-          <Field label="PIN Code">
-            <input className={inputClass} value={form.pincode || ""} onChange={set("pincode")} />
-          </Field>
-        </div>
+      <SectionCard title="Company Address">
+        <CompanyAddressFields
+          value={form}
+          errors={fieldErrors}
+          pinKey="pincode"
+          onChange={(partial) => {
+            setForm((f) => ({ ...f, ...partial }));
+            setFieldErrors((prev) => {
+              const next = { ...prev };
+              Object.keys(partial).forEach((k) => {
+                delete next[k];
+              });
+              return next;
+            });
+          }}
+        />
       </SectionCard>
 
       <SectionCard title="Regional">
@@ -344,17 +360,50 @@ function UsersSection() {
 function SecuritySection() {
   const { addToast } = useToast();
   const [tab, setTab] = useState("audit");
+  const [saving, setSaving] = useState(false);
+  const [loadingPolicy, setLoadingPolicy] = useState(true);
   const [policy, setPolicy] = useState({
-    minLength: 8,
-    upper: true,
-    lower: true,
-    number: true,
-    special: true,
-    twoFactor: false,
-    lockAttempts: 5,
-    lockMinutes: 30,
-    otpEnabled: true,
+    mfa_enabled: false,
+    mfa_email_otp: true,
+    mfa_sms_otp: false,
+    mfa_authenticator: false,
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getCompanySettings();
+        const data = res?.data ?? res;
+        if (cancelled || !data) return;
+        setPolicy({
+          mfa_enabled: Boolean(data.mfa_enabled),
+          mfa_email_otp: data.mfa_email_otp !== false,
+          mfa_sms_otp: Boolean(data.mfa_sms_otp),
+          mfa_authenticator: Boolean(data.mfa_authenticator),
+        });
+      } catch {
+        /* keep defaults */
+      } finally {
+        if (!cancelled) setLoadingPolicy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const saveMfaPolicy = async () => {
+    setSaving(true);
+    try {
+      await updateCompanySettings(policy);
+      addToast("Security preferences saved.", "success");
+    } catch (err) {
+      addToast(err?.response?.data?.detail || "Could not save security settings.", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <PanelShell
@@ -365,9 +414,10 @@ function SecuritySection() {
           <button
             type="button"
             className="ui-btn-primary"
-            onClick={() => addToast("Security preferences saved on this device.", "success")}
+            disabled={saving || loadingPolicy}
+            onClick={saveMfaPolicy}
           >
-            <Save className="h-4 w-4" /> Save
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
           </button>
         ) : null
       }
@@ -396,52 +446,46 @@ function SecuritySection() {
       )}
 
       {tab === "policy" && (
-        <SectionCard title="Password & access">
+        <SectionCard title="Password & MFA">
+          <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">
+            Enterprise password policy is enforced server-side: minimum 12 characters with uppercase,
+            lowercase, number, and special character. Previous passwords cannot be reused.
+          </p>
           <div className="space-y-2">
             <ToggleRow
-              label="Require uppercase, lowercase, number & special character"
-              checked={policy.upper && policy.special}
-              onChange={(v) => setPolicy((p) => ({ ...p, upper: v, lower: v, number: v, special: v }))}
+              label="Require multi-factor authentication (MFA)"
+              description="When enabled, users must verify with OTP after password login."
+              checked={policy.mfa_enabled}
+              onChange={(v) => setPolicy((p) => ({ ...p, mfa_enabled: v }))}
             />
             <ToggleRow
-              label="Two-factor authentication (2FA)"
-              description="Require OTP after password for admin accounts."
-              checked={policy.twoFactor}
-              onChange={(v) => setPolicy((p) => ({ ...p, twoFactor: v }))}
+              label="Email OTP"
+              description="Send one-time codes to the user's registered email."
+              checked={policy.mfa_email_otp}
+              onChange={(v) => setPolicy((p) => ({ ...p, mfa_email_otp: v }))}
             />
             <ToggleRow
-              label="OTP for Super Admin login"
-              checked={policy.otpEnabled}
-              onChange={(v) => setPolicy((p) => ({ ...p, otpEnabled: v }))}
+              label="SMS OTP"
+              description="Send one-time codes via SMS (requires SMS provider configuration)."
+              checked={policy.mfa_sms_otp}
+              onChange={(v) => setPolicy((p) => ({ ...p, mfa_sms_otp: v }))}
+            />
+            <ToggleRow
+              label="Authenticator app (coming soon)"
+              description="TOTP apps such as Google Authenticator — reserved for a future release."
+              checked={policy.mfa_authenticator}
+              onChange={() => {}}
             />
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <Field label="Minimum password length">
-              <input
-                type="number"
-                min={8}
-                className={inputClass}
-                value={policy.minLength}
-                onChange={(e) => setPolicy((p) => ({ ...p, minLength: Number(e.target.value) || 8 }))}
-              />
+              <input type="number" className={inputClass} value={12} disabled readOnly />
             </Field>
             <Field label="Lock after failed attempts">
-              <input
-                type="number"
-                min={3}
-                className={inputClass}
-                value={policy.lockAttempts}
-                onChange={(e) => setPolicy((p) => ({ ...p, lockAttempts: Number(e.target.value) || 5 }))}
-              />
+              <input type="number" className={inputClass} value={5} disabled readOnly />
             </Field>
             <Field label="Lock duration (minutes)">
-              <input
-                type="number"
-                min={5}
-                className={inputClass}
-                value={policy.lockMinutes}
-                onChange={(e) => setPolicy((p) => ({ ...p, lockMinutes: Number(e.target.value) || 30 }))}
-              />
+              <input type="number" className={inputClass} value={30} disabled readOnly />
             </Field>
           </div>
         </SectionCard>

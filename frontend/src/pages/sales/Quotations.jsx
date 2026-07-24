@@ -8,7 +8,7 @@ import QuoteDetailModal from "../../components/sales/QuoteDetailModal";
 import CreateQuotationModal from "../../components/sales/CreateQuotationModal";
 import { useToast } from "../../context/ToastContext";
 import { getQuotationSummary, getQuotationsEnriched, updateQuotationStatus } from "../../api/salesApi";
-import { DEMO_QUOTATION_LIST, formatInr, statusColor } from "../../data/salesMasterData";
+import { DEMO_QUOTE_LIST, formatInr, statusColor } from "../../data/salesMasterData";
 import { exportToExcel } from "../../utils/exportUtils";
 
 function KpiCard({ label, value, icon: Icon, color }) {
@@ -36,7 +36,7 @@ export default function Quotations() {
       const [sumRes, listRes] = await Promise.allSettled([getQuotationSummary(), getQuotationsEnriched()]);
       const stored = localStorage.getItem("smrt_quotations");
       const localQuotes = stored ? JSON.parse(stored) : [];
-      let baseQuotes = DEMO_QUOTATION_LIST || [];
+      let baseQuotes = DEMO_QUOTE_LIST || [];
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) {
         baseQuotes = listRes.value.data;
       }
@@ -44,7 +44,7 @@ export default function Quotations() {
     } catch {
       const stored = localStorage.getItem("smrt_quotations");
       const localQuotes = stored ? JSON.parse(stored) : [];
-      setRows([...localQuotes, ...(DEMO_QUOTATION_LIST || [])]);
+      setRows([...localQuotes, ...(DEMO_QUOTE_LIST || [])]);
     } finally {
       setLoading(false);
     }
@@ -92,12 +92,52 @@ export default function Quotations() {
   };
 
   const columns = [
-    { key: "quote_number", label: "Quote No", render: (r) => <span className="font-medium text-[#2563EB]">{r.quote_number}</span> },
+    { key: "quote_number", label: "Quote No", render: (r) => <span className="font-semibold text-[#2563EB]">{r.quote_number}</span> },
     { key: "customer_name", label: "Customer" },
-    { key: "sales_person", label: "Sales Person" },
-    { key: "amount", label: "Amount", render: (r) => formatInr(r.amount ?? r.total_amount) },
+    { key: "sales_person", label: "Sales Rep", render: (r) => r.sales_person || "—" },
+    { key: "quote_date", label: "Quote Date", render: (r) => String(r.quote_date || "").slice(0, 10) || "—" },
     { key: "valid_until", label: "Valid Until", render: (r) => String(r.valid_until || "").slice(0, 10) || "—" },
-    { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
+    {
+      key: "line_items",
+      label: "Quotation Line Items",
+      render: (r) => {
+        const itemText = r.items?.map((it) => `${it.description || it.name}`).join(", ") || r.line_items || "Standard Steel Components";
+        return (
+          <div className="max-w-[200px]" title={itemText}>
+            <p className="text-xs font-semibold text-slate-800 truncate">{itemText}</p>
+            {r.items && r.items.length > 1 && (
+              <span className="text-[10px] font-bold text-[#2563EB] bg-blue-50 px-1.5 py-0.5 rounded-md mt-0.5 inline-block">
+                +{r.items.length - 1} more item(s)
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: "quantity",
+      label: "Qty",
+      render: (r) => (
+        <span className="font-semibold text-slate-800 tabular-nums">
+          {r.items?.reduce((acc, it) => acc + (Number(it.quantity) || 1), 0) || r.quantity || 1}
+        </span>
+      ),
+    },
+    {
+      key: "unit_price",
+      label: "Unit Price",
+      render: (r) => (
+        <span className="font-medium text-slate-700 tabular-nums">
+          {formatInr(r.items?.[0]?.unit_price ?? r.unit_price ?? (r.amount ?? r.total_amount))}
+        </span>
+      ),
+    },
+    { key: "subtotal", label: "Subtotal", render: (r) => formatInr(r.subtotal ?? (r.amount ?? r.total_amount)) },
+    { key: "discount_percent", label: "Discount", render: (r) => <span className="text-amber-700 font-medium">{r.discount_percent ? `${r.discount_percent}%` : "0%"}</span> },
+    { key: "gst_rate", label: "GST Tax", render: (r) => <span className="text-slate-600 font-medium">{r.gst_rate ? `${r.gst_rate}% (${formatInr(r.gst_amount || 0)})` : "18%"}</span> },
+    { key: "amount", label: "Grand Total", render: (r) => <span className="font-bold text-slate-900 tabular-nums">{formatInr(r.amount ?? r.total_amount)}</span> },
+    { key: "notes", label: "Terms & Notes", render: (r) => <span className="text-xs text-slate-500 max-w-[140px] truncate block" title={r.notes}>{r.notes || "30% Advance, 70% Dispatch"}</span> },
+    { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
     { key: "actions", label: "Actions", render: (r) => (
       <button type="button" onClick={() => setSelected(r)} className="text-xs font-semibold text-[#2563EB] hover:underline">View</button>
     )},

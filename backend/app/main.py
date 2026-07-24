@@ -7,7 +7,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import get_settings
@@ -88,6 +89,12 @@ logger = get_logger("gns_insights")
 
 app = FastAPI(title="GNS Insights API", version="1.0.0")
 
+if settings.is_production:
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=settings.allowed_host_list,
+    )
+
 app.add_middleware(AuditMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -99,14 +106,37 @@ app.add_middleware(
 
 
 @app.middleware("http")
+async def https_redirect_middleware(request: Request, call_next):
+    """Redirect plain HTTP → HTTPS behind a reverse proxy in production."""
+    if settings.is_production:
+        proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "").lower()
+        if proto == "http":
+            https_url = request.url.replace(scheme="https")
+            return RedirectResponse(str(https_url), status_code=301)
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    )
+    # API-oriented CSP (tighten further at the CDN / frontend host)
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    )
     if settings.is_production:
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains; preload"
+        )
     return response
 
 
@@ -382,6 +412,20 @@ def on_startup():
         "ALTER TABLE documents ADD COLUMN uploaded_by VARCHAR(255)",
     ]
     for ddl in _document_columns:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
+    _company_settings_columns = [
+        "ALTER TABLE company_settings ADD COLUMN landmark VARCHAR(255)",
+        "ALTER TABLE company_settings ADD COLUMN country VARCHAR(128)",
+        "ALTER TABLE company_settings ADD COLUMN mfa_enabled BOOLEAN DEFAULT 0",
+        "ALTER TABLE company_settings ADD COLUMN mfa_email_otp BOOLEAN DEFAULT 1",
+        "ALTER TABLE company_settings ADD COLUMN mfa_sms_otp BOOLEAN DEFAULT 0",
+        "ALTER TABLE company_settings ADD COLUMN mfa_authenticator BOOLEAN DEFAULT 0",
+    ]
+    for ddl in _company_settings_columns:
         try:
             with engine.begin() as conn:
                 conn.execute(text(ddl))

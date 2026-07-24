@@ -29,9 +29,13 @@ function readStoredUser() {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readStoredUser);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
-    setUnauthorizedHandler(() => setUser(null));
+    setUnauthorizedHandler(() => {
+      setUser(null);
+      setSessionExpired(true);
+    });
     return () => setUnauthorizedHandler(null);
   }, []);
 
@@ -71,6 +75,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback((authData) => {
+    setSessionExpired(false);
     let u;
     if (typeof authData === "object" && authData !== null) {
       const token = authData.access_token ?? authData.token;
@@ -130,15 +135,19 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const clearSessionExpired = useCallback(() => setSessionExpired(false), []);
+
   const value = useMemo(
     () => ({
       user,
       isAuthenticated: Boolean(user),
+      sessionExpired,
+      clearSessionExpired,
       login,
       logout,
       refreshUser,
     }),
-    [user, login, logout, refreshUser]
+    [user, sessionExpired, clearSessionExpired, login, logout, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

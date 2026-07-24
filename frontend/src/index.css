@@ -271,3 +271,44 @@ textarea {
 .dark .sidebar-scroll::-webkit-scrollbar-thumb {
   background: #475569;
 }
+
+/* ========== Global Print Stylesheet for Clean Document Output ========== */
+@media print {
+  aside,
+  header,
+  nav,
+  footer,
+  .print\:hidden,
+  button,
+  a[href^="http"],
+  input,
+  select,
+  textarea,
+  [role="navigation"],
+  [role="banner"] {
+    display: none !important;
+  }
+
+  body,
+  #root,
+  main,
+  .ui-page {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    box-shadow: none !important;
+  }
+
+  .rounded-2xl,
+  .rounded-xl,
+  .rounded-lg,
+  .shadow-sm,
+  .shadow-md,
+  .shadow-xl,
+  .shadow-2xl {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+}

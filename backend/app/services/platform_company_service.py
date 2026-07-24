@@ -428,7 +428,23 @@ class PlatformCompanyService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Company admin account not found.",
             )
+        from app.services.password_history_service import (
+            assert_password_not_reused,
+            record_password_history,
+        )
+        from app.services.security_service import revoke_all_refresh_tokens_for_user
+
+        try:
+            assert_password_not_reused(self.db, admin, new_password)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+        if admin.hashed_password:
+            record_password_history(self.db, admin.id, admin.hashed_password)
         admin.hashed_password = hash_password(new_password)
+        revoke_all_refresh_tokens_for_user(self.db, admin.id)
         self.db.commit()
         return {
             "message": "Company admin password reset successfully.",

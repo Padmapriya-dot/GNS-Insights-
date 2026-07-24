@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 
+import CompanyAddressFields, {
+  validateCompanyAddress,
+} from "../../components/common/CompanyAddressFields";
 import { getCompanySettings, updateCompanySettings } from "../../api/settingsApi";
 import { useToast } from "../../context/ToastContext";
 
@@ -15,12 +18,6 @@ const SECTIONS = [
       { key: "email", label: "Email", type: "email" },
       { key: "phone", label: "Phone" },
       { key: "website", label: "Website" },
-      { key: "address_line1", label: "Address Line 1", full: true },
-      { key: "address_line2", label: "Address Line 2", full: true },
-      { key: "city", label: "City" },
-      { key: "state", label: "State" },
-      { key: "state_code", label: "State Code" },
-      { key: "pincode", label: "Pincode" },
     ],
   },
   {
@@ -57,6 +54,17 @@ const SECTIONS = [
   },
 ];
 
+const ADDRESS_KEYS = [
+  "address_line1",
+  "address_line2",
+  "landmark",
+  "city",
+  "state",
+  "state_code",
+  "country",
+  "pincode",
+];
+
 const NUMERIC_KEYS = new Set([
   "default_gst_pct",
   "invoice_next_number",
@@ -65,16 +73,17 @@ const NUMERIC_KEYS = new Set([
 
 export default function SettingsCompanyProfile() {
   const { addToast } = useToast();
-  const [form, setForm] = useState({});
+  const [form, setForm] = useState({ country: "India" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     let active = true;
     (async () => {
       try {
         const res = await getCompanySettings();
-        if (active) setForm(res.data || {});
+        if (active) setForm({ country: "India", ...(res.data || {}) });
       } catch (err) {
         if (active)
           addToast(
@@ -93,6 +102,13 @@ export default function SettingsCompanyProfile() {
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleSave = async () => {
+    const addressErrors = validateCompanyAddress(form, { pinKey: "pincode" });
+    if (Object.keys(addressErrors).length) {
+      setFieldErrors(addressErrors);
+      addToast("Please fix the highlighted address fields.", "error");
+      return;
+    }
+    setFieldErrors({});
     setSaving(true);
     try {
       const payload = {};
@@ -105,8 +121,11 @@ export default function SettingsCompanyProfile() {
           payload[key] = value ?? null;
         })
       );
+      ADDRESS_KEYS.forEach((key) => {
+        payload[key] = form[key]?.trim?.() || form[key] || null;
+      });
       const res = await updateCompanySettings(payload);
-      setForm(res.data || {});
+      setForm({ country: "India", ...(res.data || {}) });
       addToast("Settings saved");
     } catch (err) {
       addToast(err.response?.data?.detail || "Failed to save settings", "error");
@@ -203,6 +222,25 @@ export default function SettingsCompanyProfile() {
             </div>
           </div>
         ))}
+
+        <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800/50">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Company Address
+          </h2>
+          <CompanyAddressFields
+            value={form}
+            errors={fieldErrors}
+            pinKey="pincode"
+            onChange={(partial) => {
+              setForm((f) => ({ ...f, ...partial }));
+              setFieldErrors((prev) => {
+                const next = { ...prev };
+                Object.keys(partial).forEach((k) => delete next[k]);
+                return next;
+              });
+            }}
+          />
+        </div>
       </div>
     </div>
   );

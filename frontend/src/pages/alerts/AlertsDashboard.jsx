@@ -21,8 +21,11 @@ import {
   Tag,
 } from "lucide-react";
 
-import Loader from "../../components/common/Loader";
+import SkeletonTable from "../../components/common/SkeletonTable";
+import EmptyState from "../../components/common/EmptyState";
+import { ErrorState, NoResultsState, OfflineState } from "../../components/common/states";
 import ExportButtons from "../../components/finance/ExportButtons";
+import { useNetworkStatus } from "../../context/NetworkStatusContext";
 import { useToast } from "../../context/ToastContext";
 import useAuth from "../../hooks/useAuth";
 import {
@@ -141,6 +144,7 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addToast } = useToast();
+  const { online, markRequestStart, markRequestEnd, registerRetry } = useNetworkStatus();
   const admin = isAdmin(user);
   const canWrite = userCanAction(user, "alerts", "update");
   const canCreate = userCanAction(user, "alerts", "create");
@@ -180,6 +184,7 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    markRequestStart();
     try {
       const params = {};
       if (initialAlertType) params.alert_type = initialAlertType;
@@ -195,6 +200,11 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
           ? alertsRes.value.data
           : alertsRes.value?.data?.data || [];
         apiAlerts = data.map(normalizeAlert);
+      } else if (alertsRes.status === "rejected") {
+        setError(
+          alertsRes.reason?.response?.data?.detail ||
+            "Failed to load alerts from the server."
+        );
       }
 
       const stored = localStorage.getItem("smrt_local_alerts");
@@ -226,13 +236,16 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
       }
       setRows(localAlerts);
     } finally {
+      markRequestEnd();
       setLoading(false);
     }
-  }, [initialAlertType]);
+  }, [initialAlertType, markRequestStart, markRequestEnd]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => registerRetry(load), [registerRetry, load]);
 
   useEffect(() => {
     if (initialAlertType) setModule(initialAlertType);
@@ -435,7 +448,19 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
     acknowledged_date: r.acknowledged_date,
   }));
 
-  if (loading) return <Loader label="Loading alerts repository..." />;
+  if (loading) {
+    return (
+      <div className="space-y-6 p-4 sm:p-6">
+        <div className="h-8 w-48 animate-pulse rounded bg-slate-200" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-100" />
+          ))}
+        </div>
+        <SkeletonTable rows={8} cols={8} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-4 sm:p-6 print:p-0">
@@ -494,11 +519,18 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
         </div>
       </header>
 
-      {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 print:hidden font-medium">
-          {error}
+      {error && !online ? (
+        <OfflineState onRetry={load} />
+      ) : error && rows.length === 0 ? (
+        <ErrorState description={error} onRetry={load} />
+      ) : error ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 print:hidden font-medium" role="alert">
+          {error} Showing cached/local alerts where available.{" "}
+          <button type="button" onClick={load} className="font-semibold underline">
+            Retry
+          </button>
         </div>
-      )}
+      ) : null}
 
       {/* KPI Cards Grid */}
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 2xl:grid-cols-6">
@@ -640,9 +672,30 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
             <tbody className="divide-y divide-slate-100 font-sans">
               {pageRows.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-12 text-center text-slate-500">
-                    <ShieldAlert className="mx-auto mb-2 h-8 w-8 text-slate-300" />
-                    No alerts match your search or filter criteria.
+                  <td colSpan={12} className="px-4 py-4">
+                    {rows.length === 0 ? (
+                      <EmptyState
+                        icon="clipboard"
+                        title="No alerts yet"
+                        description="Operational alerts from production, inventory, quality, and other modules will appear here."
+                        actionLabel={canCreate ? "Create Alert" : undefined}
+                        onAction={canCreate ? () => setShowCreate(true) : undefined}
+                      />
+                    ) : (
+                      <NoResultsState
+                        query={search}
+                        onClear={() => {
+                          setSearch("");
+                          setSeverity("");
+                          setStatus("");
+                          setModule(initialAlertType || "");
+                          setDateFrom("");
+                          setDateTo("");
+                          setAssignedUser("");
+                          setPage(1);
+                        }}
+                      />
+                    )}
                   </td>
                 </tr>
               ) : (

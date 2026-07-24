@@ -7,9 +7,12 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import BrandLogo from "./components/common/BrandLogo";
 import ErrorBoundary from "./components/common/ErrorBoundary";
+import SessionExpiredModal from "./components/common/states/SessionExpiredModal";
 import { AuthProvider } from "./context/AuthContext.jsx";
+import { NetworkStatusProvider } from "./context/NetworkStatusContext.jsx";
 import { SettingsProvider } from "./context/SettingsContext.jsx";
 import { ToastProvider } from "./context/ToastContext.jsx";
+import useAuth from "./hooks/useAuth";
 
 const LoadingFallback = () => (
   <div
@@ -29,17 +32,31 @@ const LoadingFallback = () => (
   </div>
 );
 
+function SessionGate({ children }) {
+  const { sessionExpired, clearSessionExpired } = useAuth();
+  return (
+    <>
+      {children}
+      <SessionExpiredModal open={Boolean(sessionExpired)} onLogin={clearSessionExpired} />
+    </>
+  );
+}
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ErrorBoundary>
       <SettingsProvider>
         <AuthProvider>
           <ToastProvider>
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <Suspense fallback={<LoadingFallback />}>
-              <App />
-            </Suspense>
-          </BrowserRouter>
+            <NetworkStatusProvider>
+              <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <Suspense fallback={<LoadingFallback />}>
+                  <SessionGate>
+                    <App />
+                  </SessionGate>
+                </Suspense>
+              </BrowserRouter>
+            </NetworkStatusProvider>
           </ToastProvider>
         </AuthProvider>
       </SettingsProvider>

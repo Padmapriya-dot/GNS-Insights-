@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Table from "./Table";
 import { SearchBar, FilterSelect } from "./SearchFilter";
+import EmptyState from "./EmptyState";
+import NoResultsState from "./states/NoResultsState";
 
 export default function DataTable({
   columns,
@@ -13,12 +15,23 @@ export default function DataTable({
   showSearch = true,
   showPagination = true,
   emptyState,
+  noResultsState,
   sortable = true,
 }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [filterValues, setFilterValues] = useState({});
   const [page, setPage] = useState(1);
+
+  const hasActiveFilters =
+    Boolean(search.trim()) ||
+    Object.values(filterValues).some((v) => v != null && v !== "");
+
+  const clearFilters = () => {
+    setSearch("");
+    setFilterValues({});
+    setPage(1);
+  };
 
   const filtered = useMemo(() => {
     let result = data;
@@ -50,6 +63,28 @@ export default function DataTable({
 
   const resetPage = () => setPage(1);
 
+  const defaultEmpty = emptyState || (
+    <EmptyState
+      title={t("common.noRecords", { defaultValue: "No records yet" })}
+      description={t("common.noRecordsHint", {
+        defaultValue: "There is nothing to show here yet.",
+      })}
+    />
+  );
+
+  const defaultNoResults = noResultsState || (
+    <NoResultsState query={search.trim()} onClear={clearFilters} />
+  );
+
+  let body;
+  if (!data?.length) {
+    body = defaultEmpty;
+  } else if (!filtered.length && hasActiveFilters) {
+    body = defaultNoResults;
+  } else {
+    body = <Table columns={columns} data={paginated} emptyState={defaultEmpty} sortable={sortable} />;
+  }
+
   return (
     <div className="space-y-4">
       {(showSearch && (searchKeys.length > 0 || filters.length > 0)) && (
@@ -57,7 +92,10 @@ export default function DataTable({
           {showSearch && searchKeys.length > 0 && (
             <SearchBar
               value={search}
-              onChange={(v) => { setSearch(v); resetPage(); }}
+              onChange={(v) => {
+                setSearch(v);
+                resetPage();
+              }}
               placeholder={searchPlaceholder}
             />
           )}
@@ -67,14 +105,28 @@ export default function DataTable({
               label={f.label}
               value={filterValues[f.key]}
               options={f.options}
-              onChange={(v) => { setFilterValues((prev) => ({ ...prev, [f.key]: v })); resetPage(); }}
+              onChange={(v) => {
+                setFilterValues((prev) => ({ ...prev, [f.key]: v }));
+                resetPage();
+              }}
               placeholder={f.placeholder}
             />
           ))}
-          <span className="text-sm text-slate-500 dark:text-slate-400">{filtered.length} {t("common.results")}</span>
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-sm font-medium text-teal-700 hover:text-teal-800 dark:text-teal-400"
+            >
+              Clear filters
+            </button>
+          ) : null}
+          <span className="text-sm text-slate-500 dark:text-slate-400">
+            {filtered.length} {t("common.results")}
+          </span>
         </div>
       )}
-      <Table columns={columns} data={paginated} emptyState={emptyState} sortable={sortable} />
+      {body}
       {showPagination && filtered.length > pageSize && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-slate-500 dark:text-slate-400">
@@ -85,7 +137,7 @@ export default function DataTable({
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="rounded-lg border border-slate-200 dark:border-slate-600 px-3 py-1.5 text-slate-700 dark:text-slate-300 disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               {t("common.previous")}
             </button>
@@ -93,7 +145,7 @@ export default function DataTable({
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="rounded-lg border border-slate-200 dark:border-slate-600 px-3 py-1.5 text-slate-700 dark:text-slate-300 disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               {t("common.next")}
             </button>

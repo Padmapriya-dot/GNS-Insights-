@@ -20,6 +20,8 @@ from app.schemas.platform import (
 )
 from app.services.platform_company_service import PlatformCompanyService
 from app.services.super_admin_service import SuperAdminService
+from app.services.address_lookup_service import lookup_indian_pincode
+from app.utils.api_response import success_response
 
 router = APIRouter(prefix="/platform", tags=["platform"])
 
@@ -30,6 +32,15 @@ def _client_ip(request: Request) -> str | None:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else None
 
+
+@router.get("/address/pincode/{pincode}")
+def platform_lookup_pincode(
+    pincode: str,
+    _: PlatformSuperAdmin = Depends(get_current_super_admin),
+):
+    """Same address lookup service for Super Admin company provisioning."""
+    data = lookup_indian_pincode(pincode)
+    return success_response("Address details retrieved", data)
 
 @router.post("/auth/login", response_model=SuperAdminLoginChallengeResponse)
 def super_admin_login(

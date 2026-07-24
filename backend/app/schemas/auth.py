@@ -38,7 +38,7 @@ class RegisterRequest(BaseModel):
     company_name: str = Field(..., min_length=1, max_length=255)
     full_name: str = Field(..., min_length=1, max_length=255)
     email: str = Field(..., min_length=3, max_length=255)
-    password: str = Field(..., min_length=8, max_length=128)
+    password: str = Field(..., min_length=12, max_length=128)
     role: str = Field(default="Admin", min_length=1, max_length=100)
 
     @field_validator("company_name", "full_name")
@@ -53,6 +53,12 @@ class RegisterRequest(BaseModel):
     @classmethod
     def validate_email(cls, value: str) -> str:
         return _normalize_email(value)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_policy(cls, value: str) -> str:
+        validate_password_strength(value)
+        return value
 
     @field_validator("role")
     @classmethod
@@ -74,7 +80,7 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str = Field(..., min_length=16, max_length=512)
-    password: str = Field(..., min_length=8, max_length=128)
+    password: str = Field(..., min_length=12, max_length=128)
 
     @field_validator("password")
     @classmethod

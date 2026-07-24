@@ -10,6 +10,10 @@ import {
 } from "lucide-react";
 
 import BrandLogo from "../../components/common/BrandLogo";
+import CompanyAddressFields, {
+  formatCompanyAddress,
+  validateCompanyAddress,
+} from "../../components/common/CompanyAddressFields";
 import PlatformProtectedRoute from "../../components/layout/PlatformProtectedRoute";
 import { createCompany } from "../../api/platformApi";
 
@@ -27,45 +31,6 @@ const BILLING_CYCLES = [
   { id: "yearly", label: "Yearly" },
 ];
 
-const INDIAN_STATES = [
-  "Andaman and Nicobar Islands",
-  "Andhra Pradesh",
-  "Arunachal Pradesh",
-  "Assam",
-  "Bihar",
-  "Chandigarh",
-  "Chhattisgarh",
-  "Dadra and Nagar Haveli and Daman and Diu",
-  "Delhi",
-  "Goa",
-  "Gujarat",
-  "Haryana",
-  "Himachal Pradesh",
-  "Jammu and Kashmir",
-  "Jharkhand",
-  "Karnataka",
-  "Kerala",
-  "Ladakh",
-  "Lakshadweep",
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Manipur",
-  "Meghalaya",
-  "Mizoram",
-  "Nagaland",
-  "Odisha",
-  "Puducherry",
-  "Punjab",
-  "Rajasthan",
-  "Sikkim",
-  "Tamil Nadu",
-  "Telangana",
-  "Tripura",
-  "Uttar Pradesh",
-  "Uttarakhand",
-  "West Bengal",
-];
-
 const EMPTY = {
   company_name: "",
   company_email: "",
@@ -73,9 +38,12 @@ const EMPTY = {
   admin_email: "",
   mobile_number: "",
   gst_number: "",
-  address: "",
+  address_line1: "",
+  address_line2: "",
+  landmark: "",
   city: "",
   state: "",
+  state_code: "",
   country: "India",
   pin_code: "",
   subscription_plan: "trial",
@@ -84,7 +52,7 @@ const EMPTY = {
 };
 
 const inputClass =
-  "w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 disabled:bg-slate-50 disabled:text-slate-500";
+  "w-full rounded-xl border border-slate-300/80 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 disabled:bg-slate-50 disabled:text-slate-500";
 
 function formatApiError(detail) {
   if (!detail) return "Failed to create company.";
@@ -103,37 +71,31 @@ function formatApiError(detail) {
 }
 
 function clientValidate(form, isTrial) {
-  if (!form.company_name.trim()) return "Company Name is required.";
-  if (!form.company_email.trim()) return "Company Email is required.";
-  if (!form.admin_name.trim()) return "Admin Name is required.";
-  if (!form.admin_email.trim()) return "Admin Email is required.";
+  if (!form.company_name.trim()) return { _form: "Company Name is required." };
+  if (!form.company_email.trim()) return { _form: "Company Email is required." };
+  if (!form.admin_name.trim()) return { _form: "Admin Name is required." };
+  if (!form.admin_email.trim()) return { _form: "Admin Email is required." };
   const mobile = form.mobile_number.replace(/\D/g, "");
   if (mobile.length !== 10 || !/^[6-9]/.test(mobile)) {
-    return "Mobile Number must be a valid 10-digit Indian number.";
+    return { mobile_number: "Mobile Number must be a valid 10-digit Indian number." };
   }
-  if (!form.address.trim()) return "Address is required.";
-  if (!form.city.trim()) return "City is required.";
-  if (!form.state.trim()) return "State is required.";
-  if (!form.country.trim()) return "Country is required.";
-  const pin = form.pin_code.replace(/\D/g, "");
-  if (pin.length !== 6 || pin.startsWith("0")) {
-    return "PIN Code must be a valid 6-digit Indian postal code.";
-  }
+  const addressErrors = validateCompanyAddress(form, { pinKey: "pin_code" });
+  if (Object.keys(addressErrors).length) return addressErrors;
   if (form.gst_number.trim()) {
     const gst = form.gst_number.replace(/\s+/g, "").toUpperCase();
     if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst)) {
-      return "GST Number format is invalid.";
+      return { gst_number: "GST Number format is invalid." };
     }
   }
   if (isTrial) {
     const days = Number(form.trial_days);
     if (!Number.isFinite(days) || days < 7 || days > 30) {
-      return "Trial Days must be between 7 and 30.";
+      return { trial_days: "Trial Days must be between 7 and 30." };
     }
   } else if (!form.billing_cycle) {
-    return "Billing Cycle is required for paid plans.";
+    return { billing_cycle: "Billing Cycle is required for paid plans." };
   }
-  return "";
+  return {};
 }
 
 function CreateCompanyForm() {
@@ -144,7 +106,6 @@ function CreateCompanyForm() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [result, setResult] = useState(null);
 
-  const isIndia = form.country.trim().toLowerCase() === "india";
   const isTrial = form.subscription_plan === "trial";
 
   const set = (key) => (e) => {
@@ -185,9 +146,10 @@ function CreateCompanyForm() {
     setError("");
     setFieldErrors({});
 
-    const localError = clientValidate(form, isTrial);
-    if (localError) {
-      setError(localError);
+    const localErrors = clientValidate(form, isTrial);
+    if (Object.keys(localErrors).length) {
+      setFieldErrors(localErrors);
+      setError(localErrors._form || "Please fix the highlighted fields.");
       return;
     }
 
@@ -205,7 +167,7 @@ function CreateCompanyForm() {
         admin_email: form.admin_email.trim(),
         mobile_number: form.mobile_number.trim(),
         gst_number: form.gst_number.trim() || null,
-        address: form.address.trim(),
+        address: formatCompanyAddress(form),
         city: form.city.trim(),
         state: form.state.trim(),
         country: form.country.trim(),
@@ -303,46 +265,49 @@ function CreateCompanyForm() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f1f5f9_0%,#f8fafc_40%,#ffffff_100%)] pb-28">
       <PageHeader />
 
-      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <Link
           to="/gns-admin"
-          className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-teal-700 hover:text-teal-800"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to companies
         </Link>
 
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Create New Company</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Provision a tenant, company admin account, subscription, and license.
-            Company ID and admin password are generated automatically.
+        <div className="mb-8">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--color-primary)]">
+            Provisioning
+          </p>
+          <h2 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">Create New Company</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+            Set up a tenant with admin access, subscription, and license. Company ID and temporary
+            password are generated automatically.
           </p>
         </div>
 
         {error && (
-          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700" role="alert">
             {error}
           </div>
         )}
 
         {loading && (
-          <div className="mb-5 flex items-center gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800">
+          <div className="mb-5 flex items-center gap-3 rounded-2xl border border-[var(--color-primary)]/25 bg-[var(--color-primary)]/5 px-4 py-3 text-sm text-[var(--color-primary-dark)]">
             <Loader2 className="h-4 w-4 animate-spin shrink-0" />
             <span>{progress || "Provisioning company…"}</span>
           </div>
         )}
 
-        <form id="create-company-form" onSubmit={handleSubmit} className="space-y-5" noValidate>
+        <form id="create-company-form" onSubmit={handleSubmit} className="space-y-6" noValidate>
           <Section
             icon={Building2}
             title="Company Details"
-            subtitle="Legal and contact information for the tenant organization."
+            subtitle="Identity, tax, and contact information."
           >
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-5 sm:grid-cols-2">
               <Field
                 label="Company Name"
                 required
@@ -379,80 +344,23 @@ function CreateCompanyForm() {
                 disabled={loading}
                 error={fieldErrors.gst_number}
               />
-              <div className="sm:col-span-2">
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Address <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={form.address}
-                  onChange={set("address")}
-                  required
-                  rows={2}
-                  placeholder="Street, area, landmark"
-                  disabled={loading}
-                  className={`${inputClass} resize-none`}
-                />
-                {fieldErrors.address ? (
-                  <p className="mt-1 text-xs text-red-600">{fieldErrors.address}</p>
-                ) : null}
-              </div>
-              <Field
-                label="City"
-                required
-                value={form.city}
-                onChange={set("city")}
+            </div>
+            <div className="mt-6">
+              <CompanyAddressFields
+                value={form}
+                errors={fieldErrors}
                 disabled={loading}
-                error={fieldErrors.city}
-              />
-              {isIndia ? (
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                    State <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={form.state}
-                    onChange={set("state")}
-                    required
-                    disabled={loading}
-                    className={inputClass}
-                  >
-                    <option value="">Select state</option>
-                    {INDIAN_STATES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                  {fieldErrors.state ? (
-                    <p className="mt-1 text-xs text-red-600">{fieldErrors.state}</p>
-                  ) : null}
-                </div>
-              ) : (
-                <Field
-                  label="State"
-                  required
-                  value={form.state}
-                  onChange={set("state")}
-                  disabled={loading}
-                  error={fieldErrors.state}
-                />
-              )}
-              <Field
-                label="Country"
-                required
-                value={form.country}
-                onChange={set("country")}
-                disabled={loading}
-                error={fieldErrors.country}
-              />
-              <Field
-                label="PIN Code"
-                required
-                value={form.pin_code}
-                onChange={set("pin_code")}
-                placeholder="500001"
-                disabled={loading}
-                error={fieldErrors.pin_code}
+                pinKey="pin_code"
+                platform
+                onChange={(partial) => {
+                  setForm((f) => ({ ...f, ...partial }));
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    Object.keys(partial).forEach((k) => delete next[k]);
+                    return next;
+                  });
+                  setError("");
+                }}
               />
             </div>
           </Section>
@@ -460,9 +368,9 @@ function CreateCompanyForm() {
           <Section
             icon={UserRound}
             title="Company Admin"
-            subtitle="First administrator who will manage users for this company. A secure temporary password is generated automatically."
+            subtitle="First administrator for this company. Password is generated automatically."
           >
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-5 sm:grid-cols-2">
               <Field
                 label="Admin Name"
                 required
@@ -488,11 +396,11 @@ function CreateCompanyForm() {
           <Section
             icon={CreditCard}
             title="Subscription"
-            subtitle="Choose the plan. Trial days apply only to Trial; paid plans use a billing cycle."
+            subtitle="Trial days apply only to Trial plans."
           >
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-600">
                   Plan <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -525,7 +433,7 @@ function CreateCompanyForm() {
                 />
               ) : (
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-600">
                     Billing Cycle <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -548,15 +456,15 @@ function CreateCompanyForm() {
         </form>
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200/80 bg-white/90 shadow-[0_-8px_30px_rgba(15,23,42,0.06)] backdrop-blur-md">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
           <p className="hidden text-xs text-slate-500 sm:block">
             Company ID (GNS-#####) and temporary password are generated server-side.
           </p>
           <div className="flex w-full gap-2 sm:w-auto">
             <Link
               to="/gns-admin"
-              className={`flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 sm:flex-none ${loading ? "pointer-events-none opacity-50" : ""}`}
+              className={`flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:flex-none ${loading ? "pointer-events-none opacity-50" : ""}`}
             >
               Cancel
             </Link>
@@ -564,7 +472,7 @@ function CreateCompanyForm() {
               type="submit"
               form="create-company-form"
               disabled={loading}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+              className="ui-btn-primary inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
             >
               {loading ? (
                 <>
@@ -584,8 +492,8 @@ function CreateCompanyForm() {
 
 function PageHeader() {
   return (
-    <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3.5 sm:px-6">
+    <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+      <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3.5 sm:px-6">
         <BrandLogo size="sm" />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">GNS Admin Portal</p>
@@ -598,17 +506,17 @@ function PageHeader() {
 
 function Section({ icon: Icon, title, subtitle, children }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-start gap-3 border-b border-slate-100 bg-slate-50/80 px-5 py-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
-          <Icon className="h-4 w-4" />
+    <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.04)]">
+      <div className="flex items-start gap-3 border-b border-slate-100 bg-[linear-gradient(90deg,rgba(15,109,132,0.06),transparent)] px-5 py-4 sm:px-6">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary)] text-white shadow-sm">
+          <Icon className="h-5 w-5" />
         </div>
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-          <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
+        <div className="min-w-0 pt-0.5">
+          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+          <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>
         </div>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-5 sm:p-6">{children}</div>
     </section>
   );
 }
@@ -616,13 +524,13 @@ function Section({ icon: Icon, title, subtitle, children }) {
 function Field({ label, required, className = "", error, hint, ...props }) {
   return (
     <div className={className}>
-      <label className="mb-1.5 block text-sm font-medium text-slate-700">
+      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-600">
         {label}
         {required ? <span className="text-red-500"> *</span> : null}
       </label>
       <input {...props} required={required} className={inputClass} />
       {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
-      {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : null}
+      {error ? <p className="mt-1 text-xs font-medium text-red-600">{error}</p> : null}
     </div>
   );
 }

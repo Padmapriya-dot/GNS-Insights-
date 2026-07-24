@@ -63,7 +63,10 @@ def _client_ip(request: Request) -> str | None:
 
 @router.post("/login", response_model=AuthResponse)
 def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    from app.middleware.security import check_rate_limit
+
     email = req.email
+    check_rate_limit(request, email=email, scope="login")
     ip_address = _client_ip(request)
     user_agent = request.headers.get("User-Agent")
     user = find_user_by_email(db, email)

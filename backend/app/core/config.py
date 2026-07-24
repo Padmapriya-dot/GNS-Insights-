@@ -2,8 +2,10 @@ from pathlib import Path
 
 from functools import lru_cache
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEFAULT_JWT_SECRET = "change-me-in-production-use-openssl-rand-hex-32"
 
 # .env path relative to backend/
 _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
@@ -20,15 +22,17 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./smrt.db"
 
     # Auth / JWT
-    jwt_secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"
+    jwt_secret_key: str = _DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
     session_inactivity_minutes: int = 120
 
-    # Login lockout
+    # Login lockout + IP rate limits
     max_login_attempts: int = 5
     lockout_minutes: int = 30
+    login_rate_limit: int = 20
+    login_rate_window_seconds: int = 300
 
     # Email verification & password reset
     email_verification_expire_hours: int = 24
@@ -36,6 +40,8 @@ class Settings(BaseSettings):
     forgot_password_rate_limit: int = 5
     forgot_password_rate_window_seconds: int = 3600
     frontend_base_url: str = "http://localhost:5173"
+    # Comma-separated hosts for TrustedHostMiddleware (production)
+    allowed_hosts: str = "localhost,127.0.0.1"
 
     # SMTP (required for password-reset emails — never fake success)
     smtp_host: str = ""
@@ -85,9 +91,25 @@ class Settings(BaseSettings):
             )
         return value
 
+    @model_validator(mode="after")
+    def enforce_production_secrets(self):
+        if self.environment.lower() != "production":
+            return self
+        secret = (self.jwt_secret_key or "").strip()
+        if not secret or secret == _DEFAULT_JWT_SECRET or len(secret) < 32:
+            raise ValueError(
+                "JWT_SECRET_KEY must be a strong secret (min 32 chars) when ENVIRONMENT=production"
+            )
+        return self
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def allowed_host_list(self) -> list[str]:
+        hosts = [h.strip() for h in self.allowed_hosts.split(",") if h.strip()]
+        return hosts or ["localhost", "127.0.0.1"]
 
     @property
     def is_production(self) -> bool:

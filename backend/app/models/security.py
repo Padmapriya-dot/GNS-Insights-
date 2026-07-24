@@ -132,3 +132,15 @@ class AccessLog(Base, TimestampMixin):
     logout_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     details: Mapped[str | None] = mapped_column(Text)
+
+
+class PasswordHistory(Base, TimestampMixin):
+    """Previous password hashes — prevent reuse of the last N passwords."""
+
+    __tablename__ = "password_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

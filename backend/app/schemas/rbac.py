@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.utils.password import PASSWORD_MIN_LENGTH, validate_password_strength
 from app.utils.sanitize import sanitize_email_local_part
 
 
@@ -21,7 +22,7 @@ class UserCreate(BaseModel):
     phone: str | None = Field(None, max_length=20)
     employee_id: str | None = Field(None, max_length=64)
     designation: str | None = Field(None, max_length=128)
-    password: str = Field(..., min_length=6, max_length=128)
+    password: str = Field(..., min_length=PASSWORD_MIN_LENGTH, max_length=128)
     is_active: bool = True
     role_ids: list[int] = Field(default_factory=list)
     plant_code: str | None = Field(None, max_length=64)
@@ -33,6 +34,12 @@ class UserCreate(BaseModel):
     def validate_email(cls, value: str) -> str:
         return _normalize_email(value)
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        validate_password_strength(value)
+        return value
+
 
 class UserUpdate(BaseModel):
     email: str | None = Field(None, min_length=3, max_length=255)
@@ -40,7 +47,7 @@ class UserUpdate(BaseModel):
     phone: str | None = Field(None, max_length=20)
     employee_id: str | None = Field(None, max_length=64)
     designation: str | None = Field(None, max_length=128)
-    password: str | None = Field(None, min_length=6, max_length=128)
+    password: str | None = Field(None, min_length=PASSWORD_MIN_LENGTH, max_length=128)
     is_active: bool | None = None
     role_ids: list[int] | None = None
     plant_code: str | None = Field(None, max_length=64)
@@ -53,6 +60,14 @@ class UserUpdate(BaseModel):
         if value is None:
             return value
         return _normalize_email(value)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        validate_password_strength(value)
+        return value
 
 
 class RoleCreate(BaseModel):

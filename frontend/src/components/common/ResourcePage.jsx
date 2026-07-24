@@ -3,25 +3,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminModal from "../admin/AdminModal";
 import DataTable from "./DataTable";
 import EmptyState from "./EmptyState";
-import Loader from "./Loader";
 import PageHeader from "./PageHeader";
+import SkeletonTable from "./SkeletonTable";
+import { ErrorState, OfflineState } from "./states";
 import useAuth from "../../hooks/useAuth";
+import { useNetworkStatus } from "../../context/NetworkStatusContext";
 import { useToast } from "../../context/ToastContext";
 
 /**
  * Generic list + create page for simple CRUD-style modules.
- *
- * Props:
- *  - title, subtitle
- *  - columns: DataTable columns
- *  - fetcher: () => Promise<axiosResponse(list)>
- *  - createFn: (payload) => Promise<axiosResponse> (optional; omit to hide create)
- *  - fields: [{ name, label, type, required, options, default, placeholder, step }]
- *  - searchKeys, filters: DataTable props
- *  - createLabel: button label
- *  - emptyTitle, emptyDescription
- *  - rowActions: (row, reload) => ReactNode (optional)
- *  - transformPayload: (values) => payload (optional)
+ * Handles loading (skeleton), error+retry, offline, empty, no-results,
+ * form validation, and success toast.
  */
 export default function ResourcePage({
   title,
@@ -36,19 +28,23 @@ export default function ResourcePage({
   createLabel = "+ New",
   emptyTitle = "Nothing here yet",
   emptyDescription = "Records will appear here once created.",
+  emptyIcon = "clipboard",
   rowActions,
   transformPayload,
 }) {
   const fields = fieldsProp || formFields || [];
   const { user } = useAuth();
   const { addToast } = useToast();
+  const { online, markRequestStart, markRequestEnd, registerRetry } = useNetworkStatus();
   const tenantId = user?.tenant_id ?? 1;
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({});
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const initialForm = useMemo(() => {
     const f = {};
@@ -60,27 +56,48 @@ export default function ResourcePage({
 
   const reload = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
+    markRequestStart();
     try {
       const res = await fetcher();
       setRows(Array.isArray(res.data) ? res.data : res.data?.items || []);
     } catch (err) {
-      addToast(err.response?.data?.detail || "Failed to load data", "error");
+      const detail = err.response?.data?.detail;
+      setLoadError(
+        typeof detail === "string"
+          ? detail
+          : !navigator.onLine
+            ? "You appear to be offline."
+            : "Failed to load data"
+      );
+      setRows([]);
     } finally {
+      markRequestEnd();
       setLoading(false);
     }
-  }, [fetcher, addToast]);
+  }, [fetcher, markRequestStart, markRequestEnd]);
 
   useEffect(() => {
     reload();
   }, [reload]);
 
+  useEffect(() => registerRetry(reload), [registerRetry, reload]);
+
   const openModal = () => {
     setForm(initialForm);
+    setFieldErrors({});
     setOpen(true);
   };
 
-  const setField = (name, value) =>
+  const setField = (name, value) => {
     setForm((prev) => ({ ...prev, [name]: value }));
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
 
   const buildPayload = () => {
     const values = { ...form };
@@ -98,21 +115,33 @@ export default function ResourcePage({
     return transformPayload ? transformPayload(base) : base;
   };
 
+  const validateForm = () => {
+    const errors = {};
+    fields.forEach((f) => {
+      const v = form[f.name];
+      if (f.required && (v === "" || v == null)) {
+        errors[f.name] = `${f.label} is required`;
+      }
+    });
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const missing = fields.find((f) => f.required && !form[f.name] && form[f.name] !== 0);
-    if (missing) {
-      addToast(`${missing.label} is required`, "error");
+    if (!validateForm()) {
+      addToast("Please fix the highlighted fields", "error");
       return;
     }
     setSaving(true);
     try {
       await createFn(buildPayload());
-      addToast("Created successfully");
+      addToast("Created successfully", "success");
       setOpen(false);
       await reload();
     } catch (err) {
-      addToast(err.response?.data?.detail || "Failed to save", "error");
+      const detail = err.response?.data?.detail;
+      addToast(typeof detail === "string" ? detail : "Failed to save", "error");
     } finally {
       setSaving(false);
     }
@@ -128,8 +157,6 @@ export default function ResourcePage({
         },
       ]
     : columns;
-
-  if (loading) return <Loader label={`Loading ${title.toLowerCase()}...`} />;
 
   return (
     <div className="space-y-6">
@@ -150,73 +177,94 @@ export default function ResourcePage({
         }
       />
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
-        <DataTable
-          columns={tableColumns}
-          data={rows}
-          searchPlaceholder="Search..."
-          searchKeys={searchKeys}
-          filters={filters}
-          emptyState={
-            <EmptyState
-              icon="clipboard"
-              title={emptyTitle}
-              description={emptyDescription}
-            />
-          }
-        />
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        {loading ? (
+          <SkeletonTable rows={6} cols={Math.min(columns.length || 5, 6)} />
+        ) : !online && loadError ? (
+          <OfflineState onRetry={reload} />
+        ) : loadError ? (
+          <ErrorState description={loadError} onRetry={reload} />
+        ) : (
+          <DataTable
+            columns={tableColumns}
+            data={rows}
+            searchPlaceholder="Search..."
+            searchKeys={searchKeys}
+            filters={filters}
+            emptyState={
+              <EmptyState
+                icon={emptyIcon}
+                title={emptyTitle}
+                description={emptyDescription}
+                actionLabel={createFn ? createLabel.replace(/^\+\s*/, "") : undefined}
+                onAction={createFn ? openModal : undefined}
+              />
+            }
+          />
+        )}
       </div>
 
       {createFn && (
         <AdminModal title={title} subtitle="Create a new record" open={open} onClose={() => setOpen(false)}>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {fields.map((field) => (
-                <div
-                  key={field.name}
-                  className={field.full ? "sm:col-span-2" : ""}
-                >
-                  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    {field.label}
-                    {field.required && <span className="text-red-500"> *</span>}
-                  </label>
-                  {field.type === "select" ? (
-                    <select
-                      value={form[field.name] ?? ""}
-                      onChange={(e) => setField(field.name, e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                    >
-                      <option value="">Select...</option>
-                      {(field.options || []).map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : field.type === "textarea" ? (
-                    <textarea
-                      value={form[field.name] ?? ""}
-                      onChange={(e) => setField(field.name, e.target.value)}
-                      rows={3}
-                      placeholder={field.placeholder}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                    />
-                  ) : (
-                    <input
-                      type={
-                        field.type === "datetime"
-                          ? "datetime-local"
-                          : field.type || "text"
-                      }
-                      step={field.step}
-                      value={form[field.name] ?? ""}
-                      onChange={(e) => setField(field.name, e.target.value)}
-                      placeholder={field.placeholder}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-                    />
-                  )}
-                </div>
-              ))}
+              {fields.map((field) => {
+                const invalid = Boolean(fieldErrors[field.name]);
+                const inputClass = `w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:bg-slate-700 dark:text-slate-100 ${
+                  invalid
+                    ? "border-red-400 focus:ring-red-400 dark:border-red-500"
+                    : "border-slate-300 focus:ring-teal-500 dark:border-slate-600"
+                }`;
+                return (
+                  <div key={field.name} className={field.full ? "sm:col-span-2" : ""}>
+                    <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      {field.label}
+                      {field.required && <span className="text-red-500"> *</span>}
+                    </label>
+                    {field.type === "select" ? (
+                      <select
+                        value={form[field.name] ?? ""}
+                        onChange={(e) => setField(field.name, e.target.value)}
+                        aria-invalid={invalid}
+                        className={inputClass}
+                      >
+                        <option value="">Select...</option>
+                        {(field.options || []).map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : field.type === "textarea" ? (
+                      <textarea
+                        value={form[field.name] ?? ""}
+                        onChange={(e) => setField(field.name, e.target.value)}
+                        rows={3}
+                        placeholder={field.placeholder}
+                        aria-invalid={invalid}
+                        className={inputClass}
+                      />
+                    ) : (
+                      <input
+                        type={
+                          field.type === "datetime"
+                            ? "datetime-local"
+                            : field.type || "text"
+                        }
+                        step={field.step}
+                        value={form[field.name] ?? ""}
+                        onChange={(e) => setField(field.name, e.target.value)}
+                        placeholder={field.placeholder}
+                        aria-invalid={invalid}
+                        className={inputClass}
+                      />
+                    )}
+                    {invalid ? (
+                      <p className="mt-1 text-xs text-red-600">{fieldErrors[field.name]}</p>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button
