@@ -38,6 +38,9 @@ export default function ResourcePage({
   const { online, markRequestStart, markRequestEnd, registerRetry } = useNetworkStatus();
   const tenantId = user?.tenant_id ?? 1;
 
+  // Operators are read-only — hide all create / edit / delete actions
+  const isOperator = (user?.role ?? user?.role_name ?? "").toLowerCase() === "operator";
+
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [rows, setRows] = useState([]);
@@ -147,7 +150,7 @@ export default function ResourcePage({
     }
   };
 
-  const tableColumns = rowActions
+  const tableColumns = rowActions && !isOperator
     ? [
         ...columns,
         {
@@ -164,7 +167,7 @@ export default function ResourcePage({
         title={title}
         subtitle={subtitle}
         action={
-          createFn ? (
+          createFn && !isOperator ? (
             <button
               type="button"
               onClick={openModal}
@@ -204,7 +207,7 @@ export default function ResourcePage({
         )}
       </div>
 
-      {createFn && (
+      {createFn && !isOperator && (
         <AdminModal title={title} subtitle="Create a new record" open={open} onClose={() => setOpen(false)}>
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

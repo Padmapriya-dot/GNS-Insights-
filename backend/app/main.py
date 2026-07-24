@@ -288,6 +288,18 @@ def on_startup():
                 conn.execute(text(ddl))
         except Exception:
             pass
+    _customer_columns = [
+        "ALTER TABLE customers ADD COLUMN customer_code VARCHAR(64)",
+        "ALTER TABLE customers ADD COLUMN credit_limit NUMERIC(14, 2) DEFAULT 0",
+        "ALTER TABLE customers ADD COLUMN outstanding NUMERIC(14, 2) DEFAULT 0",
+        "ALTER TABLE customers ADD COLUMN status VARCHAR(32) DEFAULT 'active'",
+    ]
+    for ddl in _customer_columns:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
     _access_log_columns = [
         "ALTER TABLE access_logs ADD COLUMN company_id INTEGER",
         "ALTER TABLE access_logs ADD COLUMN company_name VARCHAR(255)",
@@ -340,6 +352,8 @@ def on_startup():
         "ALTER TABLE machines ADD COLUMN rpm NUMERIC(8,2)",
         "ALTER TABLE machines ADD COLUMN last_maintenance_date DATE",
         "ALTER TABLE machines ADD COLUMN next_maintenance_date DATE",
+        "ALTER TABLE machines ADD COLUMN current_work_order VARCHAR(128)",
+        "ALTER TABLE machines ADD COLUMN todays_output INTEGER DEFAULT 0",
         "ALTER TABLE daily_production_reports ADD COLUMN created_by_user_id INTEGER REFERENCES users(id)",
     ]
     for ddl in _rbac_columns:
@@ -410,6 +424,8 @@ def on_startup():
         "ALTER TABLE documents ADD COLUMN version VARCHAR(32) DEFAULT 'v1.0'",
         "ALTER TABLE documents ADD COLUMN description TEXT",
         "ALTER TABLE documents ADD COLUMN uploaded_by VARCHAR(255)",
+        "ALTER TABLE production_orders ADD COLUMN machine_id INTEGER",
+        "ALTER TABLE work_orders ADD COLUMN operator_name VARCHAR(255)",
     ]
     for ddl in _document_columns:
         try:
@@ -417,6 +433,14 @@ def on_startup():
                 conn.execute(text(ddl))
         except Exception:
             pass
+<<<<<<< HEAD
+    _task_columns = [
+        "ALTER TABLE tasks ADD COLUMN start_date DATE",
+        "ALTER TABLE tasks ADD COLUMN assigned_to_name VARCHAR(255)",
+        "ALTER TABLE tasks ADD COLUMN module VARCHAR(128)",
+    ]
+    for ddl in _task_columns:
+=======
     _company_settings_columns = [
         "ALTER TABLE company_settings ADD COLUMN landmark VARCHAR(255)",
         "ALTER TABLE company_settings ADD COLUMN country VARCHAR(128)",
@@ -426,6 +450,7 @@ def on_startup():
         "ALTER TABLE company_settings ADD COLUMN mfa_authenticator BOOLEAN DEFAULT 0",
     ]
     for ddl in _company_settings_columns:
+>>>>>>> 290b8fd0132d468b6e07c2a7754d0ce5afe18fae
         try:
             with engine.begin() as conn:
                 conn.execute(text(ddl))
@@ -444,16 +469,14 @@ def on_startup():
     from app.core.seed_roles import seed_roles
     from app.core.seed_super_admin import seed_super_admin
     from app.core.seed_tenant import seed_tenant
+    from app.core.seed_users import seed_admin_user
 
     db = SessionLocal()
     try:
         seed_tenant(db)  # Ensure tenant 1 exists
         seed_super_admin(db)  # GNS Super Admin from .env
         seed_roles(db)  # Seeds default roles for tenant 1
-        seed_products(db)  # Seeds sample products for tenant 1
-        seed_notifications(db)  # Demo bell notifications per user
-        seed_hr_data(db)  # Seeds sample employees, shifts & attendance
-        seed_dashboard_data(db)  # Seeds machines & 7-day production reports
+        seed_admin_user(db)  # Seeds default demo accounts (Operator, Admin, HR)
     except Exception:
         logger.exception("Seed warning during startup")
     finally:
@@ -498,8 +521,9 @@ app.include_router(forecasting_router)
 app.include_router(integration_router)
 app.include_router(iot_router)
 app.include_router(production_scheduling_router)
-app.include_router(supply_chain_router)
 app.include_router(task_management_router)
 app.include_router(task_management_router, prefix="/api")
 app.include_router(audit_logs_router)
 app.include_router(warehouse_router)
+from app.api.system_data import router as system_data_router
+app.include_router(system_data_router, prefix="/api")

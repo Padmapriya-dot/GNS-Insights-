@@ -209,16 +209,23 @@ export default function DepartmentManagement() {
       /* local fallback */
     }
     if (formDept?.id) {
-      setDepartments((prev) => prev.map((d) => (d.id === formDept.id ? { ...d, ...form } : d)));
+      setDepartments((prev) => prev.map((d) => (d.id === formDept.id ? {
+        ...d,
+        ...form,
+        employee_count: form.employee_count != null && form.employee_count !== "" ? Number(form.employee_count) : 0,
+        machine_count: form.machine_count != null && form.machine_count !== "" ? Number(form.machine_count) : 0,
+        work_center_count: form.work_center_count != null && form.work_center_count !== "" ? Number(form.work_center_count) : 0,
+      } : d)));
       addToast("Department updated locally");
     } else {
       const newD = {
         ...enrichApiDepartment({ id: `new-${Date.now()}`, ...payload }, departments.length),
         id: `new-${Date.now()}`,
         code: form.code || `DEP${String(departments.length + 1).padStart(3, "0")}`,
-        employee_count: 0,
-        machine_count: 0,
-        work_center_count: 0,
+        ...form,
+        employee_count: form.employee_count != null && form.employee_count !== "" ? Number(form.employee_count) : 0,
+        machine_count: form.machine_count != null && form.machine_count !== "" ? Number(form.machine_count) : 0,
+        work_center_count: form.work_center_count != null && form.work_center_count !== "" ? Number(form.work_center_count) : 0,
       };
       setDepartments((prev) => [...prev, newD]);
       addToast("Department added");

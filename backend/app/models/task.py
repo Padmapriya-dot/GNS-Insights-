@@ -19,3 +19,6 @@ class Task(Base, TimestampMixin):
     priority: Mapped[str] = mapped_column(String(16), default="medium", nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="open", nullable=False)
     due_date: Mapped[date | None] = mapped_column(Date)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    assigned_to_name: Mapped[str | None] = mapped_column(String(255))
+    module: Mapped[str | None] = mapped_column(String(128))

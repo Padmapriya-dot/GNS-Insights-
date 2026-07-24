@@ -3,8 +3,9 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
-import { createProductionOrder, getProducts } from "../../api/productionApi";
+import { createProductionOrder, getProducts, getMachines } from "../../api/productionApi";
 import useTenantId from "../../hooks/useTenantId";
+import { PRIORITIES, SHIFTS } from "../../data/productionPlanningMasterData";
 
 export default function CreateProduction() {
   const tenantId = useTenantId();
@@ -17,12 +18,18 @@ export default function CreateProduction() {
   const prefilledQty = searchParams.get("quantity") || "";
 
   const [products, setProducts] = useState([]);
+  const [machines, setMachines] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [form, setForm] = useState({
     tenant_id: tenantId,
     product_id: prefilledProductId,
     order_number: salesOrderNumber ? `PO-${salesOrderNumber}` : "",
+    customer_name: "",
+    bom_version: "BOM v1.0",
     planned_quantity: prefilledQty,
+    priority: "medium",
+    machine_id: "",
+    shift: "Shift A",
     start_date: "",
     due_date: "",
     status: "planned",
@@ -33,17 +40,18 @@ export default function CreateProduction() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
 
-  const loadProducts = () => {
-    setLoadingProducts(true);
-    getProducts(tenantId)
-      .then((r) => setProducts(r?.data || []))
-      .catch(() => setProducts([]))
-      .finally(() => setLoadingProducts(false));
-  };
-
   useEffect(() => {
-    loadProducts();
-  }, []);
+    setLoadingProducts(true);
+    Promise.all([
+      getProducts(tenantId).catch(() => ({ data: [] })),
+      getMachines().catch(() => ({ data: [] })),
+    ])
+      .then(([pRes, mRes]) => {
+        setProducts(pRes?.data || []);
+        setMachines(mRes?.data || []);
+      })
+      .finally(() => setLoadingProducts(false));
+  }, [tenantId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -79,6 +87,11 @@ export default function CreateProduction() {
         ...form,
         product_id: Number(form.product_id),
         planned_quantity: Number(form.planned_quantity),
+        customer_name: form.customer_name || null,
+        bom_version: form.bom_version || "BOM v1.0",
+        priority: form.priority || "medium",
+        machine_id: form.machine_id ? Number(form.machine_id) : null,
+        shift: form.shift || "Shift A",
         start_date: form.start_date || null,
         due_date: form.due_date || null,
         sales_order_id: form.sales_order_id || null,
@@ -107,7 +120,7 @@ export default function CreateProduction() {
   };
 
   return (
-    <div className="max-w-2xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="max-w-3xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-bold text-slate-800">{t("createProduction.title")}</h2>
         <Link
@@ -129,79 +142,155 @@ export default function CreateProduction() {
       )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        <div>
-          <label htmlFor="product_id" className="block text-sm font-medium text-slate-700">
-            {t("createProduction.product")}
-          </label>
-          <select
-            id="product_id"
-            name="product_id"
-            value={form.product_id}
-            onChange={handleChange}
-            required
-            disabled={loadingProducts}
-            className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
-          >
-            <option value="">{loadingProducts ? t("createProduction.loading") : t("createProduction.selectProduct")}</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.sku})
-              </option>
-            ))}
-          </select>
-          {products.length === 0 && !loadingProducts && (
-            <div className="mt-2">
-              <p className="text-xs text-amber-600">No products found. Please add products first via Masters → Products.</p>
-            </div>
-          )}
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label htmlFor="product_id" className="block text-sm font-medium text-slate-700">
+              {t("createProduction.product")}
+            </label>
+            <select
+              id="product_id"
+              name="product_id"
+              value={form.product_id}
+              onChange={handleChange}
+              required
+              disabled={loadingProducts}
+              className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
+            >
+              <option value="">{loadingProducts ? t("createProduction.loading") : t("createProduction.selectProduct")}</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.sku})
+                </option>
+              ))}
+            </select>
+            {products.length === 0 && !loadingProducts && (
+              <div className="mt-2">
+                <p className="text-xs text-amber-600">No products found. Please add products first via Masters → Products.</p>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="order_number" className="block text-sm font-medium text-slate-700">
+              Order Number
+            </label>
+            <input
+              id="order_number"
+              type="text"
+              name="order_number"
+              value={form.order_number}
+              onChange={handleChange}
+              required
+              placeholder="e.g. PO-2024-001"
+              className={`mt-1.5 w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 ${
+                fieldErrors.order_number
+                  ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                  : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
+              }`}
+            />
+            {fieldErrors.order_number && (
+              <p className="mt-1 text-xs text-red-600">{fieldErrors.order_number}</p>
+            )}
+          </div>
         </div>
 
-        <div>
-          <label htmlFor="order_number" className="block text-sm font-medium text-slate-700">
-            Order Number
-          </label>
-          <input
-            id="order_number"
-            type="text"
-            name="order_number"
-            value={form.order_number}
-            onChange={handleChange}
-            required
-            placeholder="e.g. PO-2024-001"
-            className={`mt-1.5 w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 ${
-              fieldErrors.order_number
-                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
-            }`}
-          />
-          {fieldErrors.order_number && (
-            <p className="mt-1 text-xs text-red-600">{fieldErrors.order_number}</p>
-          )}
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label htmlFor="customer_name" className="block text-sm font-medium text-slate-700">
+              Customer Name
+            </label>
+            <input
+              id="customer_name"
+              type="text"
+              name="customer_name"
+              value={form.customer_name}
+              onChange={handleChange}
+              placeholder="e.g. Acme Corp"
+              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="bom_version" className="block text-sm font-medium text-slate-700">
+              BOM Version
+            </label>
+            <select
+              id="bom_version"
+              name="bom_version"
+              value={form.bom_version}
+              onChange={handleChange}
+              className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="BOM v1.0">BOM v1.0</option>
+              <option value="BOM v1.1">BOM v1.1</option>
+              <option value="BOM v2.0">BOM v2.0</option>
+            </select>
+          </div>
         </div>
 
-        <div>
-          <label htmlFor="planned_quantity" className="block text-sm font-medium text-slate-700">
-            {t("createProduction.plannedQuantity")}
-          </label>
-          <input
-            id="planned_quantity"
-            type="number"
-            name="planned_quantity"
-            value={form.planned_quantity}
-            onChange={handleChange}
-            required
-            min="0.01"
-            step="0.01"
-            placeholder="e.g. 100"
-            className={`mt-1.5 w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 ${
-              fieldErrors.planned_quantity
-                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
-            }`}
-          />
-          {fieldErrors.planned_quantity && (
-            <p className="mt-1 text-xs text-red-600">{fieldErrors.planned_quantity}</p>
-          )}
+        <div className="grid gap-5 sm:grid-cols-3">
+          <div>
+            <label htmlFor="planned_quantity" className="block text-sm font-medium text-slate-700">
+              {t("createProduction.plannedQuantity")}
+            </label>
+            <input
+              id="planned_quantity"
+              type="number"
+              name="planned_quantity"
+              value={form.planned_quantity}
+              onChange={handleChange}
+              required
+              min="0.01"
+              step="0.01"
+              placeholder="e.g. 100"
+              className={`mt-1.5 w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 ${
+                fieldErrors.planned_quantity
+                  ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                  : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
+              }`}
+            />
+            {fieldErrors.planned_quantity && (
+              <p className="mt-1 text-xs text-red-600">{fieldErrors.planned_quantity}</p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="priority" className="block text-sm font-medium text-slate-700">
+              Priority
+            </label>
+            <select
+              id="priority"
+              name="priority"
+              value={form.priority}
+              onChange={handleChange}
+              className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 capitalize"
+            >
+              {(PRIORITIES || ["low", "medium", "high", "critical"]).map((p) => (
+                <option key={p} value={p} className="capitalize">
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="shift" className="block text-sm font-medium text-slate-700">
+              Shift
+            </label>
+            <select
+              id="shift"
+              name="shift"
+              value={form.shift}
+              onChange={handleChange}
+              className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              {(SHIFTS || ["Shift A", "Shift B", "Shift C"]).map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">

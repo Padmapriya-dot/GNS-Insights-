@@ -7,9 +7,16 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // Only proxy paths that do not collide with React Router SPA routes.
-      // Do NOT proxy /settings, /documents, /alerts — those are frontend pages.
-      "/auth": { target: "http://127.0.0.1:8000", changeOrigin: true },
+      // Proxy API requests while bypassing static public assets (.png, .jpg, etc.)
+      "/auth": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        bypass(req) {
+          if (req.url.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/i)) {
+            return req.url;
+          }
+        },
+      },
       "/api": { target: "http://127.0.0.1:8000", changeOrigin: true },
       "/sidebar": { target: "http://127.0.0.1:8000", changeOrigin: true },
       "/platform": { target: "http://127.0.0.1:8000", changeOrigin: true },

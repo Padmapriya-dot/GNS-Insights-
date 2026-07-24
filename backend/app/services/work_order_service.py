@@ -68,7 +68,23 @@ def _wo_context(db: Session, tenant_id: int, wo: WorkOrder) -> dict:
     )
     planned = float(wo.planned_quantity or 0)
     remaining = max(planned - produced, 0)
-    progress = round(produced / planned * 100, 1) if planned else 0
+    qty_progress = round(produced / planned * 100, 1) if planned else 0.0
+
+    now = datetime.now(timezone.utc)
+    time_progress = 0.0
+    if wo.status in ("completed", "closed", "done"):
+        progress = 100.0
+    elif wo.planned_end and (wo.planned_end if wo.planned_end.tzinfo else wo.planned_end.replace(tzinfo=timezone.utc)) <= now:
+        progress = 100.0
+    else:
+        if wo.planned_start and wo.planned_end:
+            s_dt = wo.planned_start if wo.planned_start.tzinfo else wo.planned_start.replace(tzinfo=timezone.utc)
+            d_dt = wo.planned_end if wo.planned_end.tzinfo else wo.planned_end.replace(tzinfo=timezone.utc)
+            tot_sec = (d_dt - s_dt).total_seconds()
+            elap_sec = (now - s_dt).total_seconds()
+            if tot_sec > 0 and elap_sec > 0:
+                time_progress = round(min(100.0, (elap_sec / tot_sec) * 100.0), 1)
+        progress = round(max(qty_progress, time_progress), 1)
 
     batch = db.scalars(
         select(Batch)
@@ -122,7 +138,7 @@ def _to_list_read(db: Session, tenant_id: int, wo: WorkOrder) -> WorkOrderListRe
         machine_name=machine.name if machine else None,
         machine_code=machine.code if machine else None,
         machine_status=machine.status if machine else None,
-        operator_name=operator.full_name if operator else None,
+        operator_name=wo.operator_name or (operator.full_name if operator else None),
         progress_pct=ctx["progress"],
         is_delayed=_is_delayed(wo),
         materials_issued=bool(getattr(wo, "materials_issued", False)),

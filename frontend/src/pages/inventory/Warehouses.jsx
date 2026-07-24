@@ -212,13 +212,21 @@ export default function Warehouses() {
       /* local fallback */
     }
     if (formWarehouse?.id) {
-      setWarehouses((prev) => prev.map((w) => (w.id === formWarehouse.id ? { ...w, ...form } : w)));
+      const cap = form.capacity ? Number(form.capacity) : 0;
+      const used = form.used_capacity ? Number(form.used_capacity) : 0;
+      const avail = form.available_capacity != null && form.available_capacity !== "" ? Number(form.available_capacity) : (cap ? Math.max(0, cap - used) : 0);
+      setWarehouses((prev) => prev.map((w) => (w.id === formWarehouse.id ? { ...w, ...form, used_capacity: used, available_capacity: avail } : w)));
       addToast("Warehouse updated locally");
     } else {
+      const cap = form.capacity ? Number(form.capacity) : 0;
+      const used = form.used_capacity ? Number(form.used_capacity) : 0;
+      const avail = form.available_capacity != null && form.available_capacity !== "" ? Number(form.available_capacity) : (cap ? Math.max(0, cap - used) : 0);
       const newW = {
         ...enrichApiWarehouse({ id: `new-${Date.now()}`, ...payload }, warehouses.length),
         id: `new-${Date.now()}`,
-        used_capacity: 0,
+        ...form,
+        used_capacity: used,
+        available_capacity: avail,
         inventory_value: 0,
         created_at: new Date().toISOString().slice(0, 10),
       };

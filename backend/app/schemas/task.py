@@ -11,6 +11,9 @@ class TaskBase(BaseModel):
     priority: str = Field(default="medium", max_length=16)
     status: str = Field(default="open", max_length=32)
     due_date: date | None = None
+    start_date: date | None = None
+    assigned_to_name: str | None = None
+    module: str | None = None
 
 
 class TaskCreate(TaskBase):
@@ -24,6 +27,9 @@ class TaskUpdate(BaseModel):
     priority: str | None = Field(None, max_length=16)
     status: str | None = Field(None, max_length=32)
     due_date: date | None = None
+    start_date: date | None = None
+    assigned_to_name: str | None = None
+    module: str | None = None
 
 
 class TaskRead(TaskBase):

@@ -56,6 +56,9 @@ export function DepartmentFormModal({ department, onClose, onSave }) {
     manager_mobile: department?.manager_mobile || "",
     manager_email: department?.manager_email || "",
     manager_designation: department?.manager_designation || "",
+    employee_count: department?.employee_count ?? 0,
+    machine_count: department?.machine_count ?? 0,
+    work_center_count: department?.work_center_count ?? 0,
   });
 
   return (
@@ -84,6 +87,18 @@ export function DepartmentFormModal({ department, onClose, onSave }) {
           <input placeholder="Manager Name" value={form.manager_name} onChange={(e) => setForm((f) => ({ ...f, manager_name: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm sm:col-span-2" />
           <input placeholder="Mobile" value={form.manager_mobile} onChange={(e) => setForm((f) => ({ ...f, manager_mobile: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
           <input placeholder="Email" value={form.manager_email} onChange={(e) => setForm((f) => ({ ...f, manager_email: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+          <label className="block text-xs font-medium text-slate-600">
+            Employees
+            <input type="number" min="0" placeholder="Employees" value={form.employee_count} onChange={(e) => setForm((f) => ({ ...f, employee_count: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
+          </label>
+          <label className="block text-xs font-medium text-slate-600">
+            Machines
+            <input type="number" min="0" placeholder="Machines" value={form.machine_count} onChange={(e) => setForm((f) => ({ ...f, machine_count: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
+          </label>
+          <label className="block sm:col-span-2 text-xs font-medium text-slate-600">
+            Work Centers
+            <input type="number" min="0" placeholder="Work Centers" value={form.work_center_count} onChange={(e) => setForm((f) => ({ ...f, work_center_count: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
+          </label>
           <textarea placeholder="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm sm:col-span-2" rows={2} />
         </div>
         <div className="mt-4 flex justify-end gap-2">

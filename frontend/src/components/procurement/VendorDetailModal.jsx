@@ -359,8 +359,9 @@ const inputClass =
 
 export function VendorFormModal({ vendor, onClose, onSave }) {
   const [form, setForm] = useState({
+    vendor_code: vendor?.vendor_code || "",
     name: vendor?.name || "",
-    contact: vendor?.contact || "",
+    contact: vendor?.contact || vendor?.contact_name || "",
     phone: vendor?.phone || "",
     email: vendor?.email || "",
     gstin: vendor?.gstin || "",
@@ -368,12 +369,16 @@ export function VendorFormModal({ vendor, onClose, onSave }) {
     city: vendor?.city || "",
     state: vendor?.state || "",
     payment_terms: vendor?.payment_terms || "Net 30",
-    category: vendor?.category || "",
-    material_type: vendor?.material_type || "",
-    vendor_type: vendor?.vendor_type || "",
+    outstanding: vendor?.outstanding ?? 0,
+    rating: vendor?.rating ?? 4.0,
+    category: vendor?.category || "General",
+    material_type: vendor?.material_type || "General",
+    vendor_type: vendor?.vendor_type || "Manufacturer",
     billing_address: vendor?.billing_address || "",
     status: vendor?.status || "active",
   });
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -386,30 +391,150 @@ export function VendorFormModal({ vendor, onClose, onSave }) {
             onSave(form);
           }}
         >
-          {[
-            ["name", "Vendor Name *", "text"],
-            ["contact", "Contact Person", "text"],
-            ["phone", "Mobile", "text"],
-            ["email", "Email", "email"],
-            ["gstin", "GSTIN", "text"],
-            ["pan", "PAN", "text"],
-            ["city", "City", "text"],
-            ["state", "State", "text"],
-            ["billing_address", "Billing Address", "text"],
-          ].map(([key, label, type]) => (
-            <label key={key} className="block text-sm font-medium text-slate-700">
-              {label}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-slate-700">
+              Vendor Code
               <input
-                type={type}
-                required={key === "name"}
-                value={form[key]}
-                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                type="text"
+                placeholder="e.g. VEND-001"
+                value={form.vendor_code}
+                onChange={(e) => set("vendor_code", e.target.value)}
                 className={inputClass}
               />
             </label>
-          ))}
+            <label className="block text-sm font-medium text-slate-700">
+              Status
+              <select
+                value={form.status}
+                onChange={(e) => set("status", e.target.value)}
+                className={`${inputClass} bg-white`}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <label className="block sm:col-span-2 text-sm font-medium text-slate-700">
+              Vendor Name *
+              <input
+                type="text"
+                required
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Contact Person
+              <input
+                type="text"
+                value={form.contact}
+                onChange={(e) => set("contact", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Mobile
+              <input
+                type="text"
+                value={form.phone}
+                onChange={(e) => set("phone", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Email
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              GSTIN
+              <input
+                type="text"
+                value={form.gstin}
+                onChange={(e) => set("gstin", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              PAN
+              <input
+                type="text"
+                value={form.pan}
+                onChange={(e) => set("pan", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              City
+              <input
+                type="text"
+                value={form.city}
+                onChange={(e) => set("city", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              State
+              <input
+                type="text"
+                value={form.state}
+                onChange={(e) => set("state", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Payment Terms
+              <select
+                value={form.payment_terms}
+                onChange={(e) => set("payment_terms", e.target.value)}
+                className={`${inputClass} bg-white`}
+              >
+                {["Net 15", "Net 30", "Net 45", "Net 60", "Advance", "COD"].map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Outstanding (₹)
+              <input
+                type="number"
+                min="0"
+                value={form.outstanding}
+                onChange={(e) => set("outstanding", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block sm:col-span-2 text-sm font-medium text-slate-700">
+              Rating
+              <select
+                value={form.rating}
+                onChange={(e) => set("rating", e.target.value)}
+                className={`${inputClass} bg-white`}
+              >
+                <option value="5.0">5.0 ★ (Excellent)</option>
+                <option value="4.5">4.5 ★ (Very Good)</option>
+                <option value="4.0">4.0 ★ (Good)</option>
+                <option value="3.5">3.5 ★ (Average)</option>
+                <option value="3.0">3.0 ★ (Fair)</option>
+                <option value="2.0">2.0 ★ (Poor)</option>
+              </select>
+            </label>
+            <label className="block sm:col-span-2 text-sm font-medium text-slate-700">
+              Billing Address
+              <textarea
+                value={form.billing_address}
+                onChange={(e) => set("billing_address", e.target.value)}
+                rows={2}
+                className={inputClass}
+              />
+            </label>
+          </div>
           <div className="flex gap-2 pt-2">
-            <button type="submit" className="ui-btn-primary">Save</button>
+            <button type="submit" className="ui-btn-primary">Save Vendor</button>
             <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700">
               Cancel
             </button>

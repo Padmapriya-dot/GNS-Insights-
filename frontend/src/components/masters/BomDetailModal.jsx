@@ -348,11 +348,13 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
 
 export function BomFormModal({ bom, onClose, onSave }) {
   const [form, setForm] = useState({
+    bom_number: bom?.bom_number || "",
     product_name: bom?.product_name || "",
     product_code: bom?.product_code || "",
     version: bom?.version || "V1.0",
+    total_cost: bom?.costing?.total_cost ?? "",
+    status: bom?.status || "active",
     description: bom?.description || "",
-    status: bom?.status || "draft",
     category: bom?.category || "Finished Goods",
   });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -368,6 +370,14 @@ export function BomFormModal({ bom, onClose, onSave }) {
           <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
+          <label>
+            <span className="text-xs font-semibold text-slate-500">BOM No</span>
+            <input value={form.bom_number} onChange={(e) => set("bom_number", e.target.value)} placeholder="e.g. BOM-2024-001" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
+          <label>
+            <span className="text-xs font-semibold text-slate-500">Version</span>
+            <input value={form.version} onChange={(e) => set("version", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
           <label className="sm:col-span-2">
             <span className="text-xs font-semibold text-slate-500">Product Name *</span>
             <input required value={form.product_name} onChange={(e) => set("product_name", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
@@ -377,8 +387,16 @@ export function BomFormModal({ bom, onClose, onSave }) {
             <input value={form.product_code} onChange={(e) => set("product_code", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           </label>
           <label>
-            <span className="text-xs font-semibold text-slate-500">Version</span>
-            <input value={form.version} onChange={(e) => set("version", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <span className="text-xs font-semibold text-slate-500">Cost (₹)</span>
+            <input type="number" min="0" step="0.01" value={form.total_cost} onChange={(e) => set("total_cost", e.target.value)} placeholder="e.g. 500" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
+          <label className="sm:col-span-2">
+            <span className="text-xs font-semibold text-slate-500">Status</span>
+            <select value={form.status} onChange={(e) => set("status", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <option value="active">Active</option>
+              <option value="draft">Draft</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </label>
           <label className="sm:col-span-2">
             <span className="text-xs font-semibold text-slate-500">Description</span>

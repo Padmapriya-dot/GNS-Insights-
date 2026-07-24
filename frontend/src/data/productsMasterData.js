@@ -16,6 +16,42 @@ export const WAREHOUSES = ["Main Store", "Production Store", "FG Store", "QC Sto
 
 export const BRANDS = ["Tata Steel", "Bosch", "Siemens", "Local", "Generic"];
 
+export const PRODUCT_UNITS = [
+  "Nos",
+  "Pcs",
+  "Kgs",
+  "Gms",
+  "Mtr",
+  "Ltr",
+  "Box",
+  "Pack",
+  "Set",
+  "Pair",
+  "Doz",
+  "Ton",
+  "Mg",
+  "Lbs",
+  "Ml",
+  "Gal",
+  "Barrel",
+  "Mm",
+  "Cm",
+  "In",
+  "Ft",
+  "Yd",
+  "Sq Mtr",
+  "Sq Ft",
+  "Bag",
+  "Roll",
+  "Bundle",
+  "Drum",
+  "Carton",
+  "Pallet",
+  "Can",
+  "Bottle",
+  "Sheet",
+];
+
 export const DEMO_PRODUCTS = [];
 
 export function guessCategory(sku = "", name = "") {

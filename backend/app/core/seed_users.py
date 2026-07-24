@@ -1,13 +1,68 @@
-"""Legacy user seeding helper.
+"""Seed default accounts for testing and application access."""
 
-The application no longer creates default demo accounts on startup.
-Use the registration endpoint to create production user accounts.
-"""
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.role import Role
+from app.models.tenant import Tenant
+from app.models.user import User
+from app.services.auth_service import hash_password
 
 
-def seed_admin_user(db):
-    """No-op seed helper for compatibility.
+DEFAULT_USERS = [
+    {
+        "email": "operator@gnsinsights.com",
+        "password": "Operator123!",
+        "full_name": "Maya Operator",
+        "role_name": "Operator",
+    },
+    {
+        "email": "admin@gnsinsights.com",
+        "password": "Admin123!",
+        "full_name": "Admin User",
+        "role_name": "Admin",
+    },
+    {
+        "email": "hr@gnsinsights.com",
+        "password": "Manager123!",
+        "full_name": "HR Manager",
+        "role_name": "HR Manager",
+    },
+]
 
-    User accounts are created via /auth/register or administrator user management.
-    """
-    return
+
+def seed_admin_user(db: Session, tenant_id: int = 1) -> None:
+    """Seed default demo accounts (Operator, Admin, HR) for tenant."""
+    tenant = db.get(Tenant, tenant_id)
+    if not tenant:
+        return
+
+    for u_info in DEFAULT_USERS:
+        user = db.scalars(
+            select(User).where(User.tenant_id == tenant_id, User.email == u_info["email"])
+        ).first()
+
+        role = db.scalars(
+            select(Role).where(Role.tenant_id == tenant_id, Role.name == u_info["role_name"])
+        ).first()
+
+        if not user:
+            user = User(
+                tenant_id=tenant_id,
+                email=u_info["email"],
+                hashed_password=hash_password(u_info["password"]),
+                full_name=u_info["full_name"],
+                is_active=True,
+                email_verified=True,
+            )
+            if role:
+                user.roles.append(role)
+            db.add(user)
+        else:
+            user.hashed_password = hash_password(u_info["password"])
+            user.is_active = True
+            user.email_verified = True
+            if role and role not in user.roles:
+                user.roles.append(role)
+
+    db.commit()

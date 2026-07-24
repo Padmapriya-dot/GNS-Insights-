@@ -49,13 +49,15 @@ export const DEMO_WO_SUMMARY = {
   high_priority_orders: 0,
 };
 
+import { calculateProgressPct } from "./productionPlanningMasterData";
+
 export const DEMO_WORK_ORDERS = [];
 
 export function enrichApiWorkOrder(row, index = 0) {
   const planned = Number(row.planned_quantity || 0);
   const produced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
   const remaining = Number(row.remaining_quantity ?? Math.max(planned - produced, 0));
-  const progress = Number(row.progress_pct ?? (planned ? Math.round((produced / planned) * 1000) / 10 : 0));
+  const progress = calculateProgressPct(row);
   return {
     ...row,
     work_order_number: row.work_order_number || `WO-${row.id || index + 1}`,

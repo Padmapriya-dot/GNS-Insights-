@@ -287,39 +287,14 @@ export default function ProductsMaster() {
       render: (r) => `₹${Number(r.selling_price || 0).toLocaleString("en-IN")}`,
     },
     {
-  key: "current_stock",
-  label: "Stock",
-  render: (r) => `${Number(r.current_stock || 0)} ${r.unit || ""}`.trim(),
-},
-     {
+      key: "current_stock",
+      label: "Stock",
+      render: (r) => Number(r.current_stock || 0).toLocaleString("en-IN"),
+    },
+    {
       key: "status",
       label: "Status",
-      render: (r) => {
-        const isActive = r.status === 'active';
-        return (
-          <select
-            value={r.status}
-            onChange={(e) => {
-              const newStatus = e.target.value;
-              setProducts((prev) =>
-                prev.map((p) =>
-                  p.id === r.id ? { ...p, status: newStatus } : p
-                )
-              );
-            }}
-            // Dynamic classes applied here based on the isActive boolean
-            className={`cursor-pointer rounded-full border-none px-2.5 py-1 text-xs font-semibold shadow-sm focus:outline-none focus:ring-2 ${
-              isActive
-                ? 'bg-green-100 text-green-700 focus:ring-green-500'
-                : 'bg-red-100 text-red-700 focus:ring-red-500'
-            }`}
-          >
-            {/* Setting option backgrounds to white so the dropdown menu stays readable */}
-            <option value="active" className="bg-white text-slate-900">Active</option>
-            <option value="inactive" className="bg-white text-slate-900">Inactive</option>
-          </select>
-        );
-      },
+      render: (r) => <StatusPill status={r.status} />,
     },
     {
       key: "actions",
@@ -472,7 +447,7 @@ export default function ProductsMaster() {
               lowStockList.map((p) => (
                 <li key={p.id} className="flex justify-between rounded-lg bg-orange-50 px-3 py-2">
                   <span className="font-medium text-slate-700">{p.name}</span>
-                  <span className="font-bold text-orange-600">{p.current_stock} {p.unit}</span>
+                  <span className="font-bold text-orange-600">{p.current_stock}</span>
                 </li>
               ))
             )}

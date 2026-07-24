@@ -222,6 +222,7 @@ export default function CustomerDetailModal({ customer, onClose, onEdit, onDelet
 
 export function CustomerFormModal({ customer, onClose, onSave }) {
   const [form, setForm] = useState({
+    customer_code: customer?.customer_code || "",
     company: customer?.company || customer?.name || "",
     contact_person: customer?.contact_person || customer?.contact_name || "",
     phone: customer?.phone || "",
@@ -230,6 +231,8 @@ export function CustomerFormModal({ customer, onClose, onSave }) {
     city: customer?.city || "",
     state: customer?.state || "",
     customer_type: customer?.customer_type || "Corporate",
+    credit_limit: customer?.credit_limit ?? 500000,
+    outstanding: customer?.outstanding ?? 0,
     status: customer?.status || "active",
     billing_address: customer?.billing_address || customer?.address_line1 || "",
   });
@@ -243,6 +246,17 @@ export function CustomerFormModal({ customer, onClose, onSave }) {
           <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
         </div>
         <div className="grid max-h-[60vh] gap-3 overflow-y-auto sm:grid-cols-2">
+          <label>
+            <span className="text-xs font-semibold text-slate-500">Customer Code</span>
+            <input value={form.customer_code} onChange={(e) => set("customer_code", e.target.value)} placeholder="e.g. CUST-001" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
+          <label>
+            <span className="text-xs font-semibold text-slate-500">Status</span>
+            <select value={form.status} onChange={(e) => set("status", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </label>
           <label className="sm:col-span-2">
             <span className="text-xs font-semibold text-slate-500">Company Name *</span>
             <input required value={form.company} onChange={(e) => set("company", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
@@ -270,6 +284,14 @@ export function CustomerFormModal({ customer, onClose, onSave }) {
           <label>
             <span className="text-xs font-semibold text-slate-500">State</span>
             <input value={form.state} onChange={(e) => set("state", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
+          <label>
+            <span className="text-xs font-semibold text-slate-500">Credit Limit (₹)</span>
+            <input type="number" min="0" value={form.credit_limit} onChange={(e) => set("credit_limit", e.target.value)} placeholder="500000" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
+          <label>
+            <span className="text-xs font-semibold text-slate-500">Outstanding (₹)</span>
+            <input type="number" min="0" value={form.outstanding} onChange={(e) => set("outstanding", e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           </label>
           <label className="sm:col-span-2">
             <span className="text-xs font-semibold text-slate-500">Billing Address</span>
