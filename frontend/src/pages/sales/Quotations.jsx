@@ -5,9 +5,10 @@ import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import QuoteDetailModal from "../../components/sales/QuoteDetailModal";
+import CreateQuotationModal from "../../components/sales/CreateQuotationModal";
 import { useToast } from "../../context/ToastContext";
 import { getQuotationSummary, getQuotationsEnriched, updateQuotationStatus } from "../../api/salesApi";
-import { formatInr, statusColor } from "../../data/salesMasterData";
+import { DEMO_QUOTATION_LIST, formatInr, statusColor } from "../../data/salesMasterData";
 import { exportToExcel } from "../../utils/exportUtils";
 
 function KpiCard({ label, value, icon: Icon, color }) {
@@ -24,21 +25,26 @@ function KpiCard({ label, value, icon: Icon, color }) {
 export default function Quotations() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState({});
   const [rows, setRows] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [selected, setSelected] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getQuotationSummary(), getQuotationsEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary(sumRes.value.data);
-      else setSummary({});
-      if (listRes.status === "fulfilled") setRows(listRes.value?.data || []);
-      else setRows([]);
+      const stored = localStorage.getItem("smrt_quotations");
+      const localQuotes = stored ? JSON.parse(stored) : [];
+      let baseQuotes = DEMO_QUOTATION_LIST || [];
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length) {
+        baseQuotes = listRes.value.data;
+      }
+      setRows([...localQuotes, ...baseQuotes]);
     } catch {
-      setRows([]);
+      const stored = localStorage.getItem("smrt_quotations");
+      const localQuotes = stored ? JSON.parse(stored) : [];
+      setRows([...localQuotes, ...(DEMO_QUOTATION_LIST || [])]);
     } finally {
       setLoading(false);
     }
@@ -46,9 +52,20 @@ export default function Quotations() {
 
   useEffect(() => { load(); }, [load]);
 
+  const summary = useMemo(() => {
+    const total_quotations = rows.length;
+    const draft = rows.filter((r) => String(r.status || "").toLowerCase() === "draft").length;
+    const sent = rows.filter((r) => String(r.status || "").toLowerCase() === "sent").length;
+    const accepted = rows.filter((r) => String(r.status || "").toLowerCase() === "accepted").length;
+    const rejected = rows.filter((r) => String(r.status || "").toLowerCase() === "rejected").length;
+    const expired = rows.filter((r) => String(r.status || "").toLowerCase() === "expired").length;
+
+    return { total_quotations, draft, sent, accepted, rejected, expired };
+  }, [rows]);
+
   const filtered = useMemo(() => {
     if (!statusFilter) return rows;
-    return rows.filter((r) => r.status === statusFilter);
+    return rows.filter((r) => String(r.status || "").toLowerCase() === statusFilter.toLowerCase());
   }, [rows, statusFilter]);
 
   const handleStatus = async (quote, status) => {
@@ -56,14 +73,21 @@ export default function Quotations() {
       try {
         await updateQuotationStatus(quote.id, status);
         addToast(`Quotation marked as ${status}`);
-        load();
       } catch (err) {
         addToast(err.response?.data?.detail || "Update failed", "error");
-        return;
       }
     } else {
-      addToast(`Quotation marked as ${status} (demo)`);
+      addToast(`Quotation status updated to ${status}`);
     }
+
+    // Update local state & localStorage so KPI cards update immediately
+    const stored = localStorage.getItem("smrt_quotations");
+    if (stored) {
+      const localQuotes = JSON.parse(stored);
+      const updatedLocal = localQuotes.map((q) => (q.quote_number === quote.quote_number ? { ...q, status } : q));
+      localStorage.setItem("smrt_quotations", JSON.stringify(updatedLocal));
+    }
+    setRows((prev) => prev.map((q) => (q.quote_number === quote.quote_number ? { ...q, status } : q)));
     setSelected(null);
   };
 
@@ -71,7 +95,7 @@ export default function Quotations() {
     { key: "quote_number", label: "Quote No", render: (r) => <span className="font-medium text-[#2563EB]">{r.quote_number}</span> },
     { key: "customer_name", label: "Customer" },
     { key: "sales_person", label: "Sales Person" },
-    { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
+    { key: "amount", label: "Amount", render: (r) => formatInr(r.amount ?? r.total_amount) },
     { key: "valid_until", label: "Valid Until", render: (r) => String(r.valid_until || "").slice(0, 10) || "—" },
     { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
     { key: "actions", label: "Actions", render: (r) => (
@@ -86,10 +110,14 @@ export default function Quotations() {
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Quotations</h1>
-          <p className="mt-1 text-sm text-slate-500">Create, approve, and send quotations with GST, discount, and PDF export.</p>
+          <p className="mt-1 text-sm text-slate-500">Create, approve, and send commercial price quotations with GST, discount, and PDF export.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="ui-btn-primary opacity-60" disabled title="Use Convert from an existing quotation, or create SO with product lines">
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all"
+          >
             <Plus className="h-4 w-4" /> New Quotation
           </button>
           <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "quotations")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
@@ -113,7 +141,7 @@ export default function Quotations() {
           <Filter className="h-4 w-4 text-slate-500" />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
             <option value="">All Status</option>
-            {["draft", "sent", "accepted", "rejected", "expired"].map((s) => <option key={s} value={s}>{s}</option>)}
+            {["draft", "sent", "accepted", "rejected", "expired"].map((s) => <option key={s} value={s}>{s.toUpperCase()}</option>)}
           </select>
         </div>
         <DataTable columns={columns} data={filtered} searchPlaceholder="Search quote, customer..." searchKeys={["quote_number", "customer_name", "sales_person"]} />
@@ -130,6 +158,12 @@ export default function Quotations() {
           }}
         />
       )}
+
+      <CreateQuotationModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={load}
+      />
     </div>
   );
 }

@@ -5,9 +5,10 @@ import { Download, Filter, IndianRupee, Plus, RefreshCw, ShoppingCart, Truck } f
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
+import SODetailModal from "../../components/sales/SODetailModal";
 import { useToast } from "../../context/ToastContext";
 import { getSOSummary, getSalesOrdersEnriched } from "../../api/salesApi";
-import { formatInr, statusColor } from "../../data/salesMasterData";
+import { DEMO_SO_LIST, formatInr, statusColor } from "../../data/salesMasterData";
 import { exportToExcel } from "../../utils/exportUtils";
 
 function KpiCard({ label, value, icon: Icon, color }) {
@@ -26,21 +27,26 @@ const defaultFilters = { customer: "", status: "", sales_person: "" };
 export default function SalesOrders() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState({});
   const [rows, setRows] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selected, setSelected] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getSOSummary(), getSalesOrdersEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary(sumRes.value.data);
-      else setSummary({});
-      if (listRes.status === "fulfilled") setRows(listRes.value?.data || []);
-      else setRows([]);
+      const stored = localStorage.getItem("smrt_sales_orders");
+      const localOrders = stored ? JSON.parse(stored) : [];
+      let baseOrders = DEMO_SO_LIST || [];
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length) {
+        baseOrders = listRes.value.data;
+      }
+      setRows([...localOrders, ...baseOrders]);
     } catch {
-      setRows([]);
+      const stored = localStorage.getItem("smrt_sales_orders");
+      const localOrders = stored ? JSON.parse(stored) : [];
+      setRows([...localOrders, ...(DEMO_SO_LIST || [])]);
     } finally {
       setLoading(false);
     }
@@ -48,31 +54,60 @@ export default function SalesOrders() {
 
   useEffect(() => { load(); }, [load]);
 
+  const summary = useMemo(() => {
+    const total_orders = rows.length;
+    const pending = rows.filter((r) => String(r.status || "").toLowerCase() === "pending").length;
+    const confirmed = rows.filter((r) => String(r.status || "").toLowerCase() === "confirmed").length;
+    const packed = rows.filter((r) => String(r.status || "").toLowerCase() === "packed" || r.packed).length;
+    const shipped = rows.filter((r) => String(r.status || "").toLowerCase() === "shipped" || r.shipped).length;
+    const delivered = rows.filter((r) => String(r.status || "").toLowerCase() === "delivered").length;
+    const cancelled = rows.filter((r) => String(r.status || "").toLowerCase() === "cancelled").length;
+    const revenue = rows.reduce((acc, r) => acc + (Number(r.amount || r.total_amount) || 0), 0);
+
+    return { total_orders, pending, confirmed, packed, shipped, delivered, cancelled, revenue };
+  }, [rows]);
+
   const filtered = useMemo(() => {
     let list = rows;
     if (filters.customer) list = list.filter((r) => r.customer_name?.toLowerCase().includes(filters.customer.toLowerCase()));
-    if (filters.status) list = list.filter((r) => r.status === filters.status);
+    if (filters.status) list = list.filter((r) => String(r.status || "").toLowerCase() === filters.status.toLowerCase());
     if (filters.sales_person) list = list.filter((r) => r.sales_person?.toLowerCase().includes(filters.sales_person.toLowerCase()));
     return list;
   }, [rows, filters]);
 
   const columns = [
-    { key: "order_number", label: "SO No", render: (r) => (
-      typeof r.id === "number"
-        ? <Link to={`/sales/orders/${r.id}`} className="font-medium text-[#2563EB] hover:underline">{r.order_number}</Link>
-        : <span className="font-medium text-[#2563EB]">{r.order_number}</span>
-    )},
+    {
+      key: "order_number",
+      label: "SO No",
+      render: (r) => (
+        <button
+          type="button"
+          onClick={() => setSelected(r)}
+          className="font-semibold text-[#2563EB] hover:underline text-left"
+        >
+          {r.order_number || r.so_number}
+        </button>
+      ),
+    },
     { key: "customer_name", label: "Customer" },
     { key: "order_date", label: "Date", render: (r) => String(r.order_date || "").slice(0, 10) },
     { key: "delivery_date", label: "Delivery Date", render: (r) => r.delivery_date || "—" },
-    { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
+    { key: "amount", label: "Amount", render: (r) => formatInr(r.amount || r.total_amount) },
     { key: "payment_terms", label: "Payment", render: (r) => r.payment_terms || "—" },
     { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
-    { key: "actions", label: "Actions", render: (r) => (
-      typeof r.id === "number"
-        ? <Link to={`/sales/orders/${r.id}`} className="text-xs font-semibold text-[#2563EB] hover:underline">Open</Link>
-        : null
-    )},
+    {
+      key: "actions",
+      label: "Actions",
+      render: (r) => (
+        <button
+          type="button"
+          onClick={() => setSelected(r)}
+          className="text-xs font-semibold text-[#2563EB] hover:underline"
+        >
+          View
+        </button>
+      ),
+    },
   ];
 
   if (loading) return <Loader label="Loading sales orders..." />;
@@ -118,6 +153,13 @@ export default function SalesOrders() {
         )}
         <DataTable columns={columns} data={filtered} searchPlaceholder="Search SO, customer..." searchKeys={["order_number", "customer_name", "sales_person"]} />
       </div>
+
+      {selected && (
+        <SODetailModal
+          order={selected}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }
