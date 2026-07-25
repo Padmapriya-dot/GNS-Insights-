@@ -53,11 +53,26 @@ export default function SalesOrders() {
       const apiOrders = Array.isArray(res?.data) ? res.data : [];
       const stored = localStorage.getItem("smrt_sales_orders");
       const localOrders = stored ? JSON.parse(stored) : [];
-      setRows([...localOrders, ...apiOrders, ...(DEMO_SO_LIST || [])]);
+
+      const soMap = new Map();
+      [...localOrders, ...apiOrders, ...(DEMO_SO_LIST || [])].forEach((o) => {
+        const key = String(o.order_number || o.so_number || o.id).trim().toLowerCase();
+        if (key && !soMap.has(key)) {
+          soMap.set(key, o);
+        }
+      });
+      setRows(Array.from(soMap.values()));
     } catch {
       const stored = localStorage.getItem("smrt_sales_orders");
       const localOrders = stored ? JSON.parse(stored) : [];
-      setRows([...localOrders, ...(DEMO_SO_LIST || [])]);
+      const soMap = new Map();
+      [...localOrders, ...(DEMO_SO_LIST || [])].forEach((o) => {
+        const key = String(o.order_number || o.so_number || o.id).trim().toLowerCase();
+        if (key && !soMap.has(key)) {
+          soMap.set(key, o);
+        }
+      });
+      setRows(Array.from(soMap.values()));
     } finally {
       if (typeof markRequestEnd === "function") markRequestEnd();
       setLoading(false);

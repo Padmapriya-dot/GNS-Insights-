@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import Loader from "../../components/common/Loader";
-import { getCustomers, createInvoice } from "../../api/salesApi";
+import { createInvoice } from "../../api/salesApi";
+import { fetchCustomersWithFallback } from "../../utils/customerOptions";
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
 
@@ -51,11 +52,23 @@ export default function CreateBill() {
     shipping_address: "",
   });
 
-  const selectedCustomer = customers.find((c) => String(c.id) === String(form.customer_id));
+  const uniqueCustomers = useMemo(() => {
+    const map = new Map();
+    (customers || []).forEach((c) => {
+      const name = String(c.company || c.name || c.customer_name || "").trim();
+      const lower = name.toLowerCase();
+      if (name && name.length >= 2 && !map.has(lower)) {
+        map.set(lower, { ...c, name });
+      }
+    });
+    return Array.from(map.values());
+  }, [customers]);
+
+  const selectedCustomer = uniqueCustomers.find((c) => String(c.id) === String(form.customer_id) || String(c.name) === String(form.customer_id));
 
   useEffect(() => {
-    getCustomers()
-      .then((r) => setCustomers(r.data || []))
+    fetchCustomersWithFallback()
+      .then((list) => setCustomers(list || []))
       .catch(console.error)
       .finally(() => setLoadingCust(false));
   }, []);
@@ -204,7 +217,11 @@ export default function CreateBill() {
                 onChange={(e) => setForm((f) => ({ ...f, customer_id: e.target.value }))}
                 required className={inputCls}>
                 <option value="">— Select customer —</option>
-                {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {uniqueCustomers.map((c) => (
+                  <option key={c.id || c.name} value={c.id || c.name}>
+                    {c.name}
+                  </option>
+                ))}
               </select>
               {customers.length === 0 && (
                 <p className="mt-1 text-xs text-amber-600">

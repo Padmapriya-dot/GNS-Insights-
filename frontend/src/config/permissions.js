@@ -100,10 +100,12 @@ export function getEffectivePermissions(user) {
 }
 
 export function userHasModule(user, module) {
+  if (!user) return false;
   return true;
 }
 
 export function userCanAction(user, module, action) {
+  if (!user) return false;
   return true;
 }
 
@@ -112,6 +114,7 @@ export function canAccess(userRole, module) {
 }
 
 export function userCanAccess(user, module) {
+  if (!user) return false;
   return true;
 }
 

@@ -1,14 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { X, Plus, Trash2, Save } from "lucide-react";
-import { getCustomers, createInvoice } from "../../api/salesApi";
+import { createInvoice, updateInvoice } from "../../api/salesApi";
+import { fetchCustomersWithFallback } from "../../utils/customerOptions";
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
 import Loader from "../common/Loader";
 
 const SELLER_STATE_CODE = "36";
-const DEFAULT_CGST = 5;
-const DEFAULT_SGST = 5;
-const DEFAULT_IGST = 10;
+const DEFAULT_CGST = 9;
+const DEFAULT_SGST = 9;
+const DEFAULT_IGST = 18;
 
 const inputClass =
   "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100";
@@ -21,35 +22,58 @@ const isInterState = (customer) => {
   return code !== "" && code !== SELLER_STATE_CODE;
 };
 
-export default function BillFormModal({ onClose, onSave }) {
+export default function BillFormModal({ invoice, onClose, onSave }) {
   const { addToast } = useToast();
   const tenantId = useTenantId();
   const [customers, setCustomers] = useState([]);
   const [loadingCust, setLoadingCust] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [items, setItems] = useState([EMPTY_ITEM()]);
+  const [items, setItems] = useState(
+    invoice?.line_items?.length
+      ? invoice.line_items.map((i) => ({
+          item_description: i.item_description || "",
+          qty: i.quantity || i.qty || 1,
+          unit: i.unit || "pcs",
+          rate: i.unit_price || i.rate || 0,
+          amount: i.line_total || i.amount || 0,
+        }))
+      : [EMPTY_ITEM()]
+  );
 
   const [form, setForm] = useState({
-    invoice_number: genBillNumber(),
-    customer_id: "",
-    issue_date: new Date().toISOString().slice(0, 10),
-    due_date: "",
-    cgst_pct: DEFAULT_CGST,
-    sgst_pct: DEFAULT_SGST,
-    igst_pct: 0,
-    discount: 0,
-    round_off: 0,
-    notes: "",
-    billing_address: "",
-    shipping_address: "",
+    invoice_number: invoice?.invoice_number || invoice?.bill_number || genBillNumber(),
+    customer_id: invoice?.customer_id ? String(invoice.customer_id) : "",
+    issue_date: invoice?.issue_date ? String(invoice.issue_date).slice(0, 10) : new Date().toISOString().slice(0, 10),
+    due_date: invoice?.due_date ? String(invoice.due_date).slice(0, 10) : "",
+    cgst_pct: invoice?.cgst_pct ?? DEFAULT_CGST,
+    sgst_pct: invoice?.sgst_pct ?? DEFAULT_SGST,
+    igst_pct: invoice?.igst_pct ?? 0,
+    discount: invoice?.discount ?? 0,
+    round_off: invoice?.round_off ?? 0,
+    notes: invoice?.notes || "",
+    billing_address: invoice?.billing_address || "",
+    shipping_address: invoice?.shipping_address || "",
   });
 
-  const selectedCustomer = customers.find((c) => String(c.id) === String(form.customer_id));
+  const uniqueCustomers = useMemo(() => {
+    const map = new Map();
+    (customers || []).forEach((c) => {
+      const displayName = c.company || c.name || c.customer_name;
+      const cleanName = String(displayName || "").trim();
+      const lower = cleanName.toLowerCase();
+      if (cleanName && cleanName.length >= 2 && !map.has(lower)) {
+        map.set(lower, { ...c, id: c.id || cleanName, name: cleanName });
+      }
+    });
+    return Array.from(map.values());
+  }, [customers]);
+
+  const selectedCustomer = uniqueCustomers.find((c) => String(c.id) === String(form.customer_id));
 
   useEffect(() => {
-    getCustomers()
-      .then((r) => setCustomers(r.data || []))
+    fetchCustomersWithFallback()
+      .then((list) => setCustomers(list || []))
       .catch(console.error)
       .finally(() => setLoadingCust(false));
   }, []);
@@ -216,8 +240,8 @@ export default function BillFormModal({ onClose, onSave }) {
                   className={inputClass}
                 >
                   <option value="">Select customer</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
+                  {uniqueCustomers.map((c) => (
+                    <option key={c.id || c.name} value={c.id || c.name}>
                       {c.name}
                     </option>
                   ))}

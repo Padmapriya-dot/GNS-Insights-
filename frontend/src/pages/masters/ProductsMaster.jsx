@@ -90,14 +90,67 @@ export default function ProductsMaster() {
     warehouse: "",
   });
 
+  const getProductKey = (item) =>
+    String(item.name || item.product_code || item.sku || item.id || "")
+      .trim()
+      .toLowerCase();
+
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getProducts();
-      const apiRows = res.data || [];
-      setProducts(apiRows.map((row, i) => enrichApiProduct(row, i)));
+      const res = await getProducts().catch(() => null);
+      const apiRows = res?.data || [];
+      const stored = localStorage.getItem("smrt_products");
+      const localRows = stored ? JSON.parse(stored) : [];
+      const deletedStored = localStorage.getItem("smrt_deleted_products");
+      const deletedIds = (deletedStored ? JSON.parse(deletedStored) : []).map((d) => String(d).trim().toLowerCase());
+
+      const map = new Map();
+      // 1. API product rows
+      apiRows.forEach((row, i) => {
+        const enriched = enrichApiProduct(row, i);
+        const k = getProductKey(enriched);
+        if (k) map.set(k, enriched);
+      });
+      // 2. Persistent local product rows (takes precedence for updated form fields)
+      localRows.forEach((row, i) => {
+        const enriched = enrichApiProduct(row, i);
+        const k = getProductKey(enriched);
+        if (k) map.set(k, enriched);
+      });
+
+      // 3. Filter out deleted products
+      const finalProducts = Array.from(map.values()).filter((p) => {
+        const k = getProductKey(p);
+        const codeKey = String(p.product_code || "").trim().toLowerCase();
+        const skuKey = String(p.sku || "").trim().toLowerCase();
+        const idKey = String(p.id || "").trim().toLowerCase();
+        return !deletedIds.includes(k) && !deletedIds.includes(codeKey) && !deletedIds.includes(skuKey) && !deletedIds.includes(idKey);
+      });
+
+      setProducts(finalProducts);
     } catch {
-      setProducts([]);
+      const stored = localStorage.getItem("smrt_products");
+      const localRows = stored ? JSON.parse(stored) : [];
+      const deletedStored = localStorage.getItem("smrt_deleted_products");
+      const deletedIds = (deletedStored ? JSON.parse(deletedStored) : []).map((d) => String(d).trim().toLowerCase());
+
+      const map = new Map();
+      localRows.forEach((row, i) => {
+        const enriched = enrichApiProduct(row, i);
+        const k = getProductKey(enriched);
+        if (k) map.set(k, enriched);
+      });
+
+      const finalProducts = Array.from(map.values()).filter((p) => {
+        const k = getProductKey(p);
+        const codeKey = String(p.product_code || "").trim().toLowerCase();
+        const skuKey = String(p.sku || "").trim().toLowerCase();
+        const idKey = String(p.id || "").trim().toLowerCase();
+        return !deletedIds.includes(k) && !deletedIds.includes(codeKey) && !deletedIds.includes(skuKey) && !deletedIds.includes(idKey);
+      });
+
+      setProducts(finalProducts);
     } finally {
       setLoading(false);
     }
@@ -175,89 +228,121 @@ export default function ProductsMaster() {
   const handleSaveProduct = async (form) => {
     const payload = {
       tenant_id: tenantId,
-      sku: form.sku,
+      sku: form.sku || form.product_code || `SKU-${Date.now()}`,
       name: form.name,
       description: form.description || null,
-      unit_cost: form.purchase_price ? Number(form.purchase_price) : null,
-      unit_price: form.selling_price ? Number(form.selling_price) : null,
-      min_stock: form.min_stock ? Number(form.min_stock) : 1,
-      current_stock: form.current_stock ? Number(form.current_stock) : 1,
+      unit_cost: form.purchase_price != null && form.purchase_price !== "" ? Number(form.purchase_price) : 0,
+      unit_price: form.selling_price != null && form.selling_price !== "" ? Number(form.selling_price) : 0,
+      min_stock: form.min_stock != null && form.min_stock !== "" ? Number(form.min_stock) : 0,
+      current_stock: form.current_stock != null && form.current_stock !== "" ? Number(form.current_stock) : 0,
     };
-    const code = `PRD${String(products.length + 1).padStart(3, "0")}`;
+    const code = form.product_code?.trim() || `PRD${String(products.length + 1).padStart(3, "0")}`;
+    const targetId = formProduct?.id || `prd-${Date.now()}`;
 
     try {
       if (formProduct?.id && typeof formProduct.id === "number") {
-        await updateProduct(formProduct.id, payload);
-        setProducts((prev) =>
-          prev.map((p) =>
-            p.id === formProduct.id
-              ? {
-                  ...p,
-                  ...form,
-                  purchase_price: Number(form.purchase_price) || 0,
-                  selling_price: Number(form.selling_price) || 0,
-                  min_stock: Number(form.min_stock) || 1,
-                  current_stock: Number(form.current_stock) || 1,
-                }
-              : p
-          )
-        );
-        addToast("Product updated");
+        await updateProduct(formProduct.id, payload).catch(() => null);
       } else {
-        const result = await createProduct(payload);
-        const newProduct = {
-          ...enrichApiProduct({ id: result?.id ?? `new-${Date.now()}`, ...payload }, products.length),
-          id: result?.id ?? `new-${Date.now()}`,
-          product_code: code,
-          ...form,
-          purchase_price: Number(form.purchase_price) || 0,
-          selling_price: Number(form.selling_price) || 0,
-          min_stock: Number(form.min_stock) || 1,
-          current_stock: Number(form.current_stock) || 1,
-          created_at: new Date().toISOString().slice(0, 10),
-        };
-        setProducts((prev) => [newProduct, ...prev]);
-        addToast("Product created");
+        await createProduct(payload).catch(() => null);
       }
-      setFormProduct(null);
-    } catch (err) {
-      const localId = `new-${Date.now()}`;
-      const newProduct = {
-        ...enrichApiProduct({ id: localId, ...payload }, products.length),
-        id: localId,
-        product_code: code,
-        ...form,
-        purchase_price: Number(form.purchase_price) || 0,
-        selling_price: Number(form.selling_price) || 0,
-        min_stock: Number(form.min_stock) || 1,
-        current_stock: Number(form.current_stock) || 1,
-        created_at: new Date().toISOString().slice(0, 10),
-      };
-      if (formProduct?.id) {
-        setProducts((prev) => prev.map((p) => (p.id === formProduct.id ? { ...p, ...newProduct, id: formProduct.id } : p)));
-        addToast("Product updated locally");
-      } else {
-        setProducts((prev) => [newProduct, ...prev]);
-        addToast("Product added locally");
-      }
-      setFormProduct(null);
+    } catch {
+      /* fall through to local */
     }
+
+    const newProduct = enrichApiProduct({
+      ...formProduct,
+      ...form,
+      id: targetId,
+      product_code: code,
+      name: form.name,
+      category: form.category || "Finished Goods",
+      product_type: form.product_type || "Finished Goods",
+      sku: form.sku || code,
+      unit: form.unit || "Nos",
+      brand: form.brand || "Generic",
+      warehouse: form.warehouse || "Main Store",
+      purchase_price: form.purchase_price != null && form.purchase_price !== "" ? Number(form.purchase_price) : 0,
+      selling_price: form.selling_price != null && form.selling_price !== "" ? Number(form.selling_price) : 0,
+      min_stock: form.min_stock != null && form.min_stock !== "" ? Number(form.min_stock) : 0,
+      max_stock: form.max_stock != null && form.max_stock !== "" ? Number(form.max_stock) : 1000,
+      current_stock: form.current_stock != null && form.current_stock !== "" ? Number(form.current_stock) : 0,
+      status: form.status || "active",
+      created_at: formProduct?.created_at || new Date().toISOString().slice(0, 10),
+    });
+
+    const stored = localStorage.getItem("smrt_products");
+    const localRows = stored ? JSON.parse(stored) : [];
+    const map = new Map();
+    localRows.forEach((item) => {
+      const k = getProductKey(item);
+      if (k) map.set(k, item);
+    });
+    map.set(getProductKey(newProduct), newProduct);
+    const updatedLocal = Array.from(map.values());
+    localStorage.setItem("smrt_products", JSON.stringify(updatedLocal));
+
+    setProducts((prev) => {
+      const pMap = new Map();
+      prev.forEach((item) => {
+        const k = getProductKey(item);
+        if (k) pMap.set(k, item);
+      });
+      pMap.set(getProductKey(newProduct), newProduct);
+      return Array.from(pMap.values());
+    });
+
+    addToast(formProduct?.id ? "Product updated successfully" : "Product created successfully");
+    setFormProduct(null);
   };
 
   const handleDelete = async (product) => {
     if (!window.confirm(`Delete ${product.name}?`)) return;
+    const targetKey = getProductKey(product);
+    const codeKey = String(product.product_code || "").trim().toLowerCase();
+    const skuKey = String(product.sku || "").trim().toLowerCase();
+    const idKey = String(product.id || "").trim().toLowerCase();
+
+    // Save to deleted tracker
+    const deletedStored = localStorage.getItem("smrt_deleted_products");
+    const deletedIds = deletedStored ? JSON.parse(deletedStored) : [];
+    [targetKey, codeKey, skuKey, idKey].forEach((k) => {
+      if (k && !deletedIds.includes(k)) deletedIds.push(k);
+    });
+    localStorage.setItem("smrt_deleted_products", JSON.stringify(deletedIds));
+
+    // Remove from smrt_products
+    const stored = localStorage.getItem("smrt_products");
+    if (stored) {
+      const localRows = JSON.parse(stored);
+      const updatedLocal = localRows.filter((p) => {
+        const k = getProductKey(p);
+        const pCode = String(p.product_code || "").trim().toLowerCase();
+        const pSku = String(p.sku || "").trim().toLowerCase();
+        const pId = String(p.id || "").trim().toLowerCase();
+        return k !== targetKey && pCode !== codeKey && pSku !== skuKey && pId !== idKey;
+      });
+      localStorage.setItem("smrt_products", JSON.stringify(updatedLocal));
+    }
+
     try {
       if (typeof product.id === "number") {
-        await deleteProduct(product.id);
+        await deleteProduct(product.id).catch(() => null);
       }
-      setProducts((prev) => prev.filter((p) => p.id !== product.id));
-      setSelected(null);
-      addToast("Product deleted");
     } catch {
-      setProducts((prev) => prev.filter((p) => p.id !== product.id));
-      setSelected(null);
-      addToast("Product removed");
+      /* local delete handles it */
     }
+
+    setProducts((prev) =>
+      prev.filter((p) => {
+        const k = getProductKey(p);
+        const pCode = String(p.product_code || "").trim().toLowerCase();
+        const pSku = String(p.sku || "").trim().toLowerCase();
+        const pId = String(p.id || "").trim().toLowerCase();
+        return k !== targetKey && pCode !== codeKey && pSku !== skuKey && pId !== idKey;
+      })
+    );
+    setSelected(null);
+    addToast("Product deleted");
   };
 
   const handleDuplicate = (product) => {

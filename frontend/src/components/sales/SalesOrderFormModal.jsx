@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { X, Save } from "lucide-react";
 import { createSalesOrder } from "../../api/salesApi";
 import { fetchCustomersWithFallback, resolveCustomerId } from "../../utils/customerOptions";
@@ -26,6 +26,19 @@ export default function SalesOrderFormModal({ onClose, onSave }) {
     total_amount: "",
   });
 
+  const uniqueCustomers = useMemo(() => {
+    const map = new Map();
+    (customers || []).forEach((c) => {
+      const displayName = c.company || c.name || c.customer_name;
+      const cleanName = String(displayName || "").trim();
+      const lower = cleanName.toLowerCase();
+      if (cleanName && cleanName.length >= 2 && !map.has(lower)) {
+        map.set(lower, { ...c, id: c.id || cleanName, name: cleanName });
+      }
+    });
+    return Array.from(map.values());
+  }, [customers]);
+
   useEffect(() => {
     fetchCustomersWithFallback()
       .then(setCustomers)
@@ -38,7 +51,7 @@ export default function SalesOrderFormModal({ onClose, onSave }) {
     setError("");
     setSaving(true);
     try {
-      const customerId = await resolveCustomerId(form.customer_id, customers, tenantId);
+      const customerId = await resolveCustomerId(form.customer_id, uniqueCustomers, tenantId);
       await createSalesOrder({
         ...form,
         customer_id: customerId,
@@ -90,8 +103,8 @@ export default function SalesOrderFormModal({ onClose, onSave }) {
               className={inputClass}
             >
               <option value="">Select customer</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
+              {uniqueCustomers.map((c) => (
+                <option key={c.id || c.name} value={c.id || c.name}>
                   {c.name}
                 </option>
               ))}

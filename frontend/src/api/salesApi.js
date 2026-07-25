@@ -33,6 +33,8 @@ export const getLeadsEnriched = () => api.get("/sales/leads/enriched");
 export const createLead = (payload) => api.post("/sales/leads", payload);
 export const updateLeadStatus = (leadId, status) =>
   api.patch(`/sales/leads/${leadId}/status`, null, { params: { status } });
+export const getLeadActivities = (leadId) => api.get(`/sales/leads/${leadId}/activities`);
+export const createLeadActivity = (leadId, payload) => api.post(`/sales/leads/${leadId}/activities`, payload);
 
 export const getQuotations = (status = null) =>
   api.get("/sales/quotations", { params: { status } });
