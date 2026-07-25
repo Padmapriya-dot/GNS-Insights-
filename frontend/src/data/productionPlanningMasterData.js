@@ -66,11 +66,45 @@ export const DEMO_SUMMARY = {
   todays_production: 0,
 };
 
+export function calculateProgressPct(row) {
+  if (!row) return 0;
+  if (row.status === "completed" || row.status === "closed" || row.status === "done") {
+    return 100;
+  }
+  const now = Date.now();
+  const startRaw = row.start_date || row.planned_start;
+  const dueRaw = row.due_date || row.planned_end;
+
+  const start = startRaw ? new Date(startRaw).getTime() : null;
+  const due = dueRaw ? new Date(dueRaw).getTime() : null;
+
+  if (due && !isNaN(due) && now >= due) {
+    return 100;
+  }
+
+  let timePct = 0;
+  if (start && due && !isNaN(start) && !isNaN(due) && due > start && now > start) {
+    timePct = ((now - start) / (due - start)) * 100;
+  }
+
+  const planned = Number(row.planned_quantity || 0);
+  const produced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
+  const qtyPct = planned > 0 ? (produced / planned) * 100 : 0;
+
+  const calcPct = Math.max(qtyPct, timePct);
+
+  if (row.progress_pct != null && row.progress_pct > 0) {
+    return Math.min(100, Math.max(0, Math.round(Math.max(Number(row.progress_pct), calcPct))));
+  }
+
+  return Math.min(100, Math.max(0, Math.round(calcPct)));
+}
+
 export function enrichApiOrder(row, index = 0) {
   const planned = Number(row.planned_quantity || 0);
   const produced = Number(row.produced_quantity ?? 0);
   const balance = Number(row.balance_quantity ?? Math.max(planned - produced, 0));
-  const progress = Number(row.progress_pct ?? (planned ? Math.round((produced / planned) * 1000) / 10 : 0));
+  const progress = calculateProgressPct(row);
   return {
     ...row,
     order_number: row.order_number || `PO-${row.id || index + 1}`,

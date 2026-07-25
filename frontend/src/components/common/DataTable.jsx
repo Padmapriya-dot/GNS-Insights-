@@ -88,7 +88,7 @@ export default function DataTable({
   return (
     <div className="space-y-4">
       {(showSearch && (searchKeys.length > 0 || filters.length > 0)) && (
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 print:hidden">
           {showSearch && searchKeys.length > 0 && (
             <SearchBar
               value={search}
@@ -128,7 +128,7 @@ export default function DataTable({
       )}
       {body}
       {showPagination && filtered.length > pageSize && (
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-sm print:hidden">
           <span className="text-slate-500 dark:text-slate-400">
             {t("common.page")} {page} {t("common.of")} {totalPages}
           </span>

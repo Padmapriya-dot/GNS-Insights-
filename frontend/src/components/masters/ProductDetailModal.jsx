@@ -8,6 +8,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { PRODUCT_UNITS } from "../../data/productsMasterData";
 
 const TABS = [
   { id: "general", label: "General" },
@@ -211,6 +212,7 @@ export default function ProductDetailModal({
 export function ProductFormModal({ product, onClose, onSave }) {
   const isEdit = Boolean(product?.id && !String(product.id).startsWith("demo-") && !String(product.id).startsWith("new-"));
   const [form, setForm] = useState({
+    product_code: product?.product_code || "",
     name: product?.name || "",
     sku: product?.sku || "",
     category: product?.category || "Finished Goods",
@@ -262,7 +264,16 @@ export function ProductFormModal({ product, onClose, onSave }) {
           </button>
         </div>
         <div className="grid max-h-[60vh] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
-          <label className="sm:col-span-2">
+          <label>
+            <span className="text-xs font-semibold text-slate-500">Product Code</span>
+            <input
+              value={form.product_code}
+              onChange={(e) => set("product_code", e.target.value)}
+              placeholder="e.g. PRD001"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+          </label>
+          <label>
             <span className="text-xs font-semibold text-slate-500">Product Name *</span>
             <input required value={form.name} onChange={(e) => set("name", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           </label>
@@ -280,7 +291,17 @@ export function ProductFormModal({ product, onClose, onSave }) {
           </label>
           <label>
             <span className="text-xs font-semibold text-slate-500">Unit</span>
-            <input value={form.unit} onChange={(e) => set("unit", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <select
+              value={form.unit}
+              onChange={(e) => set("unit", e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+            >
+              {PRODUCT_UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             <span className="text-xs font-semibold text-slate-500">Purchase Price (₹)</span>
@@ -349,6 +370,17 @@ export function ProductFormModal({ product, onClose, onSave }) {
               }}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
+          </label>
+          <label className="sm:col-span-2">
+            <span className="text-xs font-semibold text-slate-500">Status</span>
+            <select
+              value={form.status}
+              onChange={(e) => set("status", e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </label>
           <label className="sm:col-span-2">
             <span className="text-xs font-semibold text-slate-500">Description</span>

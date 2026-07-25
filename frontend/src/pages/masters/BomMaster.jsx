@@ -177,22 +177,35 @@ export default function BomMaster() {
   };
 
   const handleSave = (form) => {
+    const costVal = form.total_cost != null && form.total_cost !== "" ? Number(form.total_cost) : 0;
     if (formBom?.id) {
-      setBoms((prev) => prev.map((b) => (b.id === formBom.id ? { ...b, ...form, last_updated: "Just now" } : b)));
+      setBoms((prev) =>
+        prev.map((b) =>
+          b.id === formBom.id
+            ? {
+                ...b,
+                ...form,
+                costing: { ...(b.costing || {}), total_cost: costVal },
+                last_updated: "Just now",
+              }
+            : b
+        )
+      );
       addToast("BOM updated");
     } else {
+      const bomNum = form.bom_number?.trim() || `BOM${String(boms.length + 1).padStart(3, "0")}`;
       const newBom = {
         id: `new-${Date.now()}`,
-        bom_number: `BOM${String(boms.length + 1).padStart(3, "0")}`,
+        bom_number: bomNum,
         ...form,
-        components: [],
-        costing: { material_cost: 0, labour_cost: 0, machine_cost: 0, electricity_cost: 0, overhead_cost: 0, total_cost: 0 },
-        status: "draft",
+        components: form.components || [],
+        costing: { material_cost: costVal, labour_cost: 0, machine_cost: 0, electricity_cost: 0, overhead_cost: 0, total_cost: costVal },
+        status: form.status || "active",
         created_by: "Current User",
         last_updated: "Just now",
         created_date: new Date().toISOString().slice(0, 10),
       };
-      setBoms((prev) => [...prev, newBom]);
+      setBoms((prev) => [newBom, ...prev]);
       addToast("BOM created");
     }
     setFormBom(null);

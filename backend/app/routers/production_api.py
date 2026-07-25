@@ -181,6 +181,53 @@ def production_plan_status(
     return success_response("Production plan status updated", _dump(order))
 
 
+@router.patch("/planning/{plan_id}/priority")
+def production_plan_priority(
+    plan_id: int,
+    priority: str = Query(...),
+    user_tenant: tuple[User, int] = Depends(require_tenant("production")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    from app.models.production import ProductionOrder
+    order = db.query(ProductionOrder).filter(ProductionOrder.id == plan_id, ProductionOrder.tenant_id == tenant_id).first()
+    if not order:
+        raise HTTPException(404, "Production plan not found")
+    order.priority = priority
+    db.commit()
+    return success_response("Production plan priority updated", _dump(order))
+
+
+@router.patch("/planning/{plan_id}/machine")
+def production_plan_machine(
+    plan_id: int,
+    machine_id: int = Query(...),
+    user_tenant: tuple[User, int] = Depends(require_tenant("production")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    from app.models.production import ProductionOrder, WorkOrder
+    order = db.query(ProductionOrder).filter(ProductionOrder.id == plan_id, ProductionOrder.tenant_id == tenant_id).first()
+    if not order:
+        raise HTTPException(404, "Production plan not found")
+    order.machine_id = machine_id
+    wo = db.query(WorkOrder).filter(WorkOrder.production_order_id == plan_id, WorkOrder.tenant_id == tenant_id).first()
+    if wo:
+        wo.machine_id = machine_id
+    else:
+        wo = WorkOrder(
+            tenant_id=tenant_id,
+            production_order_id=plan_id,
+            work_order_number=f"WO-{order.order_number}",
+            planned_quantity=order.planned_quantity,
+            machine_id=machine_id,
+            status="planned"
+        )
+        db.add(wo)
+    db.commit()
+    return success_response("Machine assigned to production plan", _dump(order))
+
+
 # ── Work Orders ────────────────────────────────────────────────────────────
 
 

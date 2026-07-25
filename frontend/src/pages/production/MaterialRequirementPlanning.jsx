@@ -124,7 +124,7 @@ export default function MaterialRequirementPlanning() {
   const columns = [
     { key: "sku", label: "SKU", render: (r) => <span className="font-mono text-xs">{r.sku}</span> },
     { key: "component_name", label: "Component" },
-    { key: "required_qty", label: "Required", render: (r) => `${r.required_qty} ${r.unit || ""}` },
+    { key: "required_qty", label: "Required", render: (r) => r.required_qty },
     { key: "available_qty", label: "Available", render: (r) => r.available_qty },
     {
       key: "shortage_qty",

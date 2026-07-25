@@ -24,6 +24,9 @@ import ProductionOrderDetailModal, {
 } from "../../components/production/ProductionOrderDetailModal";
 import { useToast } from "../../context/ToastContext";
 import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
+import { notifyManufacturingSpine, MANUFACTURING_EVENTS } from "../../utils/manufacturingEvents";
+import useAuth from "../../hooks/useAuth";
+import { isOperator } from "../../config/permissions";
 import {
   completeProductionOrder,
   getProductionOrderDetail,
@@ -32,6 +35,9 @@ import {
   getProductionPlanningSummary,
   pauseProductionOrder,
   startProductionOrder,
+  updateProductionOrderPriority,
+  updateProductionOrderMachine,
+  getMachines,
 } from "../../api/productionApi";
 import {
   DEPARTMENTS,
@@ -43,12 +49,14 @@ import {
   canComplete,
   canPause,
   canStart,
+  calculateProgressPct,
   computePlanningSummary,
   enrichApiOrder,
   priorityBadge,
   statusLabel,
 } from "../../data/productionPlanningMasterData";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
+import { printProductionOrder } from "../../utils/printUtils";
 
 function SummaryCard({ label, value, icon: Icon, color, onClick }) {
   return (
@@ -81,7 +89,7 @@ function PriorityPill({ priority }) {
 }
 
 function ProgressCell({ row }) {
-  const pct = row.progress_pct ?? 0;
+  const pct = calculateProgressPct(row);
   return (
     <div className="min-w-[100px]">
       <div className="mb-0.5 flex justify-between text-[10px] text-slate-500 print:text-black">
@@ -116,6 +124,7 @@ function formatDate(val) {
 }
 
 export default function ProductionPlanning() {
+  const { user } = useAuth();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
@@ -131,6 +140,7 @@ export default function ProductionPlanning() {
   const [completeSteps, setCompleteSteps] = useState([]);
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const [machines, setMachines] = useState([]);
   // State to track which single order is being printed
   const [printDetailOrder, setPrintDetailOrder] = useState(null);
 
@@ -139,23 +149,28 @@ export default function ProductionPlanning() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [oRes, sRes] = await Promise.all([
+      const [oRes, sRes, mRes] = await Promise.all([
         getProductionOrders().catch(() => ({ data: [] })),
         getProductionPlanningSummary().catch(() => ({ data: null })),
+        getMachines().catch(() => ({ data: [] })),
       ]);
-      const apiRows = oRes.data || [];
-      setOrders(apiRows.map((row, i) => enrichApiOrder(row, i)));
-      setApiSummary(sRes.data);
-    } catch {
-      setOrders([]);
+      setMachines(mRes?.data || []);
+      const rawList = Array.isArray(oRes.data) ? oRes.data.map(enrichApiOrder) : [];
+      const seen = new Set();
+      const list = rawList.filter((o) => {
+        const key = o.id || o.order_number || o.product_id || o.product_name;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setOrders(list);
+      setApiSummary(sRes.data || null);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
     const date_from = searchParams.get("date_from") ?? "";
@@ -220,11 +235,39 @@ export default function ProductionPlanning() {
     }
   };
 
-  const handlePriorityChange = (orderId, newPriority) => {
+  const handlePriorityChange = async (orderId, newPriority) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, priority: newPriority } : o)));
     addToast(`Priority updated to ${newPriority}`);
-    // Here you would typically also make an API call to save the change:
-    // await updateProductionOrderPriority(orderId, newPriority);
+    if (typeof orderId === "number") {
+      try {
+        await updateProductionOrderPriority(orderId, newPriority);
+        notifyManufacturingSpine(MANUFACTURING_EVENTS.WORK_ORDER_UPDATED, { orderId, priority: newPriority });
+      } catch {
+        addToast("Priority update failed on server", "error");
+      }
+    }
+  };
+
+  const handleMachineChange = async (orderId, machineId) => {
+    const numId = machineId ? Number(machineId) : null;
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (o.id === orderId) {
+          const selectedM = machines.find((m) => String(m.id) === String(machineId));
+          return { ...o, machine_id: numId, machine_name: selectedM ? (selectedM.name || selectedM.code) : "—" };
+        }
+        return o;
+      })
+    );
+    addToast(numId ? "Machine assigned" : "Machine unassigned");
+    if (typeof orderId === "number" && numId) {
+      try {
+        await updateProductionOrderMachine(orderId, numId);
+        notifyManufacturingSpine(MANUFACTURING_EVENTS.WORK_ORDER_UPDATED, { orderId, machineId: numId });
+      } catch {
+        addToast("Machine assignment failed on server", "error");
+      }
+    }
   };
 
   const handleStartClick = async (order) => {
@@ -401,8 +444,7 @@ export default function ProductionPlanning() {
   };
 
   const handleIndividualPrint = (order) => {
-    setPrintDetailOrder(order);
-    setTimeout(() => window.print(), 100);
+    printProductionOrder(order, user);
   };
 
   const columns = [
@@ -432,31 +474,13 @@ export default function ProductionPlanning() {
     {
       key: "priority",
       label: "Priority",
-      render: (r) => {
-        const p = priorityBadge(r.priority || "medium");
-        return (
-          <>
-            <div className="print:hidden">
-              <select
-                value={r.priority || "medium"}
-                onChange={(e) => handlePriorityChange(r.id, e.target.value)}
-                className={`inline-flex h-6 items-center rounded-full border-none pl-2 pr-6 text-xs font-semibold focus:ring-2 focus:ring-blue-500 cursor-pointer ${p.bg} ${p.text}`}
-              >
-                {PRIORITIES.map((priorityStr) => (
-                  <option key={priorityStr} value={priorityStr} className="bg-white text-slate-900 capitalize">
-                    {priorityStr}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="hidden print:block">
-              <PriorityPill priority={r.priority} />
-            </div>
-          </>
-        );
-      },
+      render: (r) => <PriorityPill priority={r.priority} />,
     },
-    { key: "machine_name", label: "Machine" },
+    {
+      key: "machine_name",
+      label: "Machine",
+      render: (r) => <span className="text-slate-700 font-medium">{r.machine_name || "—"}</span>,
+    },
     { key: "shift", label: "Shift" },
     {
       key: "start_date",
@@ -538,9 +562,11 @@ export default function ProductionPlanning() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link to="/production/create" className="ui-btn-primary">
-              <Plus className="h-4 w-4" /> New Production Order
-            </Link>
+            {!isOperator(user) && (
+              <Link to="/production/create" className="ui-btn-primary">
+                <Plus className="h-4 w-4" /> New Production Order
+              </Link>
+            )}
             <button type="button" onClick={handleImportFileClick} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               <Upload className="h-4 w-4" /> Import
             </button>
@@ -664,9 +690,16 @@ export default function ProductionPlanning() {
       {/* Single Item Print View */}
       {printDetailOrder && (
         <div className="hidden print:block p-8 bg-white text-black h-screen">
+          <div className="flex justify-between items-center mb-5 text-xs text-slate-600">
+            <div>
+              <span className="font-bold text-blue-600 text-xs tracking-wide">Production</span>
+              {(user?.full_name || user?.name) && <span className="ml-2.5 text-slate-600">Welcome, {user.full_name || user.name}</span>}
+            </div>
+            <span className="font-bold text-blue-600 text-xs tracking-wide">GNS Insights</span>
+          </div>
           <div className="border-b-2 border-slate-900 pb-4 mb-6">
             <h1 className="text-3xl font-bold uppercase tracking-wide">Production Order Details</h1>
-            <p className="text-sm text-slate-500 mt-1">Order # {printDetailOrder.order_number} | Printed on {new Date().toLocaleDateString()}</p>
+            <p className="text-sm text-slate-500 mt-1">Order # {printDetailOrder.order_number} | Printed on {new Date().toLocaleDateString()} {(user?.full_name || user?.name) ? `| By: ${user.full_name || user.name}` : ""}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-y-6 gap-x-12 mb-8">

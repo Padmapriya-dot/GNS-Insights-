@@ -28,9 +28,11 @@ class ProductionOrder(Base, TimestampMixin):
     )
     department: Mapped[str | None] = mapped_column(String(128))
     shift: Mapped[str | None] = mapped_column(String(64))
+    machine_id: Mapped[int | None] = mapped_column(ForeignKey("machines.id"), nullable=True)
 
     tenant = relationship("Tenant", back_populates="production_orders")
     product = relationship("Product", back_populates="production_orders")
+    machine = relationship("Machine")
     work_orders = relationship(
         "WorkOrder", back_populates="production_order", cascade="all, delete-orphan"
     )
@@ -59,6 +61,7 @@ class WorkOrder(Base, TimestampMixin):
     shift: Mapped[str | None] = mapped_column(String(64))
     department: Mapped[str | None] = mapped_column(String(128))
     supervisor: Mapped[str | None] = mapped_column(String(255))
+    operator_name: Mapped[str | None] = mapped_column(String(255))
     materials_issued: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     production_order = relationship("ProductionOrder", back_populates="work_orders")

@@ -7,6 +7,8 @@ import {
   WO_STATUS_COLORS,
   woStatusLabel,
 } from "../../data/workOrdersMasterData";
+import useAuth from "../../hooks/useAuth";
+import { printWorkOrder } from "../../utils/printUtils";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -97,6 +99,7 @@ export default function WorkOrderDetailModal({
   onStop,
   onComplete,
 }) {
+  const { user } = useAuth();
   const [tab, setTab] = useState("overview");
   if (!workOrder) return null;
 
@@ -311,7 +314,7 @@ export default function WorkOrderDetailModal({
           {onPause && <button type="button" onClick={() => onPause(w)} className="rounded-lg border px-3 py-1.5 text-xs font-semibold">⏸ Pause</button>}
           {onStop && <button type="button" onClick={() => onStop(w)} className="rounded-lg border px-3 py-1.5 text-xs font-semibold">⏹ Stop</button>}
           {onComplete && <button type="button" onClick={() => onComplete(w)} className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white">✅ Complete</button>}
-          <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold"><Printer className="h-3 w-3" /> Job Card</button>
+          <button type="button" onClick={() => printWorkOrder(w, user)} className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold"><Printer className="h-3 w-3" /> Job Card</button>
           <Link to="/production/batches" className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700">Batch Tracking</Link>
         </div>
       </div>

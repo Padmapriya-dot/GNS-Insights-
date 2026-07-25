@@ -14,6 +14,10 @@ class CustomerBase(BaseModel):
     gstin: str | None = None
     email: str | None = None
     phone: str | None = None
+    customer_code: str | None = None
+    credit_limit: float | None = 0.0
+    outstanding: float | None = 0.0
+    status: str = "active"
 
 
 class CustomerCreate(CustomerBase):

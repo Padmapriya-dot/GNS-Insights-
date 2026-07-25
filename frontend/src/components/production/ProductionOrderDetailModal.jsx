@@ -15,6 +15,8 @@ import {
   STATUS_COLORS,
   statusLabel,
 } from "../../data/productionPlanningMasterData";
+import useAuth from "../../hooks/useAuth";
+import { printProductionOrder } from "../../utils/printUtils";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -126,6 +128,7 @@ export function CompleteWorkflowModal({ order, steps, onClose }) {
 }
 
 export default function ProductionOrderDetailModal({ order, detail, onClose, onStart, onPause, onComplete }) {
+  const { user } = useAuth();
   const [tab, setTab] = useState("overview");
   if (!order) return null;
 
@@ -348,7 +351,7 @@ export default function ProductionOrderDetailModal({ order, detail, onClose, onS
           {onStart && <button type="button" onClick={() => onStart(o)} className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">▶ Start</button>}
           {onPause && <button type="button" onClick={() => onPause(o)} className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">⏸ Pause</button>}
           {onComplete && <button type="button" onClick={() => onComplete(o)} className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">✅ Complete</button>}
-          <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+          <button type="button" onClick={() => printProductionOrder(o, user)} className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
             <Printer className="h-3 w-3" /> Print Job Card
           </button>
           <Link to="/production/work-orders" className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">📄 Work Orders</Link>

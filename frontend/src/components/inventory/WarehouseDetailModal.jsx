@@ -292,44 +292,152 @@ export function WarehouseFormModal({ warehouse, onClose, onSave }) {
     manager_name: warehouse?.manager_name || "",
     manager_phone: warehouse?.manager_phone || "",
     capacity: warehouse?.capacity || "",
+    used_capacity: warehouse?.used_capacity ?? 0,
+    available_capacity: warehouse?.available_capacity ?? "",
     is_primary: warehouse?.is_primary || false,
     status: warehouse?.status || "active",
   });
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <h2 className="text-lg font-bold text-slate-900">{warehouse?.id ? "Edit Warehouse" : "Create Warehouse"}</h2>
         <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); onSave(form); }}>
-          {[
-            ["name", "Warehouse Name *", "text"],
-            ["code", "Warehouse Code *", "text"],
-            ["branch", "Branch", "text"],
-            ["plant", "Plant", "text"],
-            ["manager_name", "Manager", "text"],
-            ["manager_phone", "Contact Number", "text"],
-            ["capacity", "Capacity", "number"],
-            ["address", "Address", "text"],
-            ["city", "City", "text"],
-            ["state", "State", "text"],
-          ].map(([key, label, type]) => (
-            <label key={key} className="block text-sm font-medium text-slate-700">
-              {label}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-slate-700">
+              Warehouse Code *
               <input
-                type={type}
-                required={key === "name" || key === "code"}
-                value={form[key]}
-                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                type="text"
+                required
+                value={form.code}
+                onChange={(e) => set("code", e.target.value)}
                 className={inputClass}
               />
             </label>
-          ))}
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.is_primary} onChange={(e) => setForm((f) => ({ ...f, is_primary: e.target.checked }))} />
+            <label className="block text-sm font-medium text-slate-700">
+              Status
+              <select
+                value={form.status}
+                onChange={(e) => set("status", e.target.value)}
+                className={`${inputClass} bg-white`}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <label className="block sm:col-span-2 text-sm font-medium text-slate-700">
+              Warehouse Name *
+              <input
+                type="text"
+                required
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Branch
+              <input
+                type="text"
+                value={form.branch}
+                onChange={(e) => set("branch", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Plant
+              <input
+                type="text"
+                value={form.plant}
+                onChange={(e) => set("plant", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Manager
+              <input
+                type="text"
+                value={form.manager_name}
+                onChange={(e) => set("manager_name", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Contact Number
+              <input
+                type="text"
+                value={form.manager_phone}
+                onChange={(e) => set("manager_phone", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Capacity
+              <input
+                type="number"
+                min="0"
+                value={form.capacity}
+                onChange={(e) => set("capacity", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Used Capacity
+              <input
+                type="number"
+                min="0"
+                value={form.used_capacity}
+                onChange={(e) => set("used_capacity", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block sm:col-span-2 text-sm font-medium text-slate-700">
+              Available Capacity
+              <input
+                type="number"
+                min="0"
+                placeholder={form.capacity && form.used_capacity != null ? Math.max(0, form.capacity - form.used_capacity) : "Auto-calculated"}
+                value={form.available_capacity}
+                onChange={(e) => set("available_capacity", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              City
+              <input
+                type="text"
+                value={form.city}
+                onChange={(e) => set("city", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              State
+              <input
+                type="text"
+                value={form.state}
+                onChange={(e) => set("state", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="block sm:col-span-2 text-sm font-medium text-slate-700">
+              Address
+              <input
+                type="text"
+                value={form.address}
+                onChange={(e) => set("address", e.target.value)}
+                className={inputClass}
+              />
+            </label>
+          </div>
+          <label className="flex items-center gap-2 text-sm pt-1">
+            <input type="checkbox" checked={form.is_primary} onChange={(e) => set("is_primary", e.target.checked)} />
             Primary warehouse
           </label>
           <div className="flex gap-2 pt-2">
-            <button type="submit" className="ui-btn-primary">Save</button>
+            <button type="submit" className="ui-btn-primary">Save Warehouse</button>
             <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700">Cancel</button>
           </div>
         </form>

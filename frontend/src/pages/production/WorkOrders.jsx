@@ -16,6 +16,7 @@ import {
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
+import { calculateProgressPct } from "../../data/productionPlanningMasterData";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import WorkOrderDetailModal, {
   WorkOrderCompleteModal,
@@ -23,6 +24,8 @@ import WorkOrderDetailModal, {
 } from "../../components/production/WorkOrderDetailModal";
 import { useToast } from "../../context/ToastContext";
 import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
+import useAuth from "../../hooks/useAuth";
+import { isOperator } from "../../config/permissions";
 import {
   completeWorkOrder,
   getWorkOrderDetail,
@@ -55,6 +58,7 @@ import {
   notifyManufacturingSpine,
 } from "../../utils/manufacturingEvents";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
+import { printWorkOrder } from "../../utils/printUtils";
 
 function SummaryCard({ label, value, icon: Icon, color }) {
   return (
@@ -84,7 +88,7 @@ function PriorityPill({ priority }) {
 function ProgressCell({ row }) {
   const produced = row.produced_quantity ?? row.actual_quantity ?? 0;
   const planned = row.planned_quantity || 0;
-  const pct = row.progress_pct ?? (planned ? Math.round((produced / planned) * 100) : 0);
+  const pct = calculateProgressPct(row);
   return (
     <div className="min-w-[110px]">
       <div className="mb-0.5 flex justify-between text-[10px] text-slate-500">
@@ -129,6 +133,7 @@ function formatDate(val) {
 }
 
 export default function WorkOrders() {
+  const { user } = useAuth();
   const { addToast } = useToast();
   const [searchParams] = useSearchParams();
   const poFilter = searchParams.get("production_order_id");
@@ -330,6 +335,10 @@ export default function WorkOrders() {
     addToast("Complete requires a saved work order", "error");
   };
 
+  const handlePrintRow = (r) => {
+    printWorkOrder(r, user);
+  };
+
   const exportCols = [
     { key: "work_order_number", label: "WO No" },
     { key: "product_name", label: "Product" },
@@ -414,7 +423,7 @@ export default function WorkOrders() {
           {canWoPause(r.status) && <button type="button" onClick={() => handlePause(r)} className="font-semibold text-amber-700 hover:underline">⏸ Pause</button>}
           {canWoStop(r.status) && <button type="button" onClick={() => handleStop(r)} className="font-semibold text-slate-600 hover:underline">⏹ Stop</button>}
           {canWoComplete(r.status) && <button type="button" onClick={() => handleComplete(r)} className="font-semibold text-teal-700 hover:underline">✅ Complete</button>}
-          <button type="button" onClick={() => window.print()} className="font-semibold text-slate-500 hover:underline">🖨 Print</button>
+          <button type="button" onClick={() => handlePrintRow(r)} className="font-semibold text-slate-500 hover:underline">🖨 Print</button>
           <button type="button" onClick={() => exportToPdf([r], exportCols, `WO ${r.work_order_number}`, r.work_order_number)} className="font-semibold text-slate-500 hover:underline">📄 PDF</button>
         </div>
       ),
@@ -439,9 +448,11 @@ export default function WorkOrders() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/production/work-orders/create-quick" className="ui-btn-primary">
-            <Plus className="h-4 w-4" /> New Work Order
-          </Link>
+          {!isOperator(user) && (
+            <Link to="/production/work-orders/create-quick" className="ui-btn-primary">
+              <Plus className="h-4 w-4" /> New Work Order
+            </Link>
+          )}
           <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>

@@ -56,6 +56,15 @@ export const createProductionOrder = (payload) =>
 export const updateProductionOrderStatus = (orderId, status) =>
   apiPatch(`/api/production/planning/${orderId}/status`, null, { params: { status } });
 
+export const updateProductionOrderPriority = (orderId, priority) =>
+  apiPatch(`/api/production/planning/${orderId}/priority`, null, { params: { priority } });
+
+export const updateProductionOrderMachine = (orderId, machineId) =>
+  apiPatch(`/api/production/planning/${orderId}/machine`, null, { params: { machine_id: machineId } });
+
+export const getMachines = () =>
+  apiGet("/api/masters/machines").catch(() => apiGet("/api/production/allocation/machines"));
+
 export const getWorkOrders = (productionOrderId) =>
   apiGet("/api/production/work-orders", {
     params: productionOrderId ? { production_order_id: productionOrderId } : {},
@@ -116,8 +125,6 @@ export const getBatches = (_tenantId, workOrderId) =>
   });
 
 export const createBatch = (payload) => apiPost("/api/production/batches", payload);
-
-export const getMachines = () => apiGet("/api/masters/machines");
 
 export const getMachineSummary = () => apiGet("/api/masters/machines/summary");
 

@@ -60,7 +60,11 @@ def _order_context(db: Session, tenant_id: int, order: ProductionOrder) -> dict:
         ).all()
     )
     active_wo = work_orders[0] if work_orders else None
-    machine = db.get(Machine, active_wo.machine_id) if active_wo and active_wo.machine_id else None
+    machine = (
+        db.get(Machine, active_wo.machine_id)
+        if active_wo and active_wo.machine_id
+        else (db.get(Machine, order.machine_id) if getattr(order, "machine_id", None) else None)
+    )
 
     produced = sum(float(wo.actual_quantity or 0) for wo in work_orders)
     wo_ids = [w.id for w in work_orders]
@@ -85,7 +89,23 @@ def _order_context(db: Session, tenant_id: int, order: ProductionOrder) -> dict:
         )
     planned = float(order.planned_quantity or 0)
     balance = max(planned - produced, 0)
-    progress = round(produced / planned * 100, 1) if planned else 0
+    qty_progress = round(produced / planned * 100, 1) if planned else 0.0
+
+    now = datetime.now(timezone.utc)
+    time_progress = 0.0
+    if order.status in ("completed", "closed", "done"):
+        progress = 100.0
+    elif order.due_date and (order.due_date if order.due_date.tzinfo else order.due_date.replace(tzinfo=timezone.utc)) <= now:
+        progress = 100.0
+    else:
+        if order.start_date and order.due_date:
+            s_dt = order.start_date if order.start_date.tzinfo else order.start_date.replace(tzinfo=timezone.utc)
+            d_dt = order.due_date if order.due_date.tzinfo else order.due_date.replace(tzinfo=timezone.utc)
+            tot_sec = (d_dt - s_dt).total_seconds()
+            elap_sec = (now - s_dt).total_seconds()
+            if tot_sec > 0 and elap_sec > 0:
+                time_progress = round(min(100.0, (elap_sec / tot_sec) * 100.0), 1)
+        progress = round(max(qty_progress, time_progress), 1)
 
     batch = None
     if active_wo:

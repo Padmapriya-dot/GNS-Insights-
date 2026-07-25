@@ -244,12 +244,14 @@ export default function VendorManagement() {
       setVendors((prev) => prev.map((v) => (v.id === formVendor.id ? { ...v, ...form } : v)));
       addToast("Vendor updated locally");
     } else {
+      const venCode = form.vendor_code?.trim() || `VEN${String(vendors.length + 1).padStart(3, "0")}`;
       const newV = {
         ...enrichApiVendor({ id: `new-${Date.now()}`, ...payload }, vendors.length),
         id: `new-${Date.now()}`,
-        vendor_code: `VEN${String(vendors.length + 1).padStart(3, "0")}`,
-        outstanding: 0,
-        rating: 4.0,
+        ...form,
+        vendor_code: venCode,
+        outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
+        rating: form.rating != null && form.rating !== "" ? Number(form.rating) : 4.0,
         created_at: new Date().toISOString().slice(0, 10),
       };
       setVendors((prev) => [...prev, newV]);

@@ -23,6 +23,10 @@ class ProductionOrderBase(BaseModel):
     sales_order_number: str | None = None
     customer_name: str | None = None
     priority: str = "medium"
+    bom_version: str | None = "BOM v1.0"
+    department: str | None = "Production"
+    shift: str | None = "Shift A"
+    machine_id: int | None = None
 
 
 class ProductionOrderCreate(ProductionOrderBase):
@@ -75,6 +79,13 @@ class WorkOrderQuickCreate(BaseModel):
     product_id: int
     planned_quantity: float
     machine_id: int | None = None
+    work_order_number: str | None = None
+    customer_name: str | None = None
+    assigned_user_id: int | None = None
+    operator_name: str | None = None
+    priority: str | None = "medium"
+    planned_start: datetime | None = None
+    planned_end: datetime | None = None
 
 
 class BatchBase(BaseModel):
@@ -103,6 +114,15 @@ class MachineBase(BaseModel):
     status: str = "idle"
     location: str | None = None
     is_active: bool = True
+    department: str | None = None
+    production_line: str | None = None
+    assigned_operator: str | None = None
+    current_work_order: str | None = None
+    health_score: float | None = None
+    efficiency_pct: float | None = None
+    todays_output: float | None = None
+    temperature_c: float | None = None
+    last_maintenance_date: str | None = None
 
 
 class MachineCreate(MachineBase):

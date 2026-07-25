@@ -1,12 +1,30 @@
 /**
- * Lightweight pub/sub so manufacturing mutations can refresh related screens
- * (WO → inventory → dashboard) without a full page reload.
+ * Pub/sub + BroadcastChannel for real-time cross-role & cross-tab synchronization.
  */
 
 const listeners = new Set();
+const bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("gns_manufacturing_spine") : null;
+
+if (bc) {
+  bc.onmessage = (e) => {
+    if (e.data && e.data.type) {
+      listeners.forEach((fn) => {
+        try {
+          fn(e.data);
+        } catch {
+          /* ignore listener errors */
+        }
+      });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("gns:manufacturing", { detail: e.data }));
+      }
+    }
+  };
+}
 
 export const MANUFACTURING_EVENTS = {
   WORK_ORDER_UPDATED: "work_order_updated",
+  PLANNING_UPDATED: "planning_updated",
   MATERIALS_ISSUED: "materials_issued",
   WORK_ORDER_COMPLETED: "work_order_completed",
   MRP_RUN: "mrp_run",
@@ -31,7 +49,13 @@ export function emitManufacturingEvent(type, payload = {}) {
       /* ignore listener errors */
     }
   });
-  // Also notify same-tab consumers via a custom DOM event
+  if (bc) {
+    try {
+      bc.postMessage(event);
+    } catch {
+      /* ignore broadcast error */
+    }
+  }
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("gns:manufacturing", { detail: event }));
   }
@@ -42,7 +66,7 @@ export function subscribeManufacturingEvents(handler) {
   return () => listeners.delete(handler);
 }
 
-/** After WO complete / material issue — refresh spine modules. */
+/** After WO complete / material issue / priority change — refresh spine modules. */
 export function notifyManufacturingSpine(type, payload = {}) {
   emitManufacturingEvent(type, payload);
   emitManufacturingEvent(MANUFACTURING_EVENTS.INVENTORY_CHANGED, payload);

@@ -256,7 +256,7 @@ export default function Sidebar({ collapsed, onClose }) {
       </nav>
 
       {!collapsed && (
-        <div className="shrink-0 border-t border-white/10 px-3 py-4 space-y-4">
+        <div className="shrink-0 border-t border-white/10 px-3 py-3 space-y-2.5">
           <FactorySkyline />
           <p className="text-center text-[9px] font-medium uppercase tracking-wider text-slate-500">
             {t("nav.footerTagline")}

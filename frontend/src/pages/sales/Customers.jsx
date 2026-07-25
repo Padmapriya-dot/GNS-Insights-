@@ -194,11 +194,15 @@ export default function Customers() {
       setCustomers((prev) => prev.map((c) => (c.id === formCustomer.id ? { ...c, ...form, company: form.company, name: form.company } : c)));
       addToast("Customer updated");
     } else {
+      const cusCode = form.customer_code?.trim() || `CUS${String(customers.length + 1).padStart(3, "0")}`;
       const newC = {
         ...enrichApiCustomer({ id: `new-${Date.now()}`, name: form.company, ...payload }, customers.length),
         id: `new-${Date.now()}`,
-        customer_code: `CUS${String(customers.length + 1).padStart(3, "0")}`,
         ...form,
+        customer_code: cusCode,
+        credit_limit: form.credit_limit != null && form.credit_limit !== "" ? Number(form.credit_limit) : 500000,
+        outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
+        status: form.status || "active",
         company: form.company,
         name: form.company,
         created_at: new Date().toISOString().slice(0, 10),

@@ -271,3 +271,88 @@ textarea {
 .dark .sidebar-scroll::-webkit-scrollbar-thumb {
   background: #475569;
 }
+
+/* ========== Global Print Stylesheet ========== */
+@media print {
+  @page {
+    margin: 10mm;
+    size: auto;
+  }
+
+  /* Hide all interactive UI elements: buttons, form inputs, navigation, sidebars, headers, search bars, pagination, toasts */
+  button,
+  input,
+  select,
+  textarea,
+  nav,
+  aside,
+  header,
+  footer,
+  .no-print,
+  .print\:hidden,
+  [role="button"],
+  .toast,
+  .Toastify,
+  .data-table-pagination,
+  .sidebar,
+  .page-action-bar,
+  .filter-bar,
+  .actions-cell,
+  .action-buttons {
+    display: none !important;
+  }
+
+  /* Reset main container layout for clean full-page printing */
+  html,
+  body,
+  #root,
+  main,
+  .ui-page,
+  .ui-card {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    font-size: 11pt !important;
+    overflow: visible !important;
+  }
+
+  /* Clean full-width table formatting with borders */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  th,
+  td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 6px 10px !important;
+    text-align: left !important;
+    color: #000000 !important;
+    background: transparent !important;
+    font-size: 10pt !important;
+  }
+
+  th {
+    background-color: #f1f5f9 !important;
+    font-weight: 700 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide Action column and action buttons in tables */
+  th:last-child:has(button),
+  td:last-child:has(button) {
+    display: none !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+  }
+}

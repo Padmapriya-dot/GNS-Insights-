@@ -36,20 +36,50 @@ def list_products(db: Session, tenant_id: int) -> list[Product]:
 
 
 def create_production_order(db: Session, payload: ProductionOrderCreate) -> ProductionOrder:
+    order_num = payload.order_number.strip() if payload.order_number else ""
     stmt = select(ProductionOrder).where(
         ProductionOrder.tenant_id == payload.tenant_id,
-        ProductionOrder.order_number == payload.order_number.strip(),
+        (ProductionOrder.order_number == order_num) | (ProductionOrder.product_id == payload.product_id),
     )
     existing = db.scalars(stmt).first()
     if existing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Order number '{payload.order_number}' already exists.",
-        )
+        existing.planned_quantity = payload.planned_quantity
+        if payload.priority:
+            existing.priority = payload.priority
+        if payload.start_date:
+            existing.start_date = payload.start_date
+        if payload.due_date:
+            existing.due_date = payload.due_date
+        if payload.customer_name:
+            existing.customer_name = payload.customer_name
+        if payload.bom_version:
+            existing.bom_version = payload.bom_version
+        if payload.shift:
+            existing.shift = payload.shift
+        if payload.machine_id:
+            existing.machine_id = payload.machine_id
+            wo = db.scalars(select(WorkOrder).where(WorkOrder.production_order_id == existing.id, WorkOrder.tenant_id == existing.tenant_id)).first()
+            if wo:
+                wo.machine_id = payload.machine_id
+        db.commit()
+        db.refresh(existing)
+        return existing
+
     order = ProductionOrder(**payload.model_dump())
     db.add(order)
     db.commit()
     db.refresh(order)
+    if payload.machine_id:
+        wo = WorkOrder(
+            tenant_id=order.tenant_id,
+            production_order_id=order.id,
+            work_order_number=f"WO-{order.order_number}",
+            planned_quantity=order.planned_quantity,
+            machine_id=payload.machine_id,
+            status="planned"
+        )
+        db.add(wo)
+        db.commit()
     return order
 
 
@@ -137,26 +167,36 @@ def create_work_order(db: Session, payload: WorkOrderCreate, assigned_user_id: i
 
 
 def quick_create_work_order(db: Session, payload: WorkOrderQuickCreate) -> WorkOrder:
-    """Create production order + work order in one call (3-field UX)."""
+    """Create production order + work order in one call with full field support."""
     ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    order_number = f"PO-Q-{ts}"
+    wo_num = payload.work_order_number.strip() if payload.work_order_number else f"WO-{ts}"
+    po_num = f"PO-{wo_num}"
+
     prod_order = ProductionOrder(
         tenant_id=payload.tenant_id,
         product_id=payload.product_id,
-        order_number=order_number,
+        order_number=po_num,
         planned_quantity=payload.planned_quantity,
+        customer_name=payload.customer_name,
+        priority=payload.priority or "medium",
+        start_date=payload.planned_start,
+        due_date=payload.planned_end,
+        machine_id=payload.machine_id,
         status="planned",
     )
     db.add(prod_order)
     db.flush()
 
-    wo_number = f"WO-{ts}"
     work_order = WorkOrder(
         tenant_id=payload.tenant_id,
         production_order_id=prod_order.id,
         machine_id=payload.machine_id,
-        work_order_number=wo_number,
+        assigned_user_id=payload.assigned_user_id,
+        operator_name=payload.operator_name,
+        work_order_number=wo_num,
         planned_quantity=payload.planned_quantity,
+        planned_start=payload.planned_start,
+        planned_end=payload.planned_end,
         status="planned",
         plant_code=getattr(payload, "plant_code", None),
     )

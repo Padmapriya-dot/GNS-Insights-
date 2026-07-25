@@ -1,7 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { MoreVertical } from "lucide-react";
+import { AuthContext } from "../../context/AuthContext.jsx";
 
 export default function RowActionMenu({ rowId, openMenu, setOpenMenu, items = [] }) {
+  const auth = useContext(AuthContext);
+  const role = (auth?.user?.role ?? auth?.user?.role_name ?? "").toLowerCase();
+  const isOperator = role === "operator";
+
+  // Operators cannot take any row-level actions
+  if (isOperator) return null;
   const [localOpen, setLocalOpen] = useState(false);
   const menuRef = useRef(null);
 
