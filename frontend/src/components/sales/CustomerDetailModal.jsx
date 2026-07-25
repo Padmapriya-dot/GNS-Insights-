@@ -9,6 +9,7 @@ import {
   Truck,
   X,
 } from "lucide-react";
+import { CUSTOMER_TYPES, SALES_EXECUTIVES } from "../../data/customersMasterData";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -231,6 +232,7 @@ export function CustomerFormModal({ customer, onClose, onSave }) {
     city: customer?.city || "",
     state: customer?.state || "",
     customer_type: customer?.customer_type || "Corporate",
+    sales_executive: customer?.sales_executive || SALES_EXECUTIVES[0] || "Ravi Kumar",
     credit_limit: customer?.credit_limit ?? 500000,
     outstanding: customer?.outstanding ?? 0,
     status: customer?.status || "active",
@@ -264,6 +266,22 @@ export function CustomerFormModal({ customer, onClose, onSave }) {
           <label>
             <span className="text-xs font-semibold text-slate-500">Contact Person</span>
             <input value={form.contact_person} onChange={(e) => set("contact_person", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </label>
+          <label>
+            <span className="text-xs font-semibold text-slate-500">Customer Type</span>
+            <select value={form.customer_type} onChange={(e) => set("customer_type", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              {CUSTOMER_TYPES.map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className="text-xs font-semibold text-slate-500">Sales Executive</span>
+            <select value={form.sales_executive} onChange={(e) => set("sales_executive", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              {SALES_EXECUTIVES.map((exec) => (
+                <option key={exec} value={exec}>{exec}</option>
+              ))}
+            </select>
           </label>
           <label>
             <span className="text-xs font-semibold text-slate-500">Phone</span>

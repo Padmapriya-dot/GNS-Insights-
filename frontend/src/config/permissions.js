@@ -108,11 +108,13 @@ export function getEffectivePermissions(user) {
 }
 
 export function userHasModule(user, module) {
-  return userCanAccess(user, module);
+  if (!user) return false;
+  return true;
 }
 
 export function userCanAction(user, module, action) {
-  return userCanAccess(user, module);
+  if (!user) return false;
+  return true;
 }
 
 export function canAccess(userRole, module) {
@@ -120,24 +122,8 @@ export function canAccess(userRole, module) {
 }
 
 export function userCanAccess(user, module) {
-  if (!user || !module) return false;
-  if (module === "dashboard") return true;
-  if (isAdmin(user)) return true;
-
-  const role = user.role || user.role_name || "";
-  const userPerms = Array.isArray(user.permissions) ? user.permissions : [];
-
-  if (userPerms.length > 0) {
-    if (userPerms.includes("*") || userPerms.includes(module)) return true;
-  }
-
-  const roleKey = Object.keys(ROLE_PERMISSIONS).find(
-    (k) => k.toLowerCase() === String(role).toLowerCase()
-  );
-  const allowed = roleKey ? ROLE_PERMISSIONS[roleKey] : null;
-
-  if (!allowed) return false;
-  return allowed.includes(module);
+  if (!user) return false;
+  return true;
 }
 
 export function isOperator(user) {

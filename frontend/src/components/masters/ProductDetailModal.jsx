@@ -229,26 +229,23 @@ export function ProductFormModal({ product, onClose, onSave }) {
     status: product?.status || "active",
   });
 
-  const normalizePositiveInt = (value) => {
-    const cleaned = String(value).replace(/[^0-9]/g, "");
-    if (!cleaned) return "";
-    const parsed = parseInt(cleaned, 10);
-    return parsed > 0 ? parsed : "";
+  const isValidNonNegative = (value) => {
+    if (value === "" || value === null || value === undefined) return true;
+    const num = Number(value);
+    return !isNaN(num) && num >= 0;
   };
-
-  const isPositiveInt = (value) => /^[1-9][0-9]*$/.test(String(value));
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (
-      !isPositiveInt(form.purchase_price) ||
-      !isPositiveInt(form.selling_price) ||
-      !isPositiveInt(form.min_stock) ||
-      !isPositiveInt(form.current_stock)
+      !isValidNonNegative(form.purchase_price) ||
+      !isValidNonNegative(form.selling_price) ||
+      !isValidNonNegative(form.min_stock) ||
+      !isValidNonNegative(form.current_stock)
     ) {
-      window.alert("Please enter positive whole numbers from 1 for Purchase Price, Selling Price, Min Stock, and Current Stock.");
+      window.alert("Please enter valid non-negative numbers for Purchase Price, Selling Price, Min Stock, and Current Stock.");
       return;
     }
     onSave(form);
@@ -306,68 +303,46 @@ export function ProductFormModal({ product, onClose, onSave }) {
           <label>
             <span className="text-xs font-semibold text-slate-500">Purchase Price (₹)</span>
             <input
-              required
-              type="text"
-              inputMode="numeric"
-              pattern="[1-9][0-9]*"
+              type="number"
+              min="0"
+              step="any"
               value={form.purchase_price}
-              onChange={(e) => set("purchase_price", normalizePositiveInt(e.target.value))}
-              onPaste={(e) => {
-                const pasted = e.clipboardData.getData("text").replace(/[^0-9]/g, "");
-                e.preventDefault();
-                set("purchase_price", normalizePositiveInt(pasted));
-              }}
+              onChange={(e) => set("purchase_price", e.target.value)}
+              placeholder="0"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
           </label>
           <label>
             <span className="text-xs font-semibold text-slate-500">Selling Price (₹)</span>
             <input
-              required
-              type="text"
-              inputMode="numeric"
-              pattern="[1-9][0-9]*"
+              type="number"
+              min="0"
+              step="any"
               value={form.selling_price}
-              onChange={(e) => set("selling_price", normalizePositiveInt(e.target.value))}
-              onPaste={(e) => {
-                const pasted = e.clipboardData.getData("text").replace(/[^0-9]/g, "");
-                e.preventDefault();
-                set("selling_price", normalizePositiveInt(pasted));
-              }}
+              onChange={(e) => set("selling_price", e.target.value)}
+              placeholder="0"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
           </label>
           <label>
             <span className="text-xs font-semibold text-slate-500">Min Stock</span>
             <input
-              required
-              type="text"
-              inputMode="numeric"
-              pattern="[1-9][0-9]*"
+              type="number"
+              min="0"
               value={form.min_stock}
-              onChange={(e) => set("min_stock", normalizePositiveInt(e.target.value))}
-              onPaste={(e) => {
-                const pasted = e.clipboardData.getData("text").replace(/[^0-9]/g, "");
-                e.preventDefault();
-                set("min_stock", normalizePositiveInt(pasted));
-              }}
+              onChange={(e) => set("min_stock", e.target.value)}
+              placeholder="0"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
           </label>
           <label>
             <span className="text-xs font-semibold text-slate-500">Current Stock</span>
             <input
-              required
-              type="text"
-              inputMode="numeric"
-              pattern="[1-9][0-9]*"
+              type="number"
+              min="0"
               value={form.current_stock}
-              onChange={(e) => set("current_stock", normalizePositiveInt(e.target.value))}
-              onPaste={(e) => {
-                const pasted = e.clipboardData.getData("text").replace(/[^0-9]/g, "");
-                e.preventDefault();
-                set("current_stock", normalizePositiveInt(pasted));
-              }}
+              onChange={(e) => set("current_stock", e.target.value)}
+              placeholder="0"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
           </label>

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Mail, Phone, X, PhoneCall, Calendar, MessageSquare, Plus } from "lucide-react";
 
 import { formatInr, priorityColor, statusColor } from "../../data/salesMasterData";
+import { getLeadActivities, createLeadActivity } from "../../api/salesApi";
 
 const TABS = ["Overview", "Contacts", "Notes", "Timeline", "Activities"];
 
@@ -18,10 +19,19 @@ export default function LeadDetailModal({ lead, onClose, onStatusChange }) {
   });
 
   useEffect(() => {
-    if (lead?.lead_id) {
-      const stored = localStorage.getItem(`smrt_lead_act_${lead.lead_id}`);
+    if (lead) {
+      const keyId = lead.lead_id || lead.id || lead.customer_name || "lead_default";
+      const stored = localStorage.getItem(`smrt_lead_act_${keyId}`);
       if (stored) {
         setActivities(JSON.parse(stored));
+      } else if (typeof lead.id === "number") {
+        getLeadActivities(lead.id)
+          .then((res) => {
+            const list = Array.isArray(res?.data) ? res.data : [];
+            setActivities(list);
+            localStorage.setItem(`smrt_lead_act_${keyId}`, JSON.stringify(list));
+          })
+          .catch(() => setActivities([]));
       } else {
         setActivities([]);
       }
@@ -30,7 +40,7 @@ export default function LeadDetailModal({ lead, onClose, onStatusChange }) {
 
   if (!lead) return null;
 
-  const handleAddActivity = (e) => {
+  const handleAddActivity = async (e) => {
     e.preventDefault();
     if (!actForm.subject) return;
 
@@ -40,11 +50,17 @@ export default function LeadDetailModal({ lead, onClose, onStatusChange }) {
       date: new Date().toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" }),
     };
 
+    const keyId = lead?.lead_id || lead?.id || lead?.customer_name || "lead_default";
     const updated = [newAct, ...activities];
     setActivities(updated);
-    if (lead?.lead_id) {
-      localStorage.setItem(`smrt_lead_act_${lead.lead_id}`, JSON.stringify(updated));
+    localStorage.setItem(`smrt_lead_act_${keyId}`, JSON.stringify(updated));
+
+    if (typeof lead.id === "number") {
+      try {
+        await createLeadActivity(lead.id, newAct).catch(() => null);
+      } catch {}
     }
+
     setActForm({
       type: "Call",
       subject: "",
@@ -230,7 +246,18 @@ export default function LeadDetailModal({ lead, onClose, onStatusChange }) {
               {["new", "contacted", "qualified", "converted", "lost"].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           )}
-          <Link to="/sales/quotations" className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 shadow-xs transition-all">Create Quotation</Link>
+          {["qualified", "converted", "won"].includes(String(lead.status || "").toLowerCase()) ? (
+            <Link
+              to={`/sales/quotations/create?customer_name=${encodeURIComponent(lead.customer_name || lead.company || "")}`}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-xs transition-all"
+            >
+              Create Quotation
+            </Link>
+          ) : (
+            <span className="rounded-xl bg-slate-100 border border-slate-200/80 px-4 py-2 text-xs font-semibold text-slate-400 cursor-not-allowed">
+              Quotation Locked (Qualify Lead First)
+            </span>
+          )}
         </div>
       </div>
     </div>

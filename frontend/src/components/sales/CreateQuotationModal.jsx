@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { X, Plus, Trash2, Save, Calculator } from "lucide-react";
 import { createQuotation } from "../../api/salesApi";
 import { useToast } from "../../context/ToastContext";
@@ -9,6 +10,7 @@ const inputClass =
 
 export default function CreateQuotationModal({ isOpen, onClose, onSuccess }) {
   const { addToast } = useToast();
+  const [searchParams] = useSearchParams();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,6 +28,15 @@ export default function CreateQuotationModal({ isOpen, onClose, onSuccess }) {
   const [items, setItems] = useState([
     { description: "Standard Steel Components / Finished Product", quantity: 10, unit_price: 1500 },
   ]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const custParam = searchParams.get("customer_name");
+      if (custParam) {
+        setForm((prev) => ({ ...prev, customer_name: custParam }));
+      }
+    }
+  }, [isOpen, searchParams]);
 
   if (!isOpen) return null;
 
@@ -90,6 +101,19 @@ export default function CreateQuotationModal({ isOpen, onClose, onSuccess }) {
       const stored = localStorage.getItem("smrt_quotations");
       const currentQuotes = stored ? JSON.parse(stored) : [];
       localStorage.setItem("smrt_quotations", JSON.stringify([payload, ...currentQuotes]));
+
+      // 3. Automatically upgrade lead status to "qualified" when quotation is issued
+      const storedLeads = localStorage.getItem("smrt_leads");
+      if (storedLeads) {
+        const localLeads = JSON.parse(storedLeads);
+        const updatedLeads = localLeads.map((l) =>
+          l.customer_name?.toLowerCase() === form.customer_name?.toLowerCase() ||
+          l.company?.toLowerCase() === form.customer_name?.toLowerCase()
+            ? { ...l, status: "qualified" }
+            : l
+        );
+        localStorage.setItem("smrt_leads", JSON.stringify(updatedLeads));
+      }
 
       if (addToast) addToast("New Quotation created successfully!", "success");
       if (onSuccess) onSuccess(payload);
