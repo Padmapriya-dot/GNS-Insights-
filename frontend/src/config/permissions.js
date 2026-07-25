@@ -21,10 +21,11 @@ export const MODULES = [
 /** Static fallback matrix — API permissions take precedence when present. */
 export const ROLE_PERMISSIONS = {
   Admin: MODULES,
-  "Production Manager": MODULES,
-  "Store Manager": MODULES,
-  "HR Manager": MODULES,
-  Accountant: MODULES,
+  "Super Admin": MODULES,
+  Accountant: ["dashboard", "sales", "accounts", "alerts", "documents", "analytics"],
+  "Production Manager": ["dashboard", "masters", "production", "inventory", "quality", "maintenance", "analytics", "documents", "factoryMonitor", "iot", "alerts"],
+  "Store Manager": ["dashboard", "inventory", "procurement", "masters", "documents", "alerts"],
+  "HR Manager": ["dashboard", "hr", "attendance", "documents", "alerts", "settings"],
   Operator: ["dashboard", "production", "factoryMonitor", "attendance", "documents", "alerts"],
 };
 
@@ -92,27 +93,51 @@ export function getModuleForPath(pathname) {
 }
 
 export function isAdmin(user) {
-  return true;
+  if (!user) return false;
+  const roleStr = String(user.role || user.role_name || "").toLowerCase();
+  return roleStr === "admin" || roleStr === "super admin" || roleStr.includes("admin");
 }
 
 export function getEffectivePermissions(user) {
-  return [...MODULES, "*"];
+  if (isAdmin(user)) return [...MODULES, "*"];
+  const role = user.role || user.role_name || "Admin";
+  const roleKey = Object.keys(ROLE_PERMISSIONS).find(
+    (k) => k.toLowerCase() === String(role).toLowerCase()
+  );
+  return roleKey ? ROLE_PERMISSIONS[roleKey] : MODULES;
 }
 
 export function userHasModule(user, module) {
-  return true;
+  return userCanAccess(user, module);
 }
 
 export function userCanAction(user, module, action) {
-  return true;
+  return userCanAccess(user, module);
 }
 
 export function canAccess(userRole, module) {
-  return true;
+  return userCanAccess({ role: userRole }, module);
 }
 
 export function userCanAccess(user, module) {
-  return true;
+  if (!user || !module) return false;
+  if (module === "dashboard") return true;
+  if (isAdmin(user)) return true;
+
+  const role = user.role || user.role_name || "";
+  const userPerms = Array.isArray(user.permissions) ? user.permissions : [];
+
+  if (userPerms.length > 0) {
+    if (userPerms.includes("*") || userPerms.includes(module)) return true;
+  }
+
+  const roleKey = Object.keys(ROLE_PERMISSIONS).find(
+    (k) => k.toLowerCase() === String(role).toLowerCase()
+  );
+  const allowed = roleKey ? ROLE_PERMISSIONS[roleKey] : null;
+
+  if (!allowed) return false;
+  return allowed.includes(module);
 }
 
 export function isOperator(user) {

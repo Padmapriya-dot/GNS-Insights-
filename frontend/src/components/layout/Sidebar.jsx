@@ -132,8 +132,20 @@ export default function Sidebar({ collapsed, onClose }) {
   }, [isAuthenticated, user?.id, user?.role, user?.role_id]);
 
   const visibleNav = useMemo(() => {
-    if (apiNav && apiNav.length) return apiNav;
-    return filterStaticNav(user);
+    const rawNav = apiNav && apiNav.length ? apiNav : SIDEBAR_NAV;
+    return (rawNav || [])
+      .map((section) => {
+        const secMod = section.module || section.key;
+        if (section.to) {
+          return userCanAccess(user, secMod) ? section : null;
+        }
+        const children = (section.children || []).filter((c) =>
+          userCanAccess(user, c.module || secMod)
+        );
+        if (children.length === 0) return null;
+        return { ...section, children };
+      })
+      .filter(Boolean);
   }, [apiNav, user]);
 
   const [expanded, setExpanded] = useState(() =>

@@ -433,14 +433,17 @@ def on_startup():
                 conn.execute(text(ddl))
         except Exception:
             pass
-<<<<<<< HEAD
     _task_columns = [
         "ALTER TABLE tasks ADD COLUMN start_date DATE",
         "ALTER TABLE tasks ADD COLUMN assigned_to_name VARCHAR(255)",
         "ALTER TABLE tasks ADD COLUMN module VARCHAR(128)",
     ]
     for ddl in _task_columns:
-=======
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
     _company_settings_columns = [
         "ALTER TABLE company_settings ADD COLUMN landmark VARCHAR(255)",
         "ALTER TABLE company_settings ADD COLUMN country VARCHAR(128)",
@@ -450,7 +453,6 @@ def on_startup():
         "ALTER TABLE company_settings ADD COLUMN mfa_authenticator BOOLEAN DEFAULT 0",
     ]
     for ddl in _company_settings_columns:
->>>>>>> 290b8fd0132d468b6e07c2a7754d0ce5afe18fae
         try:
             with engine.begin() as conn:
                 conn.execute(text(ddl))
