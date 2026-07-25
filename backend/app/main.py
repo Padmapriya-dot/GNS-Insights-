@@ -171,33 +171,49 @@ async def request_context_middleware(request: Request, call_next):
     return response
 
 
+from fastapi.encoders import jsonable_encoder
+
+
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    detail = jsonable_encoder(exc.detail)
     if request.url.path.startswith("/api/"):
         from app.utils.api_response import error_response
 
         return JSONResponse(
             status_code=exc.status_code,
-            content=error_response(str(exc.detail), errors=[str(exc.detail)]),
+            content=error_response(str(detail), errors=[str(detail)]),
         )
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail, "request_id": getattr(request.state, "request_id", None)},
+        content={"detail": detail, "request_id": getattr(request.state, "request_id", None)},
     )
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    raw_errors = jsonable_encoder(exc.errors())
+    formatted_errors = []
+    for e in raw_errors:
+        loc_parts = [str(x) for x in e.get("loc", []) if str(x) not in ("body", "query", "path")]
+        field = " -> ".join(loc_parts)
+        msg = e.get("msg", "Invalid value")
+        if field:
+            formatted_errors.append(f"{field}: {msg}")
+        else:
+            formatted_errors.append(msg)
+
+    first_detail = formatted_errors[0] if formatted_errors else "Validation error"
+
     if request.url.path.startswith("/api/"):
         from app.utils.api_response import error_response
 
-        errors = [f"{e['loc']}: {e['msg']}" for e in exc.errors()]
-        return JSONResponse(status_code=422, content=error_response("Validation failed", errors=errors))
+        return JSONResponse(status_code=422, content=error_response(first_detail, errors=formatted_errors))
     return JSONResponse(
         status_code=422,
         content={
-            "detail": "Validation error",
-            "errors": exc.errors(),
+            "detail": first_detail,
+            "errors": formatted_errors,
             "request_id": getattr(request.state, "request_id", None),
         },
     )
@@ -433,14 +449,18 @@ def on_startup():
                 conn.execute(text(ddl))
         except Exception:
             pass
-<<<<<<< HEAD
     _task_columns = [
         "ALTER TABLE tasks ADD COLUMN start_date DATE",
         "ALTER TABLE tasks ADD COLUMN assigned_to_name VARCHAR(255)",
         "ALTER TABLE tasks ADD COLUMN module VARCHAR(128)",
     ]
     for ddl in _task_columns:
-=======
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
+
     _company_settings_columns = [
         "ALTER TABLE company_settings ADD COLUMN landmark VARCHAR(255)",
         "ALTER TABLE company_settings ADD COLUMN country VARCHAR(128)",
@@ -450,7 +470,6 @@ def on_startup():
         "ALTER TABLE company_settings ADD COLUMN mfa_authenticator BOOLEAN DEFAULT 0",
     ]
     for ddl in _company_settings_columns:
->>>>>>> 290b8fd0132d468b6e07c2a7754d0ce5afe18fae
         try:
             with engine.begin() as conn:
                 conn.execute(text(ddl))

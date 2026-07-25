@@ -40,7 +40,7 @@ export const ROUTE_MODULE_OVERRIDES = {
   "/settings/permissions": "settings",
   "/settings/alerts": "dashboard",
   "/settings/subscription": "settings",
-  "/masters/departments": "hr",
+  "/masters/departments": "masters",
   "/masters/products": "masters",
   "/masters/bom": "masters",
   "/production/schedule": "production",

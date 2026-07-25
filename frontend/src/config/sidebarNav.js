@@ -35,11 +35,11 @@ export const SIDEBAR_NAV = [
     children: [
       { labelKey: "erpNav.products", to: "/masters/products", module: "masters" },
       { labelKey: "erpNav.bom", to: "/masters/bom", module: "masters" },
-      { labelKey: "erpNav.customers", to: "/sales/customers", module: "sales" },
-      { labelKey: "erpNav.vendors", to: "/procurement/vendors", module: "procurement" },
-      { labelKey: "erpNav.warehouses", to: "/inventory/warehouses", module: "inventory" },
-      { labelKey: "erpNav.machines", to: "/production/machines", module: "production" },
-      { labelKey: "erpNav.departments", to: "/masters/departments", module: "hr" },
+      { labelKey: "erpNav.customers", to: "/sales/customers", module: "masters" },
+      { labelKey: "erpNav.vendors", to: "/procurement/vendors", module: "masters" },
+      { labelKey: "erpNav.warehouses", to: "/inventory/warehouses", module: "masters" },
+      { labelKey: "erpNav.machines", to: "/production/machines", module: "masters" },
+      { labelKey: "erpNav.departments", to: "/masters/departments", module: "masters" },
     ],
   },
   {

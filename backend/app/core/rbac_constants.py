@@ -143,11 +143,11 @@ SIDEBAR_MENU_CATALOG = [
         "children": [
             {"label": "Products", "path": "/masters/products", "module": "masters"},
             {"label": "BOM", "path": "/masters/bom", "module": "masters"},
-            {"label": "Customers", "path": "/sales/customers", "module": "sales"},
-            {"label": "Vendors", "path": "/procurement/vendors", "module": "procurement"},
-            {"label": "Warehouses", "path": "/inventory/warehouses", "module": "inventory"},
-            {"label": "Machines", "path": "/production/machines", "module": "production"},
-            {"label": "Departments", "path": "/masters/departments", "module": "hr"},
+            {"label": "Customers", "path": "/sales/customers", "module": "masters"},
+            {"label": "Vendors", "path": "/procurement/vendors", "module": "masters"},
+            {"label": "Warehouses", "path": "/inventory/warehouses", "module": "masters"},
+            {"label": "Machines", "path": "/production/machines", "module": "masters"},
+            {"label": "Departments", "path": "/masters/departments", "module": "masters"},
         ],
     },
     {
