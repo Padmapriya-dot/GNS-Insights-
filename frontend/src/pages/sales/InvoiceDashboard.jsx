@@ -5,7 +5,8 @@ import { FileText, IndianRupee, Plus, RefreshCw } from "lucide-react";
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
-import TaxInvoiceCopy from "../../components/sales/TaxInvoiceCopy";
+import Invoice from "../../components/sales/Invoice";
+import RecordPaymentModal from "../../components/finance/RecordPaymentModal";
 import { useToast } from "../../context/ToastContext";
 import { getInvoiceDetail, getInvoiceSummary, getInvoicesEnriched } from "../../api/salesApi";
 import { useCompanySettings } from "../../hooks/useCompanySettings";
@@ -35,9 +36,7 @@ const emptySummary = {
   total_invoices: 0,
   draft: 0,
   paid: 0,
-  pending: 0,
-  overdue: 0,
-  revenue: 0,
+  issued: 0,
 };
 
 export default function InvoiceDashboard() {
@@ -50,6 +49,7 @@ export default function InvoiceDashboard() {
   const [detail, setDetail] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [view, setView] = useState("table");
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,29 +62,33 @@ export default function InvoiceDashboard() {
       const localBills = storedBills ? JSON.parse(storedBills) : [];
       const storedInvoices = localStorage.getItem("smrt_invoices");
       const localInvoices = storedInvoices ? JSON.parse(storedInvoices) : [];
-      const allLocal = [...localBills, ...localInvoices].map((item, idx) => ({
-        ...item,
-        id: item.id || item.invoice_number || `bill-local-${idx}-${Date.now()}`,
-      }));
 
-      let apiRows = [];
+      const invMap = new Map();
+
+      // API rows first (lowest priority)
       if (listRes.status === "fulfilled" && listRes.value?.data) {
-        apiRows = listRes.value.data.map((item, idx) => ({
-          ...item,
-          id: item.id || item.invoice_number || `inv-api-${idx}`,
-        }));
+        listRes.value.data.forEach((item, idx) => {
+          const key = String(item.invoice_number || item.id || `api-${idx}`);
+          invMap.set(key, { ...item, id: item.id || item.invoice_number || `inv-api-${idx}` });
+        });
       }
 
-      const mergedRows = [...allLocal, ...apiRows];
+      // Local records overwrite API (local is always most up-to-date)
+      [...localBills, ...localInvoices].forEach((item, idx) => {
+        const key = String(item.invoice_number || item.bill_number || item.id || `local-${idx}`);
+        invMap.set(key, { ...item, id: item.id || item.invoice_number || `bill-local-${idx}` });
+      });
+
+      const mergedRows = Array.from(invMap.values());
       setRows(mergedRows);
 
       const total_invoices = mergedRows.length;
-      const draft = mergedRows.filter((r) => String(r.status || "").toLowerCase() === "draft").length;
-      const paid = mergedRows.filter((r) => String(r.status || "").toLowerCase() === "paid").length;
-      const pending = mergedRows.filter((r) => ["pending", "unpaid", "sent", "approved"].includes(String(r.status || "").toLowerCase())).length;
+      const draft   = mergedRows.filter((r) => String(r.status || "").toLowerCase() === "draft").length;
+      const paid    = mergedRows.filter((r) => String(r.status || "").toLowerCase() === "paid").length;
+      const issued  = mergedRows.filter((r) => ["issued", "sent", "approved"].includes(String(r.status || "").toLowerCase())).length;
       const revenue = mergedRows.reduce((acc, r) => acc + (Number(r.grand_total ?? r.amount ?? r.total_amount) || 0), 0);
 
-      setSummary({ total_invoices, draft, paid, pending, overdue: 0, revenue });
+      setSummary({ total_invoices, draft, paid, issued, overdue: 0, revenue });
     } catch {
       const storedBills = localStorage.getItem("smrt_sales_bills");
       const localBills = storedBills ? JSON.parse(storedBills) : [];
@@ -176,27 +180,42 @@ export default function InvoiceDashboard() {
   const columns = [
     {
       key: "invoice_number",
-      label: "Invoice No",
+      label: "Invoice / Bill No",
       render: (r) => (
-        <span className="font-medium text-[#2563EB]">{r.invoice_number}</span>
+        <span className="font-medium text-[#2563EB]">
+          {r.invoice_number || r.bill_number || "—"}
+        </span>
       ),
     },
     { key: "customer_name", label: "Customer" },
-    { key: "sales_order_number", label: "Sales Order" },
-    { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
-    { key: "gst_amount", label: "GST", render: (r) => formatInr(r.gst_amount) },
+    {
+      key: "issue_date",
+      label: "Issue Date",
+      render: (r) => String(r.issue_date || "").slice(0, 10) || "—",
+    },
     {
       key: "due_date",
       label: "Due Date",
       render: (r) => String(r.due_date || "").slice(0, 10) || "—",
     },
     {
+      key: "items",
+      label: "Description",
+      render: (r) => {
+        const first = r.items?.[0]?.item_description;
+        return first ? (r.items.length > 1 ? `${first} +${r.items.length - 1} more` : first) : "—";
+      },
+    },
+    {
+      key: "grand_total",
+      label: "Amount",
+      render: (r) => formatInr(r.grand_total ?? r.amount ?? r.total_amount),
+    },
+    {
       key: "status",
       label: "Status",
       render: (r) => (
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}
-        >
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>
           {r.status}
         </span>
       ),
@@ -208,10 +227,7 @@ export default function InvoiceDashboard() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => {
-              setSelected(r.id);
-              setView("copy");
-            }}
+            onClick={() => { setSelected(r.id); setView("copy"); }}
             className="rounded bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#2563EB] hover:bg-blue-100 transition-colors"
           >
             Generate Invoice
@@ -249,7 +265,7 @@ export default function InvoiceDashboard() {
         <KpiCard label="Total Invoices" value={summary.total_invoices} icon={FileText} color="bg-blue-600" />
         <KpiCard label="Draft" value={summary.draft} icon={FileText} color="bg-slate-500" />
         <KpiCard label="Paid" value={summary.paid} icon={FileText} color="bg-green-600" />
-        <KpiCard label="Pending" value={summary.pending} icon={FileText} color="bg-amber-500" />
+        <KpiCard label="Issued" value={summary.issued} icon={FileText} color="bg-indigo-500" />
         <KpiCard label="Revenue" value={formatInr(summary.revenue)} icon={IndianRupee} color="bg-emerald-600" />
       </div>
 
@@ -279,7 +295,7 @@ export default function InvoiceDashboard() {
               className="rounded-lg border px-3 py-2 text-sm"
             >
               <option value="">All Status</option>
-              {["draft", "sent", "paid", "partial"].map((s) => (
+              {["draft", "paid", "issued"].map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
@@ -306,9 +322,9 @@ export default function InvoiceDashboard() {
                 >
                   <p className="font-semibold text-slate-800">{inv.customer_name}</p>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    <span className="font-medium text-[#2563EB]">{inv.invoice_number}</span>
+                    <span className="font-medium text-[#2563EB]">{inv.invoice_number || inv.bill_number}</span>
                   </p>
-                  <p className="mt-1 text-sm font-bold">{formatInr(inv.amount)}</p>
+                  <p className="mt-1 text-sm font-bold">{formatInr(inv.grand_total ?? inv.amount)}</p>
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${statusColor(inv.status)}`}
                   >
@@ -328,15 +344,16 @@ export default function InvoiceDashboard() {
                   >
                     Print
                   </Link>
-                  <Link
-                    to={`/sales/payments/create?invoice_id=${selected}`}
-                    className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white"
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentModal(true)}
+                    className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
                   >
                     Record Payment
-                  </Link>
+                  </button>
                 </div>
                 {copyData ? (
-                  <TaxInvoiceCopy data={copyData} />
+                  <Invoice data={copyData} />
                 ) : (
                   <p className="py-8 text-center text-slate-400">Loading invoice…</p>
                 )}
@@ -347,6 +364,18 @@ export default function InvoiceDashboard() {
           </div>
         </div>
       )}
+
+      {/* ── Record Payment popup modal ── */}
+      <RecordPaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onSuccess={() => {
+          setShowPaymentModal(false);
+          load();
+        }}
+        initialInvoice={selected ? String(selected) : ""}
+        initialPartyType="customer"
+      />
     </div>
   );
 }

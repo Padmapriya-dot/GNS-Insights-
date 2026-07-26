@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1120" viewBox="0 0 800 1120">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1">
+      <stop offset="0" stop-color="#f8fafc" />
+      <stop offset="1" stop-color="#ffffff" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="1120" fill="url(#g)" />
+  <!-- Right-side decorative block mimicking user template -->
+  <g transform="translate(430,40)">
+    <rect x="0" y="0" width="320" height="160" fill="#0f172a" rx="6" />
+    <text x="20" y="38" font-family="Arial, Helvetica, sans-serif" font-size="28" fill="#fff" font-weight="700">INVOICE</text>
+    <text x="20" y="70" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#cbd5e1">Template</text>
+    <rect x="12" y="92" width="296" height="42" fill="#f1f5f9" rx="4" />
+  </g>
+  <!-- faint watermark lines -->
+  <g opacity="0.05" fill="#000">
+    <rect x="420" y="220" width="320" height="2" />
+    <rect x="420" y="260" width="320" height="2" />
+    <rect x="420" y="300" width="320" height="2" />
+  </g>
+</svg>

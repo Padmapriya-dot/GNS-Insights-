@@ -8,6 +8,7 @@ import {
 } from "recharts";
 
 import Loader from "../../components/common/Loader";
+import SkeletonCard, { SkeletonChart } from "../../components/common/SkeletonCard";
 import AnalyticsAlertsBanner from "../../components/analytics/AnalyticsAlertsBanner";
 import AnalyticsChartCard from "../../components/analytics/AnalyticsChartCard";
 import AnalyticsDashboardHeader from "../../components/analytics/AnalyticsDashboardHeader";
@@ -25,6 +26,32 @@ const KPI_ICONS = {
 };
 
 const emptyData = { kpis: [], alerts: [], stock_in_vs_out: [], warehouse_occupancy: [], abc_analysis: [], inventory_aging: [], monthly_consumption: [], value_trend: [], fast_moving: [], slow_moving: [], dead_stock: [], reorder_alerts: [] };
+
+const toNumeric = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeChartData = (rows = []) => {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => {
+      const entry = typeof row === "object" && row !== null ? row : {};
+      const label = entry.label ?? entry.month ?? entry.date ?? entry.period ?? entry.name ?? entry.item ?? entry.category ?? "";
+      const normalized = {
+        ...entry,
+        label: label || "N/A",
+      };
+      const value = toNumeric(entry.value ?? entry.amount ?? entry.total ?? entry.qty ?? entry.units ?? entry.occupancy ?? entry.turnover ?? entry.value);
+      const value2 = toNumeric(entry.value2 ?? entry.expense ?? entry.outflow ?? entry.stock_out ?? entry.target ?? entry.planned);
+      if (value !== null) normalized.value = value;
+      if (value2 !== null) normalized.value2 = value2;
+      return normalized;
+    })
+    .filter((entry) => entry && (entry.value !== undefined || entry.value2 !== undefined));
+};
 
 export default function InventoryAnalytics() {
   const { addToast } = useToast();
@@ -60,8 +87,27 @@ export default function InventoryAnalytics() {
     return () => clearInterval(t);
   }, [autoRefresh, load]);
 
-  if (loading && !data.kpis) return <Loader label="Loading inventory analytics..." />;
+  if (loading && !data.kpis?.length) {
+    return (
+      <div className="space-y-6 bg-slate-50 p-4 dark:bg-slate-900 sm:p-6">
+        <div className="h-16 animate-pulse rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, index) => (<SkeletonCard key={index} />))}
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, index) => (<SkeletonChart key={index} />))}
+        </div>
+      </div>
+    );
+  }
   const setF = (k) => (v) => setFilters((f) => ({ ...f, [k]: v }));
+
+  const stockInVsOut = normalizeChartData(data.stock_in_vs_out);
+  const warehouseOccupancy = normalizeChartData(data.warehouse_occupancy);
+  const abcAnalysis = normalizeChartData(data.abc_analysis);
+  const inventoryAging = normalizeChartData(data.inventory_aging);
+  const monthlyConsumption = normalizeChartData(data.monthly_consumption);
+  const valueTrend = normalizeChartData(data.value_trend);
 
   return (
     <div className="space-y-6 bg-slate-50 p-4 dark:bg-slate-900 sm:p-6">
@@ -96,7 +142,7 @@ export default function InventoryAnalytics() {
       <div className="grid gap-6 lg:grid-cols-2">
         <AnalyticsChartCard id="chart-stock-io" title="Stock In vs Stock Out" data={data.stock_in_vs_out} dataKeys={["label", "value", "value2"]} sourceLink={SOURCE_LINKS.inventory} sourceLabel="Inventory">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.stock_in_vs_out}>
+            <BarChart data={stockInVsOut}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} />
               <YAxis fontSize={11} />
@@ -110,7 +156,7 @@ export default function InventoryAnalytics() {
 
         <AnalyticsChartCard id="chart-warehouse" title="Warehouse Occupancy" data={data.warehouse_occupancy} sourceLink={SOURCE_LINKS.inventory} sourceLabel="Inventory">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.warehouse_occupancy}>
+            <BarChart data={warehouseOccupancy}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} />
               <YAxis fontSize={11} domain={[0, 100]} />
@@ -123,8 +169,8 @@ export default function InventoryAnalytics() {
         <AnalyticsChartCard id="chart-abc" title="ABC Analysis" data={data.abc_analysis} sourceLink={SOURCE_LINKS.inventory} sourceLabel="Inventory">
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={data.abc_analysis} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={60} outerRadius={100} label>
-                {data.abc_analysis.map((_, i) => <Cell key={i} fill={CHART_COLORS[i]} />)}
+              <Pie data={abcAnalysis} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={60} outerRadius={100} label>
+                {abcAnalysis.map((_, i) => <Cell key={i} fill={CHART_COLORS[i]} />)}
               </Pie>
               <Tooltip formatter={(v) => [`${v}%`, "Share"]} />
               <Legend />
@@ -134,7 +180,7 @@ export default function InventoryAnalytics() {
 
         <AnalyticsChartCard id="chart-aging" title="Inventory Aging" data={data.inventory_aging} sourceLink={SOURCE_LINKS.inventory} sourceLabel="Inventory">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.inventory_aging}>
+            <BarChart data={inventoryAging}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={10} />
               <YAxis fontSize={11} />
@@ -146,7 +192,7 @@ export default function InventoryAnalytics() {
 
         <AnalyticsChartCard id="chart-consumption" title="Monthly Consumption" data={data.monthly_consumption} sourceLink={SOURCE_LINKS.inventory} sourceLabel="Inventory">
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data.monthly_consumption}>
+            <LineChart data={monthlyConsumption}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} />
               <YAxis fontSize={11} />
@@ -158,7 +204,7 @@ export default function InventoryAnalytics() {
 
         <AnalyticsChartCard id="chart-value-trend" title="Inventory Value Trend" data={data.value_trend} sourceLink={SOURCE_LINKS.inventory} sourceLabel="Inventory">
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={data.value_trend}>
+            <AreaChart data={valueTrend}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} />
               <YAxis fontSize={11} tickFormatter={(v) => formatInr(v)} />

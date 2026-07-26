@@ -248,7 +248,7 @@ export default function LeadDetailModal({ lead, onClose, onStatusChange }) {
           )}
           {["qualified", "converted", "won"].includes(String(lead.status || "").toLowerCase()) ? (
             <Link
-              to={`/sales/quotations/create?customer_name=${encodeURIComponent(lead.customer_name || lead.company || "")}`}
+              to={`/sales/quotations?create=true&customer_name=${encodeURIComponent(lead.customer_name || lead.company || "")}`}
               className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-xs transition-all"
             >
               Create Quotation

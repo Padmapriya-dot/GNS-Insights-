@@ -48,11 +48,17 @@ export default function Quotations() {
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) {
         baseQuotes = listRes.value.data;
       }
-      setRows([...localQuotes, ...baseQuotes]);
+      const qMap = new Map();
+      baseQuotes.forEach((q) => { const k = q.quote_number || q.id; if (k) qMap.set(String(k), q); });
+      localQuotes.forEach((q) => { const k = q.quote_number || q.id; if (k) qMap.set(String(k), q); });
+      setRows(Array.from(qMap.values()));
     } catch {
       const stored = localStorage.getItem("smrt_quotations");
       const localQuotes = stored ? JSON.parse(stored) : [];
-      setRows([...localQuotes, ...(DEMO_QUOTE_LIST || [])]);
+      const qMap = new Map();
+      (DEMO_QUOTE_LIST || []).forEach((q) => { const k = q.quote_number || q.id; if (k) qMap.set(String(k), q); });
+      localQuotes.forEach((q) => { const k = q.quote_number || q.id; if (k) qMap.set(String(k), q); });
+      setRows(Array.from(qMap.values()));
     } finally {
       setLoading(false);
     }

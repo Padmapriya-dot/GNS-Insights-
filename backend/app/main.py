@@ -980,6 +980,12 @@ def on_startup():
 
     from app.core.seed_users import seed_admin_user
 
+    from app.core.seed_finance import seed_finance_data
+
+    from app.models.tenant import Tenant as TenantModel
+
+    from sqlalchemy import select as sa_select
+
 
 
     db = SessionLocal()
@@ -993,6 +999,20 @@ def on_startup():
         seed_roles(db)  # Seeds default roles for tenant 1
 
         seed_admin_user(db)  # Seeds default demo accounts (Operator, Admin, HR)
+
+        # Seed finance data for every tenant that has no invoices yet
+
+        from app.models.sales import Invoice as InvoiceModel
+
+        all_tenants = db.scalars(sa_select(TenantModel)).all()
+
+        for t in all_tenants:
+
+            inv_count = db.scalar(sa_select(sa_select(InvoiceModel.id).where(InvoiceModel.tenant_id == t.id).subquery().c.id.count()))
+
+            if not inv_count:
+
+                seed_finance_data(db, tenant_id=t.id)
 
     except Exception:
 

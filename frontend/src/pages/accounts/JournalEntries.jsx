@@ -11,7 +11,8 @@ const inputClass =
 
 export default function JournalEntries() {
   const { addToast } = useToast();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);       // initial page load
+  const [refreshing, setRefreshing] = useState(false); // button-only spinner
   const [financialYear, setFinancialYear] = useState("2026-27");
   const [month, setMonth] = useState("All Months");
   const [branch, setBranch] = useState("");
@@ -23,23 +24,28 @@ export default function JournalEntries() {
     ref: "",
     desc: "",
     branch: "Head Office",
+    status: "Posted",
     legs: [
       { account: "Office Supplies", debit: 15000, credit: 0 },
       { account: "Cash at Bank", debit: 0, credit: 15000 },
     ]
   });
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ isRefresh = false } = {}) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     try {
       const res = await getExtendedReports(financialYear, month, branch);
-      if (res.data && res.data.journal_entries) {
-        setEntries(res.data.journal_entries);
-      }
-    } catch {
-      addToast("Failed to load Journal Entries data", "error");
+      const list = res?.data?.journal_entries || res?.data?.data?.journal_entries || [];
+      setEntries(Array.isArray(list) ? list : []);
+    } catch (error) {
+      const detail = error?.response?.data?.detail || error?.message || "Failed to load Journal Entries data";
+      console.error("JournalEntries load failed", error);
+      addToast(detail, "error");
+      setEntries([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [financialYear, month, branch, addToast]);
 
@@ -76,9 +82,25 @@ export default function JournalEntries() {
       addToast("Out of balance! Total Debits must equal Total Credits.", "warning");
       return;
     }
+
+    const payload = {
+      date: newEntry.date,
+      ref: newEntry.ref,
+      desc: newEntry.desc,
+      reference: newEntry.ref,
+      description: newEntry.desc,
+      branch: newEntry.branch || "Head Office",
+      status: newEntry.status || "Posted",
+      legs: newEntry.legs.map((leg) => ({
+        account: (leg.account || "").trim() || "General",
+        debit: Number(leg.debit || 0),
+        credit: Number(leg.credit || 0),
+      })),
+    };
+
     setLoading(true);
     try {
-      await createJournalEntry(newEntry);
+      await createJournalEntry(payload);
       addToast("Journal Entry posted successfully!", "success");
       setModalOpen(false);
       setNewEntry({
@@ -86,14 +108,17 @@ export default function JournalEntries() {
         ref: "",
         desc: "",
         branch: "Head Office",
+        status: "Posted",
         legs: [
           { account: "Office Supplies", debit: 15000, credit: 0 },
           { account: "Cash at Bank", debit: 0, credit: 15000 },
         ]
       });
-      load();
-    } catch {
-      addToast("Failed to post Journal Entry", "error");
+      await load();
+    } catch (error) {
+      const detail = error?.response?.data?.detail || error?.message || "Failed to post Journal Entry";
+      addToast(detail, "error");
+    } finally {
       setLoading(false);
     }
   };
@@ -121,8 +146,14 @@ export default function JournalEntries() {
             <Plus className="h-4 w-4" />
             New Entry
           </button>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <RefreshCw className="h-4 w-4" /> Refresh
+          <button
+            type="button"
+            onClick={() => load({ isRefresh: true })}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-all"
+          >
+            <RefreshCw className={`h-4 w-4 transition-transform duration-700 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
       </header>
@@ -150,6 +181,8 @@ export default function JournalEntries() {
                 <th className="p-3">Description</th>
                 <th className="p-3 text-right">Debit (₹)</th>
                 <th className="p-3 text-right">Credit (₹)</th>
+                <th className="p-3 text-right">CGST (₹)</th>
+                <th className="p-3 text-right">SGST (₹)</th>
                 <th className="p-3">Branch</th>
                 <th className="p-3">Status</th>
               </tr>
@@ -163,8 +196,16 @@ export default function JournalEntries() {
                   <td className="p-3 text-slate-700">
                     <div>{e.desc}</div>
                     <div className="mt-1.5 space-y-1 text-xs pl-2 border-l-2 border-slate-200">
-                      {e.legs.map((l, i) => (
-                        <div key={i} className="flex justify-between w-64 text-slate-400">
+                      {/* CGST and SGST legs first, then the rest */}
+                      {[
+                        ...e.legs.filter((l) => /(cgst|sgst)/i.test(l.account)),
+                        ...e.legs.filter((l) => !/(cgst|sgst)/i.test(l.account)),
+                      ].map((l, i) => (
+                        <div key={i} className={`flex justify-between w-64 ${
+                          /(cgst|sgst)/i.test(l.account)
+                            ? "text-indigo-500 font-semibold"
+                            : "text-slate-400"
+                        }`}>
                           <span>{l.account}</span>
                           <span>{l.debit > 0 ? `Dr ${formatInr(l.debit)}` : `Cr ${formatInr(l.credit)}`}</span>
                         </div>
@@ -173,6 +214,18 @@ export default function JournalEntries() {
                   </td>
                   <td className="p-3 text-right font-bold text-slate-900 tabular-nums">{formatInr(e.debit)}</td>
                   <td className="p-3 text-right font-bold text-slate-900 tabular-nums">{formatInr(e.credit)}</td>
+                  <td className="p-3 text-right font-bold text-indigo-700 tabular-nums">
+                    {formatInr(
+                      (e.legs || []).filter((l) => /cgst/i.test(l.account))
+                        .reduce((sum, l) => sum + Number(l.credit || l.debit || 0), 0)
+                    )}
+                  </td>
+                  <td className="p-3 text-right font-bold text-indigo-700 tabular-nums">
+                    {formatInr(
+                      (e.legs || []).filter((l) => /sgst/i.test(l.account))
+                        .reduce((sum, l) => sum + Number(l.credit || l.debit || 0), 0)
+                    )}
+                  </td>
                   <td className="p-3 text-slate-600">{e.branch}</td>
                   <td className="p-3">
                     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -245,6 +298,18 @@ export default function JournalEntries() {
                   >
                     <option value="Head Office">Head Office</option>
                     <option value="Plant-1">Plant-1</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Status</label>
+                  <select
+                    value={newEntry.status}
+                    onChange={(e) => setNewEntry((prev) => ({ ...prev, status: e.target.value }))}
+                    className={inputClass}
+                  >
+                    <option value="Draft">Draft</option>
+                    <option value="Posted">Posted</option>
+                    <option value="Pending">Pending</option>
                   </select>
                 </div>
               </div>

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.core.permissions import require_permission, tenant_scope
+from app.core.permissions import require_any_permission, require_permission, tenant_scope, tenant_scope_any
 from app.models.user import User
 from app.schemas.inventory import (
     InventoryItemCreate,
@@ -164,7 +164,7 @@ def deactivate_warehouse_endpoint(
 @router.post("/suppliers", response_model=SupplierRead)
 def create_supplier_endpoint(
     payload: SupplierCreate,
-    user: User = Depends(require_permission(MODULE)),
+    user: User = Depends(require_any_permission("inventory", "procurement", "accounts")),
     db: Session = Depends(get_db),
 ) -> SupplierRead:
     payload.tenant_id = user.tenant_id
@@ -173,7 +173,7 @@ def create_supplier_endpoint(
 
 @router.get("/suppliers", response_model=list[SupplierRead])
 def list_suppliers_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope_any("inventory", "procurement", "accounts")), db: Session = Depends(get_db)
 ) -> list[SupplierRead]:
     return list_suppliers(db, tenant_id)
 

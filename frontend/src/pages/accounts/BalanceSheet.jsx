@@ -1,12 +1,29 @@
 import { useEffect, useState, useCallback } from "react";
-import { Landmark, RefreshCw, FileText, Download, TrendingUp, Wallet, ShieldCheck, PieChart as ChartIcon } from "lucide-react";
+import { Landmark, RefreshCw, Download, Wallet, ShieldCheck, PieChart as ChartIcon } from "lucide-react";
 import * as XLSX from "xlsx";
-import { jsPDF } from "jspdf";
 import FinanceFilters from "../../components/finance/FinanceFilters";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getExtendedReports } from "../../api/accountsApi";
 import { formatInr } from "../../data/financeMasterData";
+
+function KpiCard({ label, value, icon: Icon, color }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{value}</p>
+        </div>
+        {Icon && (
+          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
+            <Icon className="h-5 w-5 text-white" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function BalanceSheet() {
   const { addToast } = useToast();
@@ -23,16 +40,14 @@ export default function BalanceSheet() {
     equity: [],
     total_assets: 0,
     total_liabilities: 0,
-    total_equity: 0
+    total_equity: 0,
   });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getExtendedReports(financialYear, month, branch);
-      if (res.data) {
-        setData(res.data);
-      }
+      if (res.data) setData(res.data);
     } catch {
       addToast("Failed to load Balance Sheet data", "error");
     } finally {
@@ -45,17 +60,15 @@ export default function BalanceSheet() {
   const totalCurrentAssets = data.assets_current.reduce((s, x) => s + x.amount, 0);
   const totalNonCurrentAssets = data.assets_non_current.reduce((s, x) => s + x.amount, 0);
   const totalAssets = data.total_assets;
-
   const totalCurrentLiabilities = data.liabilities_current.reduce((s, x) => s + x.amount, 0);
   const totalNonCurrentLiabilities = data.liabilities_non_current.reduce((s, x) => s + x.amount, 0);
   const totalLiabilities = data.total_liabilities;
-
   const totalEquity = data.total_equity;
   const totalLiabilitiesAndEquity = totalLiabilities + totalEquity;
 
   const exportExcel = () => {
     const wsData = [
-      ["SMRT AI ERP - BALANCE SHEET", `${financialYear} (${month})`],
+      ["GNS Insights - BALANCE SHEET", `${financialYear} (${month})`],
       ["Branch:", branch || "Consolidated"],
       [],
       ["ASSETS", "", "LIABILITIES & EQUITY"],
@@ -77,7 +90,7 @@ export default function BalanceSheet() {
       ...data.equity.map((eq) => ["", "", eq.name, eq.amount]),
       ["", "", "Total Equity", totalEquity],
       [],
-      ["TOTAL ASSETS", totalAssets, "TOTAL LIABILITIES & EQUITY", totalLiabilitiesAndEquity]
+      ["TOTAL ASSETS", totalAssets, "TOTAL LIABILITIES & EQUITY", totalLiabilitiesAndEquity],
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
@@ -85,72 +98,7 @@ export default function BalanceSheet() {
     XLSX.writeFile(wb, `Balance_Sheet_${financialYear}.xlsx`);
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF();
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("SMRT AI ERP - BALANCE SHEET", 14, 20);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`Financial Year: ${financialYear} | Month: ${month} | Branch: ${branch || "Consolidated"}`, 14, 27);
-    doc.line(14, 32, 196, 32);
-
-    doc.setFont("helvetica", "bold");
-    doc.text("ASSETS", 14, 40);
-    doc.text("LIABILITIES & EQUITY", 110, 40);
-    doc.line(14, 43, 196, 43);
-
-    doc.setFont("helvetica", "normal");
-    let y = 50;
-    
-    doc.text(`Total Assets: ${formatInr(totalAssets)}`, 14, y);
-    doc.text(`Total Liabilities & Equity: ${formatInr(totalLiabilitiesAndEquity)}`, 110, y);
-    y += 10;
-    doc.text("Assets breakdown:", 14, y);
-    doc.text("Liabilities & Equity breakdown:", 110, y);
-    y += 8;
-    
-    data.assets_current.forEach((a) => {
-      doc.text(`- ${a.name}: ${formatInr(a.amount)}`, 14, y);
-      y += 6;
-    });
-    data.assets_non_current.forEach((a) => {
-      doc.text(`- ${a.name}: ${formatInr(a.amount)}`, 14, y);
-      y += 6;
-    });
-
-    let ly = 68;
-    data.liabilities_current.forEach((l) => {
-      doc.text(`- ${l.name}: ${formatInr(l.amount)}`, 110, ly);
-      ly += 6;
-    });
-    data.liabilities_non_current.forEach((l) => {
-      doc.text(`- ${l.name}: ${formatInr(l.amount)}`, 110, ly);
-      ly += 6;
-    });
-    data.equity.forEach((eq) => {
-      doc.text(`- ${eq.name}: ${formatInr(eq.amount)}`, 110, ly);
-      ly += 6;
-    });
-
-    doc.save(`Balance_Sheet_${financialYear}.pdf`);
-  };
-
-  const filteredAssetsCurrent = data.assets_current.filter((a) =>
-    a.name.toLowerCase().includes(search.toLowerCase())
-  );
-  const filteredAssetsNonCurrent = data.assets_non_current.filter((a) =>
-    a.name.toLowerCase().includes(search.toLowerCase())
-  );
-  const filteredLiabilitiesCurrent = data.liabilities_current.filter((l) =>
-    l.name.toLowerCase().includes(search.toLowerCase())
-  );
-  const filteredLiabilitiesNonCurrent = data.liabilities_non_current.filter((l) =>
-    l.name.toLowerCase().includes(search.toLowerCase())
-  );
-  const filteredEquity = data.equity.filter((eq) =>
-    eq.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filter = (arr) => arr.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
 
   if (loading) return <Loader label="Loading Balance Sheet..." />;
 
@@ -158,27 +106,21 @@ export default function BalanceSheet() {
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 border-b-0 pb-0">Balance Sheet</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Balance Sheet</h1>
           <p className="mt-1 text-sm text-slate-500">Assets, liabilities, and owner equity overview for capital structure tracking.</p>
         </div>
         <div className="flex gap-2">
-          <div className="flex gap-2">
-            <button
-              onClick={exportExcel}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all"
-            >
-              <Download className="h-4 w-4 text-slate-400" />
-              Excel
-            </button>
-            <button
-              onClick={exportPdf}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all"
-            >
-              <FileText className="h-4 w-4 text-slate-400" />
-              PDF
-            </button>
-          </div>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <button
+            onClick={exportExcel}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm"
+          >
+            <Download className="h-4 w-4 text-slate-400" /> Excel
+          </button>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
@@ -192,72 +134,64 @@ export default function BalanceSheet() {
       </div>
 
       <FinanceFilters
-        search={search}
-        onSearchChange={setSearch}
-        financialYear={financialYear}
-        onFinancialYearChange={setFinancialYear}
-        month={month}
-        onMonthChange={setMonth}
-        branch={branch}
-        onBranchChange={setBranch}
+        search={search} onSearchChange={setSearch}
+        financialYear={financialYear} onFinancialYearChange={setFinancialYear}
+        month={month} onMonthChange={setMonth}
+        branch={branch} onBranchChange={setBranch}
         searchPlaceholder="Search accounts..."
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Left Column: Assets */}
+        {/* Assets */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-6">
+          <h2 className="text-lg font-bold text-slate-900 border-b pb-2">ASSETS</h2>
+
           <div>
-            <h2 className="text-lg font-bold text-slate-900 border-b pb-2 mb-4">ASSETS</h2>
-            
             <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Current Assets</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 border-b">
-                    <th className="p-2 text-left font-semibold">Account Category</th>
-                    <th className="p-2 text-right font-semibold">Balance</th>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 border-b">
+                  <th className="p-2 text-left font-semibold">Account Category</th>
+                  <th className="p-2 text-right font-semibold">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filter(data.assets_current).map((a) => (
+                  <tr key={a.name} className="hover:bg-slate-50">
+                    <td className="p-2.5 text-slate-700">{a.name}</td>
+                    <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(a.amount)}</td>
                   </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filteredAssetsCurrent.map((a) => (
-                    <tr key={a.name} className="hover:bg-slate-50">
-                      <td className="p-2.5 text-slate-700">{a.name}</td>
-                      <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(a.amount)}</td>
-                    </tr>
-                  ))}
-                  <tr className="bg-blue-50/50 font-bold">
-                    <td className="p-2.5 text-slate-800">Total Current Assets</td>
-                    <td className="p-2.5 text-right text-slate-900">{formatInr(totalCurrentAssets)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                ))}
+                <tr className="bg-blue-50/50 font-bold">
+                  <td className="p-2.5 text-slate-800">Total Current Assets</td>
+                  <td className="p-2.5 text-right text-slate-900">{formatInr(totalCurrentAssets)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           <div>
             <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Non-Current Assets</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 border-b">
-                    <th className="p-2 text-left font-semibold">Account Category</th>
-                    <th className="p-2 text-right font-semibold">Balance</th>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 border-b">
+                  <th className="p-2 text-left font-semibold">Account Category</th>
+                  <th className="p-2 text-right font-semibold">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filter(data.assets_non_current).map((a) => (
+                  <tr key={a.name} className="hover:bg-slate-50">
+                    <td className="p-2.5 text-slate-700">{a.name}</td>
+                    <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(a.amount)}</td>
                   </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filteredAssetsNonCurrent.map((a) => (
-                    <tr key={a.name} className="hover:bg-slate-50">
-                      <td className="p-2.5 text-slate-700">{a.name}</td>
-                      <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(a.amount)}</td>
-                    </tr>
-                  ))}
-                  <tr className="bg-blue-50/50 font-bold">
-                    <td className="p-2.5 text-slate-800">Total Non-Current Assets</td>
-                    <td className="p-2.5 text-right text-slate-900">{formatInr(totalNonCurrentAssets)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                ))}
+                <tr className="bg-blue-50/50 font-bold">
+                  <td className="p-2.5 text-slate-800">Total Non-Current Assets</td>
+                  <td className="p-2.5 text-right text-slate-900">{formatInr(totalNonCurrentAssets)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           <div className="flex justify-between items-center bg-blue-600 text-white rounded-xl p-4 font-bold shadow-md">
@@ -266,86 +200,80 @@ export default function BalanceSheet() {
           </div>
         </div>
 
-        {/* Right Column: Liabilities & Equity */}
+        {/* Liabilities & Equity */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-6">
+          <h2 className="text-lg font-bold text-slate-900 border-b pb-2">LIABILITIES & EQUITY</h2>
+
           <div>
-            <h2 className="text-lg font-bold text-slate-900 border-b pb-2 mb-4">LIABILITIES & EQUITY</h2>
-            
             <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Current Liabilities</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 border-b">
-                    <th className="p-2 text-left font-semibold">Account Category</th>
-                    <th className="p-2 text-right font-semibold">Balance</th>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 border-b">
+                  <th className="p-2 text-left font-semibold">Account Category</th>
+                  <th className="p-2 text-right font-semibold">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filter(data.liabilities_current).map((l) => (
+                  <tr key={l.name} className="hover:bg-slate-50">
+                    <td className="p-2.5 text-slate-700">{l.name}</td>
+                    <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(l.amount)}</td>
                   </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filteredLiabilitiesCurrent.map((l) => (
-                    <tr key={l.name} className="hover:bg-slate-50">
-                      <td className="p-2.5 text-slate-700">{l.name}</td>
-                      <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(l.amount)}</td>
-                    </tr>
-                  ))}
-                  <tr className="bg-red-50/50 font-bold">
-                    <td className="p-2.5 text-slate-800">Total Current Liabilities</td>
-                    <td className="p-2.5 text-right text-slate-900">{formatInr(totalCurrentLiabilities)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                ))}
+                <tr className="bg-red-50/50 font-bold">
+                  <td className="p-2.5 text-slate-800">Total Current Liabilities</td>
+                  <td className="p-2.5 text-right text-slate-900">{formatInr(totalCurrentLiabilities)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           <div>
             <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Non-Current Liabilities</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 border-b">
-                    <th className="p-2 text-left font-semibold">Account Category</th>
-                    <th className="p-2 text-right font-semibold">Balance</th>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 border-b">
+                  <th className="p-2 text-left font-semibold">Account Category</th>
+                  <th className="p-2 text-right font-semibold">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filter(data.liabilities_non_current).map((l) => (
+                  <tr key={l.name} className="hover:bg-slate-50">
+                    <td className="p-2.5 text-slate-700">{l.name}</td>
+                    <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(l.amount)}</td>
                   </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filteredLiabilitiesNonCurrent.map((l) => (
-                    <tr key={l.name} className="hover:bg-slate-50">
-                      <td className="p-2.5 text-slate-700">{l.name}</td>
-                      <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(l.amount)}</td>
-                    </tr>
-                  ))}
-                  <tr className="bg-red-50/50 font-bold">
-                    <td className="p-2.5 text-slate-800">Total Non-Current Liabilities</td>
-                    <td className="p-2.5 text-right text-slate-900">{formatInr(totalNonCurrentLiabilities)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                ))}
+                <tr className="bg-red-50/50 font-bold">
+                  <td className="p-2.5 text-slate-800">Total Non-Current Liabilities</td>
+                  <td className="p-2.5 text-right text-slate-900">{formatInr(totalNonCurrentLiabilities)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           <div>
             <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Owner's Equity</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 border-b">
-                    <th className="p-2 text-left font-semibold">Equity Account</th>
-                    <th className="p-2 text-right font-semibold">Balance</th>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 border-b">
+                  <th className="p-2 text-left font-semibold">Equity Account</th>
+                  <th className="p-2 text-right font-semibold">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filter(data.equity).map((eq) => (
+                  <tr key={eq.name} className="hover:bg-slate-50">
+                    <td className="p-2.5 text-slate-700">{eq.name}</td>
+                    <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(eq.amount)}</td>
                   </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filteredEquity.map((eq) => (
-                    <tr key={eq.name} className="hover:bg-slate-50">
-                      <td className="p-2.5 text-slate-700">{eq.name}</td>
-                      <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(eq.amount)}</td>
-                    </tr>
-                  ))}
-                  <tr className="bg-green-50/50 font-bold">
-                    <td className="p-2.5 text-slate-800">Total Equity</td>
-                    <td className="p-2.5 text-right text-slate-900">{formatInr(totalEquity)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                ))}
+                <tr className="bg-green-50/50 font-bold">
+                  <td className="p-2.5 text-slate-800">Total Equity</td>
+                  <td className="p-2.5 text-right text-slate-900">{formatInr(totalEquity)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           <div className="flex justify-between items-center bg-blue-600 text-white rounded-xl p-4 font-bold shadow-md">
@@ -353,24 +281,6 @@ export default function BalanceSheet() {
             <span>{formatInr(totalLiabilitiesAndEquity)}</span>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function KpiCard({ label, value, icon: Icon, color }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{value}</p>
-        </div>
-        {Icon && (
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
-          </div>
-        )}
       </div>
     </div>
   );

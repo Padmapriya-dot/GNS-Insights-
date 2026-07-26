@@ -5,8 +5,9 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.accounts import Expense, Income
-from app.models.inventory import Supplier
+from app.models.accounts import Expense, FixedAsset, GLAccount, Income, JournalEntry
+from app.models.inventory import InventoryItem, StockLevel, Supplier
+from app.models.department import Department
 from app.models.procurement import PurchaseOrder, SupplierPayment, VendorBill
 from app.models.sales import Customer, Invoice, Payment
 from app.schemas.finance_extended import (
@@ -35,14 +36,80 @@ def _aging_bucket(days: int) -> str:
     return "90+"
 
 
+def _resolve_cost_allocation_department(expense: Expense) -> str:
+    text = f"{expense.category or ''} {expense.description or ''} {expense.vendor or ''}".lower()
+
+    if any(token in text for token in ["production", "manufacturing", "factory", "plant", "machine", "machinery", "maintenance", "raw", "labor", "wip"]):
+        return "Production"
+    if any(token in text for token in ["research", "r&d", "development", "engineering", "prototype", "testing", "innovation"]):
+        return "R&D"
+    if any(token in text for token in ["sales", "marketing", "advertising", "promotion", "commission", "customer", "client", "travel"]):
+        return "Sales"
+    return "Admin"
+
+
 def get_ap_summary(db: Session, tenant_id: int) -> APSummaryRead:
     today = date.today()
     week_end = today + timedelta(days=7)
+    
     bills = list(db.scalars(select(VendorBill).where(VendorBill.tenant_id == tenant_id)).all())
+    
+    po_bill_ids = {b.purchase_order_id for b in bills if b.purchase_order_id}
+    pos_without_bills = list(
+        db.scalars(
+            select(PurchaseOrder).where(
+                PurchaseOrder.tenant_id == tenant_id,
+                PurchaseOrder.status != "cancelled",
+                PurchaseOrder.id.not_in(po_bill_ids) if po_bill_ids else True,
+            )
+        ).all()
+    )
+    
+    payments = list(db.scalars(select(SupplierPayment).where(SupplierPayment.tenant_id == tenant_id)).all())
+    payments_by_supplier = {}
+    for p in payments:
+        payments_by_supplier[p.supplier_id] = payments_by_supplier.get(p.supplier_id, 0.0) + float(p.amount or 0)
+        
     vendors = int(db.scalar(select(func.count(Supplier.id)).where(Supplier.tenant_id == tenant_id)) or 0)
-    outstanding = sum(float(b.amount or 0) for b in bills if b.status in ("pending", "due", "overdue"))
-    due_week = sum(1 for b in bills if b.due_date and today <= b.due_date <= week_end and b.status != "paid")
-    overdue = sum(1 for b in bills if b.due_date and b.due_date < today and b.status != "paid")
+    
+    outstanding = 0.0
+    due_week = 0
+    overdue = 0
+    pending = 0
+
+    for b in bills:
+        amt = float(b.amount or 0) + float(b.gst_amount or 0)
+        p_paid = float(b.amount or 0) + float(b.gst_amount or 0) if b.status == "paid" else 0.0
+        bal = max(0.0, amt - p_paid)
+        
+        b_date = b.due_date or b.bill_date
+        if bal > 0:
+            outstanding += bal
+            if b_date and b_date < today:
+                overdue += 1
+            elif b_date and today <= b_date <= week_end:
+                due_week += 1
+            else:
+                pending += 1
+        elif b.status == "pending":
+            pending += 1
+
+    for po in pos_without_bills:
+        amt = float(po.total_amount or 0) + float(po.gst_amount or 0)
+        if amt <= 0:
+            continue
+        p_paid = min(amt, payments_by_supplier.get(po.supplier_id, 0.0))
+        bal = max(0.0, amt - p_paid)
+        po_due = po.expected_date or po.order_date
+        if bal > 0:
+            outstanding += bal
+            if po_due and po_due < today:
+                overdue += 1
+            elif po_due and today <= po_due <= week_end:
+                due_week += 1
+            else:
+                pending += 1
+
     paid_month = float(
         db.scalar(
             select(func.coalesce(func.sum(SupplierPayment.amount), 0)).where(
@@ -52,7 +119,7 @@ def get_ap_summary(db: Session, tenant_id: int) -> APSummaryRead:
             )
         ) or 0
     )
-    pending = sum(1 for b in bills if b.status == "pending")
+
     return APSummaryRead(
         outstanding_payables=outstanding,
         due_this_week=due_week,
@@ -64,6 +131,9 @@ def get_ap_summary(db: Session, tenant_id: int) -> APSummaryRead:
 
 
 def list_ap_enriched(db: Session, tenant_id: int) -> list[APListRead]:
+    today = date.today()
+    week_end = today + timedelta(days=7)
+    
     bills = list(
         db.scalars(
             select(VendorBill)
@@ -72,19 +142,60 @@ def list_ap_enriched(db: Session, tenant_id: int) -> list[APListRead]:
             .order_by(VendorBill.bill_date.desc())
         ).all()
     )
+    
+    pos = list(
+        db.scalars(
+            select(PurchaseOrder)
+            .options(joinedload(PurchaseOrder.supplier))
+            .where(
+                PurchaseOrder.tenant_id == tenant_id,
+                PurchaseOrder.status != "cancelled",
+            )
+            .order_by(PurchaseOrder.order_date.desc())
+        ).all()
+    )
+
+    payments = list(db.scalars(select(SupplierPayment).where(SupplierPayment.tenant_id == tenant_id)).all())
+    payments_by_ref = {}
+    for p in payments:
+        if p.reference:
+            payments_by_ref[p.reference] = payments_by_ref.get(p.reference, 0.0) + float(p.amount or 0)
+
     result = []
+    seen_po_ids = set()
+
     for b in bills:
+        if b.purchase_order_id:
+            seen_po_ids.add(b.purchase_order_id)
         po = db.get(PurchaseOrder, b.purchase_order_id) if b.purchase_order_id else None
         amt = float(b.amount or 0)
         gst = float(b.gst_amount or 0)
-        paid = amt if b.status == "paid" else 0
-        balance = 0 if b.status == "paid" else amt
+        total = amt + gst
+        
+        ref_paid = payments_by_ref.get(b.bill_number, 0.0)
+        if b.status == "paid":
+            paid = total
+        else:
+            paid = min(total, ref_paid)
+            
+        balance = max(0.0, total - paid)
+        
+        st = b.status
+        if balance <= 0:
+            st = "paid"
+        elif b.due_date and b.due_date < today:
+            st = "overdue"
+        elif b.due_date and today <= b.due_date <= week_end:
+            st = "due"
+        else:
+            st = b.status or "pending"
+
         result.append(
             APListRead(
                 id=b.id,
                 bill_number=b.bill_number,
                 vendor_name=b.supplier.name if b.supplier else "—",
-                po_reference=po.po_number if po else None,
+                po_reference=po.po_number if po else (f"PO-{b.id}" if not b.bill_number.startswith("PO-") else b.bill_number),
                 invoice_no=f"INV-{b.bill_number}",
                 invoice_date=b.bill_date.isoformat() if b.bill_date else None,
                 due_date=b.due_date.isoformat() if b.due_date else None,
@@ -92,9 +203,52 @@ def list_ap_enriched(db: Session, tenant_id: int) -> list[APListRead]:
                 gst=gst,
                 paid=paid,
                 balance=balance,
-                status=b.status,
+                status=st,
             )
         )
+
+    for po in pos:
+        if po.id in seen_po_ids:
+            continue
+        amt = float(po.total_amount or 0)
+        gst = float(po.gst_amount or 0)
+        total = amt + gst
+        if total <= 0:
+            continue
+            
+        ref_paid = payments_by_ref.get(po.po_number, 0.0)
+        if ref_paid >= total or po.status == "closed":
+            paid = total
+        else:
+            paid = min(total, ref_paid)
+        balance = max(0.0, total - paid)
+
+        st = "pending"
+        po_due = po.expected_date or po.order_date
+        if balance <= 0:
+            st = "paid"
+        elif po_due and po_due < today:
+            st = "overdue"
+        elif po_due and today <= po_due <= week_end:
+            st = "due"
+
+        result.append(
+            APListRead(
+                id=10000 + po.id,
+                bill_number=f"BILL-{po.po_number}",
+                vendor_name=po.supplier.name if po.supplier else "—",
+                po_reference=po.po_number,
+                invoice_no=f"INV-{po.po_number}",
+                invoice_date=po.order_date.isoformat() if po.order_date else None,
+                due_date=po_due.isoformat() if po_due else None,
+                amount=amt,
+                gst=gst,
+                paid=paid,
+                balance=balance,
+                status=st,
+            )
+        )
+
     return result
 
 
@@ -416,61 +570,161 @@ def get_gst_extended(db: Session, tenant_id: int, year: int) -> GSTExtendedRead:
 
 
 def get_pl_extended(db: Session, tenant_id: int, year: int) -> PLExtendedRead:
-    base = get_profit_loss(db, tenant_id, year)
-    rev = base["total_revenue"]
-    exp = base["total_expenses"]
-    profit = base["profit"] or rev - exp
-    mfg = exp * 0.45
-    inv_cost = exp * 0.2
-    op_cost = exp * 0.35
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-    monthly_rev = [{"month": m, "amount": rev / 12 * (0.9 + i * 0.03)} for i, m in enumerate(months)]
-    exp_trend = [{"month": m, "amount": exp / 12 * (0.88 + i * 0.02)} for i, m in enumerate(months)]
-    profit_trend = [{"month": m, "amount": profit / 12 * (0.85 + i * 0.04)} for i, m in enumerate(months)]
-    rev_vs_exp = [{"month": m, "revenue": rev / 12, "expense": exp / 12} for m in months]
-    dept_cost = [
-        {"name": "Production", "amount": mfg},
-        {"name": "HR", "amount": exp * 0.12},
-        {"name": "Sales", "amount": exp * 0.08},
-        {"name": "Procurement", "amount": exp * 0.1},
-        {"name": "Administration", "amount": exp * 0.05},
-    ]
-    factory = [
-        {"name": "Raw Material", "amount": mfg * 0.5},
-        {"name": "Labour", "amount": mfg * 0.25},
-        {"name": "Machine", "amount": mfg * 0.12},
-        {"name": "Electricity", "amount": mfg * 0.08},
-        {"name": "Maintenance", "amount": mfg * 0.05},
-    ]
+    months_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    # Real per-month revenue from invoices
+    rev_by_month = {m: 0.0 for m in range(1, 13)}
+    for row in db.execute(
+        select(func.extract("month", Invoice.issue_date).label("m"), func.sum(Invoice.grand_total))
+        .where(Invoice.tenant_id == tenant_id, Invoice.status != "draft",
+               Invoice.issue_date.isnot(None), func.extract("year", Invoice.issue_date) == year)
+        .group_by(func.extract("month", Invoice.issue_date))
+    ).all():
+        if row[0]: rev_by_month[int(row[0])] += float(row[1] or 0)
+
+    # Real per-month income
+    for row in db.execute(
+        select(func.extract("month", Income.income_date).label("m"), func.sum(Income.amount))
+        .where(Income.tenant_id == tenant_id, Income.income_date.isnot(None),
+               func.extract("year", Income.income_date) == year)
+        .group_by(func.extract("month", Income.income_date))
+    ).all():
+        if row[0]: rev_by_month[int(row[0])] += float(row[1] or 0)
+
+    # Real per-month expenses
+    exp_by_month = {m: 0.0 for m in range(1, 13)}
+    for row in db.execute(
+        select(func.extract("month", Expense.expense_date).label("m"), func.sum(Expense.amount))
+        .where(Expense.tenant_id == tenant_id, Expense.expense_date.isnot(None),
+               func.extract("year", Expense.expense_date) == year)
+        .group_by(func.extract("month", Expense.expense_date))
+    ).all():
+        if row[0]: exp_by_month[int(row[0])] += float(row[1] or 0)
+
+    rev = sum(rev_by_month.values())
+    exp = sum(exp_by_month.values())
+    profit = rev - exp
+
+    # Real inventory cost from stock
+    inv_cost = float(db.scalar(
+        select(func.coalesce(func.sum(StockLevel.quantity * InventoryItem.unit_cost), 0))
+        .select_from(StockLevel)
+        .join(InventoryItem, StockLevel.item_id == InventoryItem.id)
+        .where(InventoryItem.tenant_id == tenant_id)
+    ) or 0.0)
+
+    # Real department cost from expense categories
+    dept_map: dict[str, float] = {}
+    for row in db.execute(
+        select(Expense.category, func.sum(Expense.amount))
+        .where(Expense.tenant_id == tenant_id, Expense.expense_date.isnot(None),
+               func.extract("year", Expense.expense_date) == year)
+        .group_by(Expense.category)
+    ).all():
+        dept_map[row[0] or "Other"] = float(row[1] or 0)
+
+    monthly_rev = [{"month": months_labels[m - 1], "amount": rev_by_month[m]} for m in range(1, 13)]
+    exp_trend   = [{"month": months_labels[m - 1], "amount": exp_by_month[m]} for m in range(1, 13)]
+    profit_trend = [{"month": months_labels[m - 1], "amount": rev_by_month[m] - exp_by_month[m]} for m in range(1, 13)]
+    rev_vs_exp  = [{"month": months_labels[m - 1], "revenue": rev_by_month[m], "expense": exp_by_month[m]} for m in range(1, 13)]
+    dept_cost   = [{"name": k, "amount": v} for k, v in dept_map.items()]
+
     return PLExtendedRead(
         year=year,
         revenue=rev,
         gross_profit=rev - inv_cost,
         net_profit=profit,
-        ebitda=profit + exp * 0.08,
-        operating_cost=op_cost,
-        manufacturing_cost=mfg,
+        ebitda=profit,
+        operating_cost=exp,
+        manufacturing_cost=0.0,
         inventory_cost=inv_cost,
         monthly_revenue=monthly_rev,
         expense_trend=exp_trend,
         profit_trend=profit_trend,
         revenue_vs_expense=rev_vs_exp,
         department_cost=dept_cost,
-        factory_cost=factory,
-        revenue_rows=base.get("revenue", []),
-        expense_rows=base.get("expenses", []),
+        factory_cost=[],
+        revenue_rows=[],
+        expense_rows=[],
         total_revenue=rev,
         total_expenses=exp,
         profit=profit,
     )
 
 
-def get_finance_hub(db: Session, tenant_id: int) -> FinanceHubRead:
+
+def get_finance_hub(db: Session, tenant_id: int, current_user=None) -> FinanceHubRead:
     ap = get_ap_summary(db, tenant_id)
     ar = get_ar_summary(db, tenant_id)
     gl = get_gl_summary(db, tenant_id)
     gst = get_gst_extended(db, tenant_id, date.today().year)
-    pl = get_pl_extended(db, tenant_id, date.today().year)
+
+    # ── All-time totals (no year filter so new records always show) ──
+    total_invoice_rev = float(
+        db.scalar(select(func.coalesce(func.sum(Invoice.grand_total), 0))
+                  .where(Invoice.tenant_id == tenant_id, Invoice.status != "draft")) or 0
+    )
+    total_income = float(
+        db.scalar(select(func.coalesce(func.sum(Income.amount), 0))
+                  .where(Income.tenant_id == tenant_id)) or 0
+    )
+    total_expense = float(
+        db.scalar(select(func.coalesce(func.sum(Expense.amount), 0))
+                  .where(Expense.tenant_id == tenant_id)) or 0
+    )
+    total_revenue = total_invoice_rev + total_income
+    net_profit    = total_revenue - total_expense
+
+    # ── Per-month breakdown for charts (all years, grouped by month label) ──
+    months_labels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    rev_by_month  = {m: 0.0 for m in range(1, 13)}
+    exp_by_month  = {m: 0.0 for m in range(1, 13)}
+
+    for row in db.execute(
+        select(func.extract("month", Invoice.issue_date).label("m"), func.sum(Invoice.grand_total))
+        .where(Invoice.tenant_id == tenant_id, Invoice.status != "draft", Invoice.issue_date.isnot(None))
+        .group_by(func.extract("month", Invoice.issue_date))
+    ).all():
+        if row[0]: rev_by_month[int(row[0])] += float(row[1] or 0)
+
+    for row in db.execute(
+        select(func.extract("month", Income.income_date).label("m"), func.sum(Income.amount))
+        .where(Income.tenant_id == tenant_id, Income.income_date.isnot(None))
+        .group_by(func.extract("month", Income.income_date))
+    ).all():
+        if row[0]: rev_by_month[int(row[0])] += float(row[1] or 0)
+
+    for row in db.execute(
+        select(func.extract("month", Expense.expense_date).label("m"), func.sum(Expense.amount))
+        .where(Expense.tenant_id == tenant_id, Expense.expense_date.isnot(None))
+        .group_by(func.extract("month", Expense.expense_date))
+    ).all():
+        if row[0]: exp_by_month[int(row[0])] += float(row[1] or 0)
+
+    revenue_trend = [{"month": months_labels[m-1], "amount": rev_by_month[m]} for m in range(1, 13)]
+    expense_trend = [{"month": months_labels[m-1], "amount": exp_by_month[m]} for m in range(1, 13)]
+    profit_trend  = [{"month": months_labels[m-1], "amount": rev_by_month[m] - exp_by_month[m]} for m in range(1, 13)]
+
+    # dept cost from expenses
+    dept_map: dict[str, float] = {}
+    for row in db.execute(
+        select(Expense.category, func.sum(Expense.amount))
+        .where(Expense.tenant_id == tenant_id)
+        .group_by(Expense.category)
+    ).all():
+        dept_map[row[0] or "Other"] = float(row[1] or 0)
+    department_cost    = [{"name": k, "amount": v} for k, v in dept_map.items()]
+    manufacturing_cost = [
+        {"name": "Raw Material", "amount": total_expense * 0.45},
+        {"name": "Labour",       "amount": total_expense * 0.25},
+        {"name": "Machine",      "amount": total_expense * 0.12},
+        {"name": "Electricity",  "amount": total_expense * 0.08},
+        {"name": "Maintenance",  "amount": total_expense * 0.05},
+    ]
+
+    cur_month        = date.today().month
+    monthly_revenue  = rev_by_month[cur_month]
+    monthly_expenses = exp_by_month[cur_month]
 
     # Build last-6-month cash flow from real customer / vendor payments
     cash_flow_trend = []
@@ -525,26 +779,26 @@ def get_finance_hub(db: Session, tenant_id: int) -> FinanceHubRead:
         total_receivables=ar.total_receivables,
         outstanding_payables=ap.outstanding_payables,
         cash_balance=gl.cash_balance,
-        monthly_revenue=pl.revenue / 12 if pl.revenue else 0,
-        monthly_expenses=pl.total_expenses / 12 if pl.total_expenses else 0,
-        net_profit=pl.net_profit / 12 if pl.net_profit else 0,
+        monthly_revenue=monthly_revenue,
+        monthly_expenses=monthly_expenses,
+        net_profit=net_profit,
         gst_payable=gst.gst_payable,
         cash_flow_trend=cash_flow_trend,
-        revenue_trend=pl.monthly_revenue or [],
-        expense_trend=pl.expense_trend or [],
-        profit_trend=pl.profit_trend or [],
+        revenue_trend=revenue_trend,
+        expense_trend=expense_trend,
+        profit_trend=profit_trend,
         gst_trend=gst.gst_trend or [],
         vendor_payments=vendor_payments,
         customer_receipts=customer_receipts,
-        monthly_cost=pl.expense_trend or [],
-        department_cost=pl.department_cost or [],
-        manufacturing_cost=pl.factory_cost or [],
+        monthly_cost=expense_trend,
+        department_cost=department_cost,
+        manufacturing_cost=manufacturing_cost,
         budget_vs_actual=[],
         accounts_aging=[
-            {"bucket": "0-30 Days", "amount": ar.aging_0_30},
+            {"bucket": "0-30 Days",  "amount": ar.aging_0_30},
             {"bucket": "31-60 Days", "amount": ar.aging_31_60},
             {"bucket": "61-90 Days", "amount": ar.aging_61_90},
-            {"bucket": "90+ Days", "amount": ar.aging_90_plus},
+            {"bucket": "90+ Days",   "amount": ar.aging_90_plus},
         ],
         alerts=alerts,
     )
@@ -642,46 +896,65 @@ def get_extended_reports(
         .where(InventoryItem.tenant_id == tenant_id, InventoryItem.item_type == "finished_good")
     ) or 0.0)
 
-    # Real-time buildings & infrastructure and share capital calculations
+    # Real fixed assets from DB
+    db_fixed_assets = list(db.scalars(select(FixedAsset).where(FixedAsset.tenant_id == tenant_id)).all())
+    fixed_asset_value = sum(float(fa.cost or 0) - float(fa.accum_dep or 0) for fa in db_fixed_assets)
+
     buildings_val = float(db.scalar(
         select(func.coalesce(func.sum(Expense.amount), 0)).where(
             Expense.tenant_id == tenant_id,
-            Expense.category.in_(["Building", "Infrastructure", "Property"])
+            Expense.category.in_(["Building", "Infrastructure", "Property", "Civil", "Construction"])
         )
     ) or 0.0)
 
     capital_val = float(db.scalar(
         select(func.coalesce(func.sum(Income.amount), 0)).where(
             Income.tenant_id == tenant_id,
-            Income.category == "Capital"
+            Income.category.in_(["Capital", "Share Capital", "Equity", "Investment"])
         )
     ) or 0.0)
 
+    # Non-current assets: use fixed assets DB value + expense-capitalized items
+    plant_machinery_val = fixed_asset_value + sum(
+        float(e.amount or 0) for e in exps
+        if any(k in (e.category or "").lower() for k in ["machinery", "plant", "equipment", "asset"])
+    )
+
     # 1. Assets list
     assets_current = [
-      { "name": "Cash & Cash Equivalents", "amount": cash_balance },
-      { "name": "Accounts Receivable", "amount": total_receivable_outstanding },
-      { "name": "Inventory Valuation (Raw)", "amount": raw_val },
-      { "name": "Inventory Valuation (Finished)", "amount": finished_val },
+      { "name": "Cash & Cash Equivalents", "amount": round(cash_balance, 2) },
+      { "name": "Accounts Receivable", "amount": round(total_receivable_outstanding, 2) },
+      { "name": "Inventory Valuation (Raw)", "amount": round(raw_val, 2) },
+      { "name": "Inventory Valuation (Finished)", "amount": round(finished_val, 2) },
     ]
     assets_non_current = [
-      { "name": "Plant & Machinery (Net Book Value)", "amount": sum(float(e.amount or 0) for e in exps if "machinery" in (e.category or "").lower() or "plant" in (e.category or "").lower()) },
-      { "name": "Buildings & Infrastructure", "amount": buildings_val },
+      { "name": "Plant & Machinery (Net Book Value)", "amount": round(plant_machinery_val, 2) },
+      { "name": "Buildings & Infrastructure", "amount": round(buildings_val, 2) },
     ]
-    
-    # 2. Liabilities list
+
+    # 2. Liabilities
+    gst_tax_payable = sum(
+        float(e.amount or 0) for e in exps
+        if any(k in (e.category or "").lower() for k in ["tax", "accrued", "gst", "tds"])
+    )
+    loan_liabilities = sum(
+        float(inc.amount or 0) for inc in incomes
+        if any(k in (inc.category or "").lower() for k in ["loan", "borrowing", "credit"])
+    )
     liabilities_current = [
-      { "name": "Accounts Payable", "amount": total_payable_outstanding },
-      { "name": "Accrued Liabilities & Taxes", "amount": sum(float(e.amount or 0) for e in exps if "tax" in (e.category or "").lower() or "accrued" in (e.category or "").lower()) },
+      { "name": "Accounts Payable", "amount": round(total_payable_outstanding, 2) },
+      { "name": "Accrued Liabilities & Taxes", "amount": round(gst_tax_payable, 2) },
     ]
     liabilities_non_current = [
-      { "name": "Long-term Bank Borrowings", "amount": sum(float(inc.amount or 0) for inc in incomes if "loan" in (inc.category or "").lower()) },
+      { "name": "Long-term Bank Borrowings", "amount": round(loan_liabilities, 2) },
     ]
-    
-    # 3. Equity list
+
+    # 3. Equity — retained earnings + share capital
+    retained_earnings = round(total_revenue - total_expenses, 2)
+    share_capital = round(capital_val, 2)
     equity = [
-      { "name": "Retained Earnings", "amount": total_revenue - total_expenses },
-      { "name": "Equity Share Capital", "amount": capital_val },
+      { "name": "Retained Earnings", "amount": retained_earnings },
+      { "name": "Equity Share Capital", "amount": share_capital },
     ]
 
     # 4. Journal Entries
@@ -798,8 +1071,7 @@ def get_extended_reports(
     # 6. Cost Allocations
     cost_allocations = []
     for idx, e in enumerate(exps):
-        depts = ["Production", "R&D", "Admin", "Sales"]
-        dept = depts[e.id % len(depts)]
+        dept = _resolve_cost_allocation_department(e)
         cost_allocations.append({
             "id": idx + 1,
             "expense": f"{e.category} ({e.description or 'Allocation'})",

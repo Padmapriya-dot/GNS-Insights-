@@ -339,6 +339,29 @@ def get_invoice_detail_endpoint(
     return {"found": True, "invoice": data, "items": items, "customer": cust}
 
 
+@router.patch("/invoices/{invoice_id}/status", response_model=InvoiceRead)
+def update_invoice_status_endpoint(
+    invoice_id: int,
+    status: str = Query(..., description="New status: paid, partial, draft, issued, sent"),
+    amount_paid: float | None = Query(None, description="Amount paid (for partial payments)"),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    from app.models.sales import Invoice as InvoiceModel
+    inv = db.get(InvoiceModel, invoice_id)
+    if not inv or inv.tenant_id != tenant_id:
+        raise HTTPException(404, "Invoice not found")
+    inv.status = status
+    if amount_paid is not None:
+        inv.amount_paid = amount_paid
+    elif status == "paid":
+        inv.amount_paid = float(inv.grand_total or 0)
+    db.commit()
+    db.refresh(inv)
+    return inv
+
+
+
 @router.post("/payments", response_model=PaymentRead)
 def create_payment_endpoint(
     payload: PaymentCreate,

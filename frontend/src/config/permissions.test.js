@@ -60,4 +60,20 @@ describe("getEffectivePermissions / userCanAccess", () => {
   it("always allows admins", () => {
     expect(userCanAccess({ role: "Admin" }, "anything")).toBe(true);
   });
+
+  it("allows granular permissions to satisfy module access", () => {
+    const user = { role: "Accountant", permissions: ["procurement:read"] };
+    expect(getEffectivePermissions(user)).toEqual(["procurement:read"]);
+    expect(userCanAccess(user, "procurement")).toBe(true);
+    expect(userCanAccess(user, "sales")).toBe(false);
+  });
+
+  it("falls back to the static role map when there are no live permissions", () => {
+    const user = { role: "Accountant", permissions: [] };
+    expect(getEffectivePermissions(user)).toContain("accounts");
+    expect(getEffectivePermissions(user)).toContain("procurement");
+    expect(userCanAccess(user, "inventory")).toBe(true);
+    expect(userCanAccess(user, "analytics")).toBe(true);
+    expect(userCanAccess(user, "quality")).toBe(false);
+  });
 });

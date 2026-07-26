@@ -34,7 +34,7 @@ export default function RecordExpense({ onClose }) {
       await createExpense({ ...form, amount: Number(form.amount) });
       if (addToast) addToast("Expense recorded successfully", "success");
       handleClose();
-    } catch (err) {
+    } catch {
       if (addToast) addToast("Failed to record expense", "error");
     } finally {
       setSaving(false);

@@ -5,7 +5,7 @@ export const FINANCE_FLOW = [
   "Payment", "General Ledger", "GST Update", "Profit & Loss", "Balance Sheet",
 ];
 
-export const FINANCIAL_YEARS = ["2025-26", "2024-25", "2023-24"];
+export const FINANCIAL_YEARS = ["2026-27", "2025-26", "2024-25", "2023-24"];
 export const BRANCHES = ["Head Office", "Plant-1", "Plant-2", "Warehouse"];
 export const COST_CENTERS = ["Production", "HR", "Sales", "Procurement", "Warehouse", "Administration"];
 export const GST_REPORTS = ["GSTR-1", "GSTR-2B", "GSTR-3B", "GSTR-9", "HSN Summary", "SAC Summary"];

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.core.permissions import require_permission, tenant_scope
+from app.core.permissions import require_any_permission, require_permission, tenant_scope, tenant_scope_any
 from app.models.user import User
 from app.schemas.inventory import SupplierRead
 from app.schemas.vendor import (
@@ -121,14 +121,14 @@ def update_purchase_order_status_endpoint(
 
 @router.get("/vendors/summary", response_model=VendorSummaryRead)
 def vendor_summary_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope_any("procurement", "inventory", "accounts")), db: Session = Depends(get_db)
 ) -> VendorSummaryRead:
     return get_vendor_summary(db, tenant_id)
 
 
 @router.get("/vendors", response_model=list[VendorListRead])
 def list_vendors_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope_any("procurement", "inventory", "accounts")), db: Session = Depends(get_db)
 ) -> list[VendorListRead]:
     return list_vendors_enriched(db, tenant_id)
 
@@ -136,7 +136,7 @@ def list_vendors_endpoint(
 @router.post("/vendors", response_model=VendorListRead)
 def create_vendor_endpoint(
     payload: VendorCreate,
-    user: User = Depends(require_permission(MODULE)),
+    user: User = Depends(require_any_permission("procurement", "inventory", "accounts")),
     db: Session = Depends(get_db),
 ) -> VendorListRead:
     payload.tenant_id = user.tenant_id
@@ -149,7 +149,7 @@ def create_vendor_endpoint(
 @router.get("/vendors/{vendor_id}", response_model=VendorDetailRead)
 def get_vendor_endpoint(
     vendor_id: int,
-    tenant_id: int = Depends(tenant_scope(MODULE)),
+    tenant_id: int = Depends(tenant_scope_any("procurement", "inventory", "accounts")),
     db: Session = Depends(get_db),
 ) -> VendorDetailRead:
     detail = get_vendor_detail(db, tenant_id, vendor_id)
@@ -162,7 +162,7 @@ def get_vendor_endpoint(
 def update_vendor_endpoint(
     vendor_id: int,
     payload: VendorUpdate,
-    tenant_id: int = Depends(tenant_scope(MODULE)),
+    tenant_id: int = Depends(tenant_scope_any("procurement", "inventory", "accounts")),
     db: Session = Depends(get_db),
 ) -> VendorListRead:
     supplier = update_vendor(db, tenant_id, vendor_id, payload)
@@ -178,7 +178,7 @@ def update_vendor_endpoint(
 @router.patch("/vendors/{vendor_id}/deactivate", response_model=VendorListRead)
 def deactivate_vendor_endpoint(
     vendor_id: int,
-    tenant_id: int = Depends(tenant_scope(MODULE)),
+    tenant_id: int = Depends(tenant_scope_any("procurement", "inventory", "accounts")),
     db: Session = Depends(get_db),
 ) -> VendorListRead:
     supplier = deactivate_vendor(db, tenant_id, vendor_id)
@@ -195,7 +195,7 @@ def deactivate_vendor_endpoint(
 def update_vendor_approval_endpoint(
     vendor_id: int,
     status: str = Query(..., description="approved or rejected"),
-    tenant_id: int = Depends(tenant_scope(MODULE)),
+    tenant_id: int = Depends(tenant_scope_any("procurement", "inventory", "accounts")),
     db: Session = Depends(get_db),
 ) -> SupplierRead:
     if status not in ("approved", "rejected", "pending"):
@@ -300,7 +300,7 @@ def goods_receipt_qc_endpoint(
 @router.post("/supplier-payments", response_model=SupplierPaymentRead)
 def create_supplier_payment_endpoint(
     payload: SupplierPaymentCreate,
-    user: User = Depends(require_permission(MODULE)),
+    user: User = Depends(require_any_permission("procurement", "inventory", "accounts")),
     db: Session = Depends(get_db),
 ) -> SupplierPaymentRead:
     payload.tenant_id = user.tenant_id
@@ -309,7 +309,7 @@ def create_supplier_payment_endpoint(
 
 @router.get("/supplier-payments", response_model=list[SupplierPaymentRead])
 def list_supplier_payments_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope_any("procurement", "inventory", "accounts")), db: Session = Depends(get_db)
 ) -> list[SupplierPaymentRead]:
     return list_supplier_payments(db, tenant_id)
 

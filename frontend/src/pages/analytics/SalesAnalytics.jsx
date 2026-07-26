@@ -8,6 +8,7 @@ import {
 } from "recharts";
 
 import Loader from "../../components/common/Loader";
+import SkeletonCard, { SkeletonChart } from "../../components/common/SkeletonCard";
 import AnalyticsAlertsBanner from "../../components/analytics/AnalyticsAlertsBanner";
 import AnalyticsChartCard from "../../components/analytics/AnalyticsChartCard";
 import AnalyticsDashboardHeader from "../../components/analytics/AnalyticsDashboardHeader";
@@ -29,6 +30,32 @@ const emptyData = {
   top_products: [], regional_sales: [], sales_funnel: [],
   quotation_conversion: [], order_status: [], drill_revenue: [],
   last_updated: null,
+};
+
+const toNumeric = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeChartData = (rows = []) => {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => {
+      const entry = typeof row === "object" && row !== null ? row : {};
+      const label = entry.label ?? entry.month ?? entry.date ?? entry.period ?? entry.name ?? entry.item ?? entry.category ?? "";
+      const normalized = {
+        ...entry,
+        label: label || "N/A",
+      };
+      const value = toNumeric(entry.value ?? entry.amount ?? entry.revenue ?? entry.total ?? entry.qty ?? entry.orders ?? entry.units);
+      const value2 = toNumeric(entry.value2 ?? entry.expense ?? entry.target ?? entry.planned ?? entry.outflow);
+      if (value !== null) normalized.value = value;
+      if (value2 !== null) normalized.value2 = value2;
+      return normalized;
+    })
+    .filter((entry) => entry && (entry.value !== undefined || entry.value2 !== undefined));
 };
 
 export default function SalesAnalytics() {
@@ -70,8 +97,27 @@ export default function SalesAnalytics() {
     return () => clearInterval(t);
   }, [autoRefresh, load]);
 
-  if (loading && !data.kpis?.length) return <Loader label="Loading sales analytics..." />;
+  if (loading && !data.kpis?.length) {
+    return (
+      <div className="space-y-6 bg-slate-50 p-4 dark:bg-slate-900 sm:p-6">
+        <div className="h-16 animate-pulse rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (<SkeletonCard key={index} />))}
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, index) => (<SkeletonChart key={index} />))}
+        </div>
+      </div>
+    );
+  }
   const setF = (k) => (v) => setFilters((f) => ({ ...f, [k]: v }));
+
+  const monthlyRevenue = normalizeChartData(data.monthly_revenue);
+  const topCustomers = normalizeChartData(data.top_customers);
+  const topProducts = normalizeChartData(data.top_products);
+  const salesFunnel = normalizeChartData(data.sales_funnel);
+  const orderStatus = normalizeChartData(data.order_status);
+  const quotationConversion = normalizeChartData(data.quotation_conversion);
 
   const handleKpiClick = (kpi) => {
     if (kpi.key === "revenue" && data.drill_revenue) setDrillTrail(data.drill_revenue);
@@ -111,7 +157,7 @@ export default function SalesAnalytics() {
       <div className="grid gap-6 lg:grid-cols-2">
         <AnalyticsChartCard id="chart-monthly-rev" title="Monthly Revenue" data={data.monthly_revenue} dataKeys={["label", "value"]} sourceLink={SOURCE_LINKS.sales} sourceLabel="Sales">
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={data.monthly_revenue}>
+            <AreaChart data={monthlyRevenue}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" /><YAxis /><Tooltip formatter={(v) => formatInr(v)} />
               <Area type="monotone" dataKey="value" stroke={CHART_COLORS[0]} fill={CHART_COLORS[0]} fillOpacity={0.2} name="Revenue" />
@@ -121,7 +167,7 @@ export default function SalesAnalytics() {
 
         <AnalyticsChartCard id="chart-top-cust" title="Top Customers" data={data.top_customers} dataKeys={["label", "value"]} sourceLink={SOURCE_LINKS.sales} sourceLabel="Sales">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.top_customers}>
+            <BarChart data={topCustomers}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" /><YAxis /><Tooltip />
               <Bar dataKey="value" name="Orders" fill={CHART_COLORS[1]} />
@@ -131,7 +177,7 @@ export default function SalesAnalytics() {
 
         <AnalyticsChartCard id="chart-top-prod" title="Top Products" data={data.top_products} dataKeys={["label", "value"]} sourceLink={SOURCE_LINKS.sales} sourceLabel="Sales">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.top_products}>
+            <BarChart data={topProducts}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" /><YAxis /><Tooltip />
               <Bar dataKey="value" name="Qty" fill={CHART_COLORS[2]} />
@@ -141,7 +187,7 @@ export default function SalesAnalytics() {
 
         <AnalyticsChartCard id="chart-funnel" title="Sales Funnel" data={data.sales_funnel} dataKeys={["label", "value"]} sourceLink={SOURCE_LINKS.sales} sourceLabel="Sales">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.sales_funnel} layout="vertical">
+            <BarChart data={salesFunnel} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis type="number" /><YAxis dataKey="label" type="category" width={100} /><Tooltip />
               <Bar dataKey="value" fill={CHART_COLORS[3]} />
@@ -152,8 +198,8 @@ export default function SalesAnalytics() {
         <AnalyticsChartCard id="chart-order-status" title="Order Status" data={data.order_status} dataKeys={["label", "value"]} sourceLink={SOURCE_LINKS.sales} sourceLabel="Sales">
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={data.order_status} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={100} label>
-                {(data.order_status || []).map((_, i) => (
+              <Pie data={orderStatus} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={100} label>
+                {(orderStatus || []).map((_, i) => (
                   <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                 ))}
               </Pie>
@@ -164,7 +210,7 @@ export default function SalesAnalytics() {
 
         <AnalyticsChartCard id="chart-quote-conv" title="Quotation Conversion" data={data.quotation_conversion} dataKeys={["label", "value"]} sourceLink={SOURCE_LINKS.sales} sourceLabel="Sales">
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data.quotation_conversion}>
+            <LineChart data={quotationConversion}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" /><YAxis /><Tooltip />
               <Line type="monotone" dataKey="value" stroke={CHART_COLORS[4]} name="Conversion %" />

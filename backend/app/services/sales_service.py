@@ -313,9 +313,16 @@ def create_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
     db.flush()
     subtotal = 0.0
     for item_data in payload.items:
-        item = InvoiceItem(invoice_id=inv.id, **item_data)
+        if hasattr(item_data, "model_dump"):
+            item_payload = item_data.model_dump()
+        elif isinstance(item_data, dict):
+            item_payload = dict(item_data)
+        else:
+            item_payload = {"item_description": str(item_data), "qty": 0, "unit": "pcs", "rate": 0, "amount": 0}
+
+        item = InvoiceItem(invoice_id=inv.id, **item_payload)
         db.add(item)
-        subtotal += item.amount
+        subtotal += float(item.amount or 0)
     inv.subtotal = subtotal
     sgst, cgst, igst = _calc_gst(
         subtotal, inv.sgst_pct, inv.cgst_pct, inv.igst_pct

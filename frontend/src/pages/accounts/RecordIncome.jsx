@@ -34,7 +34,7 @@ export default function RecordIncome({ onClose }) {
       await createIncome({ ...form, amount: Number(form.amount) });
       if (addToast) addToast("Income recorded successfully", "success");
       handleClose();
-    } catch (err) {
+    } catch {
       if (addToast) addToast("Failed to record income", "error");
     } finally {
       setSaving(false);

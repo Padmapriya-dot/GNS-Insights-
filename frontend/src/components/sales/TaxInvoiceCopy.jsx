@@ -1,475 +1,463 @@
-import { Fragment } from "react";
+import { useEffect, useRef } from "react";
+import QRCode from "qrcode";
 import { numberToWordsInr } from "../../utils/invoiceCopyData";
 
-const cell = "border border-black px-1.5 py-0.5 text-[10px] leading-tight text-black font-sans";
-const cellMono = `${cell} font-mono`;
-const th = `${cell} font-bold text-center bg-gray-50 uppercase text-[9px]`;
+function QRCanvas({ value }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ref.current || !value) return;
+    QRCode.toCanvas(ref.current, value, { width: 82, margin: 1, errorCorrectionLevel: "M" }, () => {});
+  }, [value]);
+  return <canvas ref={ref} />;
+}
+
+const B  = "border border-black";
+const BL = "border-l border-black";
+const BR = "border-r border-black";
+const BT = "border-t border-black";
+const BB = "border-b border-black";
+
+const cell  = `${B} px-1.5 py-0.5 text-[9.5px] leading-tight text-black`;
+const cellL = `${BL} ${BR} px-1.5 py-0.5 text-[9.5px] leading-tight text-black`; // col borders only
+const th    = `${B} px-1.5 py-0.5 text-[8.5px] font-bold text-center uppercase bg-gray-50`;
+
+const Label = ({ children }) => (
+  <span className="block text-[8px] text-slate-500 leading-none mb-0.5">{children}</span>
+);
+const Val = ({ children, mono, bold }) => (
+  <span className={`block text-[9.5px] leading-tight ${mono ? "font-mono" : ""} ${bold ? "font-bold" : ""}`}>
+    {children || "\u00a0"}
+  </span>
+);
 
 export default function TaxInvoiceCopy({ data, showPrintButton = true }) {
   if (!data) return null;
 
-  const handlePrint = () => window.print();
+  /* ── seller ── */
+  const sName  = data.seller?.name    || "GNS INSIGHTS PRIVATE LIMITED";
+  const sAddr  = data.seller?.address || "Hyderabad, Telangana";
+  const sUdyam = data.seller?.udyam   || "";
+  const sGstin = data.seller?.gstin   || "36XXXXX0000X1Z0";
+  const sState = data.seller?.state   || "Telangana, Code : 36";
+  const sCin   = data.seller?.cin     || "";
+  const sEmail = data.seller?.email   || "";
 
-  const sellerName = data.seller?.name || "GNS INSIGHTS PRIVATE LIMITED";
-  const sellerAddress = data.seller?.address || "PLOT NO.: 178 C AND D, IDA MALLAPUR, HYDERABAD, TELANGANA - 500076";
-  const sellerUdyam = data.seller?.udyam || "UDYAM-TS-20-0001122";
-  const sellerGstin = data.seller?.gstin || "36AAFCS1039P1Z0";
-  const sellerState = data.seller?.state || "Telangana, Code : 36";
-  const sellerCin = data.seller?.cin || "U21020TG1999PTC032393";
-  const sellerEmail = data.seller?.email || "sales@gnsinsights.com";
+  /* ── meta ── */
+  const invoiceNo  = data.meta?.invoiceNo  || "";
+  const date       = data.meta?.date       || "";
+  const eWayBill   = data.meta?.eWayBillNo || "";
+  const irn        = data.irn  && data.irn  !== "—" ? data.irn  : "";
+  const ackNo      = data.ackNo && data.ackNo !== "—" ? data.ackNo : "";
+  const ackDate    = data.ackDate || date;
 
-  const invoiceNo = data.meta?.invoiceNo || "1541/26-27";
-  const date = data.meta?.date || "27-Jun-26";
-  const eWayBillNo = data.meta?.eWayBillNo || "142470234096";
-  const irn = data.irn || "448c3052ce650817608ddafb90d9817fc28ea01d1ebf8acb810a4affec0a5a54";
-  const ackNo = data.ackNo || "112631145034957";
-  const ackDate = data.ackDate || "27-Jun-26";
+  /* ── QR ── */
+  const qrValue = [
+    `Seller:${sName}`, `GSTIN:${sGstin}`,
+    `Invoice:${invoiceNo}`, `Date:${date}`,
+    `Buyer:${data.buyer?.name || ""}`,
+    `BuyerGSTIN:${data.buyer?.gstin || ""}`,
+    `Total:${data.grandTotal || ""}`,
+    irn ? `IRN:${irn}` : "",
+  ].filter(Boolean).join("|");
 
-  const qtyTotal = data.items.reduce((s, it) => s + parseFloat(it.qty || 0), 0);
-  const unitLabel = data.items[0]?.unit || "SQM";
+  /* ── tax ── */
+  const taxable  = data.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+  const qtyTotal = data.items.reduce((s, it) => s + parseFloat(it.qty   || 0), 0);
+  const unit0    = data.items[0]?.unit || "PCS";
+  const isIgst   = Boolean(data.items[0]?.igstPct > 0 || data.igstTotal > 0);
+  const igstPct  = data.items[0]?.igstPct || 18;
+  const igstAmt  = isIgst ? (data.igstTotal || Math.round(taxable * igstPct / 100 * 100) / 100) : 0;
+  const cgstAmt  = isIgst ? 0 : Math.round(taxable * 0.09 * 100) / 100;
+  const sgstAmt  = isIgst ? 0 : Math.round(taxable * 0.09 * 100) / 100;
+  const totalTax = isIgst ? igstAmt : cgstAmt + sgstAmt;
+  const roundOff = Number(data.roundOff) || 0;
+  const grand    = Number(data.grandTotal) || taxable + totalTax + roundOff;
+  const fmt      = (n, d = 2) => Number(n).toFixed(d);
 
-  const taxableTotal = data.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
-  const isIgst = Boolean(data.items[0]?.igstPct > 0 || data.igstTotal > 0 || data.placeOfSupply !== "Telangana");
-  
-  const igstPct = data.items[0]?.igstPct || 18;
-  const igstAmount = isIgst ? (data.igstTotal || Math.round(taxableTotal * (igstPct / 100) * 1000) / 1000) : 0;
-  const cgstAmount = isIgst ? 0 : Math.round(taxableTotal * 0.09 * 1000) / 1000;
-  const sgstAmount = isIgst ? 0 : Math.round(taxableTotal * 0.09 * 1000) / 1000;
-  const totalTax = isIgst ? igstAmount : (cgstAmount + sgstAmount);
-
-  const roundOff = data.roundOff !== undefined ? Number(data.roundOff) : -0.12;
-  const grandTotal = Number(data.grandTotal) || (taxableTotal + totalTax + roundOff);
+  // Default template image path (put your image at `public/invoice-template.svg` or `.png`)
+  const templateUrl = "/invoice-template.svg";
 
   return (
-    <div className="tax-invoice-copy mx-auto max-w-[850px] bg-white p-2 text-black font-sans">
-      {showPrintButton && (
-        <div className="mb-3 flex items-center justify-between print:hidden">
-          <span className="rounded bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-900">
-            STIC-ON Exact e-Invoice Format Ready
-          </span>
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="rounded bg-black px-4 py-1.5 text-xs font-bold text-white shadow hover:bg-slate-800 transition-colors"
-          >
-            🖨️ Print e-Invoice
-          </button>
-        </div>
-      )}
-
-      {/* TOP HEADER SECTION OUTSIDE MAIN BORDER */}
-      <div className="flex items-start justify-between mb-1 px-1">
-        <div className="w-1/3" />
-        <div className="w-1/3 text-center">
-          <h1 className="text-base font-bold text-black uppercase tracking-wider">Tax Invoice</h1>
-        </div>
-        <div className="w-1/3 text-right">
-          <span className="font-bold text-xs">e-Invoice</span>
-        </div>
+    <div className="tax-invoice-copy mx-auto max-w-[860px] bg-white px-3 pt-2 pb-3 text-black font-sans" style={{ position: "relative", border: '1px solid #0f172a', boxShadow: '0 2px 6px rgba(2,6,23,0.04)' }}>
+      {/* Decorative UI-only template (CSS-only, no external image). */}
+      <div
+        className="invoice-decor"
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          right: 12,
+          top: 8,
+          width: "44%",
+          maxWidth: 400,
+          height: 152,
+          pointerEvents: "none",
+          zIndex: 0,
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "flex-start",
+        }}
+      >
+        <div style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: 6,
+          background: 'linear-gradient(180deg,#111827 0%, #0b1220 100%)',
+          boxShadow: 'inset 0 -6px 18px rgba(2,6,23,0.18)',
+          opacity: 0.92,
+        }} />
       </div>
 
-      {/* IRN & ACK NO + QR CODE TOP BAR */}
-      <div className="flex items-start justify-between mb-2 text-[10px] leading-tight font-sans">
-        <div className="space-y-0.5 max-w-[550px]">
-          <p className="flex"><span className="font-bold w-16">IRN</span> <span className="font-bold">: </span><span className="font-bold break-all font-mono text-[10px] ml-1">{irn}</span></p>
-          <p className="flex"><span className="font-bold w-16">Ack No.</span> <span className="font-bold">: </span><span className="font-mono text-[10px] ml-1">{ackNo}</span></p>
-          <p className="flex"><span className="font-bold w-16">Ack Date</span> <span className="font-bold">: </span><span className="font-mono text-[10px] ml-1">{ackDate}</span></p>
-        </div>
+      {/* content wrapper sits above the decorative element */}
+      <div style={{ position: "relative", zIndex: 1 }}>
 
-        {/* QR CODE DISPLAY */}
-        <div className="text-right">
-          <div className="inline-block p-1 border border-black bg-white">
-            <svg width="85" height="85" viewBox="0 0 100 100" fill="black">
-              <rect x="0" y="0" width="100" height="100" fill="white" />
-              {/* Outer Position Detection Patterns */}
-              <rect x="5" y="5" width="25" height="25" fill="black" />
-              <rect x="8" y="8" width="19" height="19" fill="white" />
-              <rect x="12" y="12" width="11" height="11" fill="black" />
-              
-              <rect x="70" y="5" width="25" height="25" fill="black" />
-              <rect x="73" y="8" width="19" height="19" fill="white" />
-              <rect x="77" y="12" width="11" height="11" fill="black" />
+      {/* Inline styles: typography, grid lines, print tuning */}
+      <style>{`
+        /* Typography */
+        .tax-invoice-copy { font-family: Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0b1220; -webkit-font-smoothing:antialiased; }
+        .tax-invoice-copy h1 { letter-spacing: .06em; }
 
-              <rect x="5" y="70" width="25" height="25" fill="black" />
-              <rect x="8" y="73" width="19" height="19" fill="white" />
-              <rect x="12" y="77" width="11" height="11" fill="black" />
+        /* Table and lines */
+        .tax-invoice-copy table { border-collapse: collapse; width: 100%; }
+        .tax-invoice-copy th, .tax-invoice-copy td { border-color: #111827; border-style: solid; border-width: 1px 1px 1px 1px; }
+        .tax-invoice-copy thead th { background: #f8fafc; font-weight: 700; color: #0f172a; }
+        .tax-invoice-copy td { padding: 6px 8px; vertical-align: top; }
 
-              {/* Data Modules */}
-              <rect x="35" y="5" width="6" height="6" />
-              <rect x="45" y="5" width="6" height="6" />
-              <rect x="55" y="5" width="6" height="6" />
-              <rect x="35" y="15" width="6" height="6" />
-              <rect x="50" y="15" width="6" height="6" />
-              <rect x="60" y="15" width="6" height="6" />
+        /* Subtle separators for main sections */
+        .tax-invoice-copy > .tax-invoice-copy__section + .tax-invoice-copy__section { border-top: 1px solid rgba(0,0,0,0.06); }
 
-              <rect x="5" y="35" width="6" height="6" />
-              <rect x="15" y="35" width="6" height="6" />
-              <rect x="25" y="35" width="6" height="6" />
-              <rect x="35" y="30" width="8" height="8" />
-              <rect x="48" y="30" width="8" height="8" />
-              <rect x="60" y="30" width="8" height="8" />
-              <rect x="75" y="35" width="6" height="6" />
+        /* Monospace values for numeric alignment */
+        .tax-invoice-copy .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace; }
 
-              <rect x="5" y="48" width="6" height="6" />
-              <rect x="18" y="48" width="6" height="6" />
-              <rect x="30" y="45" width="8" height="8" />
-              <rect x="45" y="45" width="10" height="10" />
-              <rect x="60" y="45" width="8" height="8" />
-              <rect x="75" y="48" width="6" height="6" />
-              <rect x="88" y="48" width="6" height="6" />
+        /* Decorative block tuning */
+        .invoice-decor { border-radius: 6px; }
 
-              <rect x="5" y="60" width="6" height="6" />
-              <rect x="18" y="60" width="6" height="6" />
-              <rect x="35" y="60" width="8" height="8" />
-              <rect x="50" y="60" width="8" height="8" />
-              <rect x="65" y="60" width="6" height="6" />
-              <rect x="80" y="60" width="6" height="6" />
+        /* Print adjustments */
+        @media print {
+          .tax-invoice-copy { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .invoice-decor { opacity: 0.9 !important; }
+          body { background: #fff; }
+          /* Ensure invoice doesn't break mid-table */
+          table, tr, td, th { page-break-inside: avoid; }
+        }
 
-              <rect x="35" y="75" width="6" height="6" />
-              <rect x="45" y="75" width="6" height="6" />
-              <rect x="55" y="75" width="6" height="6" />
-              <rect x="70" y="75" width="6" height="6" />
-              <rect x="85" y="75" width="6" height="6" />
+        @media screen {
+          .tax-invoice-copy { background: #fff; }
+        }
+      `}</style>
 
-              <rect x="35" y="88" width="6" height="6" />
-              <rect x="50" y="88" width="6" height="6" />
-              <rect x="65" y="88" width="6" height="6" />
-              <rect x="80" y="88" width="6" height="6" />
-            </svg>
+      {/* ══ ROW 1 — TAX INVOICE title (center) | QR (right) ══ */}
+      <div className="flex items-start mb-0.5">
+        <div className="w-[82px] shrink-0" />
+        <h1 className="flex-1 text-center text-[13px] font-extrabold uppercase tracking-widest leading-none py-1">
+          Tax Invoice
+        </h1>
+        <div style={{ width: 86 }} className="shrink-0 text-right">
+          <div className="text-[9px] text-right font-semibold" style={{ marginBottom: 4 }}>e-Invoice</div>
+          <div className="qr-box" style={{ width: 86, border: '1px solid #0f172a', padding: 6, background: '#fff' }}>
+            <QRCanvas value={qrValue} />
           </div>
         </div>
       </div>
 
-      {/* MAIN DOCUMENT BORDER */}
-      <div className="border border-black p-0 bg-white">
-        
-        {/* SELLER & META GRID */}
-        <table className="w-full border-collapse">
-          <tbody>
-            <tr>
-              <td className={`${cell} align-top w-[52%]`} rowSpan={6}>
-                <div className="flex gap-2">
-                  {/* STIC-ON Logo Box */}
-                  <div className="flex h-12 w-16 shrink-0 flex-col items-center justify-center border border-red-600 bg-white p-0.5 text-center">
-                    <div className="bg-red-600 px-1 text-[8px] font-black text-white leading-none transform -rotate-3">
-                      STIC-ON
-                    </div>
-                    <span className="text-[6px] italic text-slate-700 mt-0.5">Let's Stick Together</span>
-                  </div>
-                  <div>
-                    <p className="font-bold text-xs text-black uppercase">{sellerName}</p>
-                    <p className="text-[9.5px] leading-snug">{sellerAddress}</p>
-                    <p className="text-[9.5px]">{sellerUdyam}</p>
-                    <p className="text-[9.5px]"><span className="font-bold">GSTIN/UIN : </span><span className="font-bold">{sellerGstin}</span></p>
-                    <p className="text-[9.5px]"><span className="font-bold">State Name : </span>{sellerState}</p>
-                    <p className="text-[9.5px]"><span className="font-bold">CIN : </span>{sellerCin}</p>
-                    <p className="text-[9.5px]"><span className="font-bold">E-Mail : </span>{sellerEmail}</p>
-                  </div>
-                </div>
-              </td>
-              <td className={`${cell} w-[16%]`}><span className="text-[9px] text-slate-700">Invoice No.</span><br /><span className="font-bold text-xs font-mono">{invoiceNo}</span></td>
-              <td className={`${cell} w-[16%]`}><span className="text-[9px] text-slate-700">e-Way Bill No.</span><br /><span className="font-mono text-[10px]">{eWayBillNo}</span></td>
-              <td className={`${cell} w-[16%]`}><span className="text-[9px] text-slate-700">Dated</span><br /><span className="font-bold font-mono text-[10px]">{date}</span></td>
-            </tr>
-            <tr>
-              <td className={cell} colSpan={2}><span className="text-[9px] text-slate-700">Delivery Note</span><br /><span>{data.meta?.deliveryNote || " "}</span></td>
-              <td className={cell}><span className="text-[9px] text-slate-700">Mode/Terms of Payment</span><br /><span className="font-bold">{data.meta?.modeTerms || "Advance"}</span></td>
-            </tr>
-            <tr>
-              <td className={cell} colSpan={2}><span className="text-[9px] text-slate-700">Reference No. & Date.</span><br /><span>{data.meta?.referenceNo || " "}</span></td>
-              <td className={cell}><span className="text-[9px] text-slate-700">Other References</span><br /><span> </span></td>
-            </tr>
-            <tr>
-              <td className={cell} colSpan={2}><span className="text-[9px] text-slate-700">Buyer's Order No.</span><br /><span>{data.meta?.buyersOrderNo || " "}</span></td>
-              <td className={cell}><span className="text-[9px] text-slate-700">Dated</span><br /><span> </span></td>
-            </tr>
-            <tr>
-              <td className={cell} colSpan={2}><span className="text-[9px] text-slate-700">Dispatch Doc No.</span><br /><span>{data.meta?.dispatchDocNo || " "}</span></td>
-              <td className={cell}><span className="text-[9px] text-slate-700">Delivery Note Date</span><br /><span> </span></td>
-            </tr>
-            <tr>
-              <td className={cell}><span className="text-[9px] text-slate-700">Dispatched through</span><br /><span className="font-bold">{data.meta?.dispatchedThrough || "Dtdc"}</span></td>
-              <td className={cell} colSpan={2}><span className="text-[9px] text-slate-700">Destination</span><br /><span className="font-bold">{data.meta?.destination || "Pune"}</span></td>
-            </tr>
-            <tr>
-              <td className={cell} colSpan={4}><span className="text-[9px] text-slate-700">Terms of Delivery</span><br /><span>{data.meta?.termsOfDelivery || " "}</span></td>
-            </tr>
+      {/* ══ ROW 2 — IRN / ACK (left) | spacer (right, same width as QR) ══ */}
+      <div className="flex items-start mb-1">
+        <div className="flex-1 text-[8.5px] leading-snug space-y-0.5 pr-2">
+          {irn  && <p><span className="font-bold w-32 inline-block">IRN No :</span><span className="font-mono break-all">{irn}</span></p>}
+          {ackNo && <p><span className="font-bold w-32 inline-block">Acknowledge No :</span><span className="font-mono">{ackNo}</span></p>}
+          {ackDate && <p><span className="font-bold w-32 inline-block">Acknowledge Date :</span><span className="font-mono">{ackDate}</span></p>}
+        </div>
+        <div style={{ width: 86 }} className="shrink-0" />
+      </div>
 
-            {/* CONSIGNEE & BUYER ROWS */}
-            <tr>
-              <td className={`${cell} align-top`} colSpan={4}>
-                <p className="text-[9px] text-slate-700">Consignee (Ship to)</p>
-                <p className="font-bold text-xs text-black">{data.consignee?.name || "ABHANG ENTERPRISES-Pune"}</p>
-                <p className="text-[9.5px] leading-snug whitespace-pre-wrap">{data.consignee?.address || "G.NO. 162/2, Katavi, Talegaon MIDC Road,\nNear Z P SCHOOL, Maval, Katavi, Pune,\nMaharashtra-410507"}</p>
-                <p className="text-[9.5px]">{data.consignee?.contact || "Mob: 9689100973/Tel. 08600772020"}</p>
-                <p className="text-[9.5px]"><span className="w-20 inline-block font-sans">GSTIN/UIN</span> : <span className="font-bold font-mono">{data.consignee?.gstin || "27ACIFA1810E1ZW"}</span></p>
-                <p className="text-[9.5px]"><span className="w-20 inline-block font-sans">State Name</span> : {data.consignee?.state || "Maharashtra, Code : 27"}</p>
-              </td>
-            </tr>
-            <tr>
-              <td className={`${cell} align-top`} colSpan={4}>
-                <p className="text-[9px] text-slate-700">Buyer (Bill to)</p>
-                <p className="font-bold text-xs text-black">{data.buyer?.name || "ABHANG ENTERPRISES-Pune"}</p>
-                <p className="text-[9.5px] leading-snug whitespace-pre-wrap">{data.buyer?.address || "G.NO. 162/2, Katavi, Talegaon MIDC Road,\nNear Z P SCHOOL, Maval, Katavi, Pune,\nMaharashtra-410507"}</p>
-                <p className="text-[9.5px]">{data.buyer?.contact || "Mob: 9689100973/Tel. 08600772020"}</p>
-                <p className="text-[9.5px]"><span className="w-24 inline-block font-sans">GSTIN/UIN</span> : <span className="font-bold font-mono">{data.buyer?.gstin || "27ACIFA1810E1ZW"}</span></p>
-                <p className="text-[9.5px]"><span className="w-24 inline-block font-sans">State Name</span> : {data.buyer?.state || "Maharashtra, Code : 27"}</p>
-                <p className="text-[9.5px]"><span className="w-24 inline-block font-sans">Place of Supply</span> : <span className="font-bold">{data.placeOfSupply || "Maharashtra"}</span></p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      {/* ══ MAIN DOCUMENT ══ */}
+      <div className={B}>
 
-        {/* GOODS LINE ITEMS TABLE */}
+        {/* ── A. SELLER (left 50%) | META GRID (right 50%) ── */}
+        <div className="flex">
+          {/* LEFT — seller */}
+          <div className={`${BR} w-1/2 p-1.5 flex gap-2 items-start`}>
+            <div className="flex h-9 w-16 shrink-0 flex-col items-center justify-center border-2 border-slate-800 bg-slate-800 text-white rounded-sm">
+              <span className="text-[13px] font-black leading-none">GNS</span>
+              <span className="text-[7px] font-semibold tracking-widest leading-none">INSIGHTS</span>
+            </div>
+            <div className="space-y-0 min-w-0">
+              <p className="font-extrabold text-[10.5px] uppercase leading-tight">{sName}</p>
+              <p className="text-[8.5px] leading-snug">{sAddr}</p>
+              {sUdyam && <p className="text-[8.5px]">{sUdyam}</p>}
+              <p className="text-[8.5px]"><span className="font-bold">GSTIN/UIN : </span>{sGstin}</p>
+              <p className="text-[8.5px]"><span className="font-bold">State Name : </span>{sState}</p>
+              {sCin   && <p className="text-[8.5px]"><span className="font-bold">CIN : </span>{sCin}</p>}
+              {sEmail && <p className="text-[8.5px]"><span className="font-bold">E-Mail : </span>{sEmail}</p>}
+            </div>
+          </div>
+
+          {/* RIGHT — meta grid */}
+          <div className="w-1/2">
+            <table className="w-full border-collapse">
+              <tbody>
+                <tr>
+                  <td className={`${cell} w-1/2`}><Label>Invoice No.</Label><Val mono bold>{invoiceNo}</Val></td>
+                  <td className={cell}><Label>Dated</Label><Val mono bold>{date}</Val></td>
+                </tr>
+                <tr>
+                  <td className={cell} colSpan={2}><Label>e-Way Bill No.</Label><Val mono>{eWayBill || "—"}</Val></td>
+                </tr>
+                <tr>
+                  <td className={cell}><Label>Delivery Note</Label><Val>{data.meta?.deliveryNote}</Val></td>
+                  <td className={cell}><Label>Mode/Terms of Payment</Label><Val bold>{data.meta?.modeTerms || "Advance"}</Val></td>
+                </tr>
+                <tr>
+                  <td className={cell}><Label>Reference No. &amp; Date</Label><Val>{data.meta?.referenceNo}</Val></td>
+                  <td className={cell}><Label>Other References</Label><Val> </Val></td>
+                </tr>
+                <tr>
+                  <td className={cell}><Label>Buyer's Order No.</Label><Val>{data.meta?.buyersOrderNo}</Val></td>
+                  <td className={cell}><Label>Dated</Label><Val> </Val></td>
+                </tr>
+                <tr>
+                  <td className={cell}><Label>Dispatch Doc No.</Label><Val>{data.meta?.dispatchDocNo}</Val></td>
+                  <td className={cell}><Label>Delivery Note Date</Label><Val> </Val></td>
+                </tr>
+                <tr>
+                  <td className={cell}><Label>Dispatched through</Label><Val bold>{data.meta?.dispatchedThrough}</Val></td>
+                  <td className={cell}><Label>Destination</Label><Val bold>{data.meta?.destination}</Val></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ── B. CONSIGNEE (left top) + BUYER (left bottom) | right empty ── */}
+        <div className={`flex ${BT}`}>
+          {/* LEFT — stacked consignee / buyer */}
+          <div className={`${BR} w-1/2 flex flex-col`}>
+            {/* Consignee */}
+            <div className={`${BB} p-1.5`}>
+              <p className="text-[8px] font-bold text-slate-500 mb-0.5">Consignee (Ship to)</p>
+              <p className="font-bold text-[10px]">{data.consignee?.name || data.buyer?.name || "—"}</p>
+              <p className="text-[8.5px] leading-snug whitespace-pre-wrap mt-0.5">{data.consignee?.address || data.buyer?.address || ""}</p>
+              {(data.consignee?.contact || data.buyer?.contact) && (
+                <p className="text-[8.5px]">{data.consignee?.contact || data.buyer?.contact}</p>
+              )}
+              <p className="text-[8.5px] mt-0.5">
+                <span className="inline-block w-20">GSTIN/UIN</span>: <span className="font-bold font-mono">{data.consignee?.gstin || data.buyer?.gstin || "—"}</span>
+              </p>
+              <p className="text-[8.5px]">
+                <span className="inline-block w-20">State Name</span>: {data.consignee?.state || data.buyer?.state || "—"}
+              </p>
+            </div>
+            {/* Buyer */}
+            <div className="p-1.5">
+              <p className="text-[8px] font-bold text-slate-500 mb-0.5">Buyer (Bill to)</p>
+              <p className="font-bold text-[10px]">{data.buyer?.name || "—"}</p>
+              <p className="text-[8.5px] leading-snug whitespace-pre-wrap mt-0.5">{data.buyer?.address || ""}</p>
+              {data.buyer?.contact && <p className="text-[8.5px]">{data.buyer.contact}</p>}
+              <p className="text-[8.5px] mt-0.5">
+                <span className="inline-block w-24">GSTIN/UIN</span>: <span className="font-bold font-mono">{data.buyer?.gstin || "—"}</span>
+              </p>
+              <p className="text-[8.5px]">
+                <span className="inline-block w-24">State Name</span>: {data.buyer?.state || "—"}
+              </p>
+              <p className="text-[8.5px]">
+                <span className="inline-block w-24">Place of Supply</span>: <span className="font-bold">{data.placeOfSupply || "—"}</span>
+              </p>
+            </div>
+          </div>
+          {/* RIGHT — intentionally blank, aligned with meta above */}
+          <div className="w-1/2" />
+        </div>
+
+        {/* ── C. ITEMS TABLE ── */}
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className={`${th} w-[5%]`}>Sl No.</th>
-              <th className={`${th} w-[45%] text-center`}>Description of Goods</th>
-              <th className={`${th} w-[10%]`}>HSN/SAC</th>
+              <th className={`${th} w-[5%]`}>Sl<br />No.</th>
+              <th className={`${th} w-[35%] text-left`}>Description of Goods</th>
+              <th className={`${th} w-[9%]`}>HSN/<br />SAC</th>
               <th className={`${th} w-[10%]`}>Quantity</th>
               <th className={`${th} w-[10%]`}>Rate</th>
-              <th className={`${th} w-[6%]`}>per</th>
+              <th className={`${th} w-[10%]`}>per</th>
               <th className={`${th} w-[14%]`}>Amount</th>
             </tr>
           </thead>
           <tbody>
             {data.items.map((item, idx) => (
-              <Fragment key={item.si || idx}>
-                <tr className="align-top">
-                  <td className={`${cell} text-center font-bold`}>{item.si || idx + 1}</td>
-                  <td className={cell}>
-                    <p className="font-bold text-xs text-black uppercase">{item.description}</p>
-                    <p className="italic text-[9.5px] pl-3 text-slate-800">107mm-1 Roll</p>
-                  </td>
-                  <td className={`${cellMono} text-center`}>{item.hsn || "48114100"}</td>
-                  <td className={`${cellMono} text-right font-bold`}>{Number(item.qty).toFixed(2)} {item.unit || "SQM"}</td>
-                  <td className={`${cellMono} text-right`}>{Number(item.rate).toFixed(3)}</td>
-                  <td className={`${cell} text-center`}>{item.unit || "SQM"}</td>
-                  <td className={`${cellMono} text-right font-bold`}>{Number(item.amount).toFixed(3)}</td>
-                </tr>
-
-                {/* TAX ROWS INSIDE DESCRIPTION COLUMN */}
-                {isIgst ? (
-                  <tr>
-                    <td className={cell} />
-                    <td className={`${cell} text-right font-bold text-xs pr-4`}>IGST</td>
-                    <td className={cell} />
-                    <td className={cell} />
-                    <td className={`${cellMono} text-right italic font-bold`}>18 %</td>
-                    <td className={cell} />
-                    <td className={`${cellMono} text-right font-bold`}>{igstAmount.toFixed(3)}</td>
-                  </tr>
-                ) : (
-                  <>
-                    <tr>
-                      <td className={cell} />
-                      <td className={`${cell} text-right font-bold text-xs pr-4`}>CGST</td>
-                      <td className={cell} />
-                      <td className={cell} />
-                      <td className={`${cellMono} text-right italic font-bold`}>9 %</td>
-                      <td className={cell} />
-                      <td className={`${cellMono} text-right font-bold`}>{cgstAmount.toFixed(3)}</td>
-                    </tr>
-                    <tr>
-                      <td className={cell} />
-                      <td className={`${cell} text-right font-bold text-xs pr-4`}>SGST</td>
-                      <td className={cell} />
-                      <td className={cell} />
-                      <td className={`${cellMono} text-right italic font-bold`}>9 %</td>
-                      <td className={cell} />
-                      <td className={`${cellMono} text-right font-bold`}>{sgstAmount.toFixed(3)}</td>
-                    </tr>
-                  </>
-                )}
-
-                {/* ROUNDED OFF ROW */}
-                <tr>
-                  <td className={cell} />
-                  <td className={cell}>
-                    <div className="flex justify-between font-bold italic text-xs">
-                      <span>Less :</span>
-                      <span>ROUNDED OFF</span>
-                    </div>
-                  </td>
-                  <td className={cell} />
-                  <td className={cell} />
-                  <td className={cell} />
-                  <td className={cell} />
-                  <td className={`${cellMono} text-right font-bold`}>(-)0.120</td>
-                </tr>
-
-                {/* BLANK SPACER ROW TO MATCH IMAGE HEIGHT */}
-                <tr className="h-28">
-                  <td className={cell} />
-                  <td className={cell} />
-                  <td className={cell} />
-                  <td className={cell} />
-                  <td className={cell} />
-                  <td className={cell} />
-                  <td className={cell} />
-                </tr>
-              </Fragment>
+              <tr key={item.si || idx} className="align-top">
+                <td className={`${cellL} ${BT} text-center font-bold`}>{item.si || idx + 1}</td>
+                <td className={`${cellL} ${BT}`}>
+                  <span className="font-bold text-[9.5px] uppercase">{item.description}</span>
+                </td>
+                <td className={`${cellL} ${BT} font-mono text-center`}>{item.hsn || ""}</td>
+                <td className={`${cellL} ${BT} font-mono text-right font-bold`}>{fmt(item.qty)}</td>
+                <td className={`${cellL} ${BT} font-mono text-right`}>{fmt(item.rate)}</td>
+                <td className={`${cellL} ${BT} text-center`}>{item.unit || unit0}</td>
+                <td className={`${cellL} ${BT} font-mono text-right font-bold`}>{fmt(item.amount)}</td>
+              </tr>
             ))}
 
-            {/* TOTAL ROW */}
-            <tr>
-              <td className={`${cell} text-right font-bold`} colSpan={3}>Total</td>
-              <td className={`${cellMono} text-right font-bold`}>{qtyTotal.toFixed(2)} {unitLabel}</td>
+            {/* Tax sub-rows — only column borders, no horizontal lines */}
+            {isIgst ? (
+              <tr>
+                <td className={cellL} /><td className={cellL} /><td className={cellL} /><td className={cellL} />
+                <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right text-[9px]">{igstPct}%</td>
+                <td className="border-l border-r border-black px-1.5 py-0.5 text-center font-bold text-[9px]">IGST</td>
+                <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right font-bold text-[9.5px]">{fmt(igstAmt)}</td>
+              </tr>
+            ) : (
+              <>
+                <tr>
+                  <td className={cellL} /><td className={cellL} /><td className={cellL} /><td className={cellL} />
+                  <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right text-[9px]">9%</td>
+                  <td className="border-l border-r border-black px-1.5 py-0.5 text-center font-bold text-[9px]">CGST</td>
+                  <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right font-bold text-[9.5px]">{fmt(cgstAmt)}</td>
+                </tr>
+                <tr>
+                  <td className={cellL} /><td className={cellL} /><td className={cellL} /><td className={cellL} />
+                  <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right text-[9px]">9%</td>
+                  <td className="border-l border-r border-black px-1.5 py-0.5 text-center font-bold text-[9px]">SGST</td>
+                  <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right font-bold text-[9.5px]">{fmt(sgstAmt)}</td>
+                </tr>
+              </>
+            )}
+
+            {roundOff !== 0 && (
+              <tr>
+                <td className={cellL} /><td className={cellL} /><td className={cellL} /><td className={cellL} />
+                <td className={cellL} />
+                <td className="border-l border-r border-black px-1.5 py-0.5 text-center font-bold text-[9px] italic">Round Off</td>
+                <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right font-bold">{roundOff > 0 ? "+" : ""}{fmt(roundOff)}</td>
+              </tr>
+            )}
+
+            {/* Spacer — column borders only, no horizontal lines */}
+            <tr style={{ height: 72 }}>
+              {[...Array(7)].map((_, i) => <td key={i} className={cellL} />)}
+            </tr>
+
+            {/* Total — full border */}
+            <tr className={BT}>
+              <td className={`${cell} font-bold text-right`} colSpan={3}>Total</td>
+              <td className={`${cell} font-mono text-right font-bold`}>{fmt(qtyTotal)} {unit0}</td>
               <td className={cell} colSpan={2} />
-              <td className={`${cellMono} text-right font-bold text-sm`}>₹ {grandTotal.toFixed(3)}</td>
+              <td className={`${cell} font-mono text-right font-bold text-[11px]`}>₹ {fmt(grand)}</td>
             </tr>
           </tbody>
         </table>
 
-        {/* AMOUNT CHARGEABLE IN WORDS */}
-        <div className="flex items-center justify-between border-t border-b border-black px-1.5 py-0.5">
-          <span className="text-[9px] text-slate-700">Amount Chargeable (in words)</span>
-          <span className="text-[9px] font-bold italic">E. & O.E</span>
+        {/* Amount in words */}
+        <div className={`flex items-center justify-between ${BT} ${BB} px-2 py-0.5`}>
+          <span className="text-[8.5px] text-slate-500">Amount Chargeable (in words)</span>
+          <span className="text-[8.5px] font-bold italic">E. &amp; O.E</span>
         </div>
-        <div className="px-1.5 py-0.5 border-b border-black">
-          <p className="font-bold text-xs text-black uppercase">INR Forty Only</p>
+        <div className={`px-2 py-0.5 ${BB}`}>
+          <p className="font-bold text-[9.5px] uppercase">{numberToWordsInr(grand)}</p>
         </div>
 
-        {/* HSN/SAC TAX SUMMARY TABLE */}
+        {/* HSN / Tax Summary */}
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className={`${th} w-[45%]`} rowSpan={2}>HSN/SAC</th>
-              <th className={`${th} w-[15%]`} rowSpan={2}>Taxable Value</th>
-              {isIgst ? (
-                <th className={th} colSpan={2}>IGST</th>
-              ) : (
-                <>
-                  <th className={th} colSpan={2}>CGST</th>
-                  <th className={th} colSpan={2}>SGST</th>
-                </>
-              )}
-              <th className={`${th} w-[15%]`} rowSpan={2}>Total Tax Amount</th>
+              <th className={`${th} w-[30%]`} rowSpan={2}>HSN/SAC</th>
+              <th className={`${th} w-[14%]`} rowSpan={2}>Taxable Value</th>
+              {isIgst
+                ? <th className={th} colSpan={2}>IGST</th>
+                : <><th className={th} colSpan={2}>CGST</th><th className={th} colSpan={2}>SGST</th></>}
+              <th className={`${th} w-[14%]`} rowSpan={2}>Total Tax Amount</th>
             </tr>
             <tr>
-              {isIgst ? (
-                <>
-                  <th className={th}>Rate</th>
-                  <th className={th}>Amount</th>
-                </>
-              ) : (
-                <>
-                  <th className={th}>Rate</th>
-                  <th className={th}>Amount</th>
-                  <th className={th}>Rate</th>
-                  <th className={th}>Amount</th>
-                </>
-              )}
+              {isIgst
+                ? <><th className={th}>Rate</th><th className={th}>Amount</th></>
+                : <><th className={th}>Rate</th><th className={th}>Amount</th><th className={th}>Rate</th><th className={th}>Amount</th></>}
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td className={`${cellMono} text-left font-bold`}>48114100</td>
-              <td className={`${cellMono} text-right`}>{taxableTotal.toFixed(3)}</td>
-              {isIgst ? (
-                <>
-                  <td className={`${cellMono} text-right`}>18%</td>
-                  <td className={`${cellMono} text-right`}>{igstAmount.toFixed(3)}</td>
-                </>
-              ) : (
-                <>
-                  <td className={`${cellMono} text-right`}>9%</td>
-                  <td className={`${cellMono} text-right`}>{cgstAmount.toFixed(3)}</td>
-                  <td className={`${cellMono} text-right`}>9%</td>
-                  <td className={`${cellMono} text-right`}>{sgstAmount.toFixed(3)}</td>
-                </>
-              )}
-              <td className={`${cellMono} text-right font-bold`}>{totalTax.toFixed(3)}</td>
+              <td className={`${cell} font-mono font-bold`}>{data.items[0]?.hsn || "—"}</td>
+              <td className={`${cell} font-mono text-right`}>{fmt(taxable)}</td>
+              {isIgst
+                ? <><td className={`${cell} font-mono text-right`}>{igstPct}%</td><td className={`${cell} font-mono text-right`}>{fmt(igstAmt)}</td></>
+                : <><td className={`${cell} font-mono text-right`}>9%</td><td className={`${cell} font-mono text-right`}>{fmt(cgstAmt)}</td><td className={`${cell} font-mono text-right`}>9%</td><td className={`${cell} font-mono text-right`}>{fmt(sgstAmt)}</td></>}
+              <td className={`${cell} font-mono text-right font-bold`}>{fmt(totalTax)}</td>
             </tr>
             <tr className="font-bold">
               <td className={`${cell} text-right`}>Total</td>
-              <td className={`${cellMono} text-right`}>{taxableTotal.toFixed(3)}</td>
-              {isIgst ? (
-                <>
-                  <td className={cell} />
-                  <td className={`${cellMono} text-right`}>{igstAmount.toFixed(3)}</td>
-                </>
-              ) : (
-                <>
-                  <td className={cell} />
-                  <td className={`${cellMono} text-right`}>{cgstAmount.toFixed(3)}</td>
-                  <td className={cell} />
-                  <td className={`${cellMono} text-right`}>{sgstAmount.toFixed(3)}</td>
-                </>
-              )}
-              <td className={`${cellMono} text-right`}>{totalTax.toFixed(3)}</td>
+              <td className={`${cell} font-mono text-right`}>{fmt(taxable)}</td>
+              {isIgst
+                ? <><td className={cell} /><td className={`${cell} font-mono text-right`}>{fmt(igstAmt)}</td></>
+                : <><td className={cell} /><td className={`${cell} font-mono text-right`}>{fmt(cgstAmt)}</td><td className={cell} /><td className={`${cell} font-mono text-right`}>{fmt(sgstAmt)}</td></>}
+              <td className={`${cell} font-mono text-right`}>{fmt(totalTax)}</td>
             </tr>
           </tbody>
         </table>
 
-        {/* TAX AMOUNT IN WORDS */}
-        <div className="px-1.5 py-0.5 border-b border-black text-[9.5px]">
-          <span className="text-slate-700">Tax Amount (in words) : </span>
-          <span className="font-bold">INR Six and Twelve paise Only</span>
+        {/* Tax amount in words */}
+        <div className={`px-2 py-0.5 ${BB} text-[8.5px]`}>
+          <span className="text-slate-500">Tax Amount (in words) : </span>
+          <span className="font-bold">{numberToWordsInr(totalTax)}</span>
         </div>
 
-        {/* DECLARATION & REJECTION POLICY GRID */}
-        <div className="grid grid-cols-2 gap-0 border-b border-black text-[8.5px] leading-tight">
-          {/* DECLARATION LEFT */}
-          <div className="p-1 border-r border-black space-y-0.5">
-            <p className="font-bold text-slate-700 underline mb-0.5">Declaration</p>
-            <ol className="list-decimal pl-3 space-y-0.5 text-[8px] text-slate-900 leading-tight">
-              <li>Certified that the particulars given above are true and correct</li>
-              <li>The amount indicated represents the price actually charged and that there is no flow of additional consideration directly or indirectly from the buyer.</li>
-              <li>All disputes subject to Hyderabad jurisdiction.</li>
+        {/* ── D. DECLARATION (left) | REJECTION POLICY + SIGNATORY (right) ── */}
+        <div className={`flex ${BB} text-[7.5px] leading-tight`}>
+          {/* LEFT — Declaration */}
+          <div className={`${BR} w-1/2 p-1.5 space-y-0.5`}>
+            <p className="font-bold underline text-[8px] mb-0.5">Declaration</p>
+            <ol className="list-decimal pl-3 space-y-0.5 text-slate-900">
+              <li>Certified that the particulars given above are true and correct.</li>
+              <li>The amount indicated represents the price actually charged and that there is no flow of additional consideration directly or indirectly from the Buyer.</li>
+              <li>All disputes subject to jurisdiction.</li>
               <li>Goods once sold cannot be taken back or exchanged.</li>
-              <li>Cheques subject to realisation.</li>
-              <li>6.24% Interest per annum will be charged if the bills are not paid within due days.</li>
-              <li>Goods Return "As it is" shall be taken back, only within 7 days from The Date of Delivery & the same shall have to be Intimated in Writing along with reasons for Goods Return.</li>
+              <li>Cheques subject to realization.</li>
+              <li>24% interest per annum will be charged if the bills are not paid within due days.</li>
+              <li>Goods Return Policy: Goods shall be taken back only within 7 days.</li>
             </ol>
-            <div className="mt-1 pt-1 border-t border-slate-300">
-              <p className="font-bold text-[9px] text-slate-700">Remarks:</p>
-              <p className="font-bold text-[9px] text-black">Being material sold vide Invoice No : {invoiceNo}</p>
-            </div>
+            <p className="mt-1 pt-0.5 border-t border-slate-300 text-[7.5px]">
+              <span className="font-bold">Remarks: </span>
+              {data.remarks || "Being material supplied."}
+            </p>
           </div>
 
-          {/* REJECTION POLICY RIGHT */}
-          <div className="p-1 space-y-0.5 flex flex-col justify-between">
+          {/* RIGHT — Rejection Policy + Signatory */}
+          <div className="w-1/2 p-1.5 flex flex-col justify-between">
             <div>
-              <p className="font-bold text-slate-700 underline mb-0.5">Rejection Policy :</p>
-              <ol className="list-decimal pl-3 space-y-0.5 text-[8px] text-slate-900 leading-tight">
-                <li>Loose Winding & Tight Release</li>
-                <li>Printability on face paper</li>
-                <li>Loop Tack, Peel Adhesion and Shear Strength (15% tolerance) are less than what is mentioned in our Technical Data Sheet.</li>
-                <li>For all Rejection and Quality Claims, End user Email /Samples for evaluation is mandatory.</li>
-                <li>For application issues End user visit by Stic On Papers Private Limited team is mandatory.</li>
+              <p className="font-bold underline text-[8px] mb-0.5">Rejection Policy</p>
+              <ol className="list-decimal pl-3 space-y-0.5 text-slate-900">
+                <li>Loose Winding &amp; Tight Release.</li>
+                <li>Printability on face paper.</li>
+                <li>Loop Tack, Peel Adhesion and Shear Strength (15% clearance) are less than what is mentioned in our Technical Data Sheet.</li>
+                <li>For all Rejection and Quality Claims: End user Email / Samples for evaluation is mandatory.</li>
+                <li>For application issues End user visit by company representative/technical team is mandatory.</li>
                 <li>No rejection claim will be accepted if above conditions are not fulfilled.</li>
-                <li>We are not responsible for material application related issues.</li>
-                <li>Any quantity discrepancies are only accepted within 24 hours from the receipt of the material</li>
-                <li>Any quality discrepancies are only accepted within 7 working days from the receipt of Material (Unconverted Rolls Only)</li>
+                <li>We are not responsible for multi-national calibration related issues.</li>
+                <li>Quality discrepancies/shortages to be reported within 24 hours from the receipt of the material.</li>
+                <li>Any quality issue claims can only be accepted within 7 days.</li>
               </ol>
             </div>
-            <div className="text-right mt-4 pt-2">
-              <p className="font-bold text-[8.5px] uppercase">for {sellerName}</p>
-              <p className="mt-8 text-[8.5px] font-bold text-slate-800">Authorised Signatory</p>
+            <div className="text-right mt-3">
+              <p className="font-bold text-[8px] uppercase">for {sName}</p>
+              <p className="mt-10 text-[8px] font-bold text-slate-600">Authorised Signatory</p>
             </div>
           </div>
         </div>
 
-        {/* BOTTOM FOOTER ROW */}
-        <div className="flex items-center justify-between px-2 py-1 text-[9px] text-slate-700 font-sans">
+        {/* ── E. BOTTOM SIGNATORY ROW ── */}
+        <div className="flex items-center justify-between px-2 py-1 text-[8.5px] text-slate-500">
           <span>Prepared by</span>
           <span>Verified by</span>
-          <span className="font-bold">Authorised Signatory</span>
+          <span className="font-bold text-black">for {sName}</span>
         </div>
       </div>
 
-      {/* COMPUTER GENERATED FOOTER TEXT */}
-      <div className="text-center mt-1 text-[9px] text-slate-700">
-        This is a Computer Generated Invoice
       </div>
+
+      <p className="text-center mt-1 text-[8.5px] text-slate-400">
+        This is a Computer Generated Invoice
+      </p>
 
       <style>{`
         @media print {
           body * { visibility: hidden; }
           .tax-invoice-copy, .tax-invoice-copy * { visibility: visible; }
-          .tax-invoice-copy { position: absolute; left: 0; top: 0; width: 100%; }
+          .tax-invoice-copy { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 10px; }
           .print\\:hidden { display: none !important; }
         }
       `}</style>

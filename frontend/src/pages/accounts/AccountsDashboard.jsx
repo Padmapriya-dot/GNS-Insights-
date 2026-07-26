@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, IndianRupee, Landmark, RefreshCw, TrendingDown, TrendingUp,
 } from "lucide-react";
@@ -11,8 +11,33 @@ import Loader from "../../components/common/Loader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { useToast } from "../../context/ToastContext";
 import { getFinanceHub } from "../../api/accountsApi";
-import { DEMO_FINANCE_HUB, FINANCE_FLOW, formatInr } from "../../data/financeMasterData";
-import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
+import { getInvoices, getPayments } from "../../api/salesApi";
+import { FINANCE_FLOW, formatInr } from "../../data/financeMasterData";
+import RecordIncome from "./RecordIncome";
+import RecordExpense from "./RecordExpense";
+
+const INITIAL_FINANCE_HUB = {
+  total_receivables: null,
+  outstanding_payables: null,
+  cash_balance: null,
+  monthly_revenue: null,
+  monthly_expenses: null,
+  net_profit: null,
+  gst_payable: null,
+  cash_flow_trend: [],
+  revenue_trend: [],
+  expense_trend: [],
+  profit_trend: [],
+  gst_trend: [],
+  vendor_payments: [],
+  customer_receipts: [],
+  monthly_cost: [],
+  department_cost: [],
+  manufacturing_cost: [],
+  budget_vs_actual: [],
+  accounts_aging: [],
+  alerts: [],
+};
 
 function KpiCard({ label, value, icon: Icon, color, sub }) {
   return (
@@ -33,36 +58,134 @@ const alertIcons = { overdue: TrendingDown, gst: Landmark, ap: ArrowDownRight, b
 
 export default function AccountsDashboard() {
   const { addToast } = useToast();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
-  const [hub, setHub] = useState(DEMO_FINANCE_HUB);
+  const [hub, setHub] = useState(INITIAL_FINANCE_HUB);
+  const [showRecordIncome, setShowRecordIncome] = useState(false);
+  const [showRecordExpense, setShowRecordExpense] = useState(false);
+  const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
+
+    const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    // Fetch real data from backend APIs only — no localStorage fallback
+    let allInv = [];
+    let payments = [];
+
+    try {
+      const [invRes, payRes] = await Promise.allSettled([
+        getInvoices(),
+        getPayments(),
+      ]);
+      if (invRes.status === "fulfilled") {
+        const d = invRes.value?.data ?? invRes.value ?? [];
+        allInv = Array.isArray(d) ? d : [];
+      }
+      if (payRes.status === "fulfilled") {
+        const d = payRes.value?.data ?? payRes.value ?? [];
+        payments = Array.isArray(d) ? d : [];
+      }
+    } catch { /* ignore */ }
+
+    // ── KPI calculations from API data only ───────────────────────
+    const total_receivables = allInv.reduce((s, i) => s + (Number(i.grand_total ?? i.amount) || 0), 0);
+    const gst_payable       = allInv.reduce((s, i) =>
+      s + (Number(i.sgst_amount) || 0) + (Number(i.cgst_amount) || 0) + (Number(i.igst_amount) || 0), 0);
+    const amount_paid       = allInv.reduce((s, i) => s + (Number(i.amount_paid) || 0), 0);
+
+    // ── Monthly trend maps ────────────────────────────────────────
+    const revMap = {}, gstMap = {};
+    allInv.forEach((i) => {
+      const d = new Date(i.issue_date || i.created_at || "");
+      if (isNaN(d)) return;
+      const k = MN[d.getMonth()];
+      revMap[k] = (revMap[k] || 0) + (Number(i.grand_total ?? i.amount) || 0);
+      if (!gstMap[k]) gstMap[k] = { month: k, sgst: 0, cgst: 0, igst: 0 };
+      gstMap[k].sgst += Number(i.sgst_amount) || 0;
+      gstMap[k].cgst += Number(i.cgst_amount) || 0;
+      gstMap[k].igst += Number(i.igst_amount) || 0;
+    });
+
+    const revenue_trend   = MN.map((m) => ({ month: m, amount: revMap[m] || 0 }));
+    const cash_flow_trend = MN.map((m) => ({ month: m, inflow: revMap[m] || 0, outflow: 0 }));
+    const gst_trend       = MN.map((m) => gstMap[m] || { month: m, sgst: 0, cgst: 0, igst: 0 });
+    const customer_receipts = payments.map((p) => ({
+      month: new Date(p.payment_date || "").toLocaleDateString("en-IN", { month: "short" }) || "—",
+      amount: Number(p.amount) || 0,
+    }));
+
+    const computed = {
+      total_receivables,
+      outstanding_payables: 0,
+      cash_balance: amount_paid,
+      monthly_revenue: total_receivables,
+      monthly_expenses: 0,
+      net_profit: total_receivables,
+      gst_payable,
+      cash_flow_trend,
+      revenue_trend,
+      expense_trend: MN.map((m) => ({ month: m, amount: 0 })),
+      profit_trend:  MN.map((m) => ({ month: m, amount: revMap[m] || 0 })),
+      gst_trend,
+      vendor_payments: [],
+      customer_receipts,
+      monthly_cost: [],
+      department_cost: [],
+      manufacturing_cost: [],
+      budget_vs_actual: [],
+      accounts_aging: [],
+      alerts: [],
+    };
+
+    // Finance hub endpoint fills in extra data (vendor payments, expenses, aging etc.)
     try {
       const res = await getFinanceHub();
-      if (res.data) setHub({ ...DEMO_FINANCE_HUB, ...res.data });
-      else setHub(DEMO_FINANCE_HUB);
+      if (res?.data) {
+        setHub({
+          ...computed,
+          ...res.data,
+          // always prefer computed trends if hub returns empty arrays
+          revenue_trend:   res.data.revenue_trend?.length   ? res.data.revenue_trend   : computed.revenue_trend,
+          expense_trend:   res.data.expense_trend?.length   ? res.data.expense_trend   : computed.expense_trend,
+          profit_trend:    res.data.profit_trend?.length    ? res.data.profit_trend    : computed.profit_trend,
+          cash_flow_trend: res.data.cash_flow_trend?.length ? res.data.cash_flow_trend : computed.cash_flow_trend,
+          gst_trend:       res.data.gst_trend?.length       ? res.data.gst_trend       : computed.gst_trend,
+        });
+      } else {
+        setHub(computed);
+      }
     } catch {
-      addToast("Failed to load finance hub", "error");
-      setHub(DEMO_FINANCE_HUB);
+      setHub(computed);
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
 
-  useEffect(() => { load(); }, [load]);
-  useManufacturingRefresh(load);
+  // reload on every visit (catches navigate-back after record create)
+  useEffect(() => { load(); }, [load, location.key]);
 
   if (loading) return <Loader label="Loading finance dashboard..." />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
+      {error && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          {error}
+        </div>
+      )}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Finance Dashboard</h1>
           <p className="mt-1 text-sm text-slate-500">Enterprise finance hub — cash flow, revenue, expenses, GST, and manufacturing cost insights.</p>
         </div>
-        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setShowRecordIncome(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 shadow-sm">+ Record Income</button>
+          <button type="button" onClick={() => setShowRecordExpense(true)} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 shadow-sm">+ Record Expense</button>
+          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+        </div>
       </header>
 
       <ManufacturingWorkflowBar currentStepId="invoice" />
@@ -169,6 +292,13 @@ export default function AccountsDashboard() {
         <QuickLink to="/accounts/multi-branch-ledger" label="Multi-Branch Ledger" />
         <QuickLink to="/accounts/year-closing" label="Year Closing" />
       </div>
+
+      {showRecordIncome && (
+        <RecordIncome onClose={() => { setShowRecordIncome(false); load(); }} />
+      )}
+      {showRecordExpense && (
+        <RecordExpense onClose={() => { setShowRecordExpense(false); load(); }} />
+      )}
     </div>
   );
 }

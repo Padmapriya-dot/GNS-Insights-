@@ -1,5 +1,7 @@
 """Role-Based Access Control (RBAC) helpers and FastAPI dependencies."""
 
+import json
+
 from fastapi import Depends, HTTPException, status
 
 from app.api.auth_deps import get_current_user
@@ -23,11 +25,37 @@ def get_role_names(user: User) -> list[str]:
     return [r.name for r in user.roles]
 
 
+def _normalize_permissions(raw_permissions) -> list[str]:
+    if raw_permissions is None:
+        return []
+    if isinstance(raw_permissions, str):
+        try:
+            loaded = json.loads(raw_permissions)
+        except ValueError:
+            return [raw_permissions]
+        return list(loaded) if isinstance(loaded, list) else [raw_permissions]
+    if isinstance(raw_permissions, (list, tuple, set)):
+        return list(raw_permissions)
+    return [raw_permissions]
+
+
+def _permissions_for_role_name(name: str) -> list[str]:
+    spec = PERMISSION_MATRIX.get(name, {})
+    perms = list(spec.get("modules", []))
+    perms.extend(spec.get("actions", []))
+    if name == "Admin":
+        return sorted(VALID_MODULES)
+    return sorted(set(perms))
+
+
 def get_user_permissions(user: User) -> set[str]:
     perms: set[str] = set()
     for role in user.roles:
-        for p in role.permissions or []:
-            perms.add(p)
+        normalized = _normalize_permissions(getattr(role, "permissions", None))
+        if normalized:
+            perms.update(normalized)
+        elif role.name in PERMISSION_MATRIX:
+            perms.update(_permissions_for_role_name(role.name))
     return perms
 
 

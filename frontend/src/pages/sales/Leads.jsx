@@ -58,14 +58,14 @@ export default function Leads() {
         baseLeads = listRes.value.data;
       }
       
-      // Map deduplication prioritizing localLeads (contains updated statuses)
+      // localLeads last so they overwrite base (contains updated statuses + new leads)
       const leadMap = new Map();
       baseLeads.forEach((item) => {
-        const key = item.lead_id || item.id || item.customer_name;
+        const key = String(item.lead_id || item.id || item.customer_name || "");
         if (key) leadMap.set(key, item);
       });
       localLeads.forEach((item) => {
-        const key = item.lead_id || item.id || item.customer_name;
+        const key = String(item.lead_id || item.id || item.customer_name || "");
         if (key) leadMap.set(key, item);
       });
 
@@ -75,11 +75,11 @@ export default function Leads() {
       const localLeads = stored ? JSON.parse(stored) : [];
       const leadMap = new Map();
       (DEMO_LEAD_LIST || []).forEach((item) => {
-        const key = item.lead_id || item.id || item.customer_name;
+        const key = String(item.lead_id || item.id || item.customer_name || "");
         if (key) leadMap.set(key, item);
       });
       localLeads.forEach((item) => {
-        const key = item.lead_id || item.id || item.customer_name;
+        const key = String(item.lead_id || item.id || item.customer_name || "");
         if (key) leadMap.set(key, item);
       });
       setRows(Array.from(leadMap.values()));
@@ -95,7 +95,7 @@ export default function Leads() {
     const new_leads = rows.filter((r) => String(r.status || "").toLowerCase() === "new").length;
     const contacted_leads = rows.filter((r) => String(r.status || "").toLowerCase() === "contacted").length;
     const qualified_leads = rows.filter((r) =>
-      ["qualified", "proposal", "negotiation"].includes(String(r.status || "").toLowerCase())
+      ["qualified"].includes(String(r.status || "").toLowerCase())
     ).length;
     const won_customers = rows.filter((r) =>
       ["won", "converted"].includes(String(r.status || "").toLowerCase())
@@ -179,7 +179,7 @@ export default function Leads() {
             </button>
             {isQualified ? (
               <Link
-                to={`/sales/quotations/create?customer_name=${encodeURIComponent(r.customer_name || r.company || "")}`}
+                to={`/sales/quotations?create=true&customer_name=${encodeURIComponent(r.customer_name || r.company || "")}`}
                 className="rounded bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-[#2563EB] hover:bg-blue-100 transition-colors"
               >
                 Create Quote
@@ -302,7 +302,7 @@ export default function Leads() {
                             </button>
                             {isQualified ? (
                               <Link
-                                to={`/sales/quotations/create?customer_name=${encodeURIComponent(r.customer_name || r.company || "")}`}
+                                to={`/sales/quotations?create=true&customer_name=${encodeURIComponent(r.customer_name || r.company || "")}`}
                                 className="text-[11px] font-bold text-slate-600 hover:text-blue-600 hover:underline"
                               >
                                 + Quote

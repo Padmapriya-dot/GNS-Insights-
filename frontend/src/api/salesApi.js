@@ -22,6 +22,8 @@ export const getInvoicesEnriched = () => api.get("/sales/invoices/enriched");
 export const getInvoiceSummary = () => api.get("/sales/invoices/summary");
 export const getInvoiceDetail = (invoiceId) => api.get(`/sales/invoices/${invoiceId}`);
 export const createInvoice = (payload) => api.post("/sales/invoices", payload);
+export const updateInvoice = (invoiceId, payload) => api.put(`/sales/invoices/${invoiceId}`, payload);
+export const deleteInvoice = (invoiceId) => api.delete(`/sales/invoices/${invoiceId}`);
 
 export const getPayments = (_tenantId, invoiceId = null) =>
   api.get("/sales/payments", { params: { invoice_id: invoiceId } });

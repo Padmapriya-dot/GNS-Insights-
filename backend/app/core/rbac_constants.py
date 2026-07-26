@@ -61,10 +61,11 @@ PERMISSION_MATRIX = {
             "alerts",
             "documents",
             "masters",
+            "sales",
         ],
         "description": (
             "Dashboard, Production, Machines, Planning, Work Orders, Schedule, "
-            "Shop Floor, Machine Allocation, Batch Tracking, Quality, Analytics."
+            "Shop Floor, Machine Allocation, Batch Tracking, Quality, Analytics, Sales."
         ),
     },
     "Store Manager": {
@@ -76,20 +77,23 @@ PERMISSION_MATRIX = {
             "alerts",
             "documents",
             "analytics",
+            "sales",
         ],
         "description": (
             "Dashboard, Inventory, Products, Stock, Goods Receipt/Issue, "
-            "Warehouse, Procurement, Inventory Reports."
+            "Warehouse, Procurement, Inventory Reports, Sales."
         ),
     },
     "HR Manager": {
-        "modules": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents"],
-        "description": "Dashboard, Employees, Attendance, Leave, Payroll, Recruitment, HR Reports.",
+        "modules": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents", "sales"],
+        "description": "Dashboard, Employees, Attendance, Leave, Payroll, Recruitment, HR Reports, Sales.",
     },
     "Accountant": {
         "modules": [
             "dashboard",
             "accounts",
+            "procurement",
+            "inventory",
             "sales",
             "documents",
             "analytics",

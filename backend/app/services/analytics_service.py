@@ -115,7 +115,7 @@ def get_inventory_turnover_rate(db: Session, tenant_id: int) -> dict:
     if avg_inv > 0:
         rate = round(total_out / avg_inv, 1)
     else:
-        rate = 0.0 if total_out == 0 else 6.0  # default when no stock data
+        rate = 0.0  # no stock data — return 0 so frontend shows empty state
 
     return {
         "rate": rate,
@@ -145,9 +145,9 @@ def get_worker_performance_score(db: Session, tenant_id: int) -> dict:
             rating_norm = (rating_avg / 5) * 100
         else:
             rating_norm = rating_avg
-        score = round((prod_avg + rating_norm) / 2, 1) if (prod_avg or rating_norm) else 75
+        score = round((prod_avg + rating_norm) / 2, 1) if (prod_avg or rating_norm) else 0.0
     else:
-        score = 75.0  # default when no reviews
+        score = 0.0  # no reviews yet — return 0 so frontend shows empty state
 
     # Top performers from recent reviews
     top_stmt = (

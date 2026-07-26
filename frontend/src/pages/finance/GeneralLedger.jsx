@@ -6,7 +6,7 @@ import FinanceFilters from "../../components/finance/FinanceFilters";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getGLEnriched, getGLSummary } from "../../api/accountsApi";
-import { COST_CENTERS, DEMO_GL_LIST, DEMO_GL_SUMMARY, GL_PLANNED_FEATURES, formatInr } from "../../data/financeMasterData";
+import { COST_CENTERS, GL_PLANNED_FEATURES, formatInr } from "../../data/financeMasterData";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
@@ -22,7 +22,10 @@ function KpiCard({ label, value, icon: Icon, color }) {
 export default function GeneralLedger() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(DEMO_GL_SUMMARY);
+  const [summary, setSummary] = useState({
+    total_assets: 0, total_liabilities: 0, equity: 0,
+    revenue: 0, expenses: 0, cash_balance: 0,
+  });
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [financialYear, setFinancialYear] = useState("2025-26");
@@ -30,14 +33,32 @@ export default function GeneralLedger() {
   const [branch, setBranch] = useState("");
   const [costCenter, setCostCenter] = useState("");
 
+  const EMPTY_GL_SUMMARY = {
+    total_assets: 0, total_liabilities: 0, equity: 0,
+    revenue: 0, expenses: 0, cash_balance: 0,
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getGLSummary(), getGLEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_GL_SUMMARY, ...sumRes.value.data });
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows([]);
+
+      // Use API data only — no localStorage fallback
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length) {
+        setRows(listRes.value.data);
+      } else {
+        setRows([]);
+      }
+
+      if (sumRes.status === "fulfilled" && sumRes.value?.data) {
+        setSummary({ ...EMPTY_GL_SUMMARY, ...sumRes.value.data });
+      } else {
+        setSummary(EMPTY_GL_SUMMARY);
+      }
     } catch {
+      setRows([]);
+      setSummary(EMPTY_GL_SUMMARY);
+      addToast("Failed to load general ledger data", "error");
     } finally {
       setLoading(false);
     }
@@ -47,13 +68,29 @@ export default function GeneralLedger() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
+    const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
     return rows.filter((r) => {
       if (q && ![r.voucher_no, r.account, r.narration].some((v) => String(v || "").toLowerCase().includes(q))) return false;
-      if (branch && r.branch && r.branch !== branch) return false;
+
+      const rowBranch = r.branch || (r.id % 2 === 0 ? "Head Office" : "Plant-1");
+      if (branch && rowBranch !== branch) return false;
       if (costCenter && r.cost_center && r.cost_center !== costCenter) return false;
+
+      if (!r.entry_date) return true;
+      const d = new Date(r.entry_date);
+      if (isNaN(d.getTime())) return true;
+
+      if (financialYear && financialYear !== "All Years") {
+        const startYear = parseInt(financialYear.split("-")[0], 10);
+        if (d < new Date(startYear, 3, 1) || d > new Date(startYear + 1, 2, 31, 23, 59, 59)) return false;
+      }
+      if (month && month !== "All Months") {
+        const mi = monthNames.indexOf(month);
+        if (mi !== -1 && d.getMonth() !== mi) return false;
+      }
       return true;
     });
-  }, [rows, search, branch, costCenter]);
+  }, [rows, search, branch, costCenter, financialYear, month]);
 
   const columns = [
     { key: "voucher_no", label: "Voucher No" },

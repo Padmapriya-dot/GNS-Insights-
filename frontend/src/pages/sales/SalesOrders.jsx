@@ -11,7 +11,7 @@ import SODetailModal from "../../components/sales/SODetailModal";
 import { useToast } from "../../context/ToastContext";
 import { useNetworkStatus } from "../../context/NetworkStatusContext";
 import { getSOSummary, getSalesOrdersEnriched } from "../../api/salesApi";
-import { DEMO_SO_LIST, formatInr, statusColor } from "../../data/salesMasterData";
+import { formatInr, statusColor } from "../../data/salesMasterData";
 import { exportToExcel } from "../../utils/exportUtils";
 
 function KpiCard({ label, value, icon: Icon, color }) {
@@ -55,22 +55,18 @@ export default function SalesOrders() {
       const localOrders = stored ? JSON.parse(stored) : [];
 
       const soMap = new Map();
-      [...localOrders, ...apiOrders, ...(DEMO_SO_LIST || [])].forEach((o) => {
-        const key = String(o.order_number || o.so_number || o.id).trim().toLowerCase();
-        if (key && !soMap.has(key)) {
-          soMap.set(key, o);
-        }
+      [...apiOrders, ...localOrders].forEach((o) => {
+        const key = String(o.order_number || o.so_number || o.id || "").trim().toLowerCase();
+        if (key) soMap.set(key, o);
       });
       setRows(Array.from(soMap.values()));
     } catch {
       const stored = localStorage.getItem("smrt_sales_orders");
       const localOrders = stored ? JSON.parse(stored) : [];
       const soMap = new Map();
-      [...localOrders, ...(DEMO_SO_LIST || [])].forEach((o) => {
-        const key = String(o.order_number || o.so_number || o.id).trim().toLowerCase();
-        if (key && !soMap.has(key)) {
-          soMap.set(key, o);
-        }
+      localOrders.forEach((o) => {
+        const key = String(o.order_number || o.so_number || o.id || "").trim().toLowerCase();
+        if (key) soMap.set(key, o);
       });
       setRows(Array.from(soMap.values()));
     } finally {
@@ -121,11 +117,50 @@ export default function SalesOrders() {
       ),
     },
     { key: "customer_name", label: "Customer" },
-    { key: "order_date", label: "Date", render: (r) => String(r.order_date || "").slice(0, 10) },
-    { key: "delivery_date", label: "Delivery Date", render: (r) => r.delivery_date || "—" },
-    { key: "amount", label: "Amount", render: (r) => formatInr(r.amount || r.total_amount) },
-    { key: "payment_terms", label: "Payment", render: (r) => r.payment_terms || "—" },
-    { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
+    { key: "order_date", label: "Order Date", render: (r) => String(r.order_date || r.so_date || "").slice(0, 10) || "—" },
+    {
+      key: "item_description",
+      label: "Product",
+      render: (r) => {
+        const lines = r.line_items || [];
+        if (!lines.length) return "—";
+        const first = lines[0].item_description || "—";
+        return lines.length > 1 ? `${first} +${lines.length - 1} more` : first;
+      },
+    },
+    {
+      key: "quantity",
+      label: "Qty",
+      render: (r) => {
+        const lines = r.line_items || [];
+        if (!lines.length) return "—";
+        return lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+      },
+    },
+    {
+      key: "unit",
+      label: "Unit",
+      render: (r) => r.line_items?.[0]?.unit || "—",
+    },
+    {
+      key: "unit_price",
+      label: "Unit Price",
+      render: (r) => {
+        const lines = r.line_items || [];
+        if (!lines.length) return "—";
+        return formatInr(lines[0].unit_price);
+      },
+    },
+    { key: "total_amount", label: "Total Amount", render: (r) => formatInr(r.total_amount || r.amount) },
+    {
+      key: "status",
+      label: "Status",
+      render: (r) => (
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>
+          {r.status}
+        </span>
+      ),
+    },
     {
       key: "actions",
       label: "Actions",

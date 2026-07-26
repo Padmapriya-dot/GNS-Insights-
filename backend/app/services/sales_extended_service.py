@@ -291,34 +291,73 @@ def get_sales_hub(db: Session, tenant_id: int) -> SalesHubRead:
     so_sum = get_so_summary(db, tenant_id)
     inv_sum = get_invoice_summary(db, tenant_id)
     disp_sum = get_dispatch_summary(db, tenant_id)
-    customers = int(db.scalar(select(func.count(Customer.id)).where(Customer.tenant_id == tenant_id)) or 0)
+    customers = list(db.scalars(select(Customer).where(Customer.tenant_id == tenant_id)).all())
+    customer_count = len(customers)
     outstanding = sum(
         float(i.grand_total or 0) - float(i.amount_paid or 0)
         for i in db.scalars(select(Invoice).where(Invoice.tenant_id == tenant_id)).all()
         if i.status not in ("paid", "draft")
     )
-    top = list(
-        db.scalars(
-            select(Customer).where(Customer.tenant_id == tenant_id).limit(5)
-        ).all()
-    )
+    top_customers = []
+    for customer in customers[:5]:
+        order_count = int(
+            db.scalar(
+                select(func.count(SalesOrder.id)).where(
+                    SalesOrder.tenant_id == tenant_id,
+                    SalesOrder.customer_id == customer.id,
+                )
+            )
+            or 0
+        )
+        top_customers.append({"name": customer.name, "orders": order_count})
+
+    sales_executive_performance = []
+    for customer in customers[:5]:
+        sales_executive_performance.append(
+            {
+                "name": getattr(customer, "sales_person", None) or customer.name,
+                "revenue": float(
+                    db.scalar(
+                        select(func.coalesce(func.sum(SalesOrder.total_amount), 0)).where(
+                            SalesOrder.tenant_id == tenant_id,
+                            SalesOrder.customer_id == customer.id,
+                        )
+                    )
+                    or 0
+                ),
+                "orders": int(
+                    db.scalar(
+                        select(func.count(SalesOrder.id)).where(
+                            SalesOrder.tenant_id == tenant_id,
+                            SalesOrder.customer_id == customer.id,
+                        )
+                    )
+                    or 0
+                ),
+            }
+        )
+
+    alerts = []
+    if outstanding > 0:
+        alerts.append({"type": "overdue_payment", "message": f"Outstanding payments — ₹{outstanding:,.0f}"})
+    if disp_sum.ready_to_dispatch + disp_sum.packed > 0:
+        alerts.append(
+            {
+                "type": "pending_dispatch",
+                "message": f"Pending dispatch — {disp_sum.ready_to_dispatch + disp_sum.packed} orders ready to ship",
+            }
+        )
+    if inv_sum.pending > 0:
+        alerts.append({"type": "pending_invoice", "message": f"Pending invoices — {inv_sum.pending}"})
+
     return SalesHubRead(
         monthly_revenue=so_sum.revenue,
         total_orders=so_sum.total_orders,
         pending_orders=so_sum.pending,
         dispatch_pending=disp_sum.ready_to_dispatch + disp_sum.packed,
         outstanding_payments=outstanding,
-        new_customers=customers,
-        top_customers=[{"name": c.name, "orders": 5} for c in top],
-        sales_executive_performance=[
-            {"name": "Ramesh Kumar", "revenue": 2_400_000, "orders": 28},
-            {"name": "Anita Desai", "revenue": 1_850_000, "orders": 22},
-            {"name": "Priya Sharma", "revenue": 1_200_000, "orders": 15},
-        ],
-        alerts=[
-            {"type": "overdue_payment", "message": "Overdue Payments — ₹4.2L from 7 customers"},
-            {"type": "pending_dispatch", "message": "Pending Dispatch — 12 orders ready to ship"},
-            {"type": "low_stock", "message": "Low Stock — 5 FG items below reorder"},
-            {"type": "expiring_quote", "message": "Expiring Quotations — 3 quotes expire this week"},
-        ],
+        new_customers=customer_count,
+        top_customers=top_customers,
+        sales_executive_performance=sales_executive_performance,
+        alerts=alerts,
     )

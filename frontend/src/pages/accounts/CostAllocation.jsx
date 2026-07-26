@@ -9,29 +9,47 @@ import { formatInr } from "../../data/financeMasterData";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
+const COST_ALLOCATION_STORAGE_KEY = "cost-allocation-local-entries";
+
+const readStoredAllocations = () => {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = window.localStorage.getItem(COST_ALLOCATION_STORAGE_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
 
 export default function CostAllocation() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [financialYear, setFinancialYear] = useState("2026-27");
   const [month, setMonth] = useState("All Months");
-  const [branch, setBranch] = useState("");
   const [search, setSearch] = useState("");
   const [allocations, setAllocations] = useState([]);
+  const [localEntries, setLocalEntries] = useState(() => readStoredAllocations());
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getExtendedReports(financialYear, month, branch);
-      if (res.data && res.data.cost_allocations) {
-        setAllocations(res.data.cost_allocations);
-      }
-    } catch {
+      const res = await getExtendedReports(financialYear, month);
+      const backendList = res?.data?.cost_allocations || res?.data?.data?.cost_allocations || [];
+      const mergedList = [
+        ...(Array.isArray(localEntries) ? localEntries : []),
+        ...(Array.isArray(backendList) ? backendList : []),
+      ];
+      setAllocations(mergedList);
+    } catch (error) {
+      console.error("CostAllocation load failed", error);
+      setAllocations(Array.isArray(localEntries) ? localEntries : []);
       addToast("Failed to load Cost Center Allocation data", "error");
     } finally {
       setLoading(false);
     }
-  }, [financialYear, month, branch, addToast]);
+  }, [financialYear, month, addToast, localEntries]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -44,19 +62,26 @@ export default function CostAllocation() {
     date: new Date().toISOString().split("T")[0]
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setAllocations((prev) => [
-      ...prev,
-      {
-        id: prev.length + 1,
-        expense: newAlloc.expense,
-        ratio: Number(newAlloc.ratio),
-        dept: newAlloc.dept,
-        amount: Number(newAlloc.amount),
-        date: newAlloc.date
-      }
-    ]);
+
+    const amountValue = Number(newAlloc.amount);
+    const ratioValue = Number(newAlloc.ratio);
+    const entry = {
+      id: `local-${Date.now()}`,
+      date: newAlloc.date || new Date().toISOString().split("T")[0],
+      expense: newAlloc.expense.trim(),
+      dept: newAlloc.dept,
+      ratio: Number.isFinite(ratioValue) ? ratioValue : 0,
+      amount: Number.isFinite(amountValue) ? amountValue : 0,
+    };
+
+    const nextEntries = [entry, ...(Array.isArray(localEntries) ? localEntries : [])];
+    setLocalEntries(nextEntries);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(COST_ALLOCATION_STORAGE_KEY, JSON.stringify(nextEntries));
+    }
+    setAllocations((prev) => [entry, ...prev]);
     setModalOpen(false);
     setNewAlloc({
       expense: "",
@@ -65,6 +90,7 @@ export default function CostAllocation() {
       amount: "",
       date: new Date().toISOString().split("T")[0]
     });
+    addToast("Cost allocation added and saved for this browser", "success");
   };
 
   const filtered = allocations.filter((a) =>
@@ -122,8 +148,6 @@ export default function CostAllocation() {
         onFinancialYearChange={setFinancialYear}
         month={month}
         onMonthChange={setMonth}
-        branch={branch}
-        onBranchChange={setBranch}
         searchPlaceholder="Search overhead expenses..."
       />
 

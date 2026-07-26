@@ -12,15 +12,17 @@ const inputClass =
 
 export default function FixedAssets() {
   const { addToast } = useToast();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);       // initial page load
+  const [refreshing, setRefreshing] = useState(false); // button-only spinner
   const [financialYear, setFinancialYear] = useState("2026-27");
   const [month, setMonth] = useState("All Months");
   const [branch, setBranch] = useState("");
   const [search, setSearch] = useState("");
   const [assets, setAssets] = useState([]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ isRefresh = false } = {}) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     try {
       const res = await getExtendedReports(financialYear, month, branch);
       if (res.data && res.data.fixed_assets) {
@@ -30,6 +32,7 @@ export default function FixedAssets() {
       addToast("Failed to load Fixed Assets data", "error");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [financialYear, month, branch, addToast]);
 
@@ -41,6 +44,7 @@ export default function FixedAssets() {
     name: "",
     purchaseDate: new Date().toISOString().split("T")[0],
     cost: "",
+    accumDep: "",
     salvage: "",
     life: "",
     method: "Straight Line"
@@ -63,6 +67,7 @@ export default function FixedAssets() {
         name: "",
         purchaseDate: new Date().toISOString().split("T")[0],
         cost: "",
+        accumDep: "",
         salvage: "",
         life: "",
         method: "Straight Line"
@@ -108,8 +113,14 @@ export default function FixedAssets() {
             <Plus className="h-4 w-4" />
             Register Asset
           </button>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <RefreshCw className="h-4 w-4" /> Refresh
+          <button
+            type="button"
+            onClick={() => load({ isRefresh: true })}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-all"
+          >
+            <RefreshCw className={`h-4 w-4 transition-transform duration-700 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
       </header>
@@ -249,15 +260,25 @@ export default function FixedAssets() {
                 />
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Capital Cost (₹) *</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Cost (₹) *</label>
                   <input
                     type="number"
                     required
                     placeholder="450000"
                     value={newAsset.cost}
                     onChange={(e) => setNewAsset((prev) => ({ ...prev, cost: e.target.value }))}
+                    className={`${inputClass} text-right`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Accum Dep (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={newAsset.accumDep}
+                    onChange={(e) => setNewAsset((prev) => ({ ...prev, accumDep: e.target.value }))}
                     className={`${inputClass} text-right`}
                   />
                 </div>

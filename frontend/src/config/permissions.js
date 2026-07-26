@@ -22,7 +22,7 @@ export const MODULES = [
 export const ROLE_PERMISSIONS = {
   Admin: MODULES,
   "Super Admin": MODULES,
-  Accountant: ["dashboard", "sales", "accounts", "alerts", "documents", "analytics"],
+  Accountant: ["dashboard", "sales", "accounts", "procurement", "inventory", "alerts", "documents", "analytics"],
   "Production Manager": ["dashboard", "masters", "production", "inventory", "quality", "maintenance", "analytics", "documents", "factoryMonitor", "iot", "alerts"],
   "Store Manager": ["dashboard", "inventory", "procurement", "masters", "documents", "alerts"],
   "HR Manager": ["dashboard", "hr", "attendance", "documents", "alerts", "settings"],
@@ -94,27 +94,78 @@ export function getModuleForPath(pathname) {
 
 export function isAdmin(user) {
   if (!user) return false;
+
   const roleStr = String(user.role || user.role_name || "").toLowerCase();
-  return roleStr === "admin" || roleStr === "super admin" || roleStr.includes("admin");
+  if (roleStr === "admin" || roleStr === "super admin" || roleStr.includes("admin")) {
+    return true;
+  }
+
+  const roles = Array.isArray(user.roles) ? user.roles : [];
+  if (roles.some((role) => {
+    const roleName = String(role || "").toLowerCase();
+    return roleName === "admin" || roleName === "super admin" || roleName.includes("admin");
+  })) {
+    return true;
+  }
+
+  const permissions = normalizePermissions(user.permissions);
+  return permissions.includes("*");
+}
+
+function normalizePermissions(permissions) {
+  if (!permissions) return [];
+  if (Array.isArray(permissions)) return permissions;
+  if (typeof permissions === "string") {
+    return permissions
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
 }
 
 export function getEffectivePermissions(user) {
   if (isAdmin(user)) return [...MODULES, "*"];
-  const role = user.role || user.role_name || "Admin";
+  if (!user) return [];
+
+  const permissions = normalizePermissions(user.permissions);
+  if (permissions.length > 0) {
+    return permissions;
+  }
+
+  const role = user.role || user.role_name || "";
   const roleKey = Object.keys(ROLE_PERMISSIONS).find(
     (k) => k.toLowerCase() === String(role).toLowerCase()
   );
-  return roleKey ? ROLE_PERMISSIONS[roleKey] : MODULES;
+  return roleKey ? ROLE_PERMISSIONS[roleKey] : [];
 }
 
 export function userHasModule(user, module) {
-  if (!user) return false;
-  return true;
+  if (!user || !module) return false;
+  if (isAdmin(user)) return true;
+
+  const permissions = getEffectivePermissions(user);
+  return permissions.some(
+    (permission) =>
+      permission === module ||
+      permission === `${module}:*` ||
+      permission.startsWith(`${module}:`)
+  );
 }
 
 export function userCanAction(user, module, action) {
-  if (!user) return false;
-  return true;
+  if (!user || !module || !action) return false;
+  if (isAdmin(user)) return true;
+
+  const permissions = getEffectivePermissions(user);
+  if (
+    permissions.includes("*") ||
+    permissions.includes(module) ||
+    permissions.includes(`${module}:*`)
+  ) {
+    return true;
+  }
+  return permissions.includes(`${module}:${action}`);
 }
 
 export function canAccess(userRole, module) {
@@ -122,8 +173,7 @@ export function canAccess(userRole, module) {
 }
 
 export function userCanAccess(user, module) {
-  if (!user) return false;
-  return true;
+  return userHasModule(user, module);
 }
 
 export function isOperator(user) {

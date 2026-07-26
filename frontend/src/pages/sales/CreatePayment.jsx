@@ -31,7 +31,10 @@ export default function CreatePayment() {
 
   useEffect(() => {
     getInvoices(tenantId)
-      .then((r) => setInvoices(r.data || []))
+      .then((r) => {
+        const d = r?.data;
+        setInvoices(Array.isArray(d) ? d : Array.isArray(d?.data) ? d.data : []);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [tenantId]);
@@ -85,8 +88,7 @@ export default function CreatePayment() {
             <option value="">Select invoice</option>
             {invoices.map((inv) => (
               <option key={inv.id} value={inv.id}>
-                {inv.invoice_number} — {inv.customer_name || "N/A"} — ₹
-                {Number(inv.grand_total).toFixed(2)}
+                {inv.invoice_number} — {inv.customer_name || "N/A"} — ₹{(Number(inv.grand_total) || 0).toFixed(2)}
               </option>
             ))}
           </select>

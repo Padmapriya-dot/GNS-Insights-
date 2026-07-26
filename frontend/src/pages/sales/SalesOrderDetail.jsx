@@ -38,9 +38,23 @@ export default function SalesOrderDetail() {
     try {
       const res = await getSalesOrderDetail(id);
       setData(res.data || null);
-    } catch (err) {
-      addToast(err.response?.data?.detail || "Order not found", "error");
-      setData(null);
+    } catch {
+      // Fall back to localStorage for locally-created sales orders
+      const stored = JSON.parse(localStorage.getItem("smrt_sales_orders") || "[]");
+      const local = stored.find(
+        (o) => String(o.id) === String(id) || String(o.order_number) === String(id) || String(o.so_number) === String(id)
+      );
+      if (local) {
+        setData({
+          order: local,
+          customer: { name: local.customer_name || "" },
+          line_items: local.line_items || [],
+          production_orders: [],
+        });
+      } else {
+        addToast("Order not found", "error");
+        setData(null);
+      }
     } finally {
       setLoading(false);
     }
