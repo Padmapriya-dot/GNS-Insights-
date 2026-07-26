@@ -24,6 +24,7 @@ class SupplierBase(BaseModel):
     contact: str | None = None
     email: str | None = None
     phone: str | None = None
+    outstanding: float | None = 0.0
     approval_status: str = "approved"
 
 
@@ -47,6 +48,17 @@ class InventoryItemBase(BaseModel):
     unit_cost: float | None = None
     reorder_level: int = 0
     item_type: str = "raw_material"  # raw_material, finished_good
+    category: str | None = None
+    warehouse_name: str | None = None
+    batch_number: str | None = None
+    quantity: int | None = 0
+    reserved: int | None = 0
+    status: str | None = "in_stock"
+    customer_name: str | None = None
+    serial_number: str | None = None
+    expiry_date: str | None = None
+    production_date: str | None = None
+    warranty: str | None = None
     is_active: bool = True
 
 

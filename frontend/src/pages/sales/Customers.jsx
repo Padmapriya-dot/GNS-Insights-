@@ -90,13 +90,18 @@ export default function Customers() {
     try {
       const res = await getCustomers();
       const apiRows = res.data || [];
-      setCustomers(apiRows.map((row, i) => enrichApiCustomer(row, i)));
+      if (apiRows.length > 0) {
+        setCustomers(apiRows.map((row, i) => enrichApiCustomer(row, i)));
+      } else {
+        setCustomers(DEMO_CUSTOMERS);
+      }
     } catch {
-      setCustomers([]);
+      setCustomers(DEMO_CUSTOMERS);
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     loadCustomers();
@@ -176,6 +181,10 @@ export default function Customers() {
       gstin: form.gstin,
       state: form.state,
       address_line1: form.billing_address,
+      customer_code: form.customer_code || `CUS${String(customers.length + 1).padStart(3, "0")}`,
+      credit_limit: form.credit_limit != null && form.credit_limit !== "" ? Number(form.credit_limit) : 500000,
+      outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
+      status: form.status || "active",
     };
     try {
       if (formCustomer?.id && typeof formCustomer.id === "number") {

@@ -35,7 +35,7 @@ def _item_status(qty: int, reorder: int) -> str:
         return "out_of_stock"
     if reorder and qty < reorder:
         return "low_stock"
-    return "available"
+    return "in_stock"
 
 
 def _primary_warehouse(db: Session, tenant_id: int, item_id: int) -> tuple[Warehouse | None, int]:
@@ -63,24 +63,41 @@ def get_materials_summary(db: Session, tenant_id: int) -> InventorySummaryRead:
             )
         ).all()
     )
-    available = low = out = 0
+    available = low = out = expiring = reorder_count = 0
     value = 0.0
+    today = date.today()
     for item in items:
-        qty = get_total_stock(db, item.id)
-        if qty <= 0:
+        db_qty = get_total_stock(db, item.id)
+        qty = item.quantity if (item.quantity is not None and item.quantity > 0) else db_qty
+        item_cost = float(item.unit_cost or 0)
+        value += item_cost * qty
+
+        if (item.reorder_level or 0) > 0:
+            reorder_count += 1
+
+        if qty <= 0 or item.status == "out_of_stock":
             out += 1
-        elif item.reorder_level and qty < item.reorder_level:
+        elif (item.reorder_level and qty < item.reorder_level) or item.status == "low_stock":
             low += 1
         else:
             available += 1
-        value += (float(item.unit_cost or 0)) * qty
+
+        if getattr(item, "expiry_date", None):
+            try:
+                exp_date = datetime.strptime(item.expiry_date, "%Y-%m-%d").date()
+                if 0 <= (exp_date - today).days <= 30:
+                    expiring += 1
+            except Exception:
+                pass
+
     return InventorySummaryRead(
         total_items=len(items),
         available_stock=available,
         low_stock=low,
         out_of_stock=out,
         stock_value=round(value, 2),
-        expiring_soon=12,
+        expiring_soon=expiring,
+        reorder_items=reorder_count,
     )
 
 
@@ -96,9 +113,14 @@ def list_materials_enriched(db: Session, tenant_id: int) -> list[MaterialListRea
     )
     result = []
     for i, item in enumerate(items):
-        qty = get_total_stock(db, item.id)
+        db_qty = get_total_stock(db, item.id)
+        qty = item.quantity if (item.quantity is not None and item.quantity > 0) else db_qty
         wh, wh_qty = _primary_warehouse(db, tenant_id, item.id)
-        reserved = max(int(qty * 0.08), 0) if qty else 0
+        wh_name = item.warehouse_name or (wh.name if wh else "—")
+        batch_no = item.batch_number or f"BATCH-{item.id:04d}"
+        reserved = item.reserved if (item.reserved is not None and item.reserved < qty) else 0
+        available = max(qty - reserved, 0)
+        item_status = _item_status(qty, item.reorder_level)
         supplier = db.get(Supplier, item.supplier_id) if item.supplier_id else None
         result.append(
             MaterialListRead(
@@ -106,16 +128,16 @@ def list_materials_enriched(db: Session, tenant_id: int) -> list[MaterialListRea
                 sku=item.sku,
                 name=item.name,
                 category=item.category or "General",
-                warehouse_name=wh.name if wh else "—",
-                batch_number=f"BATCH-{item.id:04d}",
+                warehouse_name=wh_name,
+                batch_number=batch_no,
                 quantity=qty,
                 reserved=reserved,
-                available=max(qty - reserved, 0),
+                available=available,
                 unit=item.unit,
                 reorder_level=item.reorder_level,
                 unit_cost=float(item.unit_cost) if item.unit_cost else None,
                 stock_value=round((float(item.unit_cost or 0)) * qty, 2) if qty else 0,
-                status=_item_status(qty, item.reorder_level),
+                status=item_status,
                 barcode=item.barcode,
                 vendor_name=supplier.name if supplier else None,
                 item_type=item.item_type,
@@ -181,21 +203,29 @@ def get_finished_goods_summary(db: Session, tenant_id: int) -> dict:
         ).all()
     )
     total = len(items)
-    avail = reserved = dispatch = damaged = 0
+    avail_count = reserved_count = dispatch = damaged = 0
     value = 0.0
     for item in items:
-        qty = get_total_stock(db, item.id)
+        db_qty = get_total_stock(db, item.id)
+        qty = item.quantity if (item.quantity is not None and item.quantity > 0) else db_qty
         value += float(item.unit_cost or 0) * qty
-        if qty <= 0:
+        item_res = item.reserved if (item.reserved is not None and item.reserved < qty) else max(int(qty * 0.1), 0)
+        avail = max(qty - item_res, 0)
+
+        if qty <= 0 or item.status == "damaged":
             damaged += 1
         else:
-            avail += 1
-            reserved += max(int(qty * 0.1), 0)
-            dispatch += max(int(qty * 0.6), 0)
+            if avail > 0:
+                avail_count += 1
+            if item_res > 0:
+                reserved_count += 1
+            if item.status == "ready" or avail > 0:
+                dispatch += 1
+
     return {
         "total_products": total,
-        "available": avail,
-        "reserved": reserved,
+        "available": avail_count,
+        "reserved": reserved_count,
         "ready_to_dispatch": dispatch,
         "damaged": damaged,
         "stock_value": round(value, 2),
@@ -214,26 +244,36 @@ def list_finished_goods_enriched(db: Session, tenant_id: int) -> list[FinishedGo
     )
     result = []
     for i, item in enumerate(items):
-        qty = get_total_stock(db, item.id)
+        db_qty = get_total_stock(db, item.id)
+        qty = item.quantity if (item.quantity is not None and item.quantity > 0) else db_qty
         wh, _ = _primary_warehouse(db, tenant_id, item.id)
-        reserved = max(int(qty * 0.12), 0)
+        wh_name = item.warehouse_name or (wh.name if wh else "—")
+        batch_no = item.batch_number or f"FG-BATCH-{item.id:04d}"
+        reserved = item.reserved if (item.reserved is not None and item.reserved < qty) else 0
+        available = max(qty - reserved, 0)
+        cust_name = item.customer_name or ["Tata Motors", "Bosch", "Mahindra"][i % 3]
+        item_status = _item_status(qty, item.reorder_level)
+        serial_no = item.serial_number or f"SN-{item.id:06d}"
+        exp_date = item.expiry_date or "2027-07-08"
         result.append(
             FinishedGoodListRead(
                 id=item.id,
                 sku=item.sku,
                 name=item.name,
-                batch_number=f"FG-BATCH-{item.id:04d}",
+                batch_number=batch_no,
                 quantity=qty,
                 reserved=reserved,
-                available=max(qty - reserved, 0),
-                warehouse_name=wh.name if wh else "—",
-                customer_name=["Tata Motors", "Bosch", "Mahindra"][i % 3],
-                status="ready" if qty > reserved else "out_of_stock",
-                production_date="2026-07-08",
-                expiry_date="2027-07-08",
-                warranty="12 months",
-                serial_number=f"SN-{item.id:06d}",
+                available=available,
+                warehouse_name=wh_name,
+                customer_name=cust_name,
+                status=item_status,
+                production_date=item.production_date or "2026-07-08",
+                expiry_date=exp_date,
+                warranty=item.warranty or "12 months",
+                serial_number=serial_no,
                 qr_code=f"QR-{item.sku}",
+                unit_cost=float(item.unit_cost) if item.unit_cost else None,
+                stock_value=round((float(item.unit_cost or 0)) * qty, 2) if qty else 0,
             )
         )
     return result
@@ -273,9 +313,18 @@ def create_transfer(db: Session, tenant_id: int, payload: StockTransferCreate) -
     count = int(
         db.scalar(select(func.count(StockTransfer.id)).where(StockTransfer.tenant_id == tenant_id)) or 0
     )
+    t_date = date.today()
+    if payload.transfer_date:
+        try:
+            t_date = date.fromisoformat(payload.transfer_date)
+        except ValueError:
+            pass
+
+    t_num = payload.transfer_number.strip() if payload.transfer_number and payload.transfer_number.strip() else f"TRF-{date.today().year}-{count + 1:04d}"
+
     transfer = StockTransfer(
         tenant_id=tenant_id,
-        transfer_number=f"TRF-{date.today().year}-{count + 1:04d}",
+        transfer_number=t_num,
         from_warehouse_id=payload.from_warehouse_id,
         to_warehouse_id=payload.to_warehouse_id,
         item_id=payload.item_id,
@@ -285,12 +334,82 @@ def create_transfer(db: Session, tenant_id: int, payload: StockTransferCreate) -
         driver=payload.driver,
         notes=payload.notes,
         status="pending_approval",
-        transfer_date=date.today(),
+        transfer_date=t_date,
     )
     db.add(transfer)
     db.commit()
     db.refresh(transfer)
     return transfer
+
+
+def update_transfer_status(
+    db: Session, tenant_id: int, transfer_id: int, new_status: str, approved_by: str | None = None
+) -> StockTransfer | None:
+    transfer = db.scalars(
+        select(StockTransfer).where(StockTransfer.id == transfer_id, StockTransfer.tenant_id == tenant_id)
+    ).first()
+    if not transfer:
+        return None
+
+    previous_status = transfer.status
+    transfer.status = new_status
+    if approved_by:
+        transfer.approved_by = approved_by
+    elif new_status in ["approved", "in_transit", "completed", "received"] and not transfer.approved_by:
+        transfer.approved_by = "Store Manager"
+
+    if new_status in ["completed", "received"] and previous_status not in ["completed", "received"]:
+        from_sl = db.scalars(
+            select(StockLevel).where(
+                StockLevel.warehouse_id == transfer.from_warehouse_id,
+                StockLevel.item_id == transfer.item_id,
+            )
+        ).first()
+        if from_sl:
+            from_sl.quantity = max(0, from_sl.quantity - transfer.quantity)
+
+        to_sl = db.scalars(
+            select(StockLevel).where(
+                StockLevel.warehouse_id == transfer.to_warehouse_id,
+                StockLevel.item_id == transfer.item_id,
+            )
+        ).first()
+        if to_sl:
+            to_sl.quantity += transfer.quantity
+        else:
+            db.add(
+                StockLevel(
+                    warehouse_id=transfer.to_warehouse_id,
+                    item_id=transfer.item_id,
+                    quantity=transfer.quantity,
+                )
+            )
+
+        db.add(
+            StockMovement(
+                tenant_id=tenant_id,
+                warehouse_id=transfer.from_warehouse_id,
+                item_id=transfer.item_id,
+                quantity=-transfer.quantity,
+                movement_type="out",
+                reference=transfer.transfer_number,
+            )
+        )
+        db.add(
+            StockMovement(
+                tenant_id=tenant_id,
+                warehouse_id=transfer.to_warehouse_id,
+                item_id=transfer.item_id,
+                quantity=transfer.quantity,
+                movement_type="in",
+                reference=transfer.transfer_number,
+            )
+        )
+
+    db.commit()
+    db.refresh(transfer)
+    return transfer
+
 
 
 def list_adjustments(db: Session, tenant_id: int) -> list[StockAdjustmentRead]:
@@ -329,6 +448,13 @@ def create_adjustment(db: Session, tenant_id: int, payload: StockAdjustmentCreat
     ).first()
     old_qty = sl.quantity if sl else 0
     diff = payload.new_qty - old_qty
+    a_date = date.today()
+    if payload.adjustment_date:
+        try:
+            a_date = date.fromisoformat(payload.adjustment_date)
+        except ValueError:
+            pass
+
     adj = StockAdjustment(
         tenant_id=tenant_id,
         warehouse_id=payload.warehouse_id,
@@ -338,31 +464,63 @@ def create_adjustment(db: Session, tenant_id: int, payload: StockAdjustmentCreat
         difference=diff,
         reason=payload.reason,
         status="pending",
-        adjustment_date=date.today(),
+        adjustment_date=a_date,
     )
     db.add(adj)
-    mov = StockMovement(
-        tenant_id=tenant_id,
-        warehouse_id=payload.warehouse_id,
-        item_id=payload.item_id,
-        quantity=diff,
-        movement_type="adjustment",
-        reference=f"ADJ-{date.today().isoformat()}",
-    )
-    db.add(mov)
-    if sl:
-        sl.quantity = max(0, payload.new_qty)
-    elif payload.new_qty > 0:
-        db.add(
-            StockLevel(
-                warehouse_id=payload.warehouse_id,
-                item_id=payload.item_id,
-                quantity=payload.new_qty,
-            )
-        )
     db.commit()
     db.refresh(adj)
     return adj
+
+
+def update_adjustment_status(
+    db: Session, tenant_id: int, adjustment_id: int, new_status: str, approved_by: str | None = None
+) -> StockAdjustment | None:
+    adj = db.scalars(
+        select(StockAdjustment).where(StockAdjustment.id == adjustment_id, StockAdjustment.tenant_id == tenant_id)
+    ).first()
+    if not adj:
+        return None
+
+    previous_status = adj.status
+    adj.status = new_status
+    if approved_by:
+        adj.approved_by = approved_by
+    elif new_status == "approved" and not adj.approved_by:
+        adj.approved_by = "Store Manager"
+
+    if new_status == "approved" and previous_status != "approved":
+        sl = db.scalars(
+            select(StockLevel).where(
+                StockLevel.warehouse_id == adj.warehouse_id,
+                StockLevel.item_id == adj.item_id,
+            )
+        ).first()
+        if sl:
+            sl.quantity = max(0, adj.new_qty)
+        elif adj.new_qty > 0:
+            db.add(
+                StockLevel(
+                    warehouse_id=adj.warehouse_id,
+                    item_id=adj.item_id,
+                    quantity=adj.new_qty,
+                )
+            )
+
+        db.add(
+            StockMovement(
+                tenant_id=tenant_id,
+                warehouse_id=adj.warehouse_id,
+                item_id=adj.item_id,
+                quantity=adj.difference,
+                movement_type="adjustment",
+                reference=f"ADJ-{adj.adjustment_date.isoformat() if adj.adjustment_date else date.today().isoformat()}",
+            )
+        )
+
+    db.commit()
+    db.refresh(adj)
+    return adj
+
 
 
 def get_ledger_summary(db: Session, tenant_id: int) -> LedgerSummaryRead:

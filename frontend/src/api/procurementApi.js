@@ -27,6 +27,10 @@ export const convertMaterialRequestToPO = (mrId, payload) =>
 export const getRFQSummary = () => api.get("/procurement/rfq/summary");
 export const getRFQList = () => api.get("/procurement/rfq");
 export const getRFQComparison = (rfqId) => api.get(`/procurement/rfq/${rfqId}/comparison`);
+export const createRFQ = (payload) => api.post("/procurement/rfq", payload);
+export const addVendorQuotation = (rfqId, payload) => api.post(`/procurement/rfq/${rfqId}/quotation`, payload);
+export const awardRFQ = (rfqId, payload) => api.patch(`/procurement/rfq/${rfqId}/award`, payload);
+
 
 export const getGoodsReceipts = () => api.get("/procurement/goods-receipt");
 export const getGRNSummary = () => api.get("/procurement/goods-receipt/summary");
@@ -37,6 +41,10 @@ export const approveGoodsReceiptQC = (grnId, payload) =>
 
 export const getVendorBills = () => api.get("/procurement/vendor-bills");
 export const getVendorBillSummary = () => api.get("/procurement/vendor-bills/summary");
+export const createVendorBill = (payload) => api.post("/procurement/vendor-bills", payload);
+export const updateVendorBillStatus = (billId, status) =>
+  api.patch(`/procurement/vendor-bills/${billId}/status`, { status });
+
 
 export const getSupplierPayments = () => api.get("/procurement/supplier-payments");
 export const createSupplierPayment = (payload) => api.post("/procurement/supplier-payments", payload);

@@ -61,10 +61,16 @@ PERMISSION_MATRIX = {
             "alerts",
             "documents",
             "masters",
+            "inventory",
+            "maintenance",
+            "procurement",
+            "settings",
+            "iot",
         ],
         "description": (
             "Dashboard, Production, Machines, Planning, Work Orders, Schedule, "
-            "Shop Floor, Machine Allocation, Batch Tracking, Quality, Analytics."
+            "Shop Floor, Machine Allocation, Batch Tracking, Quality, Analytics, "
+            "Inventory, Maintenance, Procurement, and Smart Factory IoT."
         ),
     },
     "Store Manager": {
@@ -83,7 +89,7 @@ PERMISSION_MATRIX = {
         ),
     },
     "HR Manager": {
-        "modules": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents"],
+        "modules": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents", "masters"],
         "description": "Dashboard, Employees, Attendance, Leave, Payroll, Recruitment, HR Reports.",
     },
     "Accountant": {
@@ -94,6 +100,7 @@ PERMISSION_MATRIX = {
             "documents",
             "analytics",
             "alerts",
+            "masters",
         ],
         "description": (
             "Dashboard, Finance, Sales/Purchase Payments, General Ledger, "
@@ -108,6 +115,7 @@ PERMISSION_MATRIX = {
             "attendance",
             "documents",
             "alerts",
+            "masters",
         ],
         "actions": [
             "production:read",

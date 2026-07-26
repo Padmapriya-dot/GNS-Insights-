@@ -269,6 +269,42 @@ def on_startup():
         pass  # Column may already exist
     try:
         with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE products ADD COLUMN unit VARCHAR(32) DEFAULT 'Pcs'"))
+    except Exception:
+        pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE warehouses ADD COLUMN used_capacity INTEGER DEFAULT 0"))
+    except Exception:
+        pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE departments ADD COLUMN employee_count INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE departments ADD COLUMN machine_count INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE departments ADD COLUMN work_center_count INTEGER DEFAULT 0"))
+    except Exception:
+        pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE suppliers ADD COLUMN outstanding NUMERIC(12, 2) DEFAULT 0.0"))
+    except Exception:
+        pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN warehouse_name VARCHAR(128)"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN batch_number VARCHAR(128)"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN quantity INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN reserved INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN status VARCHAR(64) DEFAULT 'in_stock'"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN customer_name VARCHAR(255)"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN serial_number VARCHAR(128)"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN expiry_date VARCHAR(64)"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN production_date VARCHAR(64)"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN warranty VARCHAR(128)"))
+    except Exception:
+        pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
             conn.execute(
                 text(
                     "ALTER TABLE roles ADD COLUMN permissions JSON NOT NULL DEFAULT '[]'"

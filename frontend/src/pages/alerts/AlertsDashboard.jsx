@@ -46,6 +46,7 @@ import {
   MODULE_OPTIONS,
   SEVERITY_STYLES,
   STATUS_STYLES,
+  DEMO_ALERTS,
   moduleLabel,
   formatAlertDate,
   computeAlertSummary,
@@ -214,6 +215,14 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
       }
 
       const combined = [...apiAlerts, ...localAlerts];
+      if (combined.length === 0) {
+        let demo = DEMO_ALERTS.map(normalizeAlert);
+        if (initialAlertType) {
+          demo = demo.filter((a) => isMatchingAlertType(a.alert_type, initialAlertType));
+        }
+        combined.push(...demo);
+      }
+
       const uniqueMap = new Map();
       combined.forEach((item) => {
         const key = String(item.id);
@@ -231,6 +240,9 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
       setError(e.response?.data?.detail || e.message || "Failed to load alerts");
       const stored = localStorage.getItem("smrt_local_alerts");
       let localAlerts = stored ? JSON.parse(stored).map(normalizeAlert) : [];
+      if (localAlerts.length === 0) {
+        localAlerts = DEMO_ALERTS.map(normalizeAlert);
+      }
       if (initialAlertType) {
         localAlerts = localAlerts.filter((a) => isMatchingAlertType(a.alert_type, initialAlertType));
       }

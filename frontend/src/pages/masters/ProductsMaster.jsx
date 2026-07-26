@@ -95,13 +95,18 @@ export default function ProductsMaster() {
     try {
       const res = await getProducts();
       const apiRows = res.data || [];
-      setProducts(apiRows.map((row, i) => enrichApiProduct(row, i)));
+      if (apiRows.length > 0) {
+        setProducts(apiRows.map((row, i) => enrichApiProduct(row, i)));
+      } else {
+        setProducts(DEMO_PRODUCTS);
+      }
     } catch {
-      setProducts([]);
+      setProducts(DEMO_PRODUCTS);
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     loadProducts();
@@ -173,17 +178,47 @@ export default function ProductsMaster() {
   };
 
   const handleSaveProduct = async (form) => {
+    const purchasePrice = Number(form.purchase_price) || 0;
+    const sellingPrice = Number(form.selling_price) || 0;
+    const minStock = Number(form.min_stock) || 0;
+    const currentStock = Number(form.current_stock) || 0;
+    const maxStock = Number(form.max_stock) || (minStock ? minStock * 10 : 100);
+
     const payload = {
       tenant_id: tenantId,
       sku: form.sku,
       name: form.name,
       description: form.description || null,
-      unit_cost: form.purchase_price ? Number(form.purchase_price) : null,
-      unit_price: form.selling_price ? Number(form.selling_price) : null,
-      min_stock: form.min_stock ? Number(form.min_stock) : 1,
-      current_stock: form.current_stock ? Number(form.current_stock) : 1,
+      unit_cost: purchasePrice,
+      unit_price: sellingPrice,
+      min_stock: minStock,
+      current_stock: currentStock,
+      max_stock: maxStock,
+      unit: form.unit || "Pcs",
     };
-    const code = `PRD${String(products.length + 1).padStart(3, "0")}`;
+
+    const count = products.length + 1;
+    const code = form.product_code || `PRD${String(count).padStart(3, "0")}`;
+
+    const enrichedProductData = {
+      product_code: code,
+      name: form.name,
+      sku: form.sku,
+      category: form.category || "Finished Goods",
+      product_type: form.product_type || "Finished Goods",
+      unit: form.unit || "Pcs",
+      brand: form.brand || "—",
+      warehouse: form.warehouse || "—",
+      purchase_price: purchasePrice,
+      selling_price: sellingPrice,
+      min_stock: minStock,
+      max_stock: maxStock,
+      current_stock: currentStock,
+      stock_value: currentStock * sellingPrice,
+      description: form.description || "",
+      status: form.status || "active",
+      created_at: new Date().toISOString().slice(0, 10),
+    };
 
     try {
       if (formProduct?.id && typeof formProduct.id === "number") {
@@ -193,11 +228,8 @@ export default function ProductsMaster() {
             p.id === formProduct.id
               ? {
                   ...p,
-                  ...form,
-                  purchase_price: Number(form.purchase_price) || 0,
-                  selling_price: Number(form.selling_price) || 0,
-                  min_stock: Number(form.min_stock) || 1,
-                  current_stock: Number(form.current_stock) || 1,
+                  ...enrichedProductData,
+                  id: formProduct.id,
                 }
               : p
           )
@@ -206,35 +238,21 @@ export default function ProductsMaster() {
       } else {
         const result = await createProduct(payload);
         const newProduct = {
-          ...enrichApiProduct({ id: result?.id ?? `new-${Date.now()}`, ...payload }, products.length),
+          ...enrichedProductData,
           id: result?.id ?? `new-${Date.now()}`,
-          product_code: code,
-          ...form,
-          purchase_price: Number(form.purchase_price) || 0,
-          selling_price: Number(form.selling_price) || 0,
-          min_stock: Number(form.min_stock) || 1,
-          current_stock: Number(form.current_stock) || 1,
-          created_at: new Date().toISOString().slice(0, 10),
         };
         setProducts((prev) => [newProduct, ...prev]);
         addToast("Product created");
       }
       setFormProduct(null);
     } catch (err) {
-      const localId = `new-${Date.now()}`;
+      const localId = formProduct?.id || `new-${Date.now()}`;
       const newProduct = {
-        ...enrichApiProduct({ id: localId, ...payload }, products.length),
+        ...enrichedProductData,
         id: localId,
-        product_code: code,
-        ...form,
-        purchase_price: Number(form.purchase_price) || 0,
-        selling_price: Number(form.selling_price) || 0,
-        min_stock: Number(form.min_stock) || 1,
-        current_stock: Number(form.current_stock) || 1,
-        created_at: new Date().toISOString().slice(0, 10),
       };
       if (formProduct?.id) {
-        setProducts((prev) => prev.map((p) => (p.id === formProduct.id ? { ...p, ...newProduct, id: formProduct.id } : p)));
+        setProducts((prev) => prev.map((p) => (p.id === formProduct.id ? newProduct : p)));
         addToast("Product updated locally");
       } else {
         setProducts((prev) => [newProduct, ...prev]);
@@ -243,6 +261,7 @@ export default function ProductsMaster() {
       setFormProduct(null);
     }
   };
+
 
   const handleDelete = async (product) => {
     if (!window.confirm(`Delete ${product.name}?`)) return;

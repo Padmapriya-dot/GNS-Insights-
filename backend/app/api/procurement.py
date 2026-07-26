@@ -56,13 +56,23 @@ from app.schemas.procurement_extended import (
     POListRead,
     POSummaryRead,
     ProcurementHubRead,
+    RFQCreate,
     RFQListRead,
     RFQSummaryRead,
+    RFQAward,
+    VendorBillCreate,
     VendorBillListRead,
+    VendorBillStatusUpdate,
     VendorBillSummaryRead,
     VendorComparisonRead,
+    VendorQuotationCreate,
 )
 from app.services.procurement_extended_service import (
+    award_rfq,
+    create_rfq,
+    create_vendor_bill,
+    create_vendor_quotation,
+    update_vendor_bill_status,
     get_grn_summary,
     get_mr_summary,
     get_po_summary,
@@ -324,9 +334,52 @@ def rfq_list(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depen
     return list_rfq_enriched(db, tenant_id)
 
 
+@router.post("/rfq", response_model=RFQListRead)
+def create_rfq_endpoint(
+    payload: RFQCreate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    rfq = create_rfq(db, tenant_id, payload)
+    rows = list_rfq_enriched(db, tenant_id)
+    match = next((r for r in rows if r.id == rfq.id), None)
+    if not match:
+        raise HTTPException(500, "RFQ created but could not be loaded")
+    return match
+
+
+@router.post("/rfq/{rfq_id}/quotation")
+def create_quotation_endpoint(
+    rfq_id: int,
+    payload: VendorQuotationCreate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    q = create_vendor_quotation(db, tenant_id, rfq_id, payload)
+    return {"message": "Quotation recorded successfully", "id": q.id}
+
+
+@router.patch("/rfq/{rfq_id}/award", response_model=RFQListRead)
+def award_rfq_endpoint(
+    rfq_id: int,
+    payload: RFQAward,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    rfq = award_rfq(db, tenant_id, rfq_id, payload.supplier_id)
+    if not rfq:
+        raise HTTPException(404, "RFQ not found")
+    rows = list_rfq_enriched(db, tenant_id)
+    match = next((r for r in rows if r.id == rfq.id), None)
+    if not match:
+        raise HTTPException(500, "RFQ awarded but could not be loaded")
+    return match
+
+
 @router.get("/rfq/{rfq_id}/comparison", response_model=list[VendorComparisonRead])
 def rfq_comparison(rfq_id: int, tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
     return get_rfq_comparison(db, tenant_id, rfq_id)
+
 
 
 @router.get("/purchase-orders/summary", response_model=POSummaryRead)
@@ -347,6 +400,38 @@ def vendor_bill_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Sess
 @router.get("/vendor-bills", response_model=list[VendorBillListRead])
 def vendor_bills_list(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
     return list_vendor_bills_enriched(db, tenant_id)
+
+
+@router.post("/vendor-bills", response_model=VendorBillListRead)
+def create_vendor_bill_endpoint(
+    payload: VendorBillCreate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    bill = create_vendor_bill(db, tenant_id, payload)
+    rows = list_vendor_bills_enriched(db, tenant_id)
+    match = next((r for r in rows if r.id == bill.id), None)
+    if not match:
+        raise HTTPException(500, "Vendor bill created but could not be loaded")
+    return match
+
+
+@router.patch("/vendor-bills/{bill_id}/status", response_model=VendorBillListRead)
+def update_vendor_bill_status_endpoint(
+    bill_id: int,
+    payload: VendorBillStatusUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    bill = update_vendor_bill_status(db, tenant_id, bill_id, payload.status)
+    if not bill:
+        raise HTTPException(404, "Vendor bill not found")
+    rows = list_vendor_bills_enriched(db, tenant_id)
+    match = next((r for r in rows if r.id == bill.id), None)
+    if not match:
+        raise HTTPException(500, "Vendor bill updated but could not be loaded")
+    return match
+
 
 
 @router.get("/hub", response_model=ProcurementHubRead)

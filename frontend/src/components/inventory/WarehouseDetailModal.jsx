@@ -60,7 +60,7 @@ export default function WarehouseDetailModal({ warehouse, detail, onClose, onEdi
   if (!warehouse) return null;
 
   const w = { ...warehouse, ...(detail || {}) };
-  const binTree = detail?.bin_tree?.length ? detail.bin_tree : DEMO_BIN_TREE;
+  const binTree = detail?.bin_tree || [];
 
   const kpis = [
     { label: "Inventory Value", value: formatInr(w.inventory_value) },

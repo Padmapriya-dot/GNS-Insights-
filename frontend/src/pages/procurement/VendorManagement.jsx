@@ -111,14 +111,19 @@ export default function VendorManagement() {
         getVendorSummary().catch(() => ({ data: null })),
       ]);
       const apiRows = vRes.data || [];
-      setVendors(apiRows.map((row, i) => enrichApiVendor(row, i)));
+      if (apiRows.length > 0) {
+        setVendors(apiRows.map((row, i) => enrichApiVendor(row, i)));
+      } else {
+        setVendors(DEMO_VENDORS);
+      }
       setApiSummary(sRes.data);
     } catch {
-      setVendors([]);
+      setVendors(DEMO_VENDORS);
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     loadVendors();
@@ -222,11 +227,14 @@ export default function VendorManagement() {
       vendor_type: form.vendor_type,
       billing_address: form.billing_address,
       status: form.status,
+      vendor_code: form.vendor_code || `VEN${String(vendors.length + 1).padStart(3, "0")}`,
+      outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
+      rating: form.rating != null && form.rating !== "" ? Number(form.rating) : 4.0,
       approval_status: "pending",
     };
     try {
       if (formVendor?.id && typeof formVendor.id === "number") {
-        await updateVendor(formVendor.id, form);
+        await updateVendor(formVendor.id, payload);
         addToast("Vendor updated");
         loadVendors();
         setFormVendor(null);

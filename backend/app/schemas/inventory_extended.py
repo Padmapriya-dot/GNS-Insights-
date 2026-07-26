@@ -10,6 +10,7 @@ class InventorySummaryRead(BaseModel):
     out_of_stock: int = 0
     stock_value: float = 0
     expiring_soon: int = 0
+    reorder_items: int = 0
 
 
 class MaterialListRead(BaseModel):
@@ -48,6 +49,8 @@ class FinishedGoodListRead(BaseModel):
     warranty: str | None = None
     serial_number: str | None = None
     qr_code: str | None = None
+    unit_cost: float | None = None
+    stock_value: float | None = None
 
 
 class MaterialDetailRead(BaseModel):
@@ -70,6 +73,8 @@ class MaterialDetailRead(BaseModel):
 
 
 class StockTransferCreate(BaseModel):
+    transfer_number: str | None = None
+    transfer_date: str | None = None
     from_warehouse_id: int
     to_warehouse_id: int
     item_id: int
@@ -78,6 +83,12 @@ class StockTransferCreate(BaseModel):
     vehicle: str | None = None
     driver: str | None = None
     notes: str | None = None
+
+
+class StockTransferStatusUpdate(BaseModel):
+    status: str
+    approved_by: str | None = None
+
 
 
 class StockTransferRead(BaseModel):
@@ -96,10 +107,17 @@ class StockTransferRead(BaseModel):
 
 
 class StockAdjustmentCreate(BaseModel):
+    adjustment_date: str | None = None
     warehouse_id: int
     item_id: int
     new_qty: int
     reason: str
+
+
+class StockAdjustmentStatusUpdate(BaseModel):
+    status: str
+    approved_by: str | None = None
+
 
 
 class StockAdjustmentRead(BaseModel):

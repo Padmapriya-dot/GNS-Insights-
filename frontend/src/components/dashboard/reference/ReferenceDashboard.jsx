@@ -316,10 +316,13 @@ function InventorySummary({ blocks = [], warehouses = [] }) {
                 <Icon className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-800">{Number(b.count ?? b.quantity ?? 0).toLocaleString()}</p>
+                <p className="text-lg font-bold text-slate-800">{Number(b.count ?? 0).toLocaleString()}</p>
                 <p className="text-[10px] text-slate-500 leading-tight">
                   {labelKey ? t(`refDashboard.${labelKey}`) : b.label}
                 </p>
+                {b.quantity !== undefined && b.quantity !== b.count && b.quantity > 0 && (
+                  <p className="text-[9px] text-slate-400 font-medium">{Number(b.quantity).toLocaleString()} units</p>
+                )}
               </div>
             </div>
           );
@@ -467,12 +470,12 @@ function TodaysSummary({ items = [] }) {
       <ul className="space-y-3">
         {items.map((item, i) => {
           const Icon = summaryIcons[item.icon] || BarChart3;
-          const labelKey = SUMMARY_KEYS[i];
+          const label = item.key ? t(`refDashboard.${item.key}`, item.label) : (SUMMARY_KEYS[i] ? t(`refDashboard.${SUMMARY_KEYS[i]}`) : item.label);
           return (
-            <li key={item.label} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
+            <li key={item.key || item.label || i} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
               <span className="flex items-center gap-2.5 text-sm text-slate-600">
                 <Icon className="h-4 w-4 text-[#2563EB]" />
-                {labelKey ? t(`refDashboard.${labelKey}`) : item.label}
+                {label}
               </span>
               <span className="text-sm font-bold text-slate-800">{item.value}</span>
             </li>

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.core.permissions import require_permission, tenant_scope
+from app.core.permissions import require_any_permission, require_permission, tenant_scope, tenant_scope_any
 from app.models.user import User
 from app.schemas.sales import (
     CustomerCreate,
@@ -75,7 +75,7 @@ MODULE = "sales"
 @router.post("/customers", response_model=CustomerRead)
 def create_customer_endpoint(
     payload: CustomerCreate,
-    user: User = Depends(require_permission(MODULE)),
+    user: User = Depends(require_any_permission(MODULE, "masters")),
     db: Session = Depends(get_db),
 ):
     payload.tenant_id = user.tenant_id
@@ -84,7 +84,7 @@ def create_customer_endpoint(
 
 @router.get("/customers", response_model=list[CustomerRead])
 def list_customers_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope_any(MODULE, "masters")), db: Session = Depends(get_db)
 ):
     return list_customers(db, tenant_id)
 

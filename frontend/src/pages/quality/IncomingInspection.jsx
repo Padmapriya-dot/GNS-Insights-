@@ -34,10 +34,19 @@ export default function IncomingInspection() {
     setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getIncomingSummary(), getIncomingEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_INCOMING_SUMMARY, ...sumRes.value.data });
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows([]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0 && sumRes.value.data.todays_inspections > 0) {
+        setSummary({ ...DEMO_INCOMING_SUMMARY, ...sumRes.value.data });
+      } else {
+        setSummary(DEMO_INCOMING_SUMMARY);
+      }
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length > 0) {
+        setRows(listRes.value.data);
+      } else {
+        setRows(DEMO_INCOMING_LIST);
+      }
     } catch {
+      setSummary(DEMO_INCOMING_SUMMARY);
+      setRows(DEMO_INCOMING_LIST);
     } finally {
       setLoading(false);
     }

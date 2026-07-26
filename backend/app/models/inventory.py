@@ -16,6 +16,7 @@ class Warehouse(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     code: Mapped[str] = mapped_column(String(64), nullable=False)
     capacity: Mapped[int | None] = mapped_column(Integer)
+    used_capacity: Mapped[int | None] = mapped_column(Integer, default=0)
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
     warehouse_type: Mapped[str | None] = mapped_column(String(64))
@@ -72,6 +73,7 @@ class Supplier(Base, TimestampMixin):
     ifsc: Mapped[str | None] = mapped_column(String(32))
     payment_terms: Mapped[str | None] = mapped_column(String(64))
     credit_days: Mapped[int | None] = mapped_column(Integer)
+    outstanding: Mapped[float | None] = mapped_column(Numeric(12, 2), default=0.0)
     rating: Mapped[float | None] = mapped_column(Numeric(3, 1))
     quality_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
     delivery_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
@@ -101,6 +103,16 @@ class InventoryItem(Base, TimestampMixin):
         String(32), default="raw_material", nullable=False
     )  # raw_material, finished_good
     category: Mapped[str | None] = mapped_column(String(128))
+    warehouse_name: Mapped[str | None] = mapped_column(String(128))
+    batch_number: Mapped[str | None] = mapped_column(String(128))
+    quantity: Mapped[int | None] = mapped_column(Integer, default=0)
+    reserved: Mapped[int | None] = mapped_column(Integer, default=0)
+    status: Mapped[str | None] = mapped_column(String(64), default="in_stock")
+    customer_name: Mapped[str | None] = mapped_column(String(255))
+    serial_number: Mapped[str | None] = mapped_column(String(128))
+    expiry_date: Mapped[str | None] = mapped_column(String(64))
+    production_date: Mapped[str | None] = mapped_column(String(64))
+    warranty: Mapped[str | None] = mapped_column(String(128))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     supplier = relationship("Supplier", back_populates="inventory_items")

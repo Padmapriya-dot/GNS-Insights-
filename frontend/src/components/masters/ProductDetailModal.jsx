@@ -217,7 +217,7 @@ export function ProductFormModal({ product, onClose, onSave }) {
     sku: product?.sku || "",
     category: product?.category || "Finished Goods",
     product_type: product?.product_type || "Finished Goods",
-    unit: product?.unit || "Nos",
+    unit: product?.unit || product?.unit_of_measure || product?.uom || "Pcs",
     brand: product?.brand || "",
     warehouse: product?.warehouse || "Main Store",
     purchase_price: product?.purchase_price ?? "",

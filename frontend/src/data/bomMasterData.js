@@ -19,7 +19,54 @@ const OFFICE_CHAIR_COMPONENTS = [
   { id: 12, component: "User Manual", item_code: "RM012", category: "Consumables", unit: "Nos", qty: 1, unit_cost: 15, total_cost: 15 },
 ];
 
-export const DEMO_BOMS = [];
+export const DEMO_BOMS = [
+  {
+    id: "bom-101",
+    bom_code: "BOM-OFF-CHAIR-01",
+    bom_number: "BOM-OFF-CHAIR-01",
+    product: "Executive Ergonomic Office Chair",
+    product_name: "Executive Ergonomic Office Chair",
+    category: "Finished Goods",
+    version: "V1.0",
+    status: "active",
+    warehouse: "Main Warehouse",
+    created_by: "Store Manager",
+    total_cost: 2550,
+    created_at: new Date().toISOString().slice(0, 10),
+    items: OFFICE_CHAIR_COMPONENTS,
+  },
+  {
+    id: "bom-102",
+    bom_code: "BOM-IND-TABLE-01",
+    bom_number: "BOM-IND-TABLE-01",
+    product: "Heavy Duty Industrial Workstation Table",
+    product_name: "Heavy Duty Industrial Workstation Table",
+    category: "Assembly",
+    version: "V1.1",
+    status: "active",
+    warehouse: "Plant-1 Store",
+    created_by: "Production Lead",
+    total_cost: 4800,
+    created_at: new Date().toISOString().slice(0, 10),
+    items: OFFICE_CHAIR_COMPONENTS.slice(0, 6),
+  },
+  {
+    id: "bom-103",
+    bom_code: "BOM-ST-CABINET-01",
+    bom_number: "BOM-ST-CABINET-01",
+    product: "Modular Steel Storage Cabinet 4-Door",
+    product_name: "Modular Steel Storage Cabinet 4-Door",
+    category: "Finished Goods",
+    version: "V2.0",
+    status: "active",
+    warehouse: "Main Warehouse",
+    created_by: "Store Manager",
+    total_cost: 6200,
+    created_at: new Date().toISOString().slice(0, 10),
+    items: OFFICE_CHAIR_COMPONENTS.slice(2, 9),
+  },
+];
+
 
 export function computeBomSummary(boms, totalProducts = 0) {
   const productsWithBom = new Set(boms.map((b) => b.product_name || b.product).filter(Boolean)).size;
