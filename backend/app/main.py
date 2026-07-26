@@ -16,9 +16,12 @@ from fastapi.exceptions import RequestValidationError
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddlewar
 
 from fastapi.responses import JSONResponse, RedirectResponse
+
+from fastapi.openapi.docs import get_redoc_html
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -174,11 +177,24 @@ setup_logging("INFO")
 
 logger = get_logger("gns_insights")
 
-
-
 app = FastAPI(title="GNS Insights API", version="1.0.0")
 
+# redoc_url=None — default FastAPI template points at redoc@next (404 on jsDelivr)
+app = FastAPI(
+    title="GNS Insights API",
+    version="1.0.0",
+    redoc_url=None,
+)
 
+
+@app.get("/redoc", include_in_schema=False)
+async def redoc_ui() -> HTMLResponse:
+    """ReDoc with a pinned CDN bundle (redoc@next is unpublished / 404)."""
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - ReDoc",
+        redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@2.1.5/bundles/redoc.standalone.js",
+    )
 
 if settings.is_production:
 
@@ -267,6 +283,30 @@ async def security_headers_middleware(request: Request, call_next):
         "form-action 'self'"
 
     )
+
+    path = request.url.path or ""
+    # Swagger / ReDoc only — ERP API routes keep the strict policy below
+    if path.startswith(("/docs", "/redoc", "/openapi.json")):
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+            "img-src 'self' data: https://fastapi.tiangolo.com https://cdn.jsdelivr.net; "
+            "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; "
+            "connect-src 'self'; "
+            "worker-src 'self' blob:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
+    else:
+        # Strict CSP for all authenticated ERP / API responses
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
 
     if settings.is_production:
 
@@ -911,6 +951,20 @@ def on_startup():
     ]
 
     for ddl in _task_columns:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
+    _company_settings_columns = [
+        "ALTER TABLE company_settings ADD COLUMN landmark VARCHAR(255)",
+        "ALTER TABLE company_settings ADD COLUMN country VARCHAR(128)",
+        "ALTER TABLE company_settings ADD COLUMN mfa_enabled BOOLEAN DEFAULT 0",
+        "ALTER TABLE company_settings ADD COLUMN mfa_email_otp BOOLEAN DEFAULT 1",
+        "ALTER TABLE company_settings ADD COLUMN mfa_sms_otp BOOLEAN DEFAULT 0",
+        "ALTER TABLE company_settings ADD COLUMN mfa_authenticator BOOLEAN DEFAULT 0",
+    ]
+    for ddl in _company_settings_columns:
 
         try:
 
