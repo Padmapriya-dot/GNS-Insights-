@@ -162,10 +162,46 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
           {quote.status === "draft" && (
             <button
               type="button"
+              onClick={() => onStatusChange?.(quote, "pending_approval")}
+              className="rounded-lg border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-800"
+            >
+              Submit for Approval
+            </button>
+          )}
+          {quote.status === "pending_approval" && (
+            <>
+              <button
+                type="button"
+                onClick={() => onStatusChange?.(quote, "approved")}
+                className="rounded-lg border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-800"
+              >
+                Approve Quote
+              </button>
+              <button
+                type="button"
+                onClick={() => onStatusChange?.(quote, "rejected")}
+                className="rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700"
+              >
+                Reject
+              </button>
+            </>
+          )}
+          {(quote.status === "approved" || quote.status === "draft") && (
+            <button
+              type="button"
               onClick={() => onStatusChange?.(quote, "sent")}
               className="rounded-lg border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700"
             >
               Send to Customer
+            </button>
+          )}
+          {quote.status === "sent" && (
+            <button
+              type="button"
+              onClick={() => onStatusChange?.(quote, "accepted")}
+              className="rounded-lg border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-800"
+            >
+              Customer Confirmed
             </button>
           )}
         </div>

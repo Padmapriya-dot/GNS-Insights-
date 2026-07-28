@@ -206,6 +206,15 @@ def convert_quotation_to_sales_order(
             status_code=400,
             detail="Quotation has no customer — link a customer before converting.",
         )
+    qstatus = (quote.status or "").lower()
+    if qstatus not in {"accepted", "sent", "approved"}:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Quotation must be approved/sent/accepted by the customer "
+                f"before creating a sales order (current: {quote.status})."
+            ),
+        )
 
     # Avoid duplicate convert for same quote reference
     existing = db.scalars(
@@ -313,7 +322,12 @@ def create_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
     db.flush()
     subtotal = 0.0
     for item_data in payload.items:
-        item = InvoiceItem(invoice_id=inv.id, **item_data)
+        row = (
+            item_data.model_dump()
+            if hasattr(item_data, "model_dump")
+            else dict(item_data)
+        )
+        item = InvoiceItem(invoice_id=inv.id, **row)
         db.add(item)
         subtotal += item.amount
     inv.subtotal = subtotal
@@ -427,6 +441,17 @@ def create_payment(db: Session, payload: PaymentCreate) -> Payment:
             amount=float(payload.amount),
             method=payload.method or "cash",
         )
+        # Close sales order when invoice fully paid (after ship/delivery)
+        if inv.status == "paid" and inv.sales_order_id:
+            so = db.get(SalesOrder, inv.sales_order_id)
+            if so and so.tenant_id == payload.tenant_id:
+                if (so.status or "").lower() in {
+                    "shipped",
+                    "delivered",
+                    "invoiced",
+                    "confirmed",
+                } or so.shipped or so.invoiced:
+                    so.status = "closed"
     db.commit()
     db.refresh(p)
     try:
@@ -445,6 +470,21 @@ def create_payment(db: Session, payload: PaymentCreate) -> Payment:
             reference_id=p.id,
             created_by="Finance",
         )
+        if inv and inv.status == "paid" and inv.sales_order_id:
+            so = db.get(SalesOrder, inv.sales_order_id)
+            if so and (so.status or "").lower() == "closed":
+                emit_alert(
+                    db,
+                    tenant_id=payload.tenant_id,
+                    alert_type="sales_order_closed",
+                    title=f"Order closed: {so.order_number}",
+                    message=f"Sales order {so.order_number} closed after full payment",
+                    severity="low",
+                    link=f"/sales/orders/{so.id}",
+                    reference_type="sales_order",
+                    reference_id=so.id,
+                    created_by="Finance",
+                )
     except Exception:
         pass
     return p
@@ -644,8 +684,67 @@ def update_lead_status(
     return lead
 
 
+def _next_quotation_number(db: Session, tenant_id: int) -> str:
+    today = date.today()
+    prefix = f"QT-{today.strftime('%Y%m%d')}-"
+    existing = list(
+        db.scalars(
+            select(Quotation.quote_number).where(
+                Quotation.tenant_id == tenant_id,
+                Quotation.quote_number.like(f"{prefix}%"),
+            )
+        ).all()
+    )
+    seq = 1
+    for num in existing:
+        try:
+            tail = str(num).rsplit("-", 1)[-1]
+            seq = max(seq, int(tail) + 1)
+        except (TypeError, ValueError):
+            continue
+    return f"{prefix}{seq:03d}"
+
+
 def create_quotation(db: Session, payload: QuotationCreate) -> Quotation:
-    quote = Quotation(**payload.model_dump())
+    from datetime import timedelta
+
+    data = payload.model_dump()
+    tenant_id = int(data.get("tenant_id") or 0)
+    customer_id = data.get("customer_id")
+    customer_name = (data.get("customer_name") or "").strip() or None
+
+    if customer_id and not customer_name:
+        customer = db.scalars(
+            select(Customer).where(
+                Customer.id == customer_id, Customer.tenant_id == tenant_id
+            )
+        ).first()
+        if customer:
+            customer_name = customer.name
+
+    quote_date = data.get("quote_date") or date.today()
+    valid_until = data.get("valid_until")
+    if valid_until is None:
+        valid_until = quote_date + timedelta(days=30)
+
+    quote_number = (data.get("quote_number") or "").strip() or _next_quotation_number(
+        db, tenant_id
+    )
+
+    quote = Quotation(
+        tenant_id=tenant_id,
+        quote_number=quote_number,
+        customer_id=customer_id,
+        lead_id=data.get("lead_id"),
+        customer_name=customer_name,
+        quote_date=quote_date,
+        valid_until=valid_until,
+        status=data.get("status") or "draft",
+        total_amount=float(data.get("total_amount") or 0),
+        notes=data.get("notes"),
+        sales_person=data.get("sales_person"),
+        discount=float(data.get("discount") or 0),
+    )
     db.add(quote)
     db.commit()
     db.refresh(quote)
@@ -669,6 +768,9 @@ def list_quotations(
 def update_quotation_status(
     db: Session, tenant_id: int, quote_id: int, status: str
 ) -> Quotation | None:
+    """Enforce manufacturing sales quotation approval chain."""
+    from fastapi import HTTPException
+
     quote = db.scalars(
         select(Quotation).where(
             Quotation.id == quote_id, Quotation.tenant_id == tenant_id
@@ -676,9 +778,149 @@ def update_quotation_status(
     ).first()
     if not quote:
         return None
-    quote.status = status
+
+    new_status = (status or "").lower().strip()
+    current = (quote.status or "draft").lower().strip()
+    allowed = {
+        "draft": {"pending_approval", "sent", "cancelled"},
+        "pending_approval": {"approved", "rejected", "draft"},
+        "approved": {"sent", "draft"},
+        "sent": {"accepted", "rejected", "expired"},
+        "accepted": set(),
+        "rejected": {"draft"},
+        "expired": {"draft"},
+        "cancelled": {"draft"},
+    }
+    # Allow same-status no-op and admin-style free jumps only within known set
+    known = set(allowed) | {"accepted", "rejected", "expired", "cancelled", "sent", "approved", "pending_approval", "draft"}
+    if new_status not in known:
+        raise HTTPException(400, f"Invalid quotation status '{status}'")
+    if new_status != current and new_status not in allowed.get(current, known):
+        raise HTTPException(
+            400,
+            f"Cannot move quotation from '{current}' to '{new_status}'. "
+            f"Allowed: {', '.join(sorted(allowed.get(current, []))) or 'none'}",
+        )
+
+    quote.status = new_status
     db.commit()
     db.refresh(quote)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=tenant_id,
+            alert_type=f"quotation_{new_status}",
+            title=f"Quotation {new_status}: {quote.quote_number}",
+            message=f"Quotation {quote.quote_number} marked {new_status}",
+            severity="low",
+            link="/sales/quotations",
+            reference_type="quotation",
+            reference_id=quote.id,
+            created_by="Sales",
+        )
+    except Exception:
+        pass
+    return quote
+
+
+def convert_lead_to_quotation(
+    db: Session,
+    tenant_id: int,
+    lead_id: int,
+    *,
+    total_amount: float | None = None,
+    valid_days: int = 30,
+    notes: str | None = None,
+    sales_person: str | None = None,
+) -> Quotation:
+    """Customer enquiry (Lead) → Quotation. Creates/links Customer when needed."""
+    from datetime import timedelta
+
+    from fastapi import HTTPException
+
+    lead = db.scalars(
+        select(Lead).where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+    ).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    existing = db.scalars(
+        select(Quotation).where(
+            Quotation.tenant_id == tenant_id,
+            Quotation.lead_id == lead.id,
+            Quotation.status.not_in(["cancelled", "rejected", "lost"]),
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Lead already has quotation {existing.quote_number}",
+        )
+
+    customer = None
+    if lead.company or lead.email:
+        customer = db.scalars(
+            select(Customer).where(
+                Customer.tenant_id == tenant_id,
+                Customer.name == (lead.company or lead.name),
+            )
+        ).first()
+        if not customer:
+            customer = Customer(
+                tenant_id=tenant_id,
+                name=lead.company or lead.name,
+                contact_name=lead.name,
+                email=lead.email,
+                phone=lead.phone,
+                status="active",
+            )
+            db.add(customer)
+            db.flush()
+
+    ts = date.today().strftime("%Y%m%d")
+    quote = Quotation(
+        tenant_id=tenant_id,
+        quote_number=f"QT-L{lead.id}-{ts}",
+        customer_id=customer.id if customer else None,
+        lead_id=lead.id,
+        customer_name=(customer.name if customer else None) or lead.company or lead.name,
+        quote_date=date.today(),
+        valid_until=date.today() + timedelta(days=max(1, int(valid_days or 30))),
+        status="draft",
+        total_amount=float(
+            total_amount
+            if total_amount is not None
+            else (lead.opportunity_value or 0)
+        ),
+        notes=notes or lead.notes,
+        sales_person=sales_person or lead.sales_executive,
+        discount=0,
+    )
+    db.add(quote)
+    lead.status = "converted"
+    db.commit()
+    db.refresh(quote)
+
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=tenant_id,
+            alert_type="quotation_created",
+            title=f"Quotation created from lead: {quote.quote_number}",
+            message=f"Lead '{lead.name}' converted to quotation {quote.quote_number}",
+            severity="low",
+            link="/sales/quotations",
+            reference_type="quotation",
+            reference_id=quote.id,
+            created_by="Sales",
+        )
+    except Exception:
+        pass
+
     return quote
 
 
@@ -689,6 +931,8 @@ def update_sales_order_dispatch(
     packed: bool | None = None,
     shipped: bool | None = None,
 ) -> SalesOrder | None:
+    from fastapi import HTTPException
+
     order = db.scalars(
         select(SalesOrder).where(
             SalesOrder.id == order_id, SalesOrder.tenant_id == tenant_id
@@ -701,10 +945,38 @@ def update_sales_order_dispatch(
     becoming_packed = packed is True and not order.packed
 
     if becoming_packed or (packed is True):
+        # Packing gate: Final QC should be ready (or already passed)
+        from app.services.manufacturing_workflow_service import (
+            sales_order_has_final_qc_pass,
+        )
+
+        lines = list(
+            db.scalars(
+                select(SalesOrderLine).where(SalesOrderLine.sales_order_id == order.id)
+            ).all()
+        )
+        if any(l.product_id for l in lines) and not sales_order_has_final_qc_pass(
+            db, tenant_id, order
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Final QC must pass before packing. "
+                    "Complete Final Product Inspection first."
+                ),
+            )
         order.packed = True
         ensure_dispatch_shipment(db, tenant_id, order, status="packed")
+        db.flush()
 
     if becoming_shipped:
+        if not order.packed and packed is not True:
+            raise HTTPException(
+                status_code=400,
+                detail="Packing verification required before dispatch. Mark packed first.",
+            )
+        order.packed = True
+        db.flush()
         from app.services.manufacturing_workflow_service import ship_sales_order_stock_out
 
         ship_sales_order_stock_out(db, tenant_id, order.id)
@@ -726,4 +998,45 @@ def update_sales_order_dispatch(
         order.shipped = shipped
     db.commit()
     db.refresh(order)
+    return order
+
+
+def confirm_delivery(
+    db: Session,
+    tenant_id: int,
+    order_id: int,
+) -> SalesOrder | None:
+    """Mark shipment delivered and advance SO toward closure."""
+    order = db.scalars(
+        select(SalesOrder).where(
+            SalesOrder.id == order_id, SalesOrder.tenant_id == tenant_id
+        )
+    ).first()
+    if not order:
+        return None
+    if not order.shipped:
+        from fastapi import HTTPException
+
+        raise HTTPException(400, "Order must be shipped before delivery confirmation")
+    order.status = "delivered"
+    ensure_dispatch_shipment(db, tenant_id, order, status="delivered")
+    db.commit()
+    db.refresh(order)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=tenant_id,
+            alert_type="delivery_confirmed",
+            title=f"Delivery confirmed: {order.order_number}",
+            message=f"Customer delivery confirmed for {order.order_number}",
+            severity="low",
+            link=f"/sales/orders/{order.id}",
+            reference_type="sales_order",
+            reference_id=order.id,
+            created_by="Dispatch",
+        )
+    except Exception:
+        pass
     return order

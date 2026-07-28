@@ -6,7 +6,7 @@ import { formatInr, priorityColor, statusColor } from "../../data/salesMasterDat
 
 const TABS = ["Overview", "Contacts", "Notes", "Timeline", "Activities"];
 
-export default function LeadDetailModal({ lead, onClose, onStatusChange }) {
+export default function LeadDetailModal({ lead, onClose, onStatusChange, onConvertToQuotation, converting }) {
   const [tab, setTab] = useState("Overview");
   if (!lead) return null;
 
@@ -67,7 +67,19 @@ export default function LeadDetailModal({ lead, onClose, onStatusChange }) {
               {["new", "contacted", "qualified", "converted", "lost"].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           )}
-          <Link to="/sales/quotations" className="rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white">Create Quotation</Link>
+          {typeof lead.id === "number" && lead.status !== "converted" && lead.status !== "lost" && (
+            <button
+              type="button"
+              disabled={converting}
+              onClick={() => onConvertToQuotation?.(lead)}
+              className="rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {converting ? "Converting…" : "Convert to Quotation"}
+            </button>
+          )}
+          <Link to="/sales/quotations" className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">
+            Quotations
+          </Link>
         </div>
       </div>
     </div>

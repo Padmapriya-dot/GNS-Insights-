@@ -122,11 +122,9 @@ export default function VendorDetailModal({
                 <h3 className="mb-3 text-sm font-bold text-slate-800">General Information</h3>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <Field label="Vendor Code" value={v.vendor_code} />
-                  <Field label="Vendor Name" value={v.name} />
+                  <Field label="Company Name" value={v.name} />
                   <Field label="Vendor Type" value={v.vendor_type} />
                   <Field label="GSTIN" value={v.gstin} />
-                  <Field label="PAN" value={v.pan} />
-                  <Field label="MSME" value={v.msme} />
                   <Field label="Status" value={v.status} />
                   <Field label="Approval" value={v.approval_status} />
                 </div>
@@ -137,7 +135,6 @@ export default function VendorDetailModal({
                   <Field label="Contact Person" value={v.contact} />
                   <Field label="Mobile" value={v.phone} />
                   <Field label="Email" value={v.email} />
-                  <Field label="Website" value={v.website} />
                   <Field label="Alternate Contact" value={v.alternate_contact} />
                 </div>
               </div>
@@ -365,7 +362,6 @@ export function VendorFormModal({ vendor, onClose, onSave }) {
     phone: vendor?.phone || "",
     email: vendor?.email || "",
     gstin: vendor?.gstin || "",
-    pan: vendor?.pan || "",
     city: vendor?.city || "",
     state: vendor?.state || "",
     payment_terms: vendor?.payment_terms || "Net 30",
@@ -414,7 +410,7 @@ export function VendorFormModal({ vendor, onClose, onSave }) {
               </select>
             </label>
             <label className="block sm:col-span-2 text-sm font-medium text-slate-700">
-              Vendor Name *
+              Company Name *
               <input
                 type="text"
                 required
@@ -456,15 +452,6 @@ export function VendorFormModal({ vendor, onClose, onSave }) {
                 type="text"
                 value={form.gstin}
                 onChange={(e) => set("gstin", e.target.value)}
-                className={inputClass}
-              />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              PAN
-              <input
-                type="text"
-                value={form.pan}
-                onChange={(e) => set("pan", e.target.value)}
                 className={inputClass}
               />
             </label>

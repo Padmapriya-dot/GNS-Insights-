@@ -23,11 +23,12 @@ import {
 import BrandLogo from "../common/BrandLogo";
 import useAuth from "../../hooks/useAuth";
 import { getSidebarMenus } from "../../api/authApi";
-import { userCanAccess } from "../../config/permissions";
+import { userCanAccess, isStoreManager, storeManagerPathAllowed } from "../../config/permissions";
 import { SIDEBAR_NAV, sectionHasActiveChild } from "../../config/sidebarNav";
 
 const ICON_BY_KEY = {
   dashboard: LayoutDashboard,
+  manufacturingWorkflow: Factory,
   masters: Layers,
   production: Factory,
   inventory: Boxes,
@@ -87,11 +88,17 @@ function mapApiMenusToNav(menus) {
 }
 
 function filterStaticNav(user) {
+  const storeMgr = isStoreManager(user);
   return SIDEBAR_NAV.map((section) => {
     if (section.to) {
-      return userCanAccess(user, section.module) ? section : null;
+      if (!userCanAccess(user, section.module)) return null;
+      if (storeMgr && !storeManagerPathAllowed(section.to)) return null;
+      return section;
     }
-    const children = (section.children || []).filter((c) => userCanAccess(user, c.module));
+    let children = (section.children || []).filter((c) => userCanAccess(user, c.module));
+    if (storeMgr) {
+      children = children.filter((c) => storeManagerPathAllowed(c.to));
+    }
     if (children.length === 0) return null;
     return { ...section, children };
   }).filter(Boolean);
@@ -132,8 +139,19 @@ export default function Sidebar({ collapsed, onClose }) {
   }, [isAuthenticated, user?.id, user?.role, user?.role_id]);
 
   const visibleNav = useMemo(() => {
-    if (apiNav && apiNav.length) return apiNav;
-    return filterStaticNav(user);
+    const base = apiNav && apiNav.length ? apiNav : filterStaticNav(user);
+    if (!isStoreManager(user)) return base;
+    // Always enforce Store Manager path allowlist (even if API is stale/unfiltered).
+    return base
+      .map((section) => {
+        if (section.to) {
+          return storeManagerPathAllowed(section.to) ? section : null;
+        }
+        const children = (section.children || []).filter((c) => storeManagerPathAllowed(c.to));
+        if (!children.length) return null;
+        return { ...section, children };
+      })
+      .filter(Boolean);
   }, [apiNav, user]);
 
   const [expanded, setExpanded] = useState(() =>

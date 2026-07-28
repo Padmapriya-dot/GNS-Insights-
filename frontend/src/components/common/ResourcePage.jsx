@@ -31,6 +31,7 @@ export default function ResourcePage({
   emptyIcon = "clipboard",
   rowActions,
   transformPayload,
+  fallbackData = [],
 }) {
   const fields = fieldsProp || formFields || [];
   const { user } = useAuth();
@@ -63,22 +64,34 @@ export default function ResourcePage({
     markRequestStart();
     try {
       const res = await fetcher();
-      setRows(Array.isArray(res.data) ? res.data : res.data?.items || []);
+      const fetched = Array.isArray(res.data) ? res.data : res.data?.items || [];
+      if (fetched.length > 0) {
+        setRows(fetched);
+      } else if (fallbackData?.length > 0) {
+        setRows(fallbackData);
+      } else {
+        setRows([]);
+      }
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      setLoadError(
-        typeof detail === "string"
-          ? detail
-          : !navigator.onLine
-            ? "You appear to be offline."
-            : "Failed to load data"
-      );
-      setRows([]);
+      if (fallbackData?.length > 0) {
+        setRows(fallbackData);
+        setLoadError("");
+      } else {
+        const detail = err.response?.data?.detail;
+        setLoadError(
+          typeof detail === "string"
+            ? detail
+            : !navigator.onLine
+              ? "You appear to be offline."
+              : "Failed to load data"
+        );
+        setRows([]);
+      }
     } finally {
       markRequestEnd();
       setLoading(false);
     }
-  }, [fetcher, markRequestStart, markRequestEnd]);
+  }, [fetcher, fallbackData, markRequestStart, markRequestEnd]);
 
   useEffect(() => {
     reload();

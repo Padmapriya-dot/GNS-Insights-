@@ -68,9 +68,9 @@ def _to_list_read(db: Session, tenant_id: int, dept: Department) -> DepartmentLi
     ctx = _counts_for_department(db, tenant_id, dept.name)
     data = DepartmentListRead.model_validate(dept)
     data.code = _dept_code(dept)
-    data.employee_count = ctx["employee_count"]
-    data.machine_count = ctx["machine_count"]
-    data.work_center_count = ctx["work_center_count"]
+    data.employee_count = max(ctx["employee_count"], getattr(dept, "employee_count", 0) or 0)
+    data.machine_count = max(ctx["machine_count"], getattr(dept, "machine_count", 0) or 0)
+    data.work_center_count = max(ctx["work_center_count"], getattr(dept, "work_center_count", 0) or 0)
     return data
 
 

@@ -8,6 +8,7 @@ class WarehouseExtendedBase(BaseModel):
     name: str
     code: str
     capacity: int | None = None
+    used_capacity: int | None = 0
     is_primary: bool = False
     status: str = "active"
     warehouse_type: str | None = None
@@ -31,6 +32,7 @@ class WarehouseUpdate(BaseModel):
     name: str | None = None
     code: str | None = None
     capacity: int | None = None
+    used_capacity: int | None = None
     is_primary: bool | None = None
     status: str | None = None
     warehouse_type: str | None = None

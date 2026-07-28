@@ -40,10 +40,19 @@ export default function DefectTracking() {
     setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getDefectSummary(), getDefectsEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_DEFECT_SUMMARY, ...sumRes.value.data });
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows([]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0 && sumRes.value.data.total_defects > 0) {
+        setSummary({ ...DEMO_DEFECT_SUMMARY, ...sumRes.value.data });
+      } else {
+        setSummary(DEMO_DEFECT_SUMMARY);
+      }
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length > 0) {
+        setRows(listRes.value.data);
+      } else {
+        setRows(DEMO_DEFECT_LIST);
+      }
     } catch {
+      setSummary(DEMO_DEFECT_SUMMARY);
+      setRows(DEMO_DEFECT_LIST);
     } finally {
       setLoading(false);
     }

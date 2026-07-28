@@ -5,6 +5,7 @@
 
 export const ROLES = [
   { id: "admin", name: "Admin", description: "Full system access" },
+  { id: "sales_manager", name: "Sales Manager", description: "Leads, quotations, sales orders, customers" },
   { id: "production_manager", name: "Production Manager", description: "Production modules for assigned plant" },
   { id: "store_manager", name: "Store Manager", description: "Inventory and store operations" },
   { id: "hr_manager", name: "HR Manager", description: "HR and payroll" },
@@ -21,11 +22,17 @@ export const MODULES = [
 /** Static fallback matrix — API permissions take precedence when present. */
 export const ROLE_PERMISSIONS = {
   Admin: MODULES,
-  "Production Manager": MODULES,
-  "Store Manager": MODULES,
-  "HR Manager": MODULES,
-  Accountant: MODULES,
-  Operator: ["dashboard", "production", "factoryMonitor", "attendance", "documents", "alerts"],
+  "Sales Manager": ["dashboard", "sales", "masters", "alerts", "documents", "analytics"],
+  "Production Manager": [
+    "dashboard", "production", "quality", "analytics", "factoryMonitor", "alerts", "documents",
+    "masters", "inventory", "maintenance", "procurement", "settings", "iot",
+  ],
+  "Store Manager": [
+    "dashboard", "inventory", "procurement", "sales", "masters", "alerts", "documents", "analytics",
+  ],
+  "HR Manager": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents", "masters"],
+  Accountant: ["dashboard", "accounts", "sales", "documents", "analytics", "alerts", "masters"],
+  Operator: ["dashboard", "production", "factoryMonitor", "attendance", "documents", "alerts", "masters"],
 };
 
 export const RESTRICTED_ACTION_ROLES = new Set();
@@ -40,7 +47,7 @@ export const ROUTE_MODULE_OVERRIDES = {
   "/settings/permissions": "settings",
   "/settings/alerts": "dashboard",
   "/settings/subscription": "settings",
-  "/masters/departments": "hr",
+  "/masters/departments": "masters",
   "/masters/products": "masters",
   "/masters/bom": "masters",
   "/production/schedule": "production",
@@ -56,10 +63,12 @@ export const ROUTE_MODULE_OVERRIDES = {
   "/maintenance/machine-history": "maintenance",
   "/analytics/sales": "analytics",
   "/analytics/finance": "analytics",
+  "/manufacturing/workflow": "dashboard",
 };
 
 export const ROUTE_MODULES = {
   "/": "dashboard",
+  "/manufacturing": "dashboard",
   "/masters": "masters",
   "/production": "production",
   "/inventory": "inventory",
@@ -92,29 +101,106 @@ export function getModuleForPath(pathname) {
 }
 
 export function isAdmin(user) {
-  return true;
+  if (!user) return false;
+  const roles = Array.isArray(user.roles) && user.roles.length
+    ? user.roles
+    : [user.role, user.role_name].filter(Boolean);
+  return roles.includes("Admin");
 }
 
 export function getEffectivePermissions(user) {
-  return [...MODULES, "*"];
+  if (!user) return [];
+  if (isAdmin(user)) return [...MODULES, "*"];
+  if (Array.isArray(user.permissions) && user.permissions.length) {
+    return user.permissions;
+  }
+  const roles = Array.isArray(user.roles) && user.roles.length
+    ? user.roles
+    : [user.role, user.role_name].filter(Boolean);
+  const set = new Set();
+  for (const role of roles) {
+    (ROLE_PERMISSIONS[role] || []).forEach((p) => set.add(p));
+  }
+  return [...set];
 }
 
 export function userHasModule(user, module) {
-  if (!user) return false;
-  return true;
+  if (!user || !module) return false;
+  if (isAdmin(user)) return true;
+  const perms = getEffectivePermissions(user);
+  if (perms.includes("*") || perms.includes(module)) return true;
+  return perms.some((p) => typeof p === "string" && p.startsWith(`${module}:`));
 }
 
 export function userCanAction(user, module, action) {
   if (!user) return false;
-  return true;
+  if (isAdmin(user)) return true;
+  const perms = getEffectivePermissions(user);
+  if (perms.includes("*") || perms.includes(`${module}:*`) || perms.includes(`${module}:${action}`)) {
+    return true;
+  }
+  return perms.includes(module);
 }
 
 export function canAccess(userRole, module) {
-  return true;
+  if (!userRole || !module) return false;
+  if (userRole === "Admin") return true;
+  return (ROLE_PERMISSIONS[userRole] || []).includes(module);
 }
 
 export function userCanAccess(user, module) {
+  return userHasModule(user, module);
+}
+
+/** Paths Store Manager may open (mirrors backend STORE_MANAGER_ALLOWED_PATHS). */
+export const STORE_MANAGER_ALLOWED_PATHS = new Set([
+  "/",
+  "/manufacturing/workflow",
+  "/inventory",
+  "/inventory/raw-materials",
+  "/inventory/finished-goods",
+  "/inventory/stock-transfer",
+  "/inventory/stock-adjustment",
+  "/inventory/stock-ledger",
+  "/inventory/warehouses",
+  "/procurement/goods-receipt",
+  "/procurement/vendors",
+  "/sales/dispatch",
+  "/masters/products",
+  "/alerts/low-stock",
+  "/documents",
+  "/documents/purchase",
+  "/analytics/inventory",
+]);
+
+export function isStoreManager(user) {
+  if (!user || isAdmin(user)) return false;
+  const roles = Array.isArray(user.roles) && user.roles.length
+    ? user.roles
+    : [user.role, user.role_name].filter(Boolean);
+  return roles.includes("Store Manager");
+}
+
+export function storeManagerPathAllowed(pathname) {
+  if (!pathname) return false;
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (STORE_MANAGER_ALLOWED_PATHS.has(path)) return true;
+  if (path.startsWith("/inventory/")) return true;
+  if (path.startsWith("/masters/products")) return true;
+  if (path.startsWith("/procurement/goods-receipt")) return true;
+  if (path.startsWith("/procurement/vendors")) {
+    return true;
+  }
+  if (path.startsWith("/sales/dispatch")) return true;
+  return false;
+}
+
+export function userCanAccessPath(user, pathname) {
   if (!user) return false;
+  if (isAdmin(user)) return true;
+  const module = getModuleForPath(pathname);
+  if (!userCanAccess(user, module)) return false;
+  if (isStoreManager(user) && !storeManagerPathAllowed(pathname)) return false;
   return true;
 }
 

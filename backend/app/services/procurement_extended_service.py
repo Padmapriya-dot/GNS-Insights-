@@ -109,6 +109,144 @@ def list_rfq_enriched(db: Session, tenant_id: int) -> list[RFQListRead]:
     return result
 
 
+def create_rfq(db: Session, tenant_id: int, payload) -> RFQ:
+    count = int(db.scalar(select(func.count(RFQ.id)).where(RFQ.tenant_id == tenant_id)) or 0)
+    d_date = None
+    if payload.due_date:
+        try:
+            d_date = date.fromisoformat(payload.due_date)
+        except ValueError:
+            pass
+
+    rfq_num = payload.rfq_number.strip() if payload.rfq_number and payload.rfq_number.strip() else f"RFQ-{date.today().year}-{count + 1:04d}"
+
+    rfq = RFQ(
+        tenant_id=tenant_id,
+        rfq_number=rfq_num,
+        material_request_id=payload.material_request_id,
+        due_date=d_date,
+        status="open",
+        notes=payload.notes,
+    )
+    db.add(rfq)
+    db.commit()
+    db.refresh(rfq)
+    return rfq
+
+
+def create_vendor_quotation(db: Session, tenant_id: int, rfq_id: int, payload) -> VendorQuotation:
+    quote = VendorQuotation(
+        tenant_id=tenant_id,
+        rfq_id=rfq_id,
+        supplier_id=payload.supplier_id,
+        price=payload.price,
+        delivery_days=payload.delivery_days or 7,
+        gst_pct=payload.gst_pct or 18.0,
+        warranty=payload.warranty or "1 Year",
+    )
+    db.add(quote)
+    db.commit()
+    db.refresh(quote)
+    return quote
+
+
+def award_rfq(db: Session, tenant_id: int, rfq_id: int, supplier_id: int) -> RFQ | None:
+    """Award RFQ → create Purchase Order (from linked Material Request when present)."""
+    from datetime import date, timedelta
+
+    from fastapi import HTTPException
+
+    from app.models.procurement import VendorQuotation
+    from app.schemas.procurement import MaterialRequestConvertToPORequest
+    from app.services.procurement_service import (
+        convert_material_request_to_purchase_order,
+        create_purchase_order,
+    )
+    from app.schemas.procurement import PurchaseOrderCreate
+
+    rfq = db.scalars(select(RFQ).where(RFQ.id == rfq_id, RFQ.tenant_id == tenant_id)).first()
+    if not rfq:
+        return None
+    if (rfq.status or "").lower() == "awarded":
+        return rfq
+
+    supplier = db.scalars(
+        select(Supplier).where(Supplier.id == supplier_id, Supplier.tenant_id == tenant_id)
+    ).first()
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    vendor_quote = db.scalars(
+        select(VendorQuotation).where(
+            VendorQuotation.rfq_id == rfq.id,
+            VendorQuotation.tenant_id == tenant_id,
+            VendorQuotation.supplier_id == supplier_id,
+        )
+    ).first()
+    unit_price = float(vendor_quote.price) if vendor_quote else 0.0
+    delivery_days = int(vendor_quote.delivery_days or 7) if vendor_quote else 7
+
+    po = None
+    if rfq.material_request_id:
+        po = convert_material_request_to_purchase_order(
+            db,
+            tenant_id,
+            rfq.material_request_id,
+            MaterialRequestConvertToPORequest(
+                supplier_id=supplier_id,
+                unit_price=unit_price,
+                expected_date=date.today() + timedelta(days=delivery_days),
+                status="approved",
+                notes=f"Auto-created from awarded RFQ {rfq.rfq_number}",
+                po_number=f"PO-{rfq.rfq_number}",
+            ),
+        )
+    else:
+        # Header-only PO for RFQs without an MR link (lines added later)
+        po = create_purchase_order(
+            db,
+            PurchaseOrderCreate(
+                tenant_id=tenant_id,
+                supplier_id=supplier_id,
+                po_number=f"PO-{rfq.rfq_number}",
+                order_date=date.today(),
+                expected_date=date.today() + timedelta(days=delivery_days),
+                status="approved",
+                notes=f"Auto-created from awarded RFQ {rfq.rfq_number}",
+                line_items=[],
+            ),
+        )
+
+    rfq.status = "awarded"
+    if vendor_quote:
+        vendor_quote.status = "awarded"
+    db.commit()
+    db.refresh(rfq)
+
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=tenant_id,
+            alert_type="rfq_awarded",
+            title=f"RFQ awarded: {rfq.rfq_number}",
+            message=(
+                f"RFQ {rfq.rfq_number} awarded to {supplier.name}. "
+                f"PO {getattr(po, 'po_number', '')} created."
+            ),
+            severity="medium",
+            link="/procurement/purchase-orders",
+            reference_type="rfq",
+            reference_id=rfq.id,
+            created_by="Procurement",
+        )
+    except Exception:
+        pass
+
+    return rfq
+
+
 def get_rfq_comparison(db: Session, tenant_id: int, rfq_id: int) -> list[VendorComparisonRead]:
     quotes = list(
         db.scalars(
@@ -118,36 +256,34 @@ def get_rfq_comparison(db: Session, tenant_id: int, rfq_id: int) -> list[VendorC
         ).all()
     )
     if not quotes:
-        return [
-            VendorComparisonRead(supplier_id=1, supplier_name="Tata Steel", price=85000, delivery_days=7, gst_pct=18, warranty="12 months", rating=4.5, score=92, is_best=True),
-            VendorComparisonRead(supplier_id=2, supplier_name="JSW Steel", price=88000, delivery_days=5, gst_pct=18, warranty="6 months", rating=4.2, score=85),
-            VendorComparisonRead(supplier_id=3, supplier_name="SAIL", price=82000, delivery_days=10, gst_pct=18, warranty="12 months", rating=4.0, score=78),
-        ]
+        return []
     items = []
-    best_score = 0
+    best_score = -999999
     best_id = None
     for q in quotes:
         supplier = q.supplier or db.get(Supplier, q.supplier_id)
-        score = 100 - (float(q.price) / 1000) + (float(q.rating or 0)) * 10 - (q.delivery_days)
+        score = round(100 - (float(q.price) / 1000) + (float(q.rating or 4.0)) * 10 - (q.delivery_days or 0), 1)
+        if score > best_score:
+            best_score = score
+            best_id = q.id
         items.append(
             VendorComparisonRead(
                 supplier_id=q.supplier_id,
                 supplier_name=supplier.name if supplier else "—",
                 price=float(q.price),
                 delivery_days=q.delivery_days,
-                gst_pct=float(q.gst_pct) if q.gst_pct else None,
+                gst_pct=float(q.gst_pct or 0),
                 warranty=q.warranty,
-                rating=float(q.rating) if q.rating else None,
-                score=round(score, 1),
+                rating=float(q.rating or 4.0),
+                score=score,
+                is_best=False,
             )
         )
-        if score > best_score:
-            best_score = score
-            best_id = q.supplier_id
-    for item in items:
-        if item.supplier_id == best_id:
-            item.is_best = True
+    for it in items:
+        if it.score == best_score:
+            it.is_best = True
     return sorted(items, key=lambda x: x.score, reverse=True)
+
 
 
 def get_po_summary(db: Session, tenant_id: int) -> POSummaryRead:
@@ -279,6 +415,53 @@ def list_vendor_bills_enriched(db: Session, tenant_id: int) -> list[VendorBillLi
             )
         )
     return result
+
+
+def create_vendor_bill(db: Session, tenant_id: int, payload) -> VendorBill:
+    count = int(db.scalar(select(func.count(VendorBill.id)).where(VendorBill.tenant_id == tenant_id)) or 0)
+    b_date = date.today()
+    if payload.bill_date:
+        try:
+            b_date = date.fromisoformat(payload.bill_date)
+        except ValueError:
+            pass
+
+    d_date = None
+    if payload.due_date:
+        try:
+            d_date = date.fromisoformat(payload.due_date)
+        except ValueError:
+            pass
+
+    b_num = payload.bill_number.strip() if payload.bill_number and payload.bill_number.strip() else f"V-BILL-{date.today().year}-{count + 1:04d}"
+
+    bill = VendorBill(
+        tenant_id=tenant_id,
+        bill_number=b_num,
+        supplier_id=payload.supplier_id,
+        purchase_order_id=payload.purchase_order_id,
+        goods_receipt_id=payload.goods_receipt_id,
+        bill_date=b_date,
+        due_date=d_date,
+        amount=payload.amount,
+        gst_amount=payload.gst_amount,
+        status="pending",
+    )
+    db.add(bill)
+    db.commit()
+    db.refresh(bill)
+    return bill
+
+
+def update_vendor_bill_status(db: Session, tenant_id: int, bill_id: int, new_status: str) -> VendorBill | None:
+    bill = db.scalars(select(VendorBill).where(VendorBill.id == bill_id, VendorBill.tenant_id == tenant_id)).first()
+    if not bill:
+        return None
+    bill.status = new_status
+    db.commit()
+    db.refresh(bill)
+    return bill
+
 
 
 def get_procurement_hub(db: Session, tenant_id: int) -> ProcurementHubRead:

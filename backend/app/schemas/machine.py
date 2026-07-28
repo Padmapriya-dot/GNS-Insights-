@@ -66,8 +66,8 @@ class MachineListRead(MachineExtendedBase):
     display_status: str = "idle"
     current_work_order: str | None = None
     current_product: str | None = None
-    todays_output: int = 0
-    target_quantity: int = 0
+    todays_output: int | None = 0
+    target_quantity: int | None = 0
     created_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
 

@@ -83,14 +83,15 @@ export default function BomMaster() {
       const [bomRes, prodRes] = await Promise.all([getBillOfMaterials(), getProducts()]);
       const apiRows = bomRes.data || [];
       const grouped = groupApiBomRows(apiRows);
-      setBoms(grouped);
-      setTotalProducts((prodRes.data || []).length);
+      setBoms(grouped.length > 0 ? grouped : DEMO_BOMS);
+      setTotalProducts((prodRes.data || []).length || DEMO_BOMS.length);
     } catch {
-      setBoms([]);
+      setBoms(DEMO_BOMS);
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     loadBoms();

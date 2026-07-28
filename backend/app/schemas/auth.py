@@ -18,7 +18,7 @@ def _normalize_email(value: str) -> str:
 class LoginRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=255)
     password: str = Field(..., min_length=1, max_length=128)
-    role: str = Field(..., min_length=1, max_length=100)
+    role: str | None = Field(None, max_length=100)
 
     @field_validator("email")
     @classmethod
@@ -27,7 +27,9 @@ class LoginRequest(BaseModel):
 
     @field_validator("role")
     @classmethod
-    def validate_role(cls, value: str) -> str:
+    def validate_role(cls, value: str | None) -> str | None:
+        if not value:
+            return None
         cleaned = sanitize_text(value, max_length=100)
         if cleaned not in REGISTERABLE_ROLES:
             raise ValueError(f"Invalid role. Choose one of: {', '.join(REGISTERABLE_ROLES)}")

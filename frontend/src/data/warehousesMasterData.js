@@ -41,7 +41,66 @@ export const IMPORT_TEMPLATE_HEADERS = [
   "code", "name", "branch", "plant", "warehouse_type", "state", "manager_name", "capacity", "status",
 ];
 
-export const DEMO_WAREHOUSES = [];
+export const DEMO_WAREHOUSES = [
+  {
+    id: "wh-101",
+    code: "WH-HYD-01",
+    name: "Main Warehouse Nacharam",
+    branch: "Hyderabad",
+    plant: "Plant-1 Hyderabad",
+    warehouse_type: "Raw Material & FG",
+    state: "Telangana",
+    manager_name: "Sowmya",
+    capacity: 10000,
+    used_capacity: 4500,
+    available_capacity: 5500,
+    utilization_pct: 45.0,
+    inventory_value: 84600,
+    is_primary: true,
+    status: "active",
+    low_stock_items: 0,
+    created_at: new Date().toISOString().slice(0, 10),
+  },
+  {
+    id: "wh-102",
+    code: "WH-BLR-02",
+    name: "Peenya Storage Depot",
+    branch: "Bengaluru",
+    plant: "Plant-2 Bengaluru",
+    warehouse_type: "Finished Goods",
+    state: "Karnataka",
+    manager_name: "Anand Kumar",
+    capacity: 8000,
+    used_capacity: 6200,
+    available_capacity: 1800,
+    utilization_pct: 77.5,
+    inventory_value: 80000,
+    is_primary: false,
+    status: "active",
+    low_stock_items: 1,
+    created_at: new Date().toISOString().slice(0, 10),
+  },
+  {
+    id: "wh-103",
+    code: "WH-PUN-03",
+    name: "Bhosari Auxiliary Store",
+    branch: "Pune",
+    plant: "Plant-3 Pune",
+    warehouse_type: "Consumables & Spares",
+    state: "Maharashtra",
+    manager_name: "Venkatesh",
+    capacity: 5000,
+    used_capacity: 1200,
+    available_capacity: 3800,
+    utilization_pct: 24.0,
+    inventory_value: 1800,
+    is_primary: false,
+    status: "active",
+    low_stock_items: 0,
+    created_at: new Date().toISOString().slice(0, 10),
+  },
+];
+
 
 export const DEMO_BIN_TREE = [];
 
@@ -81,7 +140,11 @@ export function computeWarehouseSummary(warehouses) {
     primary: warehouses.find((w) => w.is_primary)?.name || active[0]?.name || "—",
     utilizationPct: totalCap ? Math.round((totalUsed / totalCap) * 1000) / 10 : 0,
     inventoryValue: warehouses.reduce((s, w) => s + Number(w.inventory_value || 0), 0),
-    lowStockWarehouses: warehouses.filter((w) => (w.low_stock_items || 0) > 0).length,
+    lowStockWarehouses: warehouses.filter((w) => {
+      const avail = w.available_capacity ?? (w.capacity ? w.capacity - (w.used_capacity || 0) : null);
+      return (w.low_stock_items || 0) > 0 || (w.out_of_stock || 0) > 0 || (avail !== null && avail <= 0);
+    }).length,
+
     pendingTransfers: 3,
     newThisMonth: warehouses.filter((w) => new Date(w.created_at) >= monthStart).length,
   };
@@ -89,7 +152,6 @@ export function computeWarehouseSummary(warehouses) {
 
 export function formatCr(value) {
   const n = Number(value || 0);
-  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)} Cr`;
-  if (n >= 100000) return `₹${(n / 100000).toFixed(1)} L`;
   return `₹${n.toLocaleString("en-IN")}`;
 }
+

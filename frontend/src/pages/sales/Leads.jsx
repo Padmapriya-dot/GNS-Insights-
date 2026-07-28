@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Filter, LayoutGrid, List, Plus, RefreshCw, Target, TrendingUp, UserPlus, Users, XCircle } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
+import CreateLeadModal from "../../components/sales/CreateLeadModal";
 import LeadDetailModal from "../../components/sales/LeadDetailModal";
 import { useToast } from "../../context/ToastContext";
-import { getLeadSummary, getLeadsEnriched, updateLeadStatus } from "../../api/salesApi";
+import useTenantId from "../../hooks/useTenantId";
+import {
+  convertLeadToQuotation,
+  createLead,
+  getLeadSummary,
+  getLeadsEnriched,
+  updateLeadStatus,
+} from "../../api/salesApi";
 import {
   DEMO_LEAD_LIST,
   DEMO_LEAD_SUMMARY,
@@ -36,6 +45,8 @@ const defaultFilters = { sales_executive: "", source: "", industry: "", region: 
 
 export default function Leads() {
   const { addToast } = useToast();
+  const tenantId = useTenantId();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_LEAD_SUMMARY);
   const [rows, setRows] = useState([]);
@@ -43,6 +54,9 @@ export default function Leads() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [view, setView] = useState("table");
   const [selected, setSelected] = useState(null);
+  const [converting, setConverting] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,6 +98,43 @@ export default function Leads() {
     setSelected(null);
   };
 
+  const handleCreateLead = async (payload) => {
+    setSaving(true);
+    try {
+      await createLead({
+        ...payload,
+        tenant_id: tenantId,
+      });
+      addToast("Lead created successfully", "success");
+      setShowCreate(false);
+      await load();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Could not create lead", "error");
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConvertToQuotation = async (lead) => {
+    if (typeof lead.id !== "number") {
+      addToast("Convert is available for live leads only", "error");
+      return;
+    }
+    setConverting(true);
+    try {
+      const res = await convertLeadToQuotation(lead.id);
+      const quote = res?.data;
+      addToast(`Quotation ${quote?.quote_number || ""} created from lead`, "success");
+      setSelected(null);
+      navigate("/sales/quotations");
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Convert failed", "error");
+    } finally {
+      setConverting(false);
+    }
+  };
+
   const columns = [
     { key: "lead_id", label: "Lead ID" },
     { key: "customer_name", label: "Customer" },
@@ -109,7 +160,9 @@ export default function Leads() {
           <p className="mt-1 text-sm text-slate-500">Enterprise CRM pipeline with Kanban view, 360° lead profile, and opportunity tracking.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="ui-btn-primary"><Plus className="h-4 w-4" /> New Lead</button>
+          <button type="button" onClick={() => setShowCreate(true)} className="ui-btn-primary">
+            <Plus className="h-4 w-4" /> New Lead
+          </button>
           <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
         </div>
       </header>
@@ -189,7 +242,22 @@ export default function Leads() {
         )}
       </div>
 
-      {selected && <LeadDetailModal lead={selected} onClose={() => setSelected(null)} onStatusChange={handleStatus} />}
+      {selected && (
+        <LeadDetailModal
+          lead={selected}
+          onClose={() => setSelected(null)}
+          onStatusChange={handleStatus}
+          onConvertToQuotation={handleConvertToQuotation}
+          converting={converting}
+        />
+      )}
+
+      <CreateLeadModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onSubmit={handleCreateLead}
+        saving={saving}
+      />
     </div>
   );
 }

@@ -19,6 +19,7 @@ class Product(Base, TimestampMixin):
     min_stock: Mapped[int | None] = mapped_column(Integer, default=1)
     max_stock: Mapped[int | None] = mapped_column(Integer, default=100)
     current_stock: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    unit: Mapped[str | None] = mapped_column(String(32), default="Pcs")
 
     tenant = relationship("Tenant", back_populates="products")
     bom_items = relationship(

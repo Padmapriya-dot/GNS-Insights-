@@ -25,6 +25,8 @@ const EMPTY_FORM = {
   employee_id: "",
   designation: "",
   department: "",
+  plant_code: "",
+  assigned_machine_id: "",
   password: "",
   is_active: true,
   role_ids: [],
@@ -94,8 +96,10 @@ export default function UserManagement() {
       employee_id: u.employee_id || "",
       designation: u.designation || "",
       department: u.department || "",
+      plant_code: u.plant_code || "",
+      assigned_machine_id: u.assigned_machine_id ? String(u.assigned_machine_id) : "",
       password: "",
-      is_active: u.is_active,
+      is_active: u.is_active ?? true,
       role_ids: (u.roles || []).map((r) => r.id),
     });
     setErrors({});
@@ -128,27 +132,26 @@ export default function UserManagement() {
     if (!validate()) return;
     setSaving(true);
     try {
+      const payload = {
+        full_name: form.full_name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim() || null,
+        employee_id: form.employee_id.trim() || null,
+        designation: form.designation.trim() || null,
+        department: form.department.trim() || null,
+        plant_code: form.plant_code.trim() || null,
+        assigned_machine_id: form.assigned_machine_id ? parseInt(form.assigned_machine_id, 10) : null,
+        is_active: form.is_active,
+        role_ids: form.role_ids,
+      };
       if (editing) {
-        const payload = {
-          full_name: form.full_name.trim(),
-          email: form.email.trim(),
-          phone: form.phone.trim() || null,
-          is_active: form.is_active,
-          role_ids: form.role_ids,
-        };
         if (form.password) payload.password = form.password;
         await updateUser(editing.id, payload);
-        addToast("User updated");
+        addToast("User updated successfully");
       } else {
-        await createUser({
-          full_name: form.full_name.trim(),
-          email: form.email.trim(),
-          phone: form.phone.trim() || null,
-          password: form.password,
-          is_active: form.is_active,
-          role_ids: form.role_ids,
-        });
-        addToast("User created");
+        payload.password = form.password;
+        await createUser(payload);
+        addToast("User created successfully");
       }
       setModalOpen(false);
       load();
@@ -192,35 +195,53 @@ export default function UserManagement() {
   const columns = [
     {
       key: "full_name",
-      label: "Name",
+      label: "User Profile",
       render: (r) => (
         <div>
-          <div className="font-medium text-slate-800 dark:text-slate-200">{r.full_name}</div>
-          <div className="text-xs text-slate-400">{r.email}</div>
+          <div className="font-semibold text-slate-800 dark:text-slate-200">{r.full_name}</div>
+          <div className="text-xs text-slate-500">{r.email}</div>
+          {r.employee_id && (
+            <div className="text-xs font-mono text-teal-600 dark:text-teal-400">ID: {r.employee_id}</div>
+          )}
         </div>
       ),
     },
-    { key: "phone", label: "Phone", render: (r) => r.phone || "—" },
     {
-      key: "roles",
-      label: "Roles",
-      sortable: false,
-      render: (r) =>
-        r.roles && r.roles.length ? (
-          <div className="flex flex-wrap gap-1">
-            {r.roles.map((role) => (
-              <span
-                key={role.id}
-                className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
-              >
-                {role.name === "Admin" && <ShieldCheck className="h-3 w-3" />}
-                {role.name}
-              </span>
-            ))}
+      key: "department",
+      label: "Department & Role",
+      render: (r) => (
+        <div>
+          <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
+            {r.department || "—"} {r.designation ? `(${r.designation})` : ""}
           </div>
-        ) : (
-          <span className="text-xs text-slate-400">No role</span>
-        ),
+          <div className="mt-1 flex flex-wrap gap-1">
+            {r.roles && r.roles.length ? (
+              r.roles.map((role) => (
+                <span
+                  key={role.id}
+                  className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
+                >
+                  {role.name === "Admin" && <ShieldCheck className="h-3 w-3" />}
+                  {role.name}
+                </span>
+              ))
+            ) : (
+              <span className="text-xs text-slate-400">No role</span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "contact",
+      label: "Contact & Plant",
+      render: (r) => (
+        <div className="space-y-0.5 text-xs text-slate-600 dark:text-slate-400">
+          <div>Phone: {r.phone || "—"}</div>
+          {r.plant_code && <div>Plant: <span className="font-semibold">{r.plant_code}</span></div>}
+          {r.assigned_machine_id && <div>Machine ID: <span className="font-semibold">{r.assigned_machine_id}</span></div>}
+        </div>
+      ),
     },
     {
       key: "is_active",
@@ -302,8 +323,8 @@ export default function UserManagement() {
           <DataTable
             columns={columns}
             data={users}
-            searchKeys={["full_name", "email", "phone"]}
-            searchPlaceholder="Search users by name, email, or phone…"
+            searchKeys={["full_name", "email", "phone", "employee_id", "department", "designation", "plant_code"]}
+            searchPlaceholder="Search users by name, email, phone, department, plant code…"
             pageSize={10}
           />
         )}
@@ -355,11 +376,26 @@ export default function UserManagement() {
               placeholder="Production"
             />
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Designation"
+              value={form.designation}
+              onChange={(e) => setForm((f) => ({ ...f, designation: e.target.value }))}
+              placeholder="Production Manager"
+            />
+            <Input
+              label="Plant Code"
+              value={form.plant_code}
+              onChange={(e) => setForm((f) => ({ ...f, plant_code: e.target.value }))}
+              placeholder="PLANT-01"
+            />
+          </div>
           <Input
-            label="Designation"
-            value={form.designation}
-            onChange={(e) => setForm((f) => ({ ...f, designation: e.target.value }))}
-            placeholder="Production Manager"
+            label="Assigned Machine ID"
+            type="number"
+            value={form.assigned_machine_id}
+            onChange={(e) => setForm((f) => ({ ...f, assigned_machine_id: e.target.value }))}
+            placeholder="e.g. 1"
           />
           <Input
             label={editing ? "New Password" : "Password"}

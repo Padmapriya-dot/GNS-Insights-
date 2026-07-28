@@ -204,33 +204,49 @@ async def request_context_middleware(request: Request, call_next):
     return response
 
 
+from fastapi.encoders import jsonable_encoder
+
+
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    detail = jsonable_encoder(exc.detail)
     if request.url.path.startswith("/api/"):
         from app.utils.api_response import error_response
 
         return JSONResponse(
             status_code=exc.status_code,
-            content=error_response(str(exc.detail), errors=[str(exc.detail)]),
+            content=error_response(str(detail), errors=[str(detail)]),
         )
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail, "request_id": getattr(request.state, "request_id", None)},
+        content={"detail": detail, "request_id": getattr(request.state, "request_id", None)},
     )
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    raw_errors = jsonable_encoder(exc.errors())
+    formatted_errors = []
+    for e in raw_errors:
+        loc_parts = [str(x) for x in e.get("loc", []) if str(x) not in ("body", "query", "path")]
+        field = " -> ".join(loc_parts)
+        msg = e.get("msg", "Invalid value")
+        if field:
+            formatted_errors.append(f"{field}: {msg}")
+        else:
+            formatted_errors.append(msg)
+
+    first_detail = formatted_errors[0] if formatted_errors else "Validation error"
+
     if request.url.path.startswith("/api/"):
         from app.utils.api_response import error_response
 
-        errors = [f"{e['loc']}: {e['msg']}" for e in exc.errors()]
-        return JSONResponse(status_code=422, content=error_response("Validation failed", errors=errors))
+        return JSONResponse(status_code=422, content=error_response(first_detail, errors=formatted_errors))
     return JSONResponse(
         status_code=422,
         content={
-            "detail": "Validation error",
-            "errors": exc.errors(),
+            "detail": first_detail,
+            "errors": formatted_errors,
             "request_id": getattr(request.state, "request_id", None),
         },
     )
@@ -282,6 +298,94 @@ def on_startup():
     try:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR(20)"))
+    except Exception:
+        pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE products ADD COLUMN unit VARCHAR(32) DEFAULT 'Pcs'"))
+    except Exception:
+        pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE warehouses ADD COLUMN used_capacity INTEGER DEFAULT 0"))
+    except Exception:
+        pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE departments ADD COLUMN employee_count INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE departments ADD COLUMN machine_count INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE departments ADD COLUMN work_center_count INTEGER DEFAULT 0"))
+    except Exception:
+        pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE suppliers ADD COLUMN outstanding NUMERIC(12, 2) DEFAULT 0.0"))
+    except Exception:
+        pass  # Column may already exist
+    _supplier_enterprise_columns = [
+        "ALTER TABLE suppliers ADD COLUMN alternate_phone VARCHAR(64)",
+        "ALTER TABLE suppliers ADD COLUMN alternate_email VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN business_type VARCHAR(64)",
+        "ALTER TABLE suppliers ADD COLUMN gst_registration_type VARCHAR(64)",
+        "ALTER TABLE suppliers ADD COLUMN address_line1 VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN address_line2 VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN landmark VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN account_holder_name VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN bank_branch VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN upi_id VARCHAR(128)",
+        "ALTER TABLE suppliers ADD COLUMN currency VARCHAR(16) DEFAULT 'INR'",
+        "ALTER TABLE suppliers ADD COLUMN credit_limit NUMERIC(14, 2)",
+        "ALTER TABLE suppliers ADD COLUMN lead_time_days INTEGER",
+        "ALTER TABLE suppliers ADD COLUMN minimum_order_quantity NUMERIC(12, 2)",
+        "ALTER TABLE suppliers ADD COLUMN minimum_order_value NUMERIC(14, 2)",
+        "ALTER TABLE suppliers ADD COLUMN preferred_vendor BOOLEAN DEFAULT 0",
+        "ALTER TABLE suppliers ADD COLUMN on_time_delivery_percentage NUMERIC(5, 2)",
+        "ALTER TABLE suppliers ADD COLUMN rejection_percentage NUMERIC(5, 2)",
+        "ALTER TABLE suppliers ADD COLUMN onboarding_date DATE",
+        "ALTER TABLE suppliers ADD COLUMN created_by VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN updated_by VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN is_deleted BOOLEAN DEFAULT 0",
+        "ALTER TABLE suppliers ADD COLUMN deleted_at DATE",
+    ]
+    for ddl in _supplier_enterprise_columns:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS vendor_products (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        tenant_id INTEGER NOT NULL,
+                        vendor_id INTEGER NOT NULL,
+                        product_id INTEGER NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        FOREIGN KEY(tenant_id) REFERENCES tenants (id),
+                        FOREIGN KEY(vendor_id) REFERENCES suppliers (id),
+                        FOREIGN KEY(product_id) REFERENCES products (id)
+                    )
+                    """
+                )
+            )
+    except Exception:
+        pass
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN warehouse_name VARCHAR(128)"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN batch_number VARCHAR(128)"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN quantity INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN reserved INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN status VARCHAR(64) DEFAULT 'in_stock'"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN customer_name VARCHAR(255)"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN serial_number VARCHAR(128)"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN expiry_date VARCHAR(64)"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN production_date VARCHAR(64)"))
+            conn.execute(text("ALTER TABLE inventory_items ADD COLUMN warranty VARCHAR(128)"))
     except Exception:
         pass  # Column may already exist
     try:
@@ -510,7 +614,14 @@ def on_startup():
     try:
         seed_tenant(db)  # Ensure tenant 1 exists
         seed_super_admin(db)  # GNS Super Admin from .env
-        seed_roles(db)  # Seeds default roles for tenant 1
+        # Seed default RBAC roles for every tenant (adds new roles like Sales Manager)
+        from sqlalchemy import select
+
+        from app.models.tenant import Tenant
+
+        tenant_ids = list(db.scalars(select(Tenant.id)).all()) or [1]
+        for tid in tenant_ids:
+            seed_roles(db, tenant_id=tid)
         seed_admin_user(db)  # Seeds default demo accounts (Operator, Admin, HR)
     except Exception:
         logger.exception("Seed warning during startup")

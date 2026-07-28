@@ -94,7 +94,7 @@ export default function StockLedger() {
           <select value={filters.type} onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm"><option value="">Transaction Type</option>{TRANSACTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select>
           <input placeholder="Batch" value={filters.batch} onChange={(e) => setFilters((f) => ({ ...f, batch: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
         </div>
-        <DataTable columns={columns} data={filtered.length ? filtered : DEMO_LEDGER} showSearch={false} />
+        <DataTable columns={columns} data={filtered} showSearch={false} />
       </div>
     </div>
   );

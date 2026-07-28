@@ -29,17 +29,24 @@ export const SIDEBAR_NAV = [
     end: true,
   },
   {
+    key: "manufacturingWorkflow",
+    labelKey: "erpNav.roleWorkflow",
+    to: "/manufacturing/workflow",
+    icon: Factory,
+    module: "dashboard",
+  },
+  {
     key: "masters",
     labelKey: "erpNav.masters",
     icon: Layers,
     children: [
       { labelKey: "erpNav.products", to: "/masters/products", module: "masters" },
       { labelKey: "erpNav.bom", to: "/masters/bom", module: "masters" },
-      { labelKey: "erpNav.customers", to: "/sales/customers", module: "sales" },
-      { labelKey: "erpNav.vendors", to: "/procurement/vendors", module: "procurement" },
-      { labelKey: "erpNav.warehouses", to: "/inventory/warehouses", module: "inventory" },
-      { labelKey: "erpNav.machines", to: "/production/machines", module: "production" },
-      { labelKey: "erpNav.departments", to: "/masters/departments", module: "hr" },
+      { labelKey: "erpNav.customers", to: "/sales/customers", module: "masters" },
+      { labelKey: "erpNav.vendors", to: "/procurement/vendors", module: "masters" },
+      { labelKey: "erpNav.warehouses", to: "/inventory/warehouses", module: "masters" },
+      { labelKey: "erpNav.machines", to: "/production/machines", module: "masters" },
+      { labelKey: "erpNav.departments", to: "/masters/departments", module: "masters" },
     ],
   },
   {
@@ -67,6 +74,7 @@ export const SIDEBAR_NAV = [
       { labelKey: "erpNav.stockTransfer", to: "/inventory/stock-transfer", module: "inventory" },
       { labelKey: "erpNav.stockAdjustment", to: "/inventory/stock-adjustment", module: "inventory" },
       { labelKey: "erpNav.stockLedger", to: "/inventory/stock-ledger", module: "inventory" },
+      { labelKey: "erpNav.warehouses", to: "/inventory/warehouses", module: "inventory" },
     ],
   },
   {

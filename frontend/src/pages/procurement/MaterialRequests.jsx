@@ -7,6 +7,7 @@ import Loader from "../../components/common/Loader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { useToast } from "../../context/ToastContext";
 import {
+  approveMaterialRequest,
   convertMaterialRequestToPO,
   getMaterialRequest,
   getMREnriched,
@@ -197,11 +198,33 @@ function ConvertToPOModal({ row, onClose, onConverted }) {
   );
 }
 
-function MRDetailModal({ row, onClose, onConvert }) {
+function MRDetailModal({ row, onClose, onConvert, onApproved }) {
+  const { addToast } = useToast();
+  const [approving, setApproving] = useState(false);
   if (!row) return null;
+  const approval = (row.approval_status || "").toLowerCase();
+  const canApprove =
+    typeof row.id === "number" &&
+    !["approved", "rejected"].includes(approval) &&
+    !["converted", "fulfilled", "cancelled"].includes(row.status);
   const canConvert =
     typeof row.id === "number" &&
-    !["converted", "fulfilled", "cancelled"].includes(row.status);
+    approval === "approved" &&
+    !["converted", "fulfilled", "cancelled", "rejected"].includes(row.status);
+
+  const handleApprove = async (approved) => {
+    setApproving(true);
+    try {
+      await approveMaterialRequest(row.id, { approved });
+      addToast(approved ? "Purchase requisition approved" : "Purchase requisition rejected");
+      onApproved?.();
+      onClose();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Approval failed", "error");
+    } finally {
+      setApproving(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
@@ -232,6 +255,11 @@ function MRDetailModal({ row, onClose, onConvert }) {
             </span>
           </div>
         </div>
+        {canApprove ? (
+          <p className="mt-3 text-xs text-amber-700">
+            Purchase Manager must approve this requisition before creating a Purchase Order.
+          </p>
+        ) : null}
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button
             type="button"
@@ -240,6 +268,26 @@ function MRDetailModal({ row, onClose, onConvert }) {
           >
             Close
           </button>
+          {canApprove && (
+            <>
+              <button
+                type="button"
+                disabled={approving}
+                onClick={() => handleApprove(false)}
+                className="rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
+              >
+                Reject
+              </button>
+              <button
+                type="button"
+                disabled={approving}
+                onClick={() => handleApprove(true)}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {approving ? "Saving…" : "Approve PR"}
+              </button>
+            </>
+          )}
           {canConvert && (
             <button
               type="button"
@@ -497,13 +545,13 @@ export default function MaterialRequests() {
         <MRDetailModal
           row={selected}
           onClose={() => setSelected(null)}
+          onApproved={() => load()}
           onConvert={(r) => {
             setSelected(null);
             setConvertRow(r);
           }}
         />
-      )}
-      {convertRow && (
+      )}      {convertRow && (
         <ConvertToPOModal
           row={convertRow}
           onClose={() => setConvertRow(null)}

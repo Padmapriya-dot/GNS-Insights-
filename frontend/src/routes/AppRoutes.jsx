@@ -491,6 +491,14 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/manufacturing/workflow"
+        element={
+          <ProtectedRoute>
+            <P.RoleWorkflowBoard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/sales/customers"
         element={
           <ProtectedRoute>
@@ -542,6 +550,8 @@ export default function AppRoutes() {
       <Route path="/procurement/purchase-orders/create" element={<ProtectedRoute><P.CreatePurchaseOrder /></ProtectedRoute>} />
       <Route path="/procurement/vendors" element={<ProtectedRoute><P.VendorManagement /></ProtectedRoute>} />
       <Route path="/procurement/vendors/create" element={<ProtectedRoute><P.CreateVendor /></ProtectedRoute>} />
+      <Route path="/procurement/vendors/:vendorId/edit" element={<ProtectedRoute><P.CreateVendor /></ProtectedRoute>} />
+      <Route path="/procurement/vendors/:vendorId" element={<ProtectedRoute><P.VendorDetail /></ProtectedRoute>} />
       <Route path="/procurement/material-requests" element={<ProtectedRoute><P.MaterialRequests /></ProtectedRoute>} />
       <Route path="/procurement/material-requests/create" element={<ProtectedRoute><P.CreateMaterialRequest /></ProtectedRoute>} />
       <Route path="/procurement/goods-receipt" element={<ProtectedRoute><P.GoodsReceipt /></ProtectedRoute>} />
@@ -604,6 +614,8 @@ export default function AppRoutes() {
         <Route path="documents/:legacySub" element={<Navigate to="/settings/documents" replace />} />
       </Route>
       <Route path="/masters/products" element={<ProtectedRoute><P.ProductsMaster /></ProtectedRoute>} />
+      <Route path="/masters/products/create" element={<ProtectedRoute><P.CreateProduct /></ProtectedRoute>} />
+      <Route path="/masters/products/:id/edit" element={<ProtectedRoute><P.CreateProduct /></ProtectedRoute>} />
       <Route path="/masters/bom" element={<ProtectedRoute><P.BomMaster /></ProtectedRoute>} />
       <Route path="/masters/departments" element={<ProtectedRoute><P.DepartmentManagement /></ProtectedRoute>} />
       <Route path="/production/schedule" element={<ProtectedRoute><P.ProductionSchedule /></ProtectedRoute>} />

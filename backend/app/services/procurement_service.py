@@ -179,6 +179,11 @@ def convert_material_request_to_purchase_order(
         raise HTTPException(404, "Material request not found")
     if mr.status in ("converted", "fulfilled", "cancelled"):
         raise HTTPException(400, f"Material request already {mr.status}")
+    if (mr.approval_status or "").lower() not in {"approved", "auto_approved"}:
+        raise HTTPException(
+            400,
+            "Purchase Manager approval required before converting to Purchase Order.",
+        )
     if not mr.line_items:
         raise HTTPException(400, "Material request has no line items to purchase")
 
@@ -219,8 +224,77 @@ def convert_material_request_to_purchase_order(
         mr.approval_status = "approved"
         db.commit()
         db.refresh(po)
+        try:
+            from app.services.alert_event_service import emit_alert
+
+            emit_alert(
+                db,
+                tenant_id=tenant_id,
+                alert_type="purchase_order_created",
+                title=f"PO created from PR: {po.po_number}",
+                message=f"Material request {mr.mr_number} converted to {po.po_number}",
+                severity="medium",
+                link="/procurement/purchase-orders",
+                reference_type="purchase_order",
+                reference_id=po.id,
+                created_by="Purchase",
+            )
+        except Exception:
+            pass
 
     return po
+
+
+def approve_material_request(
+    db: Session,
+    tenant_id: int,
+    mr_id: int,
+    *,
+    approved: bool = True,
+    notes: str | None = None,
+    approved_by: str | None = None,
+) -> MaterialRequest:
+    """Purchase Manager approval gate before PO creation."""
+    mr = get_material_request(db, tenant_id, mr_id)
+    if not mr:
+        raise HTTPException(404, "Material request not found")
+    if mr.status in ("converted", "fulfilled", "cancelled"):
+        raise HTTPException(400, f"Cannot change approval on {mr.status} request")
+
+    if approved:
+        mr.approval_status = "approved"
+        if (mr.status or "").lower() == "pending":
+            mr.status = "approved"
+        suffix = f"Approved by {approved_by or 'Purchase Manager'}"
+    else:
+        mr.approval_status = "rejected"
+        mr.status = "rejected"
+        suffix = f"Rejected by {approved_by or 'Purchase Manager'}"
+
+    if notes or suffix:
+        extra = " — ".join(p for p in (suffix, notes) if p)
+        mr.notes = ((mr.notes or "") + f"\n{extra}").strip()
+
+    db.commit()
+    db.refresh(mr)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=tenant_id,
+            alert_type="purchase_requisition_approved" if approved else "purchase_requisition_rejected",
+            title=f"PR {mr.approval_status}: {mr.mr_number}",
+            message=f"Material request {mr.mr_number} {mr.approval_status}",
+            severity="medium" if approved else "high",
+            link="/procurement/material-requests",
+            reference_type="material_request",
+            reference_id=mr.id,
+            created_by="Purchase",
+        )
+    except Exception:
+        pass
+    return mr
 
 
 def _post_grn_stock(db: Session, gr: GoodsReceipt, tenant_id: int) -> None:
@@ -359,6 +433,14 @@ def approve_goods_receipt_qc(
                 reference_id=gr.id,
                 created_by="Quality",
             )
+            try:
+                from app.services.manufacturing_workflow_service import (
+                    link_grn_to_incoming_quality_inspection,
+                )
+
+                link_grn_to_incoming_quality_inspection(db, tenant_id, gr)
+            except Exception:
+                pass
         else:
             emit_alert(
                 db,

@@ -98,14 +98,19 @@ export default function DepartmentManagement() {
         getDepartmentSummary().catch(() => ({ data: null })),
       ]);
       const apiRows = dRes.data || [];
-      setDepartments(apiRows.map((row, i) => enrichApiDepartment(row, i)));
+      if (apiRows.length > 0) {
+        setDepartments(apiRows.map((row, i) => enrichApiDepartment(row, i)));
+      } else {
+        setDepartments(DEMO_DEPARTMENTS);
+      }
       setApiSummary(sRes.data);
     } catch {
-      setDepartments([]);
+      setDepartments(DEMO_DEPARTMENTS);
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     loadDepartments();
@@ -190,11 +195,14 @@ export default function DepartmentManagement() {
       manager_mobile: form.manager_mobile,
       manager_email: form.manager_email,
       manager_designation: form.manager_designation,
+      employee_count: form.employee_count != null && form.employee_count !== "" ? Number(form.employee_count) : 0,
+      machine_count: form.machine_count != null && form.machine_count !== "" ? Number(form.machine_count) : 0,
+      work_center_count: form.work_center_count != null && form.work_center_count !== "" ? Number(form.work_center_count) : 0,
       is_active: form.status === "active",
     };
     try {
       if (formDept?.id && typeof formDept.id === "number") {
-        await updateDepartment(formDept.id, form);
+        await updateDepartment(formDept.id, payload);
         addToast("Department updated");
         loadDepartments();
         setFormDept(null);

@@ -2,13 +2,21 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.core.permissions import require_permission, tenant_scope
+from app.core.permissions import (
+    get_role_names,
+    require_permission,
+    tenant_scope,
+    user_is_admin,
+)
 from app.models.user import User
 from app.schemas.inventory import SupplierRead
 from app.schemas.vendor import (
+    VendorBulkStatusUpdate,
     VendorCreate,
     VendorDetailRead,
     VendorListRead,
+    VendorProductRead,
+    VendorPurchaseOrderRead,
     VendorSummaryRead,
     VendorUpdate,
 )
@@ -27,15 +35,53 @@ from app.schemas.procurement import (
 )
 from app.services.inventory_service import update_supplier_approval
 from app.services.vendor_service import (
+    bulk_update_vendor_status,
     create_vendor,
     deactivate_vendor,
     get_vendor_detail,
+    get_vendor_purchase_history,
     get_vendor_summary,
+    list_vendor_products,
     list_vendors_enriched,
+    soft_delete_vendor,
     update_vendor,
 )
+
+VENDOR_ACCESS_ROLES = frozenset(
+    {"Admin", "Purchase Manager", "Procurement Manager", "Store Manager"}
+)
+VENDOR_WRITE_ROLES = frozenset(
+    {"Admin", "Purchase Manager", "Procurement Manager", "Store Manager"}
+)
+
+
+def _actor_label(user: User) -> str:
+    return (user.full_name or user.email or f"user-{user.id}").strip()
+
+
+def _require_vendor_access(user: User) -> User:
+    if user_is_admin(user):
+        return user
+    roles = set(get_role_names(user))
+    if roles & VENDOR_ACCESS_ROLES:
+        return user
+    raise HTTPException(status_code=403, detail="You do not have access to Vendor Master.")
+
+
+def _require_vendor_write(user: User) -> User:
+    _require_vendor_access(user)
+    if user_is_admin(user):
+        return user
+    roles = set(get_role_names(user))
+    if roles & VENDOR_WRITE_ROLES:
+        return user
+    raise HTTPException(
+        status_code=403,
+        detail="You do not have permission to modify Vendor Master.",
+    )
 from app.services.procurement_service import (
     approve_goods_receipt_qc,
+    approve_material_request,
     convert_material_request_to_purchase_order,
     create_goods_receipt,
     create_material_request,
@@ -56,13 +102,23 @@ from app.schemas.procurement_extended import (
     POListRead,
     POSummaryRead,
     ProcurementHubRead,
+    RFQCreate,
     RFQListRead,
     RFQSummaryRead,
+    RFQAward,
+    VendorBillCreate,
     VendorBillListRead,
+    VendorBillStatusUpdate,
     VendorBillSummaryRead,
     VendorComparisonRead,
+    VendorQuotationCreate,
 )
 from app.services.procurement_extended_service import (
+    award_rfq,
+    create_rfq,
+    create_vendor_bill,
+    create_vendor_quotation,
+    update_vendor_bill_status,
     get_grn_summary,
     get_mr_summary,
     get_po_summary,
@@ -121,16 +177,95 @@ def update_purchase_order_status_endpoint(
 
 @router.get("/vendors/summary", response_model=VendorSummaryRead)
 def vendor_summary_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
 ) -> VendorSummaryRead:
-    return get_vendor_summary(db, tenant_id)
+    _require_vendor_access(user)
+    return get_vendor_summary(db, user.tenant_id)
+
+
+@router.get("/vendors/export")
+def export_vendors_endpoint(
+    format: str = Query("excel", description="excel or pdf"),
+    search: str | None = None,
+    vendor_type: str | None = None,
+    status: str | None = None,
+    state: str | None = None,
+    city: str | None = None,
+    preferred: bool | None = None,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    """Return vendor rows for client-side Excel/PDF export."""
+    _require_vendor_access(user)
+    rows = list_vendors_enriched(
+        db,
+        user.tenant_id,
+        search=search,
+        vendor_type=vendor_type,
+        status=status,
+        state=state,
+        city=city,
+        preferred=preferred,
+    )
+    return {
+        "format": format.lower(),
+        "count": len(rows),
+        "vendors": [r.model_dump(mode="json") for r in rows],
+    }
+
+
+@router.get("/vendors/bank-lookup")
+def vendor_bank_lookup_endpoint(
+    ifsc: str = Query(..., min_length=11, max_length=11),
+    account_number: str = Query(..., min_length=9, max_length=18),
+    user: User = Depends(require_permission(MODULE)),
+):
+    """Validate account + IFSC and return bank name / branch."""
+    _require_vendor_access(user)
+    from app.services.bank_lookup_service import lookup_bank_details
+
+    return lookup_bank_details(ifsc=ifsc, account_number=account_number)
 
 
 @router.get("/vendors", response_model=list[VendorListRead])
 def list_vendors_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    search: str | None = None,
+    vendor_type: str | None = None,
+    status: str | None = None,
+    state: str | None = None,
+    city: str | None = None,
+    preferred: bool | None = None,
+    min_rating: float | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
 ) -> list[VendorListRead]:
-    return list_vendors_enriched(db, tenant_id)
+    _require_vendor_access(user)
+    from datetime import date as date_cls
+
+    def _parse(d: str | None):
+        if not d:
+            return None
+        try:
+            return date_cls.fromisoformat(d[:10])
+        except ValueError as exc:
+            raise HTTPException(400, f"Invalid date: {d}") from exc
+
+    return list_vendors_enriched(
+        db,
+        user.tenant_id,
+        search=search,
+        vendor_type=vendor_type,
+        status=status,
+        state=state,
+        city=city,
+        preferred=preferred,
+        min_rating=min_rating,
+        date_from=_parse(date_from),
+        date_to=_parse(date_to),
+    )
 
 
 @router.post("/vendors", response_model=VendorListRead)
@@ -139,68 +274,133 @@ def create_vendor_endpoint(
     user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ) -> VendorListRead:
+    _require_vendor_write(user)
     payload.tenant_id = user.tenant_id
-    supplier = create_vendor(db, payload)
+    try:
+        supplier = create_vendor(db, payload, actor=_actor_label(user))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc) or "Failed to create vendor") from exc
     from app.services.vendor_service import _to_list_read
 
     return _to_list_read(db, user.tenant_id, supplier)
 
 
+@router.post("/vendors/bulk-status")
+def bulk_vendor_status_endpoint(
+    payload: VendorBulkStatusUpdate,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    _require_vendor_write(user)
+    updated = bulk_update_vendor_status(
+        db, user.tenant_id, payload.vendor_ids, payload.status, actor=_actor_label(user)
+    )
+    return {"updated": updated, "status": payload.status}
+
+
 @router.get("/vendors/{vendor_id}", response_model=VendorDetailRead)
 def get_vendor_endpoint(
     vendor_id: int,
-    tenant_id: int = Depends(tenant_scope(MODULE)),
+    user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ) -> VendorDetailRead:
-    detail = get_vendor_detail(db, tenant_id, vendor_id)
+    _require_vendor_access(user)
+    detail = get_vendor_detail(db, user.tenant_id, vendor_id)
     if not detail:
         raise HTTPException(404, "Vendor not found")
     return detail
+
+
+@router.get("/vendors/{vendor_id}/purchase-history", response_model=list[VendorPurchaseOrderRead])
+def vendor_purchase_history_endpoint(
+    vendor_id: int,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+) -> list[VendorPurchaseOrderRead]:
+    _require_vendor_access(user)
+    detail = get_vendor_detail(db, user.tenant_id, vendor_id)
+    if not detail:
+        raise HTTPException(404, "Vendor not found")
+    return get_vendor_purchase_history(db, user.tenant_id, vendor_id)
+
+
+@router.get("/vendors/{vendor_id}/products", response_model=list[VendorProductRead])
+def vendor_products_endpoint(
+    vendor_id: int,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+) -> list[VendorProductRead]:
+    _require_vendor_access(user)
+    detail = get_vendor_detail(db, user.tenant_id, vendor_id)
+    if not detail:
+        raise HTTPException(404, "Vendor not found")
+    return list_vendor_products(db, user.tenant_id, vendor_id)
 
 
 @router.put("/vendors/{vendor_id}", response_model=VendorListRead)
 def update_vendor_endpoint(
     vendor_id: int,
     payload: VendorUpdate,
-    tenant_id: int = Depends(tenant_scope(MODULE)),
+    user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ) -> VendorListRead:
-    supplier = update_vendor(db, tenant_id, vendor_id, payload)
+    _require_vendor_write(user)
+    try:
+        supplier = update_vendor(
+            db, user.tenant_id, vendor_id, payload, actor=_actor_label(user)
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc) or "Failed to update vendor") from exc
     if not supplier:
         raise HTTPException(404, "Vendor not found")
-    enriched = list_vendors_enriched(db, tenant_id)
-    match = next((v for v in enriched if v.id == vendor_id), None)
-    if not match:
+    from app.services.vendor_service import _to_list_read
+
+    return _to_list_read(db, user.tenant_id, supplier)
+
+
+@router.delete("/vendors/{vendor_id}")
+def delete_vendor_endpoint(
+    vendor_id: int,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    _require_vendor_write(user)
+    supplier = soft_delete_vendor(db, user.tenant_id, vendor_id, actor=_actor_label(user))
+    if not supplier:
         raise HTTPException(404, "Vendor not found")
-    return match
+    return {"ok": True, "id": vendor_id}
 
 
 @router.patch("/vendors/{vendor_id}/deactivate", response_model=VendorListRead)
 def deactivate_vendor_endpoint(
     vendor_id: int,
-    tenant_id: int = Depends(tenant_scope(MODULE)),
+    user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ) -> VendorListRead:
-    supplier = deactivate_vendor(db, tenant_id, vendor_id)
+    _require_vendor_write(user)
+    supplier = deactivate_vendor(db, user.tenant_id, vendor_id)
     if not supplier:
         raise HTTPException(404, "Vendor not found")
-    enriched = list_vendors_enriched(db, tenant_id)
-    match = next((v for v in enriched if v.id == vendor_id), None)
-    if not match:
-        raise HTTPException(404, "Vendor not found")
-    return match
+    from app.services.vendor_service import _to_list_read
+
+    return _to_list_read(db, user.tenant_id, supplier)
 
 
 @router.patch("/vendors/{vendor_id}/approval", response_model=SupplierRead)
 def update_vendor_approval_endpoint(
     vendor_id: int,
     status: str = Query(..., description="approved or rejected"),
-    tenant_id: int = Depends(tenant_scope(MODULE)),
+    user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ) -> SupplierRead:
+    _require_vendor_write(user)
     if status not in ("approved", "rejected", "pending"):
         raise HTTPException(400, "Invalid approval status")
-    vendor = update_supplier_approval(db, tenant_id, vendor_id, status)
+    vendor = update_supplier_approval(db, user.tenant_id, vendor_id, status)
     if not vendor:
         raise HTTPException(404, "Vendor not found")
     return vendor
@@ -243,6 +443,28 @@ def get_material_request_endpoint(
     if not mr:
         raise HTTPException(404, "Material request not found")
     return mr
+
+
+@router.post(
+    "/material-requests/{mr_id}/approve",
+    response_model=MaterialRequestRead,
+)
+def approve_material_request_endpoint(
+    mr_id: int,
+    approved: bool = Query(True),
+    notes: str | None = Query(None),
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+) -> MaterialRequestRead:
+    """Purchase Manager approval before convert-to-PO."""
+    return approve_material_request(
+        db,
+        user.tenant_id,
+        mr_id,
+        approved=approved,
+        notes=notes,
+        approved_by=getattr(user, "full_name", None) or user.email,
+    )
 
 
 @router.post(
@@ -324,9 +546,52 @@ def rfq_list(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depen
     return list_rfq_enriched(db, tenant_id)
 
 
+@router.post("/rfq", response_model=RFQListRead)
+def create_rfq_endpoint(
+    payload: RFQCreate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    rfq = create_rfq(db, tenant_id, payload)
+    rows = list_rfq_enriched(db, tenant_id)
+    match = next((r for r in rows if r.id == rfq.id), None)
+    if not match:
+        raise HTTPException(500, "RFQ created but could not be loaded")
+    return match
+
+
+@router.post("/rfq/{rfq_id}/quotation")
+def create_quotation_endpoint(
+    rfq_id: int,
+    payload: VendorQuotationCreate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    q = create_vendor_quotation(db, tenant_id, rfq_id, payload)
+    return {"message": "Quotation recorded successfully", "id": q.id}
+
+
+@router.patch("/rfq/{rfq_id}/award", response_model=RFQListRead)
+def award_rfq_endpoint(
+    rfq_id: int,
+    payload: RFQAward,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    rfq = award_rfq(db, tenant_id, rfq_id, payload.supplier_id)
+    if not rfq:
+        raise HTTPException(404, "RFQ not found")
+    rows = list_rfq_enriched(db, tenant_id)
+    match = next((r for r in rows if r.id == rfq.id), None)
+    if not match:
+        raise HTTPException(500, "RFQ awarded but could not be loaded")
+    return match
+
+
 @router.get("/rfq/{rfq_id}/comparison", response_model=list[VendorComparisonRead])
 def rfq_comparison(rfq_id: int, tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
     return get_rfq_comparison(db, tenant_id, rfq_id)
+
 
 
 @router.get("/purchase-orders/summary", response_model=POSummaryRead)
@@ -347,6 +612,38 @@ def vendor_bill_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Sess
 @router.get("/vendor-bills", response_model=list[VendorBillListRead])
 def vendor_bills_list(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
     return list_vendor_bills_enriched(db, tenant_id)
+
+
+@router.post("/vendor-bills", response_model=VendorBillListRead)
+def create_vendor_bill_endpoint(
+    payload: VendorBillCreate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    bill = create_vendor_bill(db, tenant_id, payload)
+    rows = list_vendor_bills_enriched(db, tenant_id)
+    match = next((r for r in rows if r.id == bill.id), None)
+    if not match:
+        raise HTTPException(500, "Vendor bill created but could not be loaded")
+    return match
+
+
+@router.patch("/vendor-bills/{bill_id}/status", response_model=VendorBillListRead)
+def update_vendor_bill_status_endpoint(
+    bill_id: int,
+    payload: VendorBillStatusUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    bill = update_vendor_bill_status(db, tenant_id, bill_id, payload.status)
+    if not bill:
+        raise HTTPException(404, "Vendor bill not found")
+    rows = list_vendor_bills_enriched(db, tenant_id)
+    match = next((r for r in rows if r.id == bill.id), None)
+    if not match:
+        raise HTTPException(500, "Vendor bill updated but could not be loaded")
+    return match
+
 
 
 @router.get("/hub", response_model=ProcurementHubRead)

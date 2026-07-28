@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.models.user import User
 from app.schemas.analytics_extended import (
     AiInsight,
     AlertItem,
@@ -38,14 +39,17 @@ def _kpi(key: str, label: str, value, change_pct=None, unit=None, fmt="number", 
     return KpiItem(key=key, label=label, value=value, change_pct=change_pct, unit=unit, format=fmt, drill_target=drill)
 
 
-def get_production_analytics(db: Session, tenant_id: int, year: int | None = None) -> ProductionAnalyticsRead:
+def get_production_analytics(
+    db: Session, tenant_id: int, year: int | None = None, user: User | None = None
+) -> ProductionAnalyticsRead:
     from sqlalchemy import func, select
 
     from app.models.production import DailyProductionReport, WorkOrder
     from app.models.quality import QualityInspection
+    from app.models.user import User
 
     y = year or date.today().year
-    trend = get_monthly_production_trend(db, tenant_id, y)
+    trend = get_monthly_production_trend(db, tenant_id, y, user=user)
     machine = get_machine_efficiency(db, tenant_id)
     worker = get_worker_performance_score(db, tenant_id)
 
@@ -110,9 +114,12 @@ def get_production_analytics(db: Session, tenant_id: int, year: int | None = Non
         _kpi("avg_month", "Avg / Month", round(actual / 12) if actual else 0, None, "units", "number", "monthly"),
     ]
 
-    monthly = [
-        ChartPoint(label=m["month"], value=m["value"], value2=None) for m in trend
-    ]
+    has_monthly = any(m.get("value", 0) > 0 for m in trend)
+    monthly = (
+        [ChartPoint(label=m["month"], value=m["value"], value2=None) for m in trend]
+        if has_monthly
+        else []
+    )
     machines = []
     if machine.get("by_machine"):
         machines = [

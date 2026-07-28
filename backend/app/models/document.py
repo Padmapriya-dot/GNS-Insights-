@@ -14,7 +14,7 @@ class Document(Base, TimestampMixin):
     doc_type: Mapped[str] = mapped_column(String(64), nullable=False)
     # purchase, production, quality, reports
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    file_path: Mapped[str | None] = mapped_column(String(512))
+    file_path: Mapped[str | None] = mapped_column(Text)
     file_name: Mapped[str | None] = mapped_column(String(255))
     file_size: Mapped[int | None] = mapped_column(Integer, default=0)
     reference_type: Mapped[str | None] = mapped_column(String(64))

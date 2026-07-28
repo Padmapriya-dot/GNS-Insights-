@@ -16,7 +16,9 @@ import { StatusBadge } from "../../components/common/Table";
 import { useToast } from "../../context/ToastContext";
 import {
   confirmSalesOrder,
+  confirmSalesOrderDelivery,
   getSalesOrderDetail,
+  getSalesOrderWorkflow,
   updateSalesOrderDispatch,
 } from "../../api/salesApi";
 import {
@@ -32,19 +34,30 @@ export default function SalesOrderDetail() {
   const [data, setData] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [workflowResult, setWorkflowResult] = useState(null);
+  const [orderWorkflow, setOrderWorkflow] = useState(null);
+
+  const loadWorkflow = useCallback(async () => {
+    try {
+      const res = await getSalesOrderWorkflow(id);
+      setOrderWorkflow(res?.data ?? res);
+    } catch {
+      setOrderWorkflow(null);
+    }
+  }, [id]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getSalesOrderDetail(id);
       setData(res.data || null);
+      await loadWorkflow();
     } catch (err) {
       addToast(err.response?.data?.detail || "Order not found", "error");
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [id, addToast]);
+  }, [id, addToast, loadWorkflow]);
 
   useEffect(() => {
     load();
@@ -79,7 +92,13 @@ export default function SalesOrderDetail() {
       } else if (result?.already_confirmed) {
         addToast("Order already confirmed");
       } else {
-        addToast("Sales order confirmed — MRP and production planning updated", "success");
+        const woCount = (result?.work_orders || []).length;
+        addToast(
+          woCount
+            ? `Confirmed — MRP, ${result.production_orders?.length || 0} production order(s), ${woCount} work order(s)`
+            : "Sales order confirmed — MRP and production planning updated",
+          "success"
+        );
       }
       await load();
     } catch (err) {
@@ -117,7 +136,53 @@ export default function SalesOrderDetail() {
         }
       />
 
-      <ManufacturingWorkflowBar currentStepId="sales_order" />
+      <ManufacturingWorkflowBar
+        currentStepId={orderWorkflow?.current_stage_id || "sales_order"}
+      />
+
+      {orderWorkflow?.stages?.length ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Role workflow stages
+              {orderWorkflow.viewer_role ? (
+                <span className="ml-2 font-normal text-slate-400">· {orderWorkflow.viewer_role}</span>
+              ) : null}
+            </h3>
+            <Link to="/manufacturing/workflow" className="text-xs font-semibold text-teal-700 hover:underline">
+              Open board →
+            </Link>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {orderWorkflow.stages.map((s) => (
+              <div
+                key={s.id}
+                className={`rounded-xl border px-3 py-2 text-xs ${
+                  s.status === "completed"
+                    ? "border-emerald-200 bg-emerald-50"
+                    : s.status === "current"
+                      ? "border-amber-300 bg-amber-50"
+                      : s.status === "blocked"
+                        ? "border-slate-200 bg-slate-50 text-slate-400"
+                        : "border-slate-200 bg-white"
+                }`}
+              >
+                <p className="font-semibold text-slate-800 dark:text-slate-100">{s.label}</p>
+                <p className="mt-0.5 capitalize text-slate-500">
+                  {s.status}
+                  {s.responsible_role ? ` · ${s.responsible_role}` : ""}
+                </p>
+                {s.assigned_user ? <p className="text-slate-500">Assigned: {s.assigned_user}</p> : null}
+                {s.approval_status ? <p className="text-slate-500">Approval: {s.approval_status}</p> : null}
+                {(s.pending_actions || []).length ? (
+                  <p className="mt-1 text-amber-800">{s.pending_actions[0]}</p>
+                ) : null}
+                {s.block_reason ? <p className="mt-1 text-rose-600">{s.block_reason}</p> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {!isConfirmed && (
@@ -250,6 +315,23 @@ export default function SalesOrderDetail() {
                 Go to dispatch
               </Link>
             )}
+            {order.shipped && (order.status || "").toLowerCase() !== "delivered" && (order.status || "").toLowerCase() !== "closed" && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await confirmSalesOrderDelivery(order.id);
+                    addToast("Delivery confirmed");
+                    load();
+                  } catch (err) {
+                    addToast(err.response?.data?.detail || "Delivery confirm failed", "error");
+                  }
+                }}
+                className="rounded-lg border border-indigo-200 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
+              >
+                Confirm delivery
+              </button>
+            )}
           </div>
         </div>
 
@@ -344,6 +426,7 @@ export default function SalesOrderDetail() {
                       <p className="font-medium text-[#2563EB]">{po.order_number}</p>
                       <p className="text-xs text-slate-500">
                         {po.product || `Product #${po.product_id}`} · Qty {po.quantity}
+                        {po.work_order_number ? ` · WO ${po.work_order_number}` : ""}
                         {po.enough_stock === false ? " · Buy materials first" : ""}
                       </p>
                     </li>
@@ -352,13 +435,22 @@ export default function SalesOrderDetail() {
               ) : (
                 <p className="text-sm text-slate-500">No production orders created.</p>
               )}
-              <button
-                type="button"
-                onClick={() => navigate("/production/planning")}
-                className="mt-2 text-xs font-semibold text-teal-700 hover:underline"
-              >
-                Go to Production Planning →
-              </button>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate("/production/planning")}
+                  className="text-xs font-semibold text-teal-700 hover:underline"
+                >
+                  Production Planning →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/production/work-orders")}
+                  className="text-xs font-semibold text-teal-700 hover:underline"
+                >
+                  Work Orders →
+                </button>
+              </div>
             </div>
           </div>
         </div>

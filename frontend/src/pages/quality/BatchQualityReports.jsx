@@ -38,10 +38,19 @@ export default function BatchQualityReports() {
     setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getBatchSummary(), getBatchEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_BATCH_SUMMARY, ...sumRes.value.data });
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows([]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0 && sumRes.value.data.total_batches > 0) {
+        setSummary({ ...DEMO_BATCH_SUMMARY, ...sumRes.value.data });
+      } else {
+        setSummary(DEMO_BATCH_SUMMARY);
+      }
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length > 0) {
+        setRows(listRes.value.data);
+      } else {
+        setRows(DEMO_BATCH_LIST);
+      }
     } catch {
+      setSummary(DEMO_BATCH_SUMMARY);
+      setRows(DEMO_BATCH_LIST);
     } finally {
       setLoading(false);
     }
