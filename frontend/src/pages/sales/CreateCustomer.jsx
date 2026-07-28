@@ -1,14 +1,22 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Save, ArrowLeft, UserPlus } from "lucide-react";
 
 import { createCustomer } from "../../api/salesApi";
 import useTenantId from "../../hooks/useTenantId";
+import { useToast } from "../../context/ToastContext";
 
+const inputClass =
+  "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
 
+const labelClass = "block text-xs font-bold text-slate-500 uppercase tracking-wider";
 
 export default function CreateCustomer() {
   const tenantId = useTenantId();
   const navigate = useNavigate();
+  const { addToast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     tenant_id: tenantId,
     name: "",
@@ -21,20 +29,18 @@ export default function CreateCustomer() {
     email: "",
     phone: "",
   });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+
+  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.name) { setError("Company / Name is required."); return; }
     setSaving(true);
     setError("");
     try {
       await createCustomer(form).catch(() => null);
-    } catch {
-      /* fall through to local save */
-    }
+    } catch { /* fall through */ }
 
-    // Always persist locally so the list page shows it immediately
     const newCustomer = {
       id: `cus-${Date.now()}`,
       customer_code: `CUS${Date.now().toString().slice(-4)}`,
@@ -53,112 +59,111 @@ export default function CreateCustomer() {
     const existing = stored ? JSON.parse(stored) : [];
     localStorage.setItem("smrt_customers", JSON.stringify([newCustomer, ...existing]));
 
+    addToast?.("Customer created successfully!", "success");
     setSaving(false);
     navigate("/sales/customers");
   };
 
-  const inputStyle = { width: "100%", padding: "8px 12px", marginTop: 6, border: "1px solid #d1d5db", borderRadius: 6 };
-
   return (
-    <div style={{ maxWidth: "640px" }}>
-      <h2>New Customer</h2>
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14, marginTop: 16 }}>
-        {error && <div style={{ color: "#dc2626", padding: 8, background: "#fee2e2", borderRadius: 6 }}>{error}</div>}
-        <label>
-          Company / Name *
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            required
-            style={inputStyle}
-          />
-        </label>
-        <label>
-          Contact Name
-          <input
-            type="text"
-            value={form.contact_name}
-            onChange={(e) => setForm((f) => ({ ...f, contact_name: e.target.value }))}
-            style={inputStyle}
-          />
-        </label>
-        <label>
-          Address (1)
-          <input
-            type="text"
-            value={form.address_line1}
-            onChange={(e) => setForm((f) => ({ ...f, address_line1: e.target.value }))}
-            style={inputStyle}
-          />
-        </label>
-        <label>
-          Address (2)
-          <input
-            type="text"
-            value={form.address_line2}
-            onChange={(e) => setForm((f) => ({ ...f, address_line2: e.target.value }))}
-            style={inputStyle}
-          />
-        </label>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <label>
-            State
-            <input
-              type="text"
-              value={form.state}
-              onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
-              style={inputStyle}
-            />
-          </label>
-          <label>
-            State Code
-            <input
-              type="text"
-              value={form.state_code}
-              onChange={(e) => setForm((f) => ({ ...f, state_code: e.target.value }))}
-              style={inputStyle}
-            />
-          </label>
+    <div className="space-y-6 p-4 sm:p-6">
+      <header className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => navigate("/sales/customers")}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">New Customer</h1>
+          <p className="mt-0.5 text-sm text-slate-500">Register a new customer into the system.</p>
         </div>
-        <label>
-          GSTIN
-          <input
-            type="text"
-            value={form.gstin}
-            onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value }))}
-            style={inputStyle}
-          />
-        </label>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <label>
-            Email
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              style={inputStyle}
-            />
-          </label>
-          <label>
-            Phone
-            <input
-              type="text"
-              value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              style={inputStyle}
-            />
-          </label>
+      </header>
+
+      <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-start gap-3 border-b border-slate-100 pb-4 mb-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
+            <UserPlus className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Customer Details</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Fill in the customer information below.</p>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-          <button type="submit" disabled={saving} style={{ padding: "10px 20px", background: "#14b8a6", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
-            Save
-          </button>
-          <button type="button" onClick={() => navigate("/sales/customers")} style={{ padding: "10px 20px", background: "#e5e7eb", color: "#374151", border: "none", borderRadius: 6, cursor: "pointer" }}>
-            Cancel
-          </button>
-        </div>
-      </form>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-700">
+              {error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Company / Name *</label>
+              <input type="text" required placeholder="e.g. Acme Industries" value={form.name} onChange={set("name")} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Contact Person</label>
+              <input type="text" placeholder="e.g. Rajesh Mehta" value={form.contact_name} onChange={set("contact_name")} className={inputClass} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Email Address</label>
+              <input type="email" placeholder="e.g. rajesh@acme.com" value={form.email} onChange={set("email")} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Phone</label>
+              <input type="text" placeholder="e.g. +91 98765 43210" value={form.phone} onChange={set("phone")} className={inputClass} />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Address Line 1</label>
+            <input type="text" placeholder="Street / Building" value={form.address_line1} onChange={set("address_line1")} className={inputClass} />
+          </div>
+
+          <div>
+            <label className={labelClass}>Address Line 2</label>
+            <input type="text" placeholder="Area / Landmark" value={form.address_line2} onChange={set("address_line2")} className={inputClass} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>State</label>
+              <input type="text" placeholder="e.g. Tamil Nadu" value={form.state} onChange={set("state")} className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>State Code</label>
+              <input type="text" placeholder="e.g. 33" value={form.state_code} onChange={set("state_code")} className={inputClass} />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>GSTIN</label>
+            <input type="text" placeholder="e.g. 33AABCU9603R1ZX" value={form.gstin} onChange={set("gstin")} className={inputClass} />
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <button
+              type="button"
+              onClick={() => navigate("/sales/customers")}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save Customer"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

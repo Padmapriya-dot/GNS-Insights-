@@ -396,7 +396,7 @@ def list_invoices(
 ) -> list[Invoice]:
     stmt = (
         select(Invoice)
-        .options(joinedload(Invoice.customer))
+        .options(joinedload(Invoice.customer), selectinload(Invoice.items))
         .where(Invoice.tenant_id == tenant_id)
     )
     if status:

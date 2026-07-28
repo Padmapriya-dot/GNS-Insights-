@@ -4,6 +4,7 @@ import { CheckCircle, FileText, Plus, TrendingUp, Download, RefreshCw, Search } 
 import DataTable from "../../components/common/DataTable";
 import BillFormModal from "../../components/sales/BillFormModal";
 import { exportToExcel } from "../../utils/exportUtils";
+import api from "../../api/axiosConfig";
 import { getInvoices } from "../../api/salesApi";
 import { useToast } from "../../context/ToastContext";
 
@@ -39,7 +40,7 @@ function readBillsFromStorage() {
 export default function SalesBills() {
   const location = useLocation();
   const { addToast } = useToast();
-  const [bills, setBills] = useState(() => readBillsFromStorage());
+  const [bills, setBills] = useState([]);
   const [loadingBills, setLoadingBills] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
@@ -50,31 +51,16 @@ export default function SalesBills() {
       const res = await getInvoices();
       const data = res?.data ?? res ?? [];
       const apiList = Array.isArray(data) ? data : [];
-
-      // Merge: API records take priority; add any localStorage-only entries not yet synced
-      const apiNumbers = new Set(apiList.map((b) => String(b.invoice_number || b.id)));
-      const localOnly = readBillsFromStorage().filter(
-        (b) => !apiNumbers.has(String(b.invoice_number || b.id))
-      );
-
-      const merged = [
-        ...apiList.map((b) => ({
-          ...b,
-          id: b.id,
-          bill_number: b.invoice_number,
-          grand_total: b.grand_total ?? b.amount ?? 0,
-          amount_paid: b.amount_paid ?? 0,
-        })),
-        ...localOnly,
-      ];
-      setBills(merged);
-
-      // Update localStorage cache with the fresh API data
-      try {
-        localStorage.setItem("smrt_sales_bills", JSON.stringify(merged));
-      } catch { /* ignore */ }
-    } catch (err) {
-      // Fall back to localStorage if API fails
+      const normalized = apiList.map((b) => ({
+        ...b,
+        bill_number: b.invoice_number,
+        grand_total: b.grand_total ?? b.amount ?? 0,
+        amount_paid: b.amount_paid ?? 0,
+        items: Array.isArray(b.items) ? b.items : [],
+      }));
+      setBills(normalized);
+      try { localStorage.setItem("smrt_sales_bills", JSON.stringify(normalized)); } catch { /* ignore */ }
+    } catch {
       setBills(readBillsFromStorage());
       addToast("Could not refresh bills from server — showing cached data.", "warning");
     } finally {
@@ -87,28 +73,39 @@ export default function SalesBills() {
     fetchBills();
   }, [fetchBills, location.key]);
 
-  const handleUpdateBillStatus = useCallback((billId, newStatus) => {
+  useEffect(() => {
+    const newBill = location.state?.newBill;
+    if (!newBill) return;
+
     setBills((prev) => {
-      const updated = prev.map((b) => {
-        if (String(b.id) !== String(billId)) return b;
-        const grandTotal = Number(b.grand_total) || 0;
-        let newPaid = Number(b.amount_paid) || 0;
-        if (newStatus === "paid") newPaid = grandTotal;
-        else if (newStatus === "partial") {
-          const input = window.prompt("Enter partial payment amount (₹):", "");
-          if (!input) return b;
-          const p = Number(input);
-          if (!isNaN(p) && p > 0) newPaid = Math.min(newPaid + p, grandTotal);
-        }
-        return { ...b, status: newPaid >= grandTotal && grandTotal > 0 ? "paid" : newStatus, amount_paid: newPaid };
-      });
-      // Persist
-      try {
-        localStorage.setItem("smrt_sales_bills", JSON.stringify(updated));
-      } catch { /* ignore */ }
-      return updated;
+      const key = String(newBill.invoice_number || newBill.bill_number || newBill.id || "");
+      if (!key) return prev;
+      const exists = prev.some((b) => String(b.invoice_number || b.bill_number || b.id || "") === key);
+      return exists ? prev : [newBill, ...prev];
     });
-  }, []);
+  }, [location.state?.newBill]);
+
+  const handleUpdateBillStatus = useCallback(async (billId, newStatus) => {
+    const bill = bills.find((b) => String(b.id) === String(billId));
+    if (!bill) return;
+    const grandTotal = Number(bill.grand_total) || 0;
+    const amountPaid = newStatus === "paid" ? grandTotal : Number(bill.amount_paid) || 0;
+    // Optimistic update
+    setBills((prev) => prev.map((b) =>
+      String(b.id) === String(billId) ? { ...b, status: newStatus, amount_paid: amountPaid } : b
+    ));
+    try {
+      await api.patch(`/sales/invoices/${billId}/status`, null, {
+        params: { status: newStatus, amount_paid: amountPaid },
+      });
+      addToast("Bill marked as paid.", "success");
+    } catch {
+      setBills((prev) => prev.map((b) =>
+        String(b.id) === String(billId) ? { ...b, status: bill.status, amount_paid: bill.amount_paid } : b
+      ));
+      addToast("Failed to update bill status.", "error");
+    }
+  }, [bills, addToast]);
 
   const filteredBills = useMemo(() => {
     if (!search.trim()) return bills;
@@ -137,14 +134,15 @@ export default function SalesBills() {
     },
     {
       key: "items",
-      label: "Product",
+      label: "Item(s)",
       render: (r) => {
-        const first = r.items?.[0]?.item_description;
-        if (!first) return <span className="text-slate-400">—</span>;
+        const firstItem = r.items?.[0] || {};
+        const productName = firstItem.item_description || firstItem.description || r.item_description || "";
+        if (!productName.trim()) return <span className="text-slate-400">—</span>;
         return (
           <span className="font-medium text-slate-800">
-            {first}
-            {r.items?.length > 1 && (
+            {productName}
+            {Array.isArray(r.items) && r.items.length > 1 && (
               <span className="ml-1.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
                 +{r.items.length - 1} more
               </span>
@@ -157,10 +155,10 @@ export default function SalesBills() {
       key: "qty",
       label: "Quantity",
       render: (r) => {
-        const first = r.items?.[0];
-        if (!first) return <span className="text-slate-400">—</span>;
-        const qty = Number(first.qty || first.quantity || 0);
-        const unit = first.unit || "pcs";
+        const firstItem = r.items?.[0] || {};
+        const qty = Number(firstItem.qty ?? firstItem.quantity ?? r.qty ?? r.quantity ?? 0);
+        const unit = firstItem.unit || r.unit || "pcs";
+        if (!qty) return <span className="text-slate-400">—</span>;
         return (
           <span className="font-medium text-slate-700">
             {qty % 1 === 0 ? qty : qty.toFixed(2)}
@@ -173,7 +171,8 @@ export default function SalesBills() {
       key: "rate",
       label: "Unit Price",
       render: (r) => {
-        const rate = Number(r.items?.[0]?.rate || 0);
+        const firstItem = r.items?.[0] || {};
+        const rate = Number(firstItem.rate ?? firstItem.unit_price ?? r.rate ?? r.unit_price ?? 0);
         if (!rate) return <span className="text-slate-400">—</span>;
         return (
           <span className="font-semibold text-slate-800">
@@ -312,20 +311,25 @@ export default function SalesBills() {
             </Link>
           </div>
         ) : (
-          <DataTable
-            columns={columns}
-            data={filteredBills}
-            showSearch={false}
-            searchPlaceholder="Search bills..."
-          />
+          <div>
+            <DataTable
+              columns={columns}
+              data={filteredBills}
+              showSearch={false}
+              searchPlaceholder="Search bills..."
+            />
+          </div>
         )}
       </div>
 
       {showCreate && (
         <BillFormModal
           onClose={() => setShowCreate(false)}
-          onSave={() => {
+          onSave={(newBill) => {
             setShowCreate(false);
+            if (newBill) {
+              setBills((prev) => [newBill, ...prev]);
+            }
             fetchBills();
           }}
         />

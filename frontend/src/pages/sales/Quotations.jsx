@@ -62,7 +62,7 @@ export default function Quotations() {
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 

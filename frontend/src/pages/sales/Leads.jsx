@@ -50,15 +50,13 @@ export default function Leads() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sumRes, listRes] = await Promise.allSettled([getLeadSummary(), getLeadsEnriched()]);
+      const [, listRes] = await Promise.allSettled([getLeadSummary(), getLeadsEnriched()]);
       const stored = localStorage.getItem("smrt_leads");
       const localLeads = stored ? JSON.parse(stored) : [];
       let baseLeads = DEMO_LEAD_LIST || [];
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) {
         baseLeads = listRes.value.data;
       }
-      
-      // localLeads last so they overwrite base (contains updated statuses + new leads)
       const leadMap = new Map();
       baseLeads.forEach((item) => {
         const key = String(item.lead_id || item.id || item.customer_name || "");
@@ -68,7 +66,6 @@ export default function Leads() {
         const key = String(item.lead_id || item.id || item.customer_name || "");
         if (key) leadMap.set(key, item);
       });
-
       setRows(Array.from(leadMap.values()));
     } catch {
       const stored = localStorage.getItem("smrt_leads");
@@ -86,7 +83,7 @@ export default function Leads() {
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -94,24 +91,11 @@ export default function Leads() {
     const total_leads = rows.length;
     const new_leads = rows.filter((r) => String(r.status || "").toLowerCase() === "new").length;
     const contacted_leads = rows.filter((r) => String(r.status || "").toLowerCase() === "contacted").length;
-    const qualified_leads = rows.filter((r) =>
-      ["qualified"].includes(String(r.status || "").toLowerCase())
-    ).length;
-    const won_customers = rows.filter((r) =>
-      ["won", "converted"].includes(String(r.status || "").toLowerCase())
-    ).length;
+    const qualified_leads = rows.filter((r) => ["qualified"].includes(String(r.status || "").toLowerCase())).length;
+    const won_customers = rows.filter((r) => ["won", "converted"].includes(String(r.status || "").toLowerCase())).length;
     const lost_leads = rows.filter((r) => String(r.status || "").toLowerCase() === "lost").length;
     const conversion_rate = total_leads > 0 ? ((won_customers / total_leads) * 100).toFixed(1) : 0;
-
-    return {
-      total_leads,
-      new_leads,
-      contacted_leads,
-      qualified_leads,
-      won_customers,
-      lost_leads,
-      conversion_rate,
-    };
+    return { total_leads, new_leads, contacted_leads, qualified_leads, won_customers, lost_leads, conversion_rate };
   }, [rows]);
 
   const filtered = useMemo(() => {

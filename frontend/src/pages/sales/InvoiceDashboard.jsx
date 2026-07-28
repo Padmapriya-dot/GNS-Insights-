@@ -101,7 +101,7 @@ export default function InvoiceDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
 
   useEffect(() => {
     load();

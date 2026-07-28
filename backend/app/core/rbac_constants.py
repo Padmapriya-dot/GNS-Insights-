@@ -85,8 +85,8 @@ PERMISSION_MATRIX = {
         ),
     },
     "HR Manager": {
-        "modules": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents", "sales"],
-        "description": "Dashboard, Employees, Attendance, Leave, Payroll, Recruitment, HR Reports, Sales.",
+        "modules": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents"],
+        "description": "Dashboard, Employees, Attendance, Leave, Payroll, Recruitment, HR Reports.",
     },
     "Accountant": {
         "modules": [

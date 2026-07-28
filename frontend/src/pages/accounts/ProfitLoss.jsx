@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import * as XLSX from "xlsx";
 import { Factory, IndianRupee, Package, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
@@ -47,28 +47,20 @@ export default function ProfitLoss() {
   const [month, setMonth] = useState("All Months");
   const [branch, setBranch] = useState("");
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await getProfitLossExtended(year);
       const api = res?.data;
-      if (api && typeof api === "object") {
-        setData({ ...EMPTY_PL, ...api });
-      } else {
-        setData(EMPTY_PL);
-      }
+      setData(api && typeof api === "object" ? { ...EMPTY_PL, ...api } : EMPTY_PL);
     } catch {
       setData(EMPTY_PL);
+    } finally {
+      setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    setLoading(true);
-    fetchData().finally(() => setLoading(false));
   }, [year]);
 
-  const handleRefresh = async () => {
-    window.location.reload();
-  };
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const exportExcel = () => {
     const rows = [
@@ -100,7 +92,7 @@ export default function ProfitLoss() {
           <ExportButtons onExcel={exportExcel} />
           <button
             type="button"
-            onClick={handleRefresh}
+            onClick={fetchData}
             className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             <RefreshCw className="h-4 w-4" />

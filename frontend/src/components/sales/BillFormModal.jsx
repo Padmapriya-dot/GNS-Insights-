@@ -35,7 +35,7 @@ export default function BillFormModal({ invoice, onClose, onSave }) {
     igst_pct: "0",
     discount: "0",
     round_off: "0",
-    notes: "",
+    declaration: "",
     billing_address: "",
     shipping_address: "",
   });

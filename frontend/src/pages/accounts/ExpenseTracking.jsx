@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import Table from "../../components/common/Table";
 import { listExpenses } from "../../api/accountsApi";
@@ -74,6 +75,7 @@ export default function ExpenseTracking() {
           >
             + Record Expense
           </button>
+          <button onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
           <button onClick={exportExcel} className="rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Export Excel</button>
           <button onClick={exportPdf} className="rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Export PDF</button>
         </div>

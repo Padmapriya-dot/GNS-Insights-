@@ -103,11 +103,11 @@ export default function BalanceSheet() {
   if (loading) return <Loader label="Loading Balance Sheet..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-6 p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Balance Sheet</h1>
-          <p className="mt-1 text-sm text-slate-500">Assets, liabilities, and owner equity overview for capital structure tracking.</p>
+          <h1 className="text-3xl font-bold text-slate-900">Balance Sheet</h1>
+          <p className="mt-1 text-base text-slate-500">Assets, liabilities, and owner equity overview for capital structure tracking.</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -118,7 +118,7 @@ export default function BalanceSheet() {
           </button>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={load}
             className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             <RefreshCw className="h-4 w-4" /> Refresh
@@ -143,142 +143,142 @@ export default function BalanceSheet() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Assets */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-6">
-          <h2 className="text-lg font-bold text-slate-900 border-b pb-2">ASSETS</h2>
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+          <h2 className="text-xl font-semibold text-slate-900 border-b border-slate-200 pb-3">ASSETS</h2>
 
           <div>
-            <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Current Assets</h3>
-            <table className="w-full text-sm">
+            <h3 className="text-base font-semibold text-slate-700 mb-3 uppercase tracking-[0.18em]">Current Assets</h3>
+            <table className="min-w-full text-base">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 border-b">
-                  <th className="p-2 text-left font-semibold">Account Category</th>
-                  <th className="p-2 text-right font-semibold">Balance</th>
+                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th className="p-4 text-left font-semibold">Account Category</th>
+                  <th className="p-4 text-right font-semibold">Balance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-slate-200">
                 {filter(data.assets_current).map((a) => (
-                  <tr key={a.name} className="hover:bg-slate-50">
-                    <td className="p-2.5 text-slate-700">{a.name}</td>
-                    <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(a.amount)}</td>
+                  <tr key={a.name} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 text-slate-700">{a.name}</td>
+                    <td className="p-4 text-right font-semibold text-slate-900">{formatInr(a.amount)}</td>
                   </tr>
                 ))}
-                <tr className="bg-blue-50/50 font-bold">
-                  <td className="p-2.5 text-slate-800">Total Current Assets</td>
-                  <td className="p-2.5 text-right text-slate-900">{formatInr(totalCurrentAssets)}</td>
+                <tr className="bg-blue-50/50 font-semibold text-slate-900">
+                  <td className="p-4">Total Current Assets</td>
+                  <td className="p-4 text-right">{formatInr(totalCurrentAssets)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           <div>
-            <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Non-Current Assets</h3>
-            <table className="w-full text-sm">
+            <h3 className="text-base font-semibold text-slate-700 mb-3 uppercase tracking-[0.18em]">Non-Current Assets</h3>
+            <table className="min-w-full text-base">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 border-b">
-                  <th className="p-2 text-left font-semibold">Account Category</th>
-                  <th className="p-2 text-right font-semibold">Balance</th>
+                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th className="p-4 text-left font-semibold">Account Category</th>
+                  <th className="p-4 text-right font-semibold">Balance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-slate-200">
                 {filter(data.assets_non_current).map((a) => (
-                  <tr key={a.name} className="hover:bg-slate-50">
-                    <td className="p-2.5 text-slate-700">{a.name}</td>
-                    <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(a.amount)}</td>
+                  <tr key={a.name} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 text-slate-700">{a.name}</td>
+                    <td className="p-4 text-right font-semibold text-slate-900">{formatInr(a.amount)}</td>
                   </tr>
                 ))}
-                <tr className="bg-blue-50/50 font-bold">
-                  <td className="p-2.5 text-slate-800">Total Non-Current Assets</td>
-                  <td className="p-2.5 text-right text-slate-900">{formatInr(totalNonCurrentAssets)}</td>
+                <tr className="bg-blue-50/50 font-semibold text-slate-900">
+                  <td className="p-4">Total Non-Current Assets</td>
+                  <td className="p-4 text-right">{formatInr(totalNonCurrentAssets)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <div className="flex justify-between items-center bg-blue-600 text-white rounded-xl p-4 font-bold shadow-md">
-            <span>TOTAL ASSETS</span>
-            <span>{formatInr(totalAssets)}</span>
+          <div className="flex justify-between items-center bg-blue-600 text-white rounded-2xl p-5 font-semibold shadow-md">
+            <span className="text-base">TOTAL ASSETS</span>
+            <span className="text-base">{formatInr(totalAssets)}</span>
           </div>
         </div>
 
         {/* Liabilities & Equity */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-6">
-          <h2 className="text-lg font-bold text-slate-900 border-b pb-2">LIABILITIES & EQUITY</h2>
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+          <h2 className="text-xl font-semibold text-slate-900 border-b border-slate-200 pb-3">LIABILITIES & EQUITY</h2>
 
           <div>
-            <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Current Liabilities</h3>
-            <table className="w-full text-sm">
+            <h3 className="text-base font-semibold text-slate-700 mb-3 uppercase tracking-[0.18em]">Current Liabilities</h3>
+            <table className="min-w-full text-base">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 border-b">
-                  <th className="p-2 text-left font-semibold">Account Category</th>
-                  <th className="p-2 text-right font-semibold">Balance</th>
+                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th className="p-4 text-left font-semibold">Account Category</th>
+                  <th className="p-4 text-right font-semibold">Balance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-slate-200">
                 {filter(data.liabilities_current).map((l) => (
-                  <tr key={l.name} className="hover:bg-slate-50">
-                    <td className="p-2.5 text-slate-700">{l.name}</td>
-                    <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(l.amount)}</td>
+                  <tr key={l.name} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 text-slate-700">{l.name}</td>
+                    <td className="p-4 text-right font-semibold text-slate-900">{formatInr(l.amount)}</td>
                   </tr>
                 ))}
-                <tr className="bg-red-50/50 font-bold">
-                  <td className="p-2.5 text-slate-800">Total Current Liabilities</td>
-                  <td className="p-2.5 text-right text-slate-900">{formatInr(totalCurrentLiabilities)}</td>
+                <tr className="bg-red-50/50 font-semibold text-slate-900">
+                  <td className="p-4">Total Current Liabilities</td>
+                  <td className="p-4 text-right">{formatInr(totalCurrentLiabilities)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           <div>
-            <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Non-Current Liabilities</h3>
-            <table className="w-full text-sm">
+            <h3 className="text-base font-semibold text-slate-700 mb-3 uppercase tracking-[0.18em]">Non-Current Liabilities</h3>
+            <table className="min-w-full text-base">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 border-b">
-                  <th className="p-2 text-left font-semibold">Account Category</th>
-                  <th className="p-2 text-right font-semibold">Balance</th>
+                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th className="p-4 text-left font-semibold">Account Category</th>
+                  <th className="p-4 text-right font-semibold">Balance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-slate-200">
                 {filter(data.liabilities_non_current).map((l) => (
-                  <tr key={l.name} className="hover:bg-slate-50">
-                    <td className="p-2.5 text-slate-700">{l.name}</td>
-                    <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(l.amount)}</td>
+                  <tr key={l.name} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 text-slate-700">{l.name}</td>
+                    <td className="p-4 text-right font-semibold text-slate-900">{formatInr(l.amount)}</td>
                   </tr>
                 ))}
-                <tr className="bg-red-50/50 font-bold">
-                  <td className="p-2.5 text-slate-800">Total Non-Current Liabilities</td>
-                  <td className="p-2.5 text-right text-slate-900">{formatInr(totalNonCurrentLiabilities)}</td>
+                <tr className="bg-red-50/50 font-semibold text-slate-900">
+                  <td className="p-4">Total Non-Current Liabilities</td>
+                  <td className="p-4 text-right">{formatInr(totalNonCurrentLiabilities)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           <div>
-            <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Owner's Equity</h3>
-            <table className="w-full text-sm">
+            <h3 className="text-base font-semibold text-slate-700 mb-3 uppercase tracking-[0.18em]">Owner's Equity</h3>
+            <table className="min-w-full text-base">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 border-b">
-                  <th className="p-2 text-left font-semibold">Equity Account</th>
-                  <th className="p-2 text-right font-semibold">Balance</th>
+                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th className="p-4 text-left font-semibold">Equity Account</th>
+                  <th className="p-4 text-right font-semibold">Balance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-slate-200">
                 {filter(data.equity).map((eq) => (
-                  <tr key={eq.name} className="hover:bg-slate-50">
-                    <td className="p-2.5 text-slate-700">{eq.name}</td>
-                    <td className="p-2.5 text-right font-semibold text-slate-900">{formatInr(eq.amount)}</td>
+                  <tr key={eq.name} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 text-slate-700">{eq.name}</td>
+                    <td className="p-4 text-right font-semibold text-slate-900">{formatInr(eq.amount)}</td>
                   </tr>
                 ))}
-                <tr className="bg-green-50/50 font-bold">
-                  <td className="p-2.5 text-slate-800">Total Equity</td>
-                  <td className="p-2.5 text-right text-slate-900">{formatInr(totalEquity)}</td>
+                <tr className="bg-green-50/50 font-semibold text-slate-900">
+                  <td className="p-4">Total Equity</td>
+                  <td className="p-4 text-right">{formatInr(totalEquity)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <div className="flex justify-between items-center bg-blue-600 text-white rounded-xl p-4 font-bold shadow-md">
-            <span>TOTAL LIABILITIES & EQUITY</span>
-            <span>{formatInr(totalLiabilitiesAndEquity)}</span>
+          <div className="flex justify-between items-center bg-blue-600 text-white rounded-2xl p-5 font-semibold shadow-md">
+            <span className="text-base">TOTAL LIABILITIES & EQUITY</span>
+            <span className="text-base">{formatInr(totalLiabilitiesAndEquity)}</span>
           </div>
         </div>
       </div>

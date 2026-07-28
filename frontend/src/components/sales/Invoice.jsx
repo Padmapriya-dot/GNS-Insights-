@@ -48,11 +48,45 @@ export default function Invoice({ data }) {
   const taxable  = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
   const qtyTotal = items.reduce((s, it) => s + parseFloat(it.qty   || 0), 0);
   const unit0    = items[0]?.unit || "PCS";
-  const isIgst   = Boolean(items[0]?.igstPct > 0 || data.igstTotal > 0);
-  const igstPct  = items[0]?.igstPct || 18;
-  const igstAmt  = isIgst ? (data.igstTotal || Math.round(taxable * igstPct / 100 * 100) / 100) : 0;
-  const cgstAmt  = isIgst ? 0 : Math.round(taxable * 0.09 * 100) / 100;
-  const sgstAmt  = isIgst ? 0 : Math.round(taxable * 0.09 * 100) / 100;
+
+  const taxValue = (obj, camelKey, snakeKey) => Number(obj?.[camelKey] ?? obj?.[snakeKey]) || 0;
+
+  const invoiceIgstPct = taxValue(data, "igstPct", "igst_pct") || (items.length === 1 ? taxValue(items[0], "igstPct", "igst_pct") : 0);
+  const invoiceCgstPct = taxValue(data, "cgstPct", "cgst_pct") || (items.length === 1 ? taxValue(items[0], "cgstPct", "cgst_pct") : 0);
+  const invoiceSgstPct = taxValue(data, "sgstPct", "sgst_pct") || (items.length === 1 ? taxValue(items[0], "sgstPct", "sgst_pct") : 0);
+
+  const itemHasCgstSgst = items.some((item) =>
+    taxValue(item, "cgstPct", "cgst_pct") > 0 ||
+    taxValue(item, "sgstPct", "sgst_pct") > 0 ||
+    Number(item.cgst_amount) > 0 ||
+    Number(item.cgstAmount) > 0 ||
+    Number(item.sgst_amount) > 0 ||
+    Number(item.sgstAmount) > 0
+  );
+
+  const itemHasIgst = items.some((item) =>
+    taxValue(item, "igstPct", "igst_pct") > 0 ||
+    Number(item.igst_amount) > 0 ||
+    Number(item.igstAmount) > 0
+  );
+
+  const hasCgstSgst = Boolean(
+    invoiceCgstPct || invoiceSgstPct ||
+    Number(data.cgst_amount) || Number(data.cgstAmount) ||
+    Number(data.sgst_amount) || Number(data.sgstAmount) ||
+    itemHasCgstSgst
+  );
+
+  const isIgst = !hasCgstSgst && Boolean(
+    invoiceIgstPct ||
+    Number(data.igst_amount) || Number(data.igstAmount) ||
+    itemHasIgst
+  );
+
+  const igstPct  = invoiceIgstPct || 18;
+  const igstAmt  = isIgst ? (Number(data.igst_amount) || Number(data.igstAmount) || Math.round(taxable * igstPct / 100 * 100) / 100) : 0;
+  const cgstAmt  = hasCgstSgst ? (Number(data.cgst_amount) || Number(data.cgstAmount) || Math.round(taxable * invoiceCgstPct / 100 * 100) / 100) : 0;
+  const sgstAmt  = hasCgstSgst ? (Number(data.sgst_amount) || Number(data.sgstAmount) || Math.round(taxable * invoiceSgstPct / 100 * 100) / 100) : 0;
   const totalTax = isIgst ? igstAmt : cgstAmt + sgstAmt;
   const roundOff = Number(data.roundOff) || 0;
   const grand    = Number(data.grandTotal) || taxable + totalTax + roundOff;
@@ -91,29 +125,23 @@ export default function Invoice({ data }) {
       </div>
 
       {/* SECTION A — LEFT: GNS + Consignee + Buyer  |  RIGHT: Meta grid */}
-      <table>
+      <table className="meta-table">
         <tbody>
 
           {/* Row 1 — LEFT spans all 7 rows */}
           <tr>
-            <td rowSpan="7" style={{ width: "42%", padding: 0, verticalAlign: "top" }}>
+            <td rowSpan="7" className="company-cell" style={{ width: "42%", padding: 0, verticalAlign: "top" }}>
 
               {/* GNS company info */}
-              <div style={{ padding: "5px 8px", borderBottom: "1px solid #000", display: "flex", alignItems: "flex-start", gap: 8 }}>
-                {/* Logo box beside company name */}
-                <div style={{
-                  minWidth: 46, height: 42,
-                  border: "1.5px solid #111",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0, borderRadius: 2, overflow: "hidden"
-                }}>
+              <div className="company-box">
+                <div className="logo-box">
                   {data.seller?.logo
-                    ? <img src={data.seller.logo} alt="logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                    : <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.04em", color: "#111", textAlign: "center", lineHeight: 1.2 }}>LOGO</span>
+                    ? <img src={data.seller.logo} alt="logo" className="logo-img" />
+                    : <span className="logo-text">LOGO</span>
                   }
                 </div>
                 <div className="company-details">
-                  <div className="bold" style={{ fontSize: 11.5 }}>{sName}</div>
+                  <div className="company-title">{sName}</div>
                   {sUdyam && <div>{sUdyam}</div>}
                   <div>{sAddr}</div>
                   <div><strong>GSTIN/UIN:</strong> {sGstin || "—"}</div>
@@ -237,14 +265,14 @@ export default function Invoice({ data }) {
                 <td />
                 <td className="text-right">CGST</td>
                 <td /><td /><td />
-                <td className="text-center" style={{ fontFamily: "monospace" }}>9%</td>
+                <td className="text-center" style={{ fontFamily: "monospace" }}>{invoiceCgstPct}%</td>
                 <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(cgstAmt)}</td>
               </tr>
               <tr>
                 <td />
                 <td className="text-right">SGST</td>
                 <td /><td /><td />
-                <td className="text-center" style={{ fontFamily: "monospace" }}>9%</td>
+                <td className="text-center" style={{ fontFamily: "monospace" }}>{invoiceSgstPct}%</td>
                 <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(sgstAmt)}</td>
               </tr>
             </>
@@ -305,8 +333,8 @@ export default function Invoice({ data }) {
             <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(taxable)}</td>
             {isIgst
               ? <><td className="text-right" style={{ fontFamily: "monospace" }}>{igstPct}%</td><td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(igstAmt)}</td></>
-              : <><td className="text-right" style={{ fontFamily: "monospace" }}>9%</td><td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(cgstAmt)}</td>
-                 <td className="text-right" style={{ fontFamily: "monospace" }}>9%</td><td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(sgstAmt)}</td></>}
+              : <><td className="text-right" style={{ fontFamily: "monospace" }}>{invoiceCgstPct}%</td><td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(cgstAmt)}</td>
+                 <td className="text-right" style={{ fontFamily: "monospace" }}>{invoiceSgstPct}%</td><td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(sgstAmt)}</td></>}
             <td className="text-right bold" style={{ fontFamily: "monospace" }}>{fmt(totalTax)}</td>
           </tr>
           <tr>

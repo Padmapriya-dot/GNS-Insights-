@@ -63,14 +63,12 @@ export default function SalesDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
   useManufacturingRefresh(load);
 
   if (loading) return <Loader label="Loading sales dashboard..." />;
-
-  return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
