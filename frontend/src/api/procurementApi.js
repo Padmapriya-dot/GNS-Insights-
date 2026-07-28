@@ -7,12 +7,28 @@ export const createPurchaseOrder = (payload) => api.post("/procurement/purchase-
 export const updatePurchaseOrderStatus = (poId, status) =>
   api.patch(`/procurement/purchase-orders/${poId}/status`, null, { params: { status } });
 
-export const getVendors = () => api.get("/procurement/vendors");
+export const getVendors = (params = {}) =>
+  api.get("/procurement/vendors", { params });
 export const getVendorSummary = () => api.get("/procurement/vendors/summary");
 export const getVendorDetail = (vendorId) => api.get(`/procurement/vendors/${vendorId}`);
+export const getVendorPurchaseHistory = (vendorId) =>
+  api.get(`/procurement/vendors/${vendorId}/purchase-history`);
+export const getVendorProducts = (vendorId) =>
+  api.get(`/procurement/vendors/${vendorId}/products`);
+export const exportVendors = (params = {}) =>
+  api.get("/procurement/vendors/export", { params });
+export const lookupVendorBank = (ifsc, accountNumber) =>
+  api.get("/procurement/vendors/bank-lookup", {
+    params: { ifsc, account_number: accountNumber },
+  });
 export const createVendor = (payload) => api.post("/procurement/vendors", payload);
-export const updateVendor = (vendorId, payload) => api.put(`/procurement/vendors/${vendorId}`, payload);
-export const deactivateVendor = (vendorId) => api.patch(`/procurement/vendors/${vendorId}/deactivate`);
+export const updateVendor = (vendorId, payload) =>
+  api.put(`/procurement/vendors/${vendorId}`, payload);
+export const deleteVendor = (vendorId) => api.delete(`/procurement/vendors/${vendorId}`);
+export const bulkVendorStatus = (payload) =>
+  api.post("/procurement/vendors/bulk-status", payload);
+export const deactivateVendor = (vendorId) =>
+  api.patch(`/procurement/vendors/${vendorId}/deactivate`);
 export const updateVendorApproval = (vendorId, status) =>
   api.patch(`/procurement/vendors/${vendorId}/approval`, null, { params: { status } });
 
@@ -23,6 +39,11 @@ export const getMREnriched = () => api.get("/procurement/material-requests/enric
 export const createMaterialRequest = (payload) => api.post("/procurement/material-requests", payload);
 export const convertMaterialRequestToPO = (mrId, payload) =>
   api.post(`/procurement/material-requests/${mrId}/convert-to-po`, payload);
+export const approveMaterialRequest = (mrId, { approved = true, notes } = {}) =>
+  api.post(`/procurement/material-requests/${mrId}/approve`, null, {
+    params: { approved, notes },
+  });
+
 
 export const getRFQSummary = () => api.get("/procurement/rfq/summary");
 export const getRFQList = () => api.get("/procurement/rfq");

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Search, SearchX } from "lucide-react";
 
 import useAuth from "../../hooks/useAuth";
-import { userCanAccess } from "../../config/permissions";
+import { userCanAccessPath } from "../../config/permissions";
 import { flattenNavForSearch } from "../../config/sidebarNav";
 
 const EXTRA_ROUTES = [
@@ -32,7 +32,7 @@ export default function GlobalSearch({ onSelect, placeholderKey = "common.search
     const all = [...flattenNavForSearch(), ...EXTRA_ROUTES];
     const seen = new Set();
     return all.filter((r) => {
-      if (seen.has(r.path) || !userCanAccess(user, r.module)) return false;
+      if (seen.has(r.path) || !userCanAccessPath(user, r.path)) return false;
       seen.add(r.path);
       return true;
     });

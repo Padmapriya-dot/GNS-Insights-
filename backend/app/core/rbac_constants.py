@@ -39,8 +39,11 @@ VALID_ACTIONS = frozenset({
 # Canonical registerable role names (must match Role.name in DB).
 REGISTERABLE_ROLES = [
     "Admin",
+    "Sales Manager",
     "Production Manager",
     "Store Manager",
+    "Purchase Manager",
+    "Procurement Manager",
     "HR Manager",
     "Accountant",
     "Operator",
@@ -49,7 +52,20 @@ REGISTERABLE_ROLES = [
 PERMISSION_MATRIX = {
     "Admin": {
         "modules": list(VALID_MODULES),
-        "description": "Full access to all modules and actions.",
+        "description": "Full system access — Management view of entire manufacturing workflow.",
+    },
+    "Sales Manager": {
+        "modules": [
+            "dashboard",
+            "sales",
+            "masters",
+            "alerts",
+            "documents",
+            "analytics",
+        ],
+        "description": (
+            "Leads, quotations, sales orders, customers, dispatch follow-up, and sales KPIs."
+        ),
     },
     "Production Manager": {
         "modules": [
@@ -68,8 +84,7 @@ PERMISSION_MATRIX = {
             "iot",
         ],
         "description": (
-            "Dashboard, Production, Machines, Planning, Work Orders, Schedule, "
-            "Shop Floor, Machine Allocation, Batch Tracking, Quality, Analytics, "
+            "Dashboard, Production, Planning, Work Orders, Quality, "
             "Inventory, Maintenance, Procurement, and Smart Factory IoT."
         ),
     },
@@ -78,19 +93,45 @@ PERMISSION_MATRIX = {
             "dashboard",
             "inventory",
             "procurement",
+            "sales",
             "masters",
             "alerts",
             "documents",
             "analytics",
         ],
         "description": (
-            "Dashboard, Inventory, Products, Stock, Goods Receipt/Issue, "
-            "Warehouse, Procurement, Inventory Reports."
+            "Store operations: inventory, warehouses, GRN, finished goods, and dispatch."
         ),
+    },
+    "Purchase Manager": {
+        "modules": [
+            "dashboard",
+            "procurement",
+            "inventory",
+            "masters",
+            "accounts",
+            "alerts",
+            "documents",
+            "analytics",
+        ],
+        "description": "Full Vendor Master and purchase lifecycle access.",
+    },
+    "Procurement Manager": {
+        "modules": [
+            "dashboard",
+            "procurement",
+            "inventory",
+            "masters",
+            "accounts",
+            "alerts",
+            "documents",
+            "analytics",
+        ],
+        "description": "Full Vendor Master and procurement operations access.",
     },
     "HR Manager": {
         "modules": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents", "masters"],
-        "description": "Dashboard, Employees, Attendance, Leave, Payroll, Recruitment, HR Reports.",
+        "description": "Dashboard, Employees, Attendance, Leave, Payroll, HR Reports.",
     },
     "Accountant": {
         "modules": [
@@ -102,10 +143,7 @@ PERMISSION_MATRIX = {
             "alerts",
             "masters",
         ],
-        "description": (
-            "Dashboard, Finance, Sales/Purchase Payments, General Ledger, "
-            "GST, Profit & Loss, Finance Reports."
-        ),
+        "description": "Tax invoice, payments, AR/AP, and financial transactions.",
     },
     "Operator": {
         "modules": [
@@ -127,12 +165,53 @@ PERMISSION_MATRIX = {
             "documents:read",
         ],
         "description": (
-            "Dashboard, Assigned Work Orders, Schedule, Shop Floor, "
-            "Machine Allocation, Batch Tracking, Machine Status, Attendance. "
-            "No Finance, HR admin, Settings, or Masters."
+            "Assigned work orders, shop floor, quantity/downtime entry, machine issues."
         ),
     },
 }
+
+# Sidebar / route paths Store Manager may see.
+# Module grants stay broader so GRN/dispatch APIs still authorize; UI is narrowed here.
+STORE_MANAGER_ALLOWED_PATHS = frozenset({
+    "/",
+    "/manufacturing/workflow",
+    "/inventory",
+    "/inventory/raw-materials",
+    "/inventory/finished-goods",
+    "/inventory/stock-transfer",
+    "/inventory/stock-adjustment",
+    "/inventory/stock-ledger",
+    "/inventory/warehouses",
+    "/procurement/goods-receipt",
+    "/procurement/vendors",
+    "/sales/dispatch",
+    "/masters/products",
+    "/alerts/low-stock",
+    "/documents",
+    "/documents/purchase",
+    "/analytics/inventory",
+})
+
+
+def store_manager_path_allowed(path: str | None) -> bool:
+    """Return True when path is allowed for the Store Manager role."""
+    if not path:
+        return False
+    normalized = path.rstrip("/") or "/"
+    if normalized in STORE_MANAGER_ALLOWED_PATHS:
+        return True
+    if normalized.startswith("/inventory/"):
+        return True
+    if normalized.startswith("/masters/products"):
+        return True
+    if normalized.startswith("/procurement/goods-receipt"):
+        return True
+    if normalized.startswith("/procurement/vendors"):
+        return True
+    if normalized.startswith("/sales/dispatch"):
+        return True
+    return False
+
 
 # Sidebar menu catalog — filtered by role modules when building /api/sidebar.
 SIDEBAR_MENU_CATALOG = [
@@ -144,12 +223,19 @@ SIDEBAR_MENU_CATALOG = [
         "children": [],
     },
     {
+        "key": "manufacturingWorkflow",
+        "label": "Role Workflow",
+        "path": "/manufacturing/workflow",
+        "module": "dashboard",
+        "children": [],
+    },
+    {
         "key": "masters",
         "label": "Masters",
         "path": None,
         "module": "masters",
         "children": [
-            {"label": "Products", "path": "/masters/products", "module": "masters"},
+            {"label": "Materials", "path": "/masters/products", "module": "masters"},
             {"label": "BOM", "path": "/masters/bom", "module": "masters"},
             {"label": "Customers", "path": "/sales/customers", "module": "masters"},
             {"label": "Vendors", "path": "/procurement/vendors", "module": "masters"},

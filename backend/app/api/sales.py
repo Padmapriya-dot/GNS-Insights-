@@ -108,6 +108,23 @@ def list_leads_endpoint(
     return list_leads(db, tenant_id, status)
 
 
+@router.post("/leads/{lead_id}/convert-to-quotation", response_model=QuotationRead)
+def convert_lead_to_quotation_endpoint(
+    lead_id: int,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    """Customer enquiry (Lead) → Quotation."""
+    from app.services.sales_service import convert_lead_to_quotation
+
+    return convert_lead_to_quotation(
+        db,
+        user.tenant_id,
+        lead_id,
+        sales_person=user.full_name or user.email,
+    )
+
+
 @router.patch("/leads/{lead_id}/status", response_model=LeadRead)
 def update_lead_status_endpoint(
     lead_id: int,
@@ -249,6 +266,79 @@ def update_sales_order_dispatch_endpoint(
     if not order:
         raise HTTPException(404, "Sales order not found")
     return order
+
+
+@router.post("/sales-orders/{order_id}/confirm-delivery", response_model=SalesOrderRead)
+def confirm_delivery_endpoint(
+    order_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    from app.services.sales_service import confirm_delivery
+
+    order = confirm_delivery(db, tenant_id, order_id)
+    if not order:
+        raise HTTPException(404, "Sales order not found")
+    return order
+
+
+@router.get("/workflow/board")
+def get_manufacturing_workflow_board(
+    user: User = Depends(
+        require_any_permission(
+            "sales",
+            "production",
+            "procurement",
+            "inventory",
+            "quality",
+            "maintenance",
+            "accounts",
+            "analytics",
+            "admin",
+        )
+    ),
+    db: Session = Depends(get_db),
+):
+    """Role-filtered manufacturing workflow board (reuses existing SO chain)."""
+    from app.services.manufacturing_workflow_service import list_role_workflow_board
+
+    return list_role_workflow_board(db, user.tenant_id, user)
+
+
+@router.get("/sales-orders/{order_id}/workflow")
+def get_sales_order_workflow_endpoint(
+    order_id: int,
+    user: User = Depends(
+        require_any_permission(
+            "sales",
+            "production",
+            "procurement",
+            "inventory",
+            "quality",
+            "maintenance",
+            "accounts",
+            "analytics",
+            "admin",
+        )
+    ),
+    db: Session = Depends(get_db),
+):
+    """Role-filtered step status for one sales order."""
+    from app.services.manufacturing_workflow_service import get_role_workflow_for_order
+
+    return get_role_workflow_for_order(db, user.tenant_id, order_id, user)
+
+
+@router.get("/sales-orders/{order_id}/traceability")
+def get_sales_order_traceability_endpoint(
+    order_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    """Full manufacturing chain for a sales order (existing module records)."""
+    from app.services.manufacturing_workflow_service import get_order_traceability
+
+    return get_order_traceability(db, tenant_id, order_id)
 
 
 @router.get("/sales-orders/{order_id}")

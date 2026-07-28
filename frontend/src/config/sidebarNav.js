@@ -29,6 +29,13 @@ export const SIDEBAR_NAV = [
     end: true,
   },
   {
+    key: "manufacturingWorkflow",
+    labelKey: "erpNav.roleWorkflow",
+    to: "/manufacturing/workflow",
+    icon: Factory,
+    module: "dashboard",
+  },
+  {
     key: "masters",
     labelKey: "erpNav.masters",
     icon: Layers,
@@ -68,6 +75,7 @@ export const SIDEBAR_NAV = [
       { labelKey: "erpNav.stockTransfer", to: "/inventory/stock-transfer", module: "inventory" },
       { labelKey: "erpNav.stockAdjustment", to: "/inventory/stock-adjustment", module: "inventory" },
       { labelKey: "erpNav.stockLedger", to: "/inventory/stock-ledger", module: "inventory" },
+      { labelKey: "erpNav.warehouses", to: "/inventory/warehouses", module: "inventory" },
     ],
   },
   {

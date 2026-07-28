@@ -15,7 +15,14 @@ const FINISHED_GOOD_CATEGORIES = [
 ];
 
 const DEFAULT_WAREHOUSES = [
-  "Main Store", "Raw Material Store", "Production Store", "FG Store", "QC Store", "Warehouse 1"
+  "Main Store",
+  "Raw Material Store",
+  "Production Store",
+  "FG Store",
+  "QC Store",
+  "Packing Material Warehouse",
+  "Water Storage Tank",
+  "Warehouse 1",
 ];
 
 export default function CreateItem() {

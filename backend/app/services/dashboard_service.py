@@ -8,10 +8,33 @@ from sqlalchemy.orm import Session
 from app.models.machine import Machine
 from app.models.production import DailyProductionReport, ProductionOrder, WorkOrder
 from app.models.inventory import InventoryItem, StockLevel, StockMovement, Warehouse
+from app.models.procurement import GoodsReceipt
 from app.models.sales import Invoice, SalesOrder
 from app.models.user import User
 from app.services.notification_management_service import get_user_notifications
 from app.services.shop_floor_service import get_shop_floor_summary
+
+
+def _user_role_names(user: User | None) -> list[str]:
+    if not user:
+        return []
+    from app.core.permissions import get_role_names, user_is_admin
+
+    if user_is_admin(user):
+        return ["Admin"]
+    return get_role_names(user)
+
+
+def _is_store_manager_only(user: User | None) -> bool:
+    roles = _user_role_names(user)
+    return "Store Manager" in roles and "Admin" not in roles
+
+
+def _format_inr(value: float) -> str:
+    try:
+        return f"₹{value:,.0f}"
+    except Exception:
+        return str(value)
 
 
 def _trend_pct(current: float, previous: float) -> tuple[float, bool]:
@@ -485,7 +508,46 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
     progress_pct = round((completed_orders / total_wo) * 100) if total_wo else 0
     machine_pct = round(running_machines / total_machines * 100) if total_machines else 0
 
-    return {
+    inventory_value = round(raw_value + fg_value, 2)
+    warehouse_count = len(warehouses)
+
+    grn_today = 0
+    pending_grn_qc = 0
+    try:
+        grn_today = int(
+            db.scalar(
+                select(func.count(GoodsReceipt.id)).where(
+                    GoodsReceipt.tenant_id == tenant_id,
+                    GoodsReceipt.receipt_date == today,
+                )
+            )
+            or 0
+        )
+        pending_grn_qc = int(
+            db.scalar(
+                select(func.count(GoodsReceipt.id)).where(
+                    GoodsReceipt.tenant_id == tenant_id,
+                    GoodsReceipt.qc_status.in_(("pending", "hold")),
+                )
+            )
+            or 0
+        )
+    except Exception:
+        grn_today = 0
+        pending_grn_qc = 0
+
+    pending_dispatch = int(
+        db.scalar(
+            select(func.count(SalesOrder.id)).where(
+                SalesOrder.tenant_id == tenant_id,
+                SalesOrder.shipped.is_(False),
+                SalesOrder.status.in_(("confirmed", "in_production", "ready", "packed", "open")),
+            )
+        )
+        or 0
+    )
+
+    payload = {
         "kpi_cards": [
             {
                 "id": "total-orders",
@@ -562,4 +624,114 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
         "warehouse_locations": warehouse_locations,
         "todays_summary": todays_summary,
         "date": today.isoformat(),
+        "dashboard_profile": "full",
+        "visible_sections": [
+            "kpi",
+            "production_overview",
+            "shop_floor",
+            "top_machines",
+            "orders_overview",
+            "inventory",
+            "alerts",
+            "quick_actions",
+            "recent_work_orders",
+            "todays_summary",
+        ],
     }
+
+    if _is_store_manager_only(user):
+        payload["dashboard_profile"] = "store"
+        payload["kpi_cards"] = [
+            {
+                "id": "inventory-value",
+                "title": "Inventory Value",
+                "value": _format_inr(inventory_value),
+                "trend": "0%",
+                "trendUp": True,
+                "trendLabel": "vs last 7 days",
+                "link": "/inventory",
+            },
+            {
+                "id": "low-stock",
+                "title": "Low Stock Items",
+                "value": str(low_stock),
+                "trend": "0%",
+                "trendUp": False,
+                "trendLabel": "vs last 7 days",
+                "link": "/alerts/low-stock",
+            },
+            {
+                "id": "raw-materials",
+                "title": "Raw Materials",
+                "value": str(raw_count),
+                "trend": f"{int(raw_qty)}",
+                "trendUp": True,
+                "trendLabel": "units on hand",
+                "link": "/inventory/raw-materials",
+            },
+            {
+                "id": "finished-goods",
+                "title": "Finished Goods",
+                "value": str(fg_count),
+                "trend": f"{int(fg_qty)}",
+                "trendUp": True,
+                "trendLabel": "units on hand",
+                "link": "/inventory/finished-goods",
+            },
+            {
+                "id": "warehouses",
+                "title": "Warehouses",
+                "value": str(warehouse_count),
+                "trend": "0%",
+                "trendUp": True,
+                "trendLabel": "active locations",
+                "link": "/inventory/warehouses",
+            },
+            {
+                "id": "stock-movements",
+                "title": "Stock Moves (Today)",
+                "value": str(stock_moves_today),
+                "trend": f"{grn_today}",
+                "trendUp": True,
+                "trendLabel": "GRNs today",
+                "link": "/inventory/stock-ledger",
+            },
+        ]
+        payload["production_overview"] = []
+        payload["production_overview_weekly"] = []
+        payload["production_overview_monthly"] = []
+        payload["shop_floor_status"] = []
+        payload["top_machines"] = []
+        payload["orders_overview"] = {
+            "total": pending_dispatch,
+            "inProgress": pending_grn_qc,
+            "completed": grn_today,
+            "onHold": low_stock,
+            "progress": 0,
+            "labels": {
+                "total": "Pending Dispatch",
+                "inProgress": "Pending GRN QC",
+                "completed": "GRNs Today",
+                "onHold": "Low Stock",
+            },
+        }
+        payload["recent_work_orders"] = []
+        payload["recent_production_orders"] = []
+        payload["shop_floor"] = {}
+        payload["todays_summary"] = [
+            {"key": "stockMovements", "label": "Stock Movements", "value": str(stock_moves_today), "icon": "boxes", "unit": "moves"},
+            {"key": "grnToday", "label": "GRNs Today", "value": str(grn_today), "icon": "cart", "unit": "GRN"},
+            {"key": "pendingGrnQc", "label": "Pending GRN QC", "value": str(pending_grn_qc), "icon": "alert", "unit": "open"},
+            {"key": "pendingDispatch", "label": "Pending Dispatch", "value": str(pending_dispatch), "icon": "package", "unit": "orders"},
+            {"key": "warehouses", "label": "Warehouses", "value": str(warehouse_count), "icon": "boxes", "unit": "sites"},
+        ]
+        payload["visible_sections"] = [
+            "kpi",
+            "orders_overview",
+            "inventory",
+            "alerts",
+            "quick_actions",
+            "todays_summary",
+        ]
+
+    return payload

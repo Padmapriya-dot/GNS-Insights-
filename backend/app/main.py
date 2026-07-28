@@ -8,7 +8,8 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.openapi.docs import get_redoc_html
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import get_settings
@@ -87,7 +88,23 @@ settings = get_settings()
 setup_logging("INFO")
 logger = get_logger("gns_insights")
 
-app = FastAPI(title="GNS Insights API", version="1.0.0")
+# redoc_url=None — default FastAPI template points at redoc@next (404 on jsDelivr)
+app = FastAPI(
+    title="GNS Insights API",
+    version="1.0.0",
+    redoc_url=None,
+)
+
+
+@app.get("/redoc", include_in_schema=False)
+async def redoc_ui() -> HTMLResponse:
+    """ReDoc with a pinned CDN bundle (redoc@next is unpublished / 404)."""
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - ReDoc",
+        redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@2.1.5/bundles/redoc.standalone.js",
+    )
+
 
 if settings.is_production:
     app.add_middleware(
@@ -126,13 +143,29 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["Permissions-Policy"] = (
         "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
     )
-    # API-oriented CSP (tighten further at the CDN / frontend host)
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'none'; "
-        "frame-ancestors 'none'; "
-        "base-uri 'self'; "
-        "form-action 'self'"
-    )
+    path = request.url.path or ""
+    # Swagger / ReDoc only — ERP API routes keep the strict policy below
+    if path.startswith(("/docs", "/redoc", "/openapi.json")):
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+            "img-src 'self' data: https://fastapi.tiangolo.com https://cdn.jsdelivr.net; "
+            "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; "
+            "connect-src 'self'; "
+            "worker-src 'self' blob:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
+    else:
+        # Strict CSP for all authenticated ERP / API responses
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
     if settings.is_production:
         response.headers["Strict-Transport-Security"] = (
             "max-age=31536000; includeSubDomains; preload"
@@ -289,6 +322,58 @@ def on_startup():
             conn.execute(text("ALTER TABLE suppliers ADD COLUMN outstanding NUMERIC(12, 2) DEFAULT 0.0"))
     except Exception:
         pass  # Column may already exist
+    _supplier_enterprise_columns = [
+        "ALTER TABLE suppliers ADD COLUMN alternate_phone VARCHAR(64)",
+        "ALTER TABLE suppliers ADD COLUMN alternate_email VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN business_type VARCHAR(64)",
+        "ALTER TABLE suppliers ADD COLUMN gst_registration_type VARCHAR(64)",
+        "ALTER TABLE suppliers ADD COLUMN address_line1 VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN address_line2 VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN landmark VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN account_holder_name VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN bank_branch VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN upi_id VARCHAR(128)",
+        "ALTER TABLE suppliers ADD COLUMN currency VARCHAR(16) DEFAULT 'INR'",
+        "ALTER TABLE suppliers ADD COLUMN credit_limit NUMERIC(14, 2)",
+        "ALTER TABLE suppliers ADD COLUMN lead_time_days INTEGER",
+        "ALTER TABLE suppliers ADD COLUMN minimum_order_quantity NUMERIC(12, 2)",
+        "ALTER TABLE suppliers ADD COLUMN minimum_order_value NUMERIC(14, 2)",
+        "ALTER TABLE suppliers ADD COLUMN preferred_vendor BOOLEAN DEFAULT 0",
+        "ALTER TABLE suppliers ADD COLUMN on_time_delivery_percentage NUMERIC(5, 2)",
+        "ALTER TABLE suppliers ADD COLUMN rejection_percentage NUMERIC(5, 2)",
+        "ALTER TABLE suppliers ADD COLUMN onboarding_date DATE",
+        "ALTER TABLE suppliers ADD COLUMN created_by VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN updated_by VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN is_deleted BOOLEAN DEFAULT 0",
+        "ALTER TABLE suppliers ADD COLUMN deleted_at DATE",
+    ]
+    for ddl in _supplier_enterprise_columns:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS vendor_products (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        tenant_id INTEGER NOT NULL,
+                        vendor_id INTEGER NOT NULL,
+                        product_id INTEGER NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        FOREIGN KEY(tenant_id) REFERENCES tenants (id),
+                        FOREIGN KEY(vendor_id) REFERENCES suppliers (id),
+                        FOREIGN KEY(product_id) REFERENCES products (id)
+                    )
+                    """
+                )
+            )
+    except Exception:
+        pass
     try:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE inventory_items ADD COLUMN warehouse_name VARCHAR(128)"))
@@ -506,7 +591,6 @@ def on_startup():
                 conn.execute(text(ddl))
         except Exception:
             pass
-
     _company_settings_columns = [
         "ALTER TABLE company_settings ADD COLUMN landmark VARCHAR(255)",
         "ALTER TABLE company_settings ADD COLUMN country VARCHAR(128)",
@@ -540,7 +624,14 @@ def on_startup():
     try:
         seed_tenant(db)  # Ensure tenant 1 exists
         seed_super_admin(db)  # GNS Super Admin from .env
-        seed_roles(db)  # Seeds default roles for tenant 1
+        # Seed default RBAC roles for every tenant (adds new roles like Sales Manager)
+        from sqlalchemy import select
+
+        from app.models.tenant import Tenant
+
+        tenant_ids = list(db.scalars(select(Tenant.id)).all()) or [1]
+        for tid in tenant_ids:
+            seed_roles(db, tenant_id=tid)
         seed_admin_user(db)  # Seeds default demo accounts (Operator, Admin, HR)
     except Exception:
         logger.exception("Seed warning during startup")

@@ -4,9 +4,16 @@ import { Download, FileText, Filter, Plus, RefreshCw } from "lucide-react";
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
+import CreateQuotationModal from "../../components/sales/CreateQuotationModal";
 import QuoteDetailModal from "../../components/sales/QuoteDetailModal";
 import { useToast } from "../../context/ToastContext";
-import { getQuotationSummary, getQuotationsEnriched, updateQuotationStatus } from "../../api/salesApi";
+import useTenantId from "../../hooks/useTenantId";
+import {
+  createQuotation,
+  getQuotationSummary,
+  getQuotationsEnriched,
+  updateQuotationStatus,
+} from "../../api/salesApi";
 import { formatInr, statusColor } from "../../data/salesMasterData";
 import { exportToExcel } from "../../utils/exportUtils";
 
@@ -23,11 +30,14 @@ function KpiCard({ label, value, icon: Icon, color }) {
 
 export default function Quotations() {
   const { addToast } = useToast();
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState({});
   const [rows, setRows] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [selected, setSelected] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,7 +52,7 @@ export default function Quotations() {
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -50,6 +60,24 @@ export default function Quotations() {
     if (!statusFilter) return rows;
     return rows.filter((r) => r.status === statusFilter);
   }, [rows, statusFilter]);
+
+  const handleCreateQuotation = async (payload) => {
+    setSaving(true);
+    try {
+      await createQuotation({
+        ...payload,
+        tenant_id: tenantId,
+      });
+      addToast("Quotation created successfully", "success");
+      setShowCreate(false);
+      await load();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Could not create quotation", "error");
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleStatus = async (quote, status) => {
     if (typeof quote.id === "number") {
@@ -89,7 +117,7 @@ export default function Quotations() {
           <p className="mt-1 text-sm text-slate-500">Create, approve, and send quotations with GST, discount, and PDF export.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="ui-btn-primary opacity-60" disabled title="Use Convert from an existing quotation, or create SO with product lines">
+          <button type="button" onClick={() => setShowCreate(true)} className="ui-btn-primary">
             <Plus className="h-4 w-4" /> New Quotation
           </button>
           <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "quotations")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
@@ -97,7 +125,7 @@ export default function Quotations() {
         </div>
       </header>
 
-      <ManufacturingWorkflowBar currentStepId="sales_order" />
+      <ManufacturingWorkflowBar currentStepId="quotation" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiCard label="Total Quotations" value={summary.total_quotations ?? 0} icon={FileText} color="bg-blue-600" />
@@ -113,7 +141,7 @@ export default function Quotations() {
           <Filter className="h-4 w-4 text-slate-500" />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
             <option value="">All Status</option>
-            {["draft", "sent", "accepted", "rejected", "expired"].map((s) => <option key={s} value={s}>{s}</option>)}
+            {["draft", "sent", "accepted", "rejected", "expired", "pending_approval", "approved"].map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <DataTable columns={columns} data={filtered} searchPlaceholder="Search quote, customer..." searchKeys={["quote_number", "customer_name", "sales_person"]} />
@@ -130,6 +158,13 @@ export default function Quotations() {
           }}
         />
       )}
+
+      <CreateQuotationModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onSubmit={handleCreateQuotation}
+        saving={saving}
+      />
     </div>
   );
 }

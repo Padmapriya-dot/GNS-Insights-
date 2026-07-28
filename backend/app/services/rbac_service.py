@@ -290,6 +290,13 @@ def delete_user(db: Session, tenant_id: int, user_id: int, acting_user: User) ->
 # Role CRUD
 # ---------------------------------------------------------------------------
 def list_roles(db: Session, tenant_id: int) -> list[dict]:
+    """Ensure default RBAC roles exist (e.g. Sales Manager), then list for tenant."""
+    try:
+        from app.core.seed_roles import seed_roles_for_tenant
+
+        seed_roles_for_tenant(db, tenant_id, commit=True)
+    except Exception:
+        pass
     stmt = (
         select(Role)
         .where(Role.tenant_id == tenant_id)
@@ -312,6 +319,8 @@ def create_role(db: Session, tenant_id: int, payload: RoleCreate) -> dict:
             status_code=status.HTTP_409_CONFLICT,
             detail="A role with this name already exists",
         )
+    from app.core.seed_permissions import sync_role_permissions
+
     role = Role(
         tenant_id=tenant_id,
         name=payload.name,
@@ -319,6 +328,8 @@ def create_role(db: Session, tenant_id: int, payload: RoleCreate) -> dict:
         permissions=_validate_modules(payload.permissions or []),
     )
     db.add(role)
+    db.flush()
+    sync_role_permissions(db, tenant_id)
     db.commit()
     return get_role(db, tenant_id, role.id)
 
@@ -356,9 +367,16 @@ def update_role(db: Session, tenant_id: int, role_id: int, payload: RoleUpdate) 
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="The Admin role always has full access and cannot be restricted",
             )
+        from sqlalchemy.orm.attributes import flag_modified
+
+        from app.core.seed_permissions import sync_role_permissions
+
         role.permissions = _validate_modules(data["permissions"])
+        flag_modified(role, "permissions")
+        sync_role_permissions(db, tenant_id)
 
     db.commit()
+    db.refresh(role)
     return get_role(db, tenant_id, role.id)
 
 

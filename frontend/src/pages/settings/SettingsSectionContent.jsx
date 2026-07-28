@@ -15,6 +15,7 @@ import {
 
 import { getUsers } from "../../api/adminApi";
 import { getCompanySettings, updateCompanySettings } from "../../api/settingsApi";
+import { CURRENCY_OPTIONS } from "../../data/currencies";
 import useAuth from "../../hooks/useAuth";
 import useSettings from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
@@ -274,9 +275,9 @@ function CompanySection() {
           </Field>
           <Field label="Currency">
             <select className={inputClass} value={form.currency || "INR"} onChange={set("currency")}>
-              <option value="INR">INR (₹)</option>
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
+              {CURRENCY_OPTIONS.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
             </select>
           </Field>
           <Field label="Language">

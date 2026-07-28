@@ -151,12 +151,99 @@ def create_vendor_quotation(db: Session, tenant_id: int, rfq_id: int, payload) -
 
 
 def award_rfq(db: Session, tenant_id: int, rfq_id: int, supplier_id: int) -> RFQ | None:
+    """Award RFQ → create Purchase Order (from linked Material Request when present)."""
+    from datetime import date, timedelta
+
+    from fastapi import HTTPException
+
+    from app.models.procurement import VendorQuotation
+    from app.schemas.procurement import MaterialRequestConvertToPORequest
+    from app.services.procurement_service import (
+        convert_material_request_to_purchase_order,
+        create_purchase_order,
+    )
+    from app.schemas.procurement import PurchaseOrderCreate
+
     rfq = db.scalars(select(RFQ).where(RFQ.id == rfq_id, RFQ.tenant_id == tenant_id)).first()
     if not rfq:
         return None
+    if (rfq.status or "").lower() == "awarded":
+        return rfq
+
+    supplier = db.scalars(
+        select(Supplier).where(Supplier.id == supplier_id, Supplier.tenant_id == tenant_id)
+    ).first()
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    vendor_quote = db.scalars(
+        select(VendorQuotation).where(
+            VendorQuotation.rfq_id == rfq.id,
+            VendorQuotation.tenant_id == tenant_id,
+            VendorQuotation.supplier_id == supplier_id,
+        )
+    ).first()
+    unit_price = float(vendor_quote.price) if vendor_quote else 0.0
+    delivery_days = int(vendor_quote.delivery_days or 7) if vendor_quote else 7
+
+    po = None
+    if rfq.material_request_id:
+        po = convert_material_request_to_purchase_order(
+            db,
+            tenant_id,
+            rfq.material_request_id,
+            MaterialRequestConvertToPORequest(
+                supplier_id=supplier_id,
+                unit_price=unit_price,
+                expected_date=date.today() + timedelta(days=delivery_days),
+                status="approved",
+                notes=f"Auto-created from awarded RFQ {rfq.rfq_number}",
+                po_number=f"PO-{rfq.rfq_number}",
+            ),
+        )
+    else:
+        # Header-only PO for RFQs without an MR link (lines added later)
+        po = create_purchase_order(
+            db,
+            PurchaseOrderCreate(
+                tenant_id=tenant_id,
+                supplier_id=supplier_id,
+                po_number=f"PO-{rfq.rfq_number}",
+                order_date=date.today(),
+                expected_date=date.today() + timedelta(days=delivery_days),
+                status="approved",
+                notes=f"Auto-created from awarded RFQ {rfq.rfq_number}",
+                line_items=[],
+            ),
+        )
+
     rfq.status = "awarded"
+    if vendor_quote:
+        vendor_quote.status = "awarded"
     db.commit()
     db.refresh(rfq)
+
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=tenant_id,
+            alert_type="rfq_awarded",
+            title=f"RFQ awarded: {rfq.rfq_number}",
+            message=(
+                f"RFQ {rfq.rfq_number} awarded to {supplier.name}. "
+                f"PO {getattr(po, 'po_number', '')} created."
+            ),
+            severity="medium",
+            link="/procurement/purchase-orders",
+            reference_type="rfq",
+            reference_id=rfq.id,
+            created_by="Procurement",
+        )
+    except Exception:
+        pass
+
     return rfq
 
 

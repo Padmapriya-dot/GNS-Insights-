@@ -1,6 +1,11 @@
-"""Seed default roles with permissions for a tenant."""
+"""Seed default roles for a tenant.
 
-from app.core.rbac_constants import MODULE_CATALOG, PERMISSION_MATRIX
+Important: Module Permissions edits must stick. This seed only *creates*
+missing roles. It never overwrites permissions on roles that already exist
+(except Admin, which always remains full access).
+"""
+
+from app.core.rbac_constants import MODULE_CATALOG, PERMISSION_MATRIX, REGISTERABLE_ROLES
 
 MODULES = [m["code"] for m in MODULE_CATALOG]
 
@@ -17,14 +22,17 @@ def _permissions_for_role(name: str) -> list[str]:
 DEFAULT_ROLES = [
     {
         "name": name,
-        "description": spec["description"],
+        "description": PERMISSION_MATRIX.get(name, {}).get(
+            "description", f"{name} — manufacturing / operations access"
+        ),
         "permissions": _permissions_for_role(name),
     }
-    for name, spec in PERMISSION_MATRIX.items()
+    for name in REGISTERABLE_ROLES
 ]
 
 
 def seed_roles(db, tenant_id: int = 1, *, commit: bool = True):
+    """Create missing default roles. Preserve admin-edited Module Permissions."""
     from sqlalchemy import select
 
     from app.core.seed_permissions import sync_role_permissions
@@ -34,23 +42,24 @@ def seed_roles(db, tenant_id: int = 1, *, commit: bool = True):
         r.name: r for r in db.scalars(select(Role).where(Role.tenant_id == tenant_id)).all()
     }
     for spec in DEFAULT_ROLES:
-        if spec["name"] not in existing_roles:
+        role = existing_roles.get(spec["name"])
+        if role is None:
             db.add(
                 Role(
                     tenant_id=tenant_id,
                     name=spec["name"],
                     description=spec["description"],
-                    permissions=spec["permissions"],
+                    permissions=list(spec["permissions"]),
                 )
             )
-    db.flush()
-    for spec in DEFAULT_ROLES:
-        role = db.scalars(
-            select(Role).where(Role.tenant_id == tenant_id, Role.name == spec["name"])
-        ).first()
-        if role:
+            continue
+
+        # Existing role: never overwrite custom Module Permissions.
+        if not (role.description or "").strip() and spec.get("description"):
             role.description = spec["description"]
-            role.permissions = spec["permissions"]
+        if role.name == "Admin":
+            role.permissions = list(MODULES)
+
     db.flush()
     sync_role_permissions(db, tenant_id)
     if commit:
