@@ -128,8 +128,8 @@ export default function MachineAllocation() {
     { key: "work_order_number", label: "Work Order" },
     { key: "product_name", label: "Product" },
     { key: "machine_name", label: "Machine", render: (r) => r.machine_name || "—" },
-    { key: "operator_name", label: "Operator", render: (r) => r.operator_name || "—" },
-    { key: "shift", label: "Shift", render: (r) => r.shift || "—" },
+    { key: "operator_name", label: "Operator", render: (r) => r.operator_name || r.assigned_operator || r.operator || "—" },
+    { key: "shift", label: "Shift", render: (r) => r.shift || r.current_shift || "—" },
     { key: "supervisor", label: "Supervisor", render: (r) => r.supervisor || "—" },
     {
       key: "capacity_pct",

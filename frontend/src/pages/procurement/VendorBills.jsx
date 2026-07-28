@@ -34,7 +34,7 @@ function KpiCard({ label, value, icon: Icon, color }) {
 }
 
 function WorkflowStrip() {
-  const steps = ["PO", "GRN", "Vendor Invoice", "Finance Approval", "Payment"];
+  const steps = ["Purchase Order (PO)", "Goods Receipt Note (GRN)", "Vendor Invoice", "Finance Approval", "Payment"];
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
       {steps.map((s, i) => (
@@ -143,13 +143,13 @@ function CreateBillModal({ isOpen, onClose, onCreated, suppliers, purchaseOrders
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700">Goods Receipt (GRN)</label>
+              <label className="block text-xs font-semibold text-slate-700">Goods Receipt Note (GRN)</label>
               <select
                 value={form.goods_receipt_id}
                 onChange={(e) => setForm((f) => ({ ...f, goods_receipt_id: e.target.value }))}
                 className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
               >
-                <option value="">Select GRN (Opt)</option>
+                <option value="">Select Goods Receipt Note (GRN) (Opt)</option>
                 {goodsReceipts.map((grn) => (
                   <option key={grn.id} value={grn.id}>
                     {grn.grn_number}
@@ -284,12 +284,12 @@ export default function VendorBills() {
   };
 
   const columns = [
-    { key: "bill_number", label: "Bill No" },
+    { key: "bill_number", label: "Bill Number" },
     { key: "vendor_name", label: "Vendor" },
-    { key: "po_number", label: "PO", render: (r) => r.po_number || "—" },
-    { key: "grn_number", label: "GRN", render: (r) => r.grn_number || "—" },
+    { key: "po_number", label: "Purchase Order Number", render: (r) => r.po_number || "—" },
+    { key: "grn_number", label: "Goods Receipt Note (GRN) Number", render: (r) => r.grn_number || "—" },
     { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
-    { key: "gst_amount", label: "GST", render: (r) => formatInr(r.gst_amount) },
+    { key: "gst_amount", label: "Goods & Services Tax (GST)", render: (r) => formatInr(r.gst_amount) },
     { key: "due_date", label: "Due Date", render: (r) => (r.due_date ? String(r.due_date).slice(0, 10) : "—") },
     {
       key: "status",
@@ -352,7 +352,7 @@ export default function VendorBills() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Vendor Bills</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Invoice module with three-way matching (PO ↔ GRN ↔ Vendor Invoice) and finance approval.
+            Invoice module with three-way matching (Purchase Order (PO) ↔ Goods Receipt Note (GRN) ↔ Vendor Invoice) and finance approval.
           </p>
         </div>
         <div className="flex items-center gap-2">

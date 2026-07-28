@@ -132,12 +132,12 @@ export default function RawMaterials() {
   };
 
   const columns = [
-    { key: "sku", label: "SKU" },
+    { key: "sku", label: "Stock Keeping Unit (SKU)" },
     { key: "name", label: "Material" },
     { key: "category", label: "Category" },
     { key: "warehouse_name", label: "Warehouse" },
     { key: "batch_number", label: "Batch" },
-    { key: "quantity", label: "Qty" },
+    { key: "quantity", label: "Quantity" },
     { key: "reserved", label: "Reserved" },
     { key: "available", label: "Available" },
     { key: "unit", label: "Unit" },
@@ -158,7 +158,7 @@ export default function RawMaterials() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-900">Raw Materials</h1><p className="mt-1 text-sm text-slate-500">Multi-warehouse raw material inventory with batch, barcode, and vendor tracking.</p></div>
+        <div><h1 className="text-2xl font-bold text-slate-900">Raw Materials</h1><p className="mt-1 text-sm text-slate-500">Monitor raw material stock levels to prevent line stoppages.</p></div>
         <div className="flex flex-wrap gap-2">
           <Link to="/inventory/items/create?type=raw_material" className="ui-btn-primary"><Plus className="h-4 w-4" /> New Material</Link>
           <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "raw-materials")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>

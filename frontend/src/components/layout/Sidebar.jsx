@@ -86,12 +86,81 @@ function mapApiMenusToNav(menus) {
   });
 }
 
+const PROD_MANAGER_ALLOWED_SECTIONS = new Set([
+  "dashboard",
+  "masters",
+  "production",
+  "inventory",
+  "procurement",
+  "quality",
+  "maintenance",
+  "alerts",
+  "documents",
+  "analytics",
+]);
+
+const PROD_MANAGER_ALLOWED_CHILDREN = new Set([
+  "/masters/products",
+  "/masters/bom",
+  "/production/machines",
+  "/production/planning",
+  "/production/mrp",
+  "/production/work-orders",
+  "/production/schedule",
+  "/factory-monitor/live-production",
+  "/production/tasks",
+  "/production/assign-tasks",
+  "/production/batches",
+  "/production/reports",
+  "/inventory/raw-materials",
+  "/inventory/finished-goods",
+  "/inventory/stock-transfer",
+  "/procurement/material-requests",
+  "/quality/in-process",
+  "/quality/final",
+  "/quality/defects",
+  "/maintenance/preventive",
+  "/maintenance/breakdowns",
+  "/maintenance/machine-history",
+  "/alerts",
+  "/alerts/low-stock",
+  "/alerts/machine-failure",
+  "/alerts/production-delay",
+  "/alerts/maintenance",
+  "/alerts/quality",
+  "/alerts/safety",
+  "/alerts/general",
+  "/documents",
+  "/documents/production",
+  "/documents/quality",
+  "/documents/reports",
+  "/analytics/production",
+  "/analytics/inventory",
+  "/analytics/live",
+]);
+
+function isProductionManager(user) {
+  if (!user) return false;
+  const roles = Array.isArray(user.roles)
+    ? user.roles.map((r) => (typeof r === "object" ? r.name : String(r)))
+    : [];
+  const roleStr = String(user.role || user.role_name || (typeof user.roles === "string" ? user.roles : "")).toLowerCase();
+  const allRoles = [...roles.map((r) => String(r).toLowerCase()), roleStr];
+  if (allRoles.some((r) => r.includes("admin"))) return false;
+  return allRoles.some((r) => r.includes("production manager") || r.includes("production_manager"));
+}
+
 function filterStaticNav(user) {
+  const isPM = isProductionManager(user);
   return SIDEBAR_NAV.map((section) => {
+    if (isPM && !PROD_MANAGER_ALLOWED_SECTIONS.has(section.key)) return null;
     if (section.to) {
       return userCanAccess(user, section.module) ? section : null;
     }
-    const children = (section.children || []).filter((c) => userCanAccess(user, c.module));
+    const children = (section.children || []).filter((c) => {
+      if (isPM && !PROD_MANAGER_ALLOWED_CHILDREN.has(c.to)) return false;
+      return userCanAccess(user, c.module);
+    });
     if (children.length === 0) return null;
     return { ...section, children };
   }).filter(Boolean);
@@ -132,8 +201,19 @@ export default function Sidebar({ collapsed, onClose }) {
   }, [isAuthenticated, user?.id, user?.role, user?.role_id]);
 
   const visibleNav = useMemo(() => {
-    if (apiNav && apiNav.length) return apiNav;
-    return filterStaticNav(user);
+    const raw = apiNav && apiNav.length ? apiNav : filterStaticNav(user);
+    if (isProductionManager(user)) {
+      return raw
+        .map((section) => {
+          if (!PROD_MANAGER_ALLOWED_SECTIONS.has(section.key)) return null;
+          if (!section.children) return section;
+          const children = section.children.filter((c) => PROD_MANAGER_ALLOWED_CHILDREN.has(c.to));
+          if (children.length === 0) return null;
+          return { ...section, children };
+        })
+        .filter(Boolean);
+    }
+    return raw;
   }, [apiNav, user]);
 
   const [expanded, setExpanded] = useState(() =>

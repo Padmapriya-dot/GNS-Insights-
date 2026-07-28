@@ -116,7 +116,7 @@ export default function PurchaseOrders() {
   const columns = [
     {
       key: "po_number",
-      label: "PO No",
+      label: "Purchase Order Number",
       render: (r) => (
         <span className="font-medium text-[#2563EB]">{r.po_number || `PO-${r.id}`}</span>
       ),
@@ -188,12 +188,12 @@ export default function PurchaseOrders() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Purchase Orders</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Approve POs from material requests, then receive goods via GRN.
+            Approve Purchase Orders (POs) from material requests, then receive goods via Goods Receipt Note (GRN).
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/procurement/purchase-orders/create" className="ui-btn-primary">
-            <Plus className="h-4 w-4" /> New PO
+            <Plus className="h-4 w-4" /> New Purchase Order (PO)
           </Link>
           <button
             type="button"
@@ -221,13 +221,13 @@ export default function PurchaseOrders() {
       <ManufacturingWorkflowBar currentStepId="purchase_order" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Total PO" value={summary.total_po} icon={ShoppingCart} color="bg-blue-600" />
+        <KpiCard label="Total Purchase Orders (POs)" value={summary.total_po} icon={ShoppingCart} color="bg-blue-600" />
         <KpiCard label="Pending" value={summary.pending} icon={ShoppingCart} color="bg-amber-500" />
         <KpiCard label="Approved" value={summary.approved} icon={ShoppingCart} color="bg-green-600" />
         <KpiCard label="Delivered" value={summary.delivered} icon={Truck} color="bg-teal-600" />
         <KpiCard label="Cancelled" value={summary.cancelled} icon={ShoppingCart} color="bg-red-500" />
         <KpiCard
-          label="PO Value"
+          label="Purchase Order (PO) Value"
           value={formatInr(summary.po_value)}
           icon={ShoppingCart}
           color="bg-indigo-600"

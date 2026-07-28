@@ -90,6 +90,15 @@ def production_planning(user_tenant: tuple[User, int] = Depends(require_tenant("
     })
 
 
+@router.get("/planning/summary")
+def production_planning_summary(
+    user_tenant: tuple[User, int] = Depends(require_tenant("production")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    return success_response("Production planning summary retrieved", _dump(get_production_planning_summary(db, tenant_id)))
+
+
 @router.get("/planning/{plan_id}")
 def production_plan_detail(
     plan_id: int,
@@ -113,15 +122,6 @@ def create_plan(
     payload.tenant_id = tenant_id
     order = create_production_order(db, payload)
     return success_response("Production plan created", _dump(order))
-
-
-@router.get("/planning/summary")
-def production_planning_summary(
-    user_tenant: tuple[User, int] = Depends(require_tenant("production")),
-    db: Session = Depends(get_db),
-):
-    _, tenant_id = user_tenant
-    return success_response("Production planning summary retrieved", _dump(get_production_planning_summary(db, tenant_id)))
 
 
 @router.get("/planning/{plan_id}/start-checks")

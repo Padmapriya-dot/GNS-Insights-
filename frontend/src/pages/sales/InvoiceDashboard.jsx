@@ -106,7 +106,7 @@ export default function InvoiceDashboard() {
     { key: "customer_name", label: "Customer" },
     { key: "sales_order_number", label: "Sales Order" },
     { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
-    { key: "gst_amount", label: "GST", render: (r) => formatInr(r.gst_amount) },
+    { key: "gst_amount", label: "Goods & Services Tax (GST)", render: (r) => formatInr(r.gst_amount) },
     {
       key: "due_date",
       label: "Due Date",

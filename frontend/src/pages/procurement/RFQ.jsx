@@ -38,7 +38,7 @@ function KpiCard({ label, value, icon: Icon, color }) {
 function WorkflowStrip() {
   const steps = [
     "Material Request",
-    "RFQ",
+    "Request for Quotation (RFQ)",
     "Multiple Vendors",
     "Quotation Comparison",
     "Purchase Order",
@@ -77,11 +77,11 @@ function CreateRfqModal({ isOpen, onClose, onCreated, materialRequests }) {
         due_date: form.due_date || null,
         notes: form.notes || null,
       });
-      addToast("RFQ created successfully");
+      addToast("Request for Quotation (RFQ) created successfully");
       onCreated();
       onClose();
     } catch {
-      addToast("Failed to create RFQ", "error");
+      addToast("Failed to create Request for Quotation (RFQ)", "error");
     } finally {
       setSubmitting(false);
     }
@@ -99,7 +99,7 @@ function CreateRfqModal({ isOpen, onClose, onCreated, materialRequests }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700">
-              RFQ Number <span className="text-slate-400 font-normal">(Optional)</span>
+            Request for Quotation (RFQ) Number <span className="text-slate-400 font-normal">(Optional)</span>
             </label>
             <input
               placeholder="Auto-generated (e.g. RFQ-2026-0001)"
@@ -248,7 +248,7 @@ function AddQuotationModal({ isOpen, onClose, rfqId, suppliers, onAdded }) {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700">GST (%)</label>
+              <label className="block text-xs font-semibold text-slate-700">Goods & Services Tax (GST) (%)</label>
               <input
                 type="number"
                 min="0"
@@ -299,10 +299,10 @@ function VendorComparisonPanel({ rfq, vendors, bestVendor, suppliers, onRefreshC
     setAwarding(true);
     try {
       await awardRFQ(rfq.id, { supplier_id: supplierId });
-      addToast("RFQ awarded successfully!");
+      addToast("Request for Quotation (RFQ) awarded successfully!");
       onRefreshComparison();
     } catch {
-      addToast("Failed to award RFQ", "error");
+      addToast("Failed to award Request for Quotation (RFQ)", "error");
     } finally {
       setAwarding(false);
     }
@@ -337,7 +337,7 @@ function VendorComparisonPanel({ rfq, vendors, bestVendor, suppliers, onRefreshC
 
       {!vendors?.length ? (
         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center text-sm text-slate-500">
-          No quotations recorded for this RFQ yet. Click <strong>+ Add Quote</strong> to record vendor prices.
+          No quotations recorded for this Request for Quotation (RFQ) yet. Click <strong>+ Add Quote</strong> to record vendor prices.
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -347,7 +347,7 @@ function VendorComparisonPanel({ rfq, vendors, bestVendor, suppliers, onRefreshC
                 <th className="py-2.5 pr-4">Vendor</th>
                 <th className="py-2.5 pr-4">Price</th>
                 <th className="py-2.5 pr-4">Delivery</th>
-                <th className="py-2.5 pr-4">GST</th>
+                <th className="py-2.5 pr-4">Goods & Services Tax (GST)</th>
                 <th className="py-2.5 pr-4">Warranty</th>
                 <th className="py-2.5 pr-4">Rating</th>
                 <th className="py-2.5 pr-4">Score</th>
@@ -479,7 +479,7 @@ export default function RFQ() {
   const bestVendor = comparison.find((v) => v.is_best) || comparison[0];
 
   const columns = [
-    { key: "rfq_number", label: "RFQ No" },
+    { key: "rfq_number", label: "Request for Quotation (RFQ) Number" },
     { key: "material_request_number", label: "Material Request", render: (r) => r.material_request_number || "—" },
     { key: "vendor_count", label: "Vendors" },
     { key: "due_date", label: "Due Date", render: (r) => (r.due_date ? String(r.due_date).slice(0, 10) : "—") },
@@ -508,7 +508,7 @@ export default function RFQ() {
     },
   ];
 
-  if (loading) return <Loader label="Loading RFQs..." />;
+  if (loading) return <Loader label="Loading Request for Quotation (RFQ)s..." />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -516,7 +516,7 @@ export default function RFQ() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Request for Quotation (RFQ)</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Send RFQs to multiple vendors and automatically compare quotations.
+            Send Request for Quotation (RFQ)s to multiple vendors and automatically compare quotations.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -525,7 +525,7 @@ export default function RFQ() {
             onClick={() => setIsCreateOpen(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-blue-700"
           >
-            <Plus className="h-4 w-4" /> Create RFQ
+            <Plus className="h-4 w-4" /> Create Request for Quotation (RFQ)
           </button>
           <button
             type="button"
@@ -538,10 +538,10 @@ export default function RFQ() {
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Open RFQs" value={summary.open_rfqs} icon={FileSearch} color="bg-blue-600" />
+        <KpiCard label="Open Request for Quotation (RFQ)s" value={summary.open_rfqs} icon={FileSearch} color="bg-blue-600" />
         <KpiCard label="Vendor Responses" value={summary.vendor_responses} icon={FileSearch} color="bg-indigo-600" />
-        <KpiCard label="Expired RFQs" value={summary.expired_rfqs} icon={FileSearch} color="bg-slate-500" />
-        <KpiCard label="Awarded RFQs" value={summary.awarded_rfqs} icon={Award} color="bg-emerald-600" />
+        <KpiCard label="Expired Request for Quotation (RFQ)s" value={summary.expired_rfqs} icon={FileSearch} color="bg-slate-500" />
+        <KpiCard label="Awarded Request for Quotation (RFQ)s" value={summary.awarded_rfqs} icon={Award} color="bg-emerald-600" />
       </div>
 
       <WorkflowStrip />
@@ -550,7 +550,7 @@ export default function RFQ() {
         <DataTable
           columns={columns}
           data={rows}
-          searchPlaceholder="Search RFQ..."
+          searchPlaceholder="Search Request for Quotation (RFQ)..."
           searchKeys={["rfq_number", "material_request_number", "status"]}
         />
       </div>

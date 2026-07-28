@@ -156,7 +156,7 @@ export default function AccountsDashboard() {
         <QuickLink to="/finance/accounts-receivable" label="Accounts Receivable" />
         <QuickLink to="/finance/payment-tracking" label="Payment Tracking" />
         <QuickLink to="/finance/general-ledger" label="General Ledger" />
-        <QuickLink to="/accounts/tax-reports" label="GST Reports" />
+        <QuickLink to="/accounts/tax-reports" label="Goods & Services Tax (GST) Reports" />
         <QuickLink to="/accounts/profit-loss" label="Profit & Loss" />
         <QuickLink to="/accounts/balance-sheet" label="Balance Sheet" />
         <QuickLink to="/accounts/trial-balance" label="Trial Balance" />

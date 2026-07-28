@@ -14,7 +14,7 @@ const TABS = [
   { id: "general", label: "General" },
   { id: "inventory", label: "Inventory" },
   { id: "pricing", label: "Pricing" },
-  { id: "bom", label: "BOM" },
+  { id: "bom", label: "Bill of Materials (BOM)" },
   { id: "suppliers", label: "Suppliers" },
   { id: "purchase", label: "Purchase History" },
   { id: "sales", label: "Sales History" },
@@ -59,7 +59,7 @@ export default function ProductDetailModal({
           <div>
             <p className="text-xs font-semibold text-[#2563EB]">{product.product_code}</p>
             <h2 className="text-xl font-bold text-slate-900">{product.name}</h2>
-            <p className="text-sm text-slate-500">{product.category} · {product.sku}</p>
+            <p className="text-sm text-slate-500">{product.category}</p>
           </div>
           <button
             type="button"
@@ -96,12 +96,12 @@ export default function ProductDetailModal({
                 <Field label="Product Name" value={product.name} />
                 <Field label="Category" value={product.category} />
                 <Field label="Product Type" value={product.product_type} />
-                <Field label="SKU" value={product.sku} />
+
                 <Field label="Barcode" value={product.barcode} />
                 <Field label="Brand" value={product.brand} />
                 <Field label="Unit" value={product.unit} />
                 <Field label="HSN Code" value={product.hsn_code} />
-                <Field label="GST %" value={product.gst_percent != null ? `${product.gst_percent}%` : "—"} />
+                <Field label="Goods & Services Tax (GST) %" value={product.gst_percent != null ? `${product.gst_percent}%` : "—"} />
                 <Field label="Warehouse" value={product.warehouse} />
                 <Field label="Status" value={product.status} />
               </div>
@@ -136,7 +136,7 @@ export default function ProductDetailModal({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Field label="Purchase Price" value={formatPrice(product.purchase_price)} />
               <Field label="Selling Price" value={formatPrice(product.selling_price)} />
-              <Field label="GST %" value={product.gst_percent != null ? `${product.gst_percent}%` : "—"} />
+              <Field label="Goods & Services Tax (GST) %" value={product.gst_percent != null ? `${product.gst_percent}%` : "—"} />
               <Field label="HSN Code" value={product.hsn_code} />
               <Field label="Margin" value={
                 product.selling_price && product.purchase_price
@@ -148,9 +148,9 @@ export default function ProductDetailModal({
 
           {tab === "bom" && (
             <div className="space-y-3">
-              <p className="text-sm text-slate-600">BOM reference: <strong>{product.bom}</strong></p>
+              <p className="text-sm text-slate-600">Bill of Materials (BOM) reference: <strong>{product.bom}</strong></p>
               <Link to="/masters/bom" className="text-sm font-semibold text-[#2563EB] hover:underline">
-                Open BOM Master →
+                Open Bill of Materials (BOM) Master →
               </Link>
             </div>
           )}
@@ -214,44 +214,41 @@ export function ProductFormModal({ product, onClose, onSave }) {
   const [form, setForm] = useState({
     product_code: product?.product_code || "",
     name: product?.name || "",
-    sku: product?.sku || "",
     category: product?.category || "Finished Goods",
     product_type: product?.product_type || "Finished Goods",
-    unit: product?.unit || product?.unit_of_measure || product?.uom || "Pcs",
+    unit: product?.unit || product?.unit_of_measure || product?.uom || "PCS",
     brand: product?.brand || "",
     warehouse: product?.warehouse || "Main Store",
-    purchase_price: product?.purchase_price ?? "",
-    selling_price: product?.selling_price ?? "",
-    min_stock: product?.min_stock ?? 1,
-    max_stock: product?.max_stock ?? 100,
-    current_stock: product?.current_stock ?? 1,
+    quantity: product?.quantity ?? "",
+    price_per_unit: product?.price_per_unit ?? product?.selling_price ?? product?.price ?? "",
     description: product?.description || "",
     status: product?.status || "active",
   });
 
-  const normalizePositiveInt = (value) => {
-    const cleaned = String(value).replace(/[^0-9]/g, "");
-    if (!cleaned) return "";
-    const parsed = parseInt(cleaned, 10);
-    return parsed > 0 ? parsed : "";
-  };
-
-  const isPositiveInt = (value) => /^[1-9][0-9]*$/.test(String(value));
-
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+
+  const qty = Number(form.quantity) || 0;
+  const ppu = Number(form.price_per_unit) || 0;
+  const totalCost = qty * ppu;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (
-      !isPositiveInt(form.purchase_price) ||
-      !isPositiveInt(form.selling_price) ||
-      !isPositiveInt(form.min_stock) ||
-      !isPositiveInt(form.current_stock)
-    ) {
-      window.alert("Please enter positive whole numbers from 1 for Purchase Price, Selling Price, Min Stock, and Current Stock.");
+    if (!form.price_per_unit || isNaN(ppu) || ppu <= 0) {
+      window.alert("Please enter a valid Price per Unit (must be a positive number).");
       return;
     }
-    onSave(form);
+    if (!form.quantity || isNaN(qty) || qty <= 0) {
+      window.alert("Please enter a valid Quantity (must be a positive number).");
+      return;
+    }
+    onSave({
+      ...form,
+      quantity: qty,
+      price_per_unit: ppu,
+      selling_price: totalCost,
+      purchase_price: totalCost,
+      total_cost: totalCost,
+    });
   };
 
   return (
@@ -277,14 +274,11 @@ export function ProductFormModal({ product, onClose, onSave }) {
             <span className="text-xs font-semibold text-slate-500">Product Name *</span>
             <input required value={form.name} onChange={(e) => set("name", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">SKU *</span>
-            <input required value={form.sku} onChange={(e) => set("sku", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          </label>
+
           <label>
             <span className="text-xs font-semibold text-slate-500">Category</span>
             <select value={form.category} onChange={(e) => set("category", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              {["Raw Material", "WIP", "Finished Goods", "Consumables", "Spare Parts"].map((c) => (
+              {["Raw Material", "Work in Progress (WIP)", "Finished Goods", "Consumables", "Spare Parts"].map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -304,73 +298,41 @@ export function ProductFormModal({ product, onClose, onSave }) {
             </select>
           </label>
           <label>
-            <span className="text-xs font-semibold text-slate-500">Purchase Price (₹)</span>
+            <span className="text-xs font-semibold text-slate-500">Quantity *</span>
             <input
               required
-              type="text"
-              inputMode="numeric"
-              pattern="[1-9][0-9]*"
-              value={form.purchase_price}
-              onChange={(e) => set("purchase_price", normalizePositiveInt(e.target.value))}
-              onPaste={(e) => {
-                const pasted = e.clipboardData.getData("text").replace(/[^0-9]/g, "");
-                e.preventDefault();
-                set("purchase_price", normalizePositiveInt(pasted));
-              }}
+              type="number"
+              min="1"
+              step="1"
+              placeholder="e.g. 20"
+              value={form.quantity}
+              onChange={(e) => set("quantity", e.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
           </label>
           <label>
-            <span className="text-xs font-semibold text-slate-500">Selling Price (₹)</span>
+            <span className="text-xs font-semibold text-slate-500">Price per Unit (₹) *</span>
             <input
               required
-              type="text"
-              inputMode="numeric"
-              pattern="[1-9][0-9]*"
-              value={form.selling_price}
-              onChange={(e) => set("selling_price", normalizePositiveInt(e.target.value))}
-              onPaste={(e) => {
-                const pasted = e.clipboardData.getData("text").replace(/[^0-9]/g, "");
-                e.preventDefault();
-                set("selling_price", normalizePositiveInt(pasted));
-              }}
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="e.g. 100"
+              value={form.price_per_unit}
+              onChange={(e) => set("price_per_unit", e.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
           </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Min Stock</span>
-            <input
-              required
-              type="text"
-              inputMode="numeric"
-              pattern="[1-9][0-9]*"
-              value={form.min_stock}
-              onChange={(e) => set("min_stock", normalizePositiveInt(e.target.value))}
-              onPaste={(e) => {
-                const pasted = e.clipboardData.getData("text").replace(/[^0-9]/g, "");
-                e.preventDefault();
-                set("min_stock", normalizePositiveInt(pasted));
-              }}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Current Stock</span>
-            <input
-              required
-              type="text"
-              inputMode="numeric"
-              pattern="[1-9][0-9]*"
-              value={form.current_stock}
-              onChange={(e) => set("current_stock", normalizePositiveInt(e.target.value))}
-              onPaste={(e) => {
-                const pasted = e.clipboardData.getData("text").replace(/[^0-9]/g, "");
-                e.preventDefault();
-                set("current_stock", normalizePositiveInt(pasted));
-              }}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
+          {qty > 0 && ppu > 0 && (
+            <div className="sm:col-span-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 flex items-center justify-between">
+              <span className="text-xs font-semibold text-blue-600">
+                {qty} {form.unit} × ₹{ppu.toLocaleString("en-IN")} per unit
+              </span>
+              <span className="text-base font-bold text-blue-700">
+                Total: ₹{totalCost.toLocaleString("en-IN")}
+              </span>
+            </div>
+          )}
           <label className="sm:col-span-2">
             <span className="text-xs font-semibold text-slate-500">Status</span>
             <select

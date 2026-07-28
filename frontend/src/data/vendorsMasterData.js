@@ -13,10 +13,10 @@ export const INDIAN_STATES = [
 export const WORKFLOW_STEPS = [
   "Create Vendor",
   "Purchase Request",
-  "RFQ",
+  "Request for Quotation (RFQ)",
   "Quotation",
   "Purchase Order",
-  "GRN",
+  "Goods Receipt Note (GRN)",
   "Vendor Bill",
   "Payment",
   "Ledger Update",

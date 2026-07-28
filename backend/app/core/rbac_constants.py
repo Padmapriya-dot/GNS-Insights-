@@ -172,6 +172,7 @@ SIDEBAR_MENU_CATALOG = [
             {"label": "Machine Allocation", "path": "/production/tasks", "module": "production"},
             {"label": "Assign Tasks", "path": "/production/assign-tasks", "module": "production"},
             {"label": "Batch Tracking", "path": "/production/batches", "module": "production"},
+            {"label": "Daily Production Reports", "path": "/production/reports", "module": "production"},
             {"label": "Machine Status", "path": "/production/machines", "module": "production"},
         ],
     },
@@ -195,7 +196,7 @@ SIDEBAR_MENU_CATALOG = [
         "path": None,
         "module": "procurement",
         "children": [
-            {"label": "Purchase Request", "path": "/procurement/material-requests", "module": "procurement"},
+            {"label": "Material Request", "path": "/procurement/material-requests", "module": "procurement"},
             {"label": "RFQ", "path": "/procurement/rfq", "module": "procurement"},
             {"label": "Purchase Orders", "path": "/procurement/purchase-orders", "module": "procurement"},
             {"label": "Goods Receipt", "path": "/procurement/goods-receipt", "module": "procurement"},

@@ -13,7 +13,7 @@ import { starRating } from "../../data/vendorsMasterData";
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "purchase_orders", label: "Purchase Orders" },
-  { id: "grn", label: "GRN" },
+  { id: "grn", label: "Goods Receipt Note (GRN)" },
   { id: "bills", label: "Bills" },
   { id: "payments", label: "Payments" },
   { id: "ledger", label: "Ledger" },
@@ -214,7 +214,7 @@ export default function VendorDetailModal({
           )}
 
           {tab === "grn" && (
-            <TabPlaceholder title="GRN records for this vendor" link="/procurement/goods-receipt" linkLabel="View goods receipts" />
+            <TabPlaceholder title="Goods Receipt Note (GRN) records for this vendor" link="/procurement/goods-receipt" linkLabel="View goods receipts" />
           )}
 
           {tab === "bills" && (

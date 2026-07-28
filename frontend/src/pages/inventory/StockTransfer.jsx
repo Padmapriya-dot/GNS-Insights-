@@ -211,7 +211,7 @@ export default function StockTransfer() {
       <header>
         <h1 className="text-2xl font-bold text-slate-900">Stock Transfer</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Create inter-warehouse transfers with approval workflow.
+          Initiate or approve material transfers from Main Store to Shop Floor Store.
         </p>
       </header>
 

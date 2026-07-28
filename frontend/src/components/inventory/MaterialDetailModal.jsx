@@ -25,7 +25,7 @@ export default function MaterialDetailModal({ material, onClose }) {
         <div className="overflow-y-auto p-6">
           {tab === "General" && (
             <dl className="grid gap-3 sm:grid-cols-2">
-              {[["SKU", material.sku], ["Barcode", material.barcode], ["Category", material.category], ["Unit", material.unit], ["Unit Cost", material.unit_cost], ["Reorder Level", material.reorder_level], ["Description", material.description]].map(([k, v]) => (
+              {[["Stock Keeping Unit (SKU)", material.sku], ["Barcode", material.barcode], ["Category", material.category], ["Unit", material.unit], ["Unit Cost", material.unit_cost], ["Reorder Level", material.reorder_level], ["Description", material.description]].map(([k, v]) => (
                 <div key={k} className="rounded-lg border bg-slate-50 p-3"><dt className="text-xs text-slate-500">{k}</dt><dd className="font-semibold text-slate-800">{v ?? "—"}</dd></div>
               ))}
             </dl>

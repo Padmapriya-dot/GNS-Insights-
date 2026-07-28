@@ -108,18 +108,27 @@ def get_shop_floor_grid(db: Session, tenant_id: int) -> list[ShopFloorGridRowRea
         if wo:
             wo_id = wo.id
             wo_num = wo.work_order_number
-            shift = wo.shift
+            shift = wo.shift or m.current_shift
             po = db.get(ProductionOrder, wo.production_order_id)
             if po:
                 product = db.get(Product, po.product_id)
                 product_name = product.name if product else None
-            if wo.assigned_user_id:
+            
+            operator_name = wo.operator_name
+            if not operator_name and wo.assigned_user_id:
                 user = db.get(User, wo.assigned_user_id)
                 operator_name = user.full_name if user else None
+            if not operator_name and m.assigned_operator:
+                operator_name = m.assigned_operator
+
             planned = float(wo.planned_quantity or 0)
             actual = float(wo.actual_quantity or 0)
             progress = round(actual / planned * 100, 1) if planned else 0
             status = wo.status if wo.status in RUNNING_WO else m.status
+        else:
+            shift = m.current_shift
+            operator_name = m.assigned_operator
+
         rows.append(
             ShopFloorGridRowRead(
                 machine_id=m.id,

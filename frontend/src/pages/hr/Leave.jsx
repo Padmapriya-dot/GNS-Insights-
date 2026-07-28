@@ -211,7 +211,7 @@ export default function Leave() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
-        {["Employee", "Manager", "HR", "Approved"].map((s, i, arr) => (
+        {["Employee", "Manager", "Human Resources (HR)", "Approved"].map((s, i, arr) => (
           <span key={s} className="flex items-center gap-2">
             <span className="rounded-lg bg-white px-2 py-1 shadow-sm">{s}</span>
             {i < arr.length - 1 && <span className="text-slate-400">↓</span>}

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_deps import get_current_user
 from app.api.deps import get_db
-from app.core.permissions import require_admin, user_has_permission, user_is_admin
+from app.core.permissions import get_role_names, require_admin, user_has_permission, user_is_admin
 from app.core.rbac_constants import (
     MODULE_CATALOG,
     PERMISSION_MATRIX,
@@ -29,15 +29,73 @@ from app.services.settings_service import SettingsService
 
 router = APIRouter(tags=["rbac"])
 
+PRODUCTION_MANAGER_ALLOWED_SECTIONS = {
+    "dashboard",
+    "masters",
+    "production",
+    "inventory",
+    "procurement",
+    "quality",
+    "maintenance",
+    "alerts",
+    "documents",
+    "analytics",
+}
+
+PRODUCTION_MANAGER_ALLOWED_CHILDREN = {
+    "/masters/products",
+    "/masters/bom",
+    "/production/machines",
+    "/production/planning",
+    "/production/mrp",
+    "/production/work-orders",
+    "/production/schedule",
+    "/factory-monitor/live-production",
+    "/production/tasks",
+    "/production/assign-tasks",
+    "/production/batches",
+    "/production/reports",
+    "/inventory/raw-materials",
+    "/inventory/finished-goods",
+    "/inventory/stock-transfer",
+    "/procurement/material-requests",
+    "/quality/in-process",
+    "/quality/final",
+    "/quality/defects",
+    "/maintenance/preventive",
+    "/maintenance/breakdowns",
+    "/maintenance/machine-history",
+    "/alerts",
+    "/alerts/low-stock",
+    "/alerts/machine-failure",
+    "/alerts/production-delay",
+    "/alerts/maintenance",
+    "/alerts/quality",
+    "/alerts/safety",
+    "/alerts/general",
+    "/documents",
+    "/documents/production",
+    "/documents/quality",
+    "/documents/reports",
+    "/analytics/production",
+    "/analytics/inventory",
+    "/analytics/live",
+}
+
 
 def _user_can_see_module(user: User, module: str) -> bool:
     if user_is_admin(user):
         return True
+    user_roles_list = [r.lower() for r in get_role_names(user)]
+    if any("production manager" in r or "production_manager" in r for r in user_roles_list):
+        if module in PRODUCTION_MANAGER_ALLOWED_SECTIONS:
+            return True
     return user_has_permission(user, module)
 
 
 def _svc(db: Session, admin: User) -> SettingsService:
     return SettingsService(db, admin)
+
 
 
 @router.get("/roles", response_model=list[RoleOptionResponse])
@@ -114,9 +172,16 @@ def get_sidebar_menus(
     db: Session = Depends(get_db),
 ):
     """Return only sidebar menus allowed for the logged-in role."""
-    db.refresh(current_user, ["roles"])
+    user_roles_list = [r.lower() for r in get_role_names(current_user)]
+    is_admin = any("admin" in r for r in user_roles_list)
+    is_prod_manager = not is_admin and any(
+        "production manager" in r or "production_manager" in r for r in user_roles_list
+    )
+
     menus: list[SidebarItemResponse] = []
     for section in SIDEBAR_MENU_CATALOG:
+        if is_prod_manager and section["key"] not in PRODUCTION_MANAGER_ALLOWED_SECTIONS:
+            continue
         if section["key"] == "alerts" and "Operator" in [r.name for r in current_user.roles]:
             continue
         children_src = section.get("children") or []
@@ -144,15 +209,18 @@ def get_sidebar_menus(
             continue
 
         if children_src:
-            allowed_children = [
-                SidebarChildResponse(
-                    label=c["label"],
-                    path=c["path"],
-                    module=c["module"],
-                )
-                for c in children_src
-                if _user_can_see_module(current_user, c["module"])
-            ]
+            allowed_children = []
+            for c in children_src:
+                if is_prod_manager and c["path"] not in PRODUCTION_MANAGER_ALLOWED_CHILDREN:
+                    continue
+                if _user_can_see_module(current_user, c["module"]):
+                    allowed_children.append(
+                        SidebarChildResponse(
+                            label=c["label"],
+                            path=c["path"],
+                            module=c["module"],
+                        )
+                    )
             if allowed_children:
                 menus.append(
                     SidebarItemResponse(

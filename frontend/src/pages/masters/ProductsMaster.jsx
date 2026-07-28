@@ -95,13 +95,9 @@ export default function ProductsMaster() {
     try {
       const res = await getProducts();
       const apiRows = res.data || [];
-      if (apiRows.length > 0) {
-        setProducts(apiRows.map((row, i) => enrichApiProduct(row, i)));
-      } else {
-        setProducts(DEMO_PRODUCTS);
-      }
+      setProducts(apiRows.map((row, i) => enrichApiProduct(row, i)));
     } catch {
-      setProducts(DEMO_PRODUCTS);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -145,10 +141,10 @@ export default function ProductsMaster() {
     { key: "product_code", label: "Product Code" },
     { key: "name", label: "Product Name" },
     { key: "category", label: "Category" },
-    { key: "sku", label: "SKU" },
+    { key: "quantity", label: "Quantity" },
     { key: "unit", label: "Unit" },
-    { key: "selling_price", label: "Price" },
-    { key: "current_stock", label: "Stock" },
+    { key: "price_per_unit", label: "Price per Unit" },
+    { key: "total_cost", label: "Total Cost" },
     { key: "status", label: "Status" },
   ];
 
@@ -178,86 +174,34 @@ export default function ProductsMaster() {
   };
 
   const handleSaveProduct = async (form) => {
-    const purchasePrice = Number(form.purchase_price) || 0;
-    const sellingPrice = Number(form.selling_price) || 0;
-    const minStock = Number(form.min_stock) || 0;
-    const currentStock = Number(form.current_stock) || 0;
-    const maxStock = Number(form.max_stock) || (minStock ? minStock * 10 : 100);
+    const qty = Number(form.quantity) || 0;
+    const ppu = Number(form.price_per_unit) || 0;
+    const totalCost = qty * ppu;
 
+    // Backend Product model fields: unit_cost = price per unit, unit_price = total cost, current_stock = quantity
     const payload = {
       tenant_id: tenantId,
-      sku: form.sku,
       name: form.name,
       description: form.description || null,
-      unit_cost: purchasePrice,
-      unit_price: sellingPrice,
-      min_stock: minStock,
-      current_stock: currentStock,
-      max_stock: maxStock,
+      unit_cost: ppu,          // price per unit → stored as unit_cost
+      unit_price: totalCost,   // total cost → stored as unit_price
+      current_stock: qty,      // quantity → stored as current_stock
       unit: form.unit || "Pcs",
-    };
-
-    const count = products.length + 1;
-    const code = form.product_code || `PRD${String(count).padStart(3, "0")}`;
-
-    const enrichedProductData = {
-      product_code: code,
-      name: form.name,
-      sku: form.sku,
-      category: form.category || "Finished Goods",
-      product_type: form.product_type || "Finished Goods",
-      unit: form.unit || "Pcs",
-      brand: form.brand || "—",
-      warehouse: form.warehouse || "—",
-      purchase_price: purchasePrice,
-      selling_price: sellingPrice,
-      min_stock: minStock,
-      max_stock: maxStock,
-      current_stock: currentStock,
-      stock_value: currentStock * sellingPrice,
-      description: form.description || "",
-      status: form.status || "active",
-      created_at: new Date().toISOString().slice(0, 10),
     };
 
     try {
       if (formProduct?.id && typeof formProduct.id === "number") {
         await updateProduct(formProduct.id, payload);
-        setProducts((prev) =>
-          prev.map((p) =>
-            p.id === formProduct.id
-              ? {
-                  ...p,
-                  ...enrichedProductData,
-                  id: formProduct.id,
-                }
-              : p
-          )
-        );
         addToast("Product updated");
       } else {
-        const result = await createProduct(payload);
-        const newProduct = {
-          ...enrichedProductData,
-          id: result?.id ?? `new-${Date.now()}`,
-        };
-        setProducts((prev) => [newProduct, ...prev]);
+        await createProduct(payload);
         addToast("Product created");
       }
       setFormProduct(null);
+      // Re-fetch from server so all fields stay in sync after save
+      await loadProducts();
     } catch (err) {
-      const localId = formProduct?.id || `new-${Date.now()}`;
-      const newProduct = {
-        ...enrichedProductData,
-        id: localId,
-      };
-      if (formProduct?.id) {
-        setProducts((prev) => prev.map((p) => (p.id === formProduct.id ? newProduct : p)));
-        addToast("Product updated locally");
-      } else {
-        setProducts((prev) => [newProduct, ...prev]);
-        addToast("Product added locally");
-      }
+      addToast("Failed to save product — please try again", "error");
       setFormProduct(null);
     }
   };
@@ -298,17 +242,36 @@ export default function ProductsMaster() {
     { key: "product_code", label: "Product Code" },
     { key: "name", label: "Product Name" },
     { key: "category", label: "Category" },
-    { key: "sku", label: "SKU" },
-    { key: "unit", label: "Unit" },
     {
-      key: "selling_price",
-      label: "Price",
-      render: (r) => `₹${Number(r.selling_price || 0).toLocaleString("en-IN")}`,
+      key: "quantity",
+      label: "Quantity",
+      render: (r) => (
+        <span className="font-semibold text-slate-700">
+          {r.quantity != null ? `${r.quantity} ${r.unit || ""}` : "—"}
+        </span>
+      ),
     },
     {
-      key: "current_stock",
-      label: "Stock",
-      render: (r) => Number(r.current_stock || 0).toLocaleString("en-IN"),
+      key: "price_per_unit",
+      label: "Price / Unit",
+      render: (r) =>
+        r.price_per_unit != null
+          ? `₹${Number(r.price_per_unit).toLocaleString("en-IN")}`
+          : "—",
+    },
+    {
+      key: "selling_price",
+      label: "Total Cost",
+      render: (r) => {
+        const qty = Number(r.quantity) || 0;
+        const ppu = Number(r.price_per_unit) || 0;
+        const total = qty && ppu ? qty * ppu : Number(r.selling_price || r.total_cost || 0);
+        return (
+          <span className="font-bold text-[#2563EB]">
+            ₹{total.toLocaleString("en-IN")}
+          </span>
+        );
+      },
     },
     {
       key: "status",
@@ -399,7 +362,7 @@ export default function ProductsMaster() {
           columns={columns}
           data={filteredProducts}
           searchPlaceholder="Search Product"
-          searchKeys={["product_code", "name", "category", "sku", "brand"]}
+          searchKeys={["product_code", "name", "category", "brand"]}
           filters={[]}
           pageSize={10}
         />

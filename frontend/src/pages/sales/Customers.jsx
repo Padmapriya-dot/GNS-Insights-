@@ -90,13 +90,9 @@ export default function Customers() {
     try {
       const res = await getCustomers();
       const apiRows = res.data || [];
-      if (apiRows.length > 0) {
-        setCustomers(apiRows.map((row, i) => enrichApiCustomer(row, i)));
-      } else {
-        setCustomers(DEMO_CUSTOMERS);
-      }
+      setCustomers(apiRows.map((row, i) => enrichApiCustomer(row, i)));
     } catch {
-      setCustomers(DEMO_CUSTOMERS);
+      setCustomers([]);
     } finally {
       setLoading(false);
     }

@@ -3,34 +3,35 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.core.permissions import require_permission, tenant_scope
 from app.models.hr import Employee
 from app.models.task import Task
 from app.models.user import User
+from app.routers.operator_deps import require_tenant
 from app.schemas.task import TaskCreate, TaskRead, TaskUpdate
 from app.services import task_service
 
 router = APIRouter(prefix="/tasks", tags=["Task Management"])
 
-MODULE = "production"
-
 
 @router.get("/assign-tasks", response_model=list[TaskRead])
 def get_assigned_tasks(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    user_tenant: tuple[User, int] = Depends(require_tenant("production")),
+    db: Session = Depends(get_db),
 ) -> list[TaskRead]:
     """All tasks for the tenant (open + assigned)."""
+    user, tenant_id = user_tenant
     return task_service.list_tasks(db, tenant_id)
 
 
 @router.post("/assign-tasks", response_model=TaskRead)
 def create_task_endpoint(
     payload: TaskCreate,
-    user: User = Depends(require_permission(MODULE)),
+    user_tenant: tuple[User, int] = Depends(require_tenant("production")),
     db: Session = Depends(get_db),
 ) -> TaskRead:
+    user, tenant_id = user_tenant
     if not payload.tenant_id:
-        payload.tenant_id = user.tenant_id
+        payload.tenant_id = tenant_id
     return task_service.create_task(db, payload)
 
 
@@ -38,9 +39,10 @@ def create_task_endpoint(
 def update_task_endpoint(
     task_id: int,
     payload: TaskUpdate,
-    tenant_id: int = Depends(tenant_scope(MODULE)),
+    user_tenant: tuple[User, int] = Depends(require_tenant("production")),
     db: Session = Depends(get_db),
 ) -> TaskRead:
+    user, tenant_id = user_tenant
     task = task_service.update_task(db, tenant_id, task_id, payload)
     if not task:
         raise HTTPException(404, "Task not found")
@@ -50,9 +52,10 @@ def update_task_endpoint(
 @router.delete("/{task_id}")
 def delete_task_endpoint(
     task_id: int,
-    tenant_id: int = Depends(tenant_scope(MODULE)),
+    user_tenant: tuple[User, int] = Depends(require_tenant("production")),
     db: Session = Depends(get_db),
 ):
+    user, tenant_id = user_tenant
     if not task_service.delete_task(db, tenant_id, task_id):
         raise HTTPException(404, "Task not found")
     return {"deleted": True, "id": task_id}
@@ -60,9 +63,11 @@ def delete_task_endpoint(
 
 @router.get("/task-tracking")
 def get_task_tracking(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    user_tenant: tuple[User, int] = Depends(require_tenant("production")),
+    db: Session = Depends(get_db),
 ):
     """Tasks enriched with assignee name for tracking boards."""
+    user, tenant_id = user_tenant
     rows = db.execute(
         select(
             Task.id,
@@ -91,9 +96,11 @@ def get_task_tracking(
 
 @router.get("/task-reports")
 def get_task_reports(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    user_tenant: tuple[User, int] = Depends(require_tenant("production")),
+    db: Session = Depends(get_db),
 ):
     """Status + priority breakdown for the tenant's tasks."""
+    user, tenant_id = user_tenant
     by_status = dict(
         db.execute(
             select(Task.status, func.count(Task.id))

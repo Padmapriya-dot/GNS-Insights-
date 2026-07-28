@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   BarChart3,
+  Boxes,
   CheckCircle2,
   Factory,
   LayoutDashboard,
@@ -14,6 +15,7 @@ import { isAdmin, userCanAccess } from "../../config/permissions";
 const NAV_ITEMS = [
   { key: "dashboard", labelKey: "productionManagerNav.dashboard", to: "/", icon: LayoutDashboard, module: "dashboard", end: true },
   { key: "production", labelKey: "productionManagerNav.production", to: "/production", icon: Factory, module: "production" },
+  { key: "inventory", labelKey: "productionManagerNav.inventory", to: "/inventory/raw-materials", icon: Boxes, module: "inventory" },
   { key: "quality", labelKey: "productionManagerNav.quality", to: "/quality/inspection", icon: CheckCircle2, module: "quality" },
   { key: "machineMonitoring", labelKey: "productionManagerNav.machineMonitoring", to: "/factory-monitor/live-production", icon: Monitor, module: "factoryMonitor" },
   { key: "analytics", labelKey: "productionManagerNav.analytics", to: "/analytics/production", icon: BarChart3, module: "analytics" },

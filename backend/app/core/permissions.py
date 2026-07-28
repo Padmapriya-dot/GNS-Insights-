@@ -20,13 +20,36 @@ def is_valid_permission(code: str) -> bool:
 
 
 def get_role_names(user: User) -> list[str]:
-    return [r.name for r in user.roles]
+    if not user:
+        return []
+    names = []
+    roles = getattr(user, "roles", []) or []
+    for r in roles:
+        if hasattr(r, "name") and r.name:
+            names.append(r.name)
+        elif isinstance(r, str):
+            names.append(r)
+    if hasattr(user, "role") and getattr(user, "role"):
+        names.append(str(getattr(user, "role")))
+    if hasattr(user, "role_name") and getattr(user, "role_name"):
+        names.append(str(getattr(user, "role_name")))
+    if isinstance(user, dict):
+        if "role" in user and user["role"]:
+            names.append(str(user["role"]))
+        if "role_name" in user and user["role_name"]:
+            names.append(str(user["role_name"]))
+        if "roles" in user and isinstance(user["roles"], list):
+            names.extend([str(r) for r in user["roles"]])
+    return names
 
 
 def get_user_permissions(user: User) -> set[str]:
     perms: set[str] = set()
-    for role in user.roles:
-        for p in role.permissions or []:
+    if not user:
+        return perms
+    roles = getattr(user, "roles", []) or []
+    for role in roles:
+        for p in getattr(role, "permissions", []) or []:
             perms.add(p)
     return perms
 

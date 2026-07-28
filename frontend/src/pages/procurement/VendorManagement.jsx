@@ -111,14 +111,10 @@ export default function VendorManagement() {
         getVendorSummary().catch(() => ({ data: null })),
       ]);
       const apiRows = vRes.data || [];
-      if (apiRows.length > 0) {
-        setVendors(apiRows.map((row, i) => enrichApiVendor(row, i)));
-      } else {
-        setVendors(DEMO_VENDORS);
-      }
+      setVendors(apiRows.map((row, i) => enrichApiVendor(row, i)));
       setApiSummary(sRes.data);
     } catch {
-      setVendors(DEMO_VENDORS);
+      setVendors([]);
     } finally {
       setLoading(false);
     }

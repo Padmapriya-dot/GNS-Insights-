@@ -379,6 +379,16 @@ def on_startup():
             conn.execute(text("UPDATE access_logs SET company_id = tenant_id WHERE company_id IS NULL"))
     except Exception:
         pass
+    _production_columns = [
+        "ALTER TABLE production_orders ADD COLUMN actual_quantity NUMERIC(12, 2)",
+        "ALTER TABLE work_orders ADD COLUMN actual_quantity NUMERIC(12, 2)",
+    ]
+    for ddl in _production_columns:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
     _rbac_columns = [
         "ALTER TABLE users ADD COLUMN plant_code VARCHAR(64)",
         "ALTER TABLE users ADD COLUMN department VARCHAR(128)",

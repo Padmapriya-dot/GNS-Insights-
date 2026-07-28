@@ -101,7 +101,7 @@ function KpiStrip({ cards = [] }) {
     );
   }
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {cards.map((card) => {
         const titleKey = KPI_TITLE_KEYS[card.id];
         const trendKey = TREND_LABEL_KEYS[card.trendLabel];
@@ -456,9 +456,49 @@ function RecentWorkOrders({ workOrders = [] }) {
   );
 }
 
+function isProductionManagerUser(user) {
+  if (!user) return false;
+  const roles = Array.isArray(user.roles)
+    ? user.roles.map((r) => (typeof r === "object" ? r.name : String(r)))
+    : [];
+  const roleStr = String(user.role || user.role_name || (typeof user.roles === "string" ? user.roles : "")).toLowerCase();
+  const allRoles = [...roles.map((r) => String(r).toLowerCase()), roleStr];
+  if (allRoles.some((r) => r.includes("admin"))) return false;
+  return allRoles.some((r) => r.includes("production manager") || r.includes("production_manager"));
+}
+
 function TodaysSummary({ items = [] }) {
   const { t } = useTranslation();
-  if (!items.length) {
+  const { user } = useAuth();
+  const isPM = isProductionManagerUser(user);
+  const isOp = isOperator(user);
+  const filteredItems = useMemo(() => {
+    if (isOp) {
+      return items.filter(
+        (item) =>
+          item.key !== "manPower" &&
+          item.key !== "manpower" &&
+          item.key !== "powerConsumption" &&
+          item.key !== "stockMovements" &&
+          item.label !== "Man Power" &&
+          item.label !== "Manpower" &&
+          item.label !== "Power Consumption" &&
+          item.label !== "Stock Movements"
+      );
+    }
+    if (isPM) {
+      return items.filter(
+        (item) =>
+          item.key !== "powerConsumption" &&
+          item.key !== "stockMovements" &&
+          item.label !== "Power Consumption" &&
+          item.label !== "Stock Movements"
+      );
+    }
+    return items;
+  }, [items, isPM, isOp]);
+
+  if (!filteredItems.length) {
     return (
       <CardShell title={t("refDashboard.todaysSummary")}>
         <p className="py-8 text-center text-sm text-slate-500">{t("common.noData", "No data available.")}</p>
@@ -468,7 +508,7 @@ function TodaysSummary({ items = [] }) {
   return (
     <CardShell title={t("refDashboard.todaysSummary")}>
       <ul className="space-y-3">
-        {items.map((item, i) => {
+        {filteredItems.map((item, i) => {
           const Icon = summaryIcons[item.icon] || BarChart3;
           const label = item.key ? t(`refDashboard.${item.key}`, item.label) : (SUMMARY_KEYS[i] ? t(`refDashboard.${SUMMARY_KEYS[i]}`) : item.label);
           return (
@@ -489,6 +529,7 @@ function TodaysSummary({ items = [] }) {
 export default function ReferenceDashboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const isOp = isOperator(user);
   const [apiData, setApiData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -510,7 +551,47 @@ export default function ReferenceDashboard() {
 
   const kpiCardsLive = useMemo(() => {
     if (!apiData?.kpi_cards?.length) return [];
-    return apiData.kpi_cards.map((k) => ({ ...k, value: k.value ?? "0" }));
+    let localGood = 0;
+    let localReject = 0;
+    let hasLocalOrders = false;
+    const COMPLETED_STATUSES = ["completed", "closed", "done", "cancelled", "rejected"];
+    try {
+      const stored = localStorage.getItem("smrt_local_production_orders");
+      if (stored) {
+        const orders = JSON.parse(stored);
+        if (orders.length > 0) hasLocalOrders = true;
+        orders.forEach((o) => {
+          // Good qty: prefer explicit good_qty fields, then fall back to produced_quantity
+          const g = Number(o.good_qty ?? o.good_quantity ?? o.accepted_quantity ?? 0);
+          // Reject qty: prefer explicit reject_qty, then scrap fields
+          const r = Number(o.reject_qty ?? o.rejected_quantity ?? o.scrap_quantity ?? o.scrap ?? 0);
+          // produced_quantity fallback: if good_qty is 0, treat produced as good
+          const p = Number(o.produced_quantity ?? o.actual_quantity ?? 0);
+          // Good qty = explicit good_qty OR (produced - reject) OR produced
+          const effectiveGood = g > 0 ? g : (p > 0 ? Math.max(p - r, p) : 0);
+          localGood += effectiveGood;
+          localReject += r;
+        });
+      }
+    } catch (e) {}
+
+    return apiData.kpi_cards.map((k) => {
+      let val = k.value ?? "0";
+      if (k.id === "good-qty" || k.title?.toLowerCase().includes("good")) {
+        // Always use local sum if we have local orders (local is ground truth for good qty)
+        if (hasLocalOrders) {
+          val = String(localGood);
+        } else if (val === "0" || !val) {
+          val = String(localGood);
+        }
+      }
+      if ((k.id === "reject-qty" || k.title?.toLowerCase().includes("reject") || k.title?.toLowerCase().includes("scrap")) && (val === "0" || !val) && localReject > 0) {
+        val = String(localReject);
+      }
+      // pending-orders: always trust the backend value (counts non-completed Work Orders from DB)
+      // No localStorage override — backend is the single source of truth for this count
+      return { ...k, value: val };
+    });
   }, [apiData]);
 
   const chartSets = useMemo(() => {
@@ -553,33 +634,39 @@ export default function ReferenceDashboard() {
       <KpiStrip cards={kpiCardsLive} />
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-        <div className="xl:col-span-5">
+        <div className={isOp ? "xl:col-span-12" : "xl:col-span-5"}>
           <ProductionOverview chartSets={chartSets} />
         </div>
-        <div className="xl:col-span-3">
-          <ShopFloorStatus statusData={apiData?.shop_floor_status || []} />
-        </div>
-        <div className="xl:col-span-4">
-          <TopMachines machines={apiData?.top_machines || []} />
-        </div>
+        {!isOp && (
+          <>
+            <div className="xl:col-span-3">
+              <ShopFloorStatus statusData={apiData?.shop_floor_status || []} />
+            </div>
+            <div className="xl:col-span-4">
+              <TopMachines machines={apiData?.top_machines || []} />
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <div className={`grid grid-cols-1 gap-5 ${isOp ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
         <OrdersOverview overview={{ ...EMPTY_ORDERS, ...(apiData?.orders_overview || {}) }} />
-        <InventorySummary blocks={apiData?.inventory_blocks || []} warehouses={apiData?.warehouse_locations || []} />
+        {!isOp && (
+          <InventorySummary blocks={apiData?.inventory_blocks || []} warehouses={apiData?.warehouse_locations || []} />
+        )}
         <AlertsNotifications alerts={alertsLive} />
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-        {!isOperator(user) && (
+        {!isOp && (
           <div className="xl:col-span-3">
             <QuickActions />
           </div>
         )}
-        <div className={isOperator(user) ? "xl:col-span-7" : "xl:col-span-5"}>
+        <div className={isOp ? "xl:col-span-7" : "xl:col-span-5"}>
           <RecentWorkOrders workOrders={workOrdersLive} />
         </div>
-        <div className={isOperator(user) ? "xl:col-span-5" : "xl:col-span-4"}>
+        <div className={isOp ? "xl:col-span-5" : "xl:col-span-4"}>
           <TodaysSummary items={apiData?.todays_summary || []} />
         </div>
       </div>

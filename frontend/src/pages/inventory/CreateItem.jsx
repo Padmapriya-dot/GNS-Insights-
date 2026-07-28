@@ -190,13 +190,13 @@ export default function CreateItem() {
             <>
               <FormRow>
                 <Input
-                  label="Product SKU *"
+                  label="Product Stock Keeping Unit (SKU) *"
                   required
                   placeholder="e.g. FG-GEAR-1001"
                   value={form.sku}
                   onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
                   error={fieldErrors.sku}
-                  hint="Unique finished product SKU"
+                  hint="Unique finished product Stock Keeping Unit (SKU)"
                 />
                 <Input
                   label="Product Name *"
@@ -295,7 +295,7 @@ export default function CreateItem() {
             <>
               <FormRow>
                 <Input
-                  label="Material SKU *"
+                  label="Material Stock Keeping Unit (SKU) *"
                   required
                   placeholder="e.g. RM-STEEL-001"
                   value={form.sku}
@@ -365,10 +365,10 @@ export default function CreateItem() {
               <FormRow>
                 <Input
                   label="Unit"
-                  placeholder="kg, gms, Ltr, mtr, sheet, drum"
+                  placeholder="KGS, GMS, LTR, MTR, SQMTR, SHEET, DRUM, PCS"
                   value={form.unit}
                   onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-                  hint="Default: kg"
+                  hint="Default: KGS"
                 />
                 <Input
                   label="Unit Cost (₹)"

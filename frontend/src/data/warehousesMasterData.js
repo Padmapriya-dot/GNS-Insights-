@@ -4,7 +4,7 @@ export const WAREHOUSE_STATUSES = ["active", "inactive"];
 export const WAREHOUSE_TYPES = [
   "Raw Material",
   "Finished Goods",
-  "WIP",
+  "Work in Progress (WIP)",
   "General",
   "Distribution",
   "Transit",

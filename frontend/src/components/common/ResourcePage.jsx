@@ -123,6 +123,8 @@ export default function ResourcePage({
         values[field.name] = v === "" || v == null ? null : Number(v);
       } else if (field.type === "datetime") {
         values[field.name] = v ? new Date(v).toISOString() : new Date().toISOString();
+      } else if (field.type === "date") {
+        values[field.name] = v === "" || v == null ? null : v;
       } else if (v === "") {
         values[field.name] = field.required ? v : null;
       }

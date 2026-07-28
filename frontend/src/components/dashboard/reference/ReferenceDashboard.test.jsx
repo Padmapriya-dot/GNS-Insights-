@@ -65,4 +65,28 @@ describe("ReferenceDashboard", () => {
     expect(screen.getByText("refDashboard.alertsNotifications")).toBeInTheDocument();
     expect(screen.getByText("refDashboard.quickActions")).toBeInTheDocument();
   });
+
+  it("hides Quick Actions, Shop Floor, Top Machines, and Inventory Summary for Operator role", async () => {
+    mockUseAuth.mockReturnValue({
+      user: {
+        role: "Operator",
+        permissions: ["production"],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <ReferenceDashboard />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("refDashboard.productionOverview")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("refDashboard.shopFloorStatus")).not.toBeInTheDocument();
+    expect(screen.queryByText("refDashboard.topMachines")).not.toBeInTheDocument();
+    expect(screen.queryByText("refDashboard.inventorySummary")).not.toBeInTheDocument();
+    expect(screen.queryByText("refDashboard.quickActions")).not.toBeInTheDocument();
+  });
 });

@@ -33,20 +33,20 @@ export default function IncomingInspection() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sumRes, listRes] = await Promise.allSettled([getIncomingSummary(), getIncomingEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0 && sumRes.value.data.todays_inspections > 0) {
-        setSummary({ ...DEMO_INCOMING_SUMMARY, ...sumRes.value.data });
+      const emptySummary = { todays_inspections: 0, pending_grn: 0, passed: 0, rejected: 0, vendor_rejection_rate: "0%" };
+      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0) {
+        setSummary({ ...emptySummary, ...sumRes.value.data });
       } else {
-        setSummary(DEMO_INCOMING_SUMMARY);
+        setSummary(emptySummary);
       }
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length > 0) {
+      if (listRes.status === "fulfilled" && listRes.value?.data) {
         setRows(listRes.value.data);
       } else {
-        setRows(DEMO_INCOMING_LIST);
+        setRows([]);
       }
     } catch {
-      setSummary(DEMO_INCOMING_SUMMARY);
-      setRows(DEMO_INCOMING_LIST);
+      setSummary({ todays_inspections: 0, pending_grn: 0, passed: 0, rejected: 0, vendor_rejection_rate: "0%" });
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -65,7 +65,7 @@ export default function IncomingInspection() {
 
   const columns = [
     { key: "inspection_number", label: "Inspection No" },
-    { key: "po_reference", label: "PO" },
+    { key: "po_reference", label: "Purchase Order (PO)" },
     { key: "vendor_name", label: "Vendor" },
     { key: "material_name", label: "Material" },
     { key: "batch_code", label: "Batch" },

@@ -93,10 +93,10 @@ export default function FinishedGoods() {
     : products;
 
   const columns = [
-    { key: "sku", label: "SKU" },
+    { key: "sku", label: "Stock Keeping Unit (SKU)" },
     { key: "name", label: "Product" },
     { key: "batch_number", label: "Batch" },
-    { key: "quantity", label: "Qty" },
+    { key: "quantity", label: "Quantity" },
     { key: "reserved", label: "Reserved" },
     { key: "available", label: "Available" },
     { key: "unit_cost", label: "Cost", render: (r) => r.unit_cost ? `₹${r.unit_cost}` : "—" },
@@ -116,7 +116,7 @@ export default function FinishedGoods() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-900">Finished Goods</h1><p className="mt-1 text-sm text-slate-500">Production output inventory with batch, QR, serial, and dispatch readiness.</p></div>
+        <div><h1 className="text-2xl font-bold text-slate-900">Finished Goods</h1><p className="mt-1 text-sm text-slate-500">Verify produced stock ready for inspection and handover to sales dispatch.</p></div>
         <div className="flex flex-wrap gap-2">
           <Link to="/inventory/items/create?type=finished_good" className="ui-btn-primary"><Plus className="h-4 w-4" /> New Product</Link>
           <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "finished-goods")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>

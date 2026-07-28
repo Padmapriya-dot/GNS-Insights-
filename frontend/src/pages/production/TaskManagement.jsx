@@ -28,7 +28,7 @@ const MODULES = [
   { value: "procurement", label: "Procurement" },
   { value: "inventory", label: "Inventory" },
   { value: "sales", label: "Sales" },
-  { value: "hr", label: "HR" },
+  { value: "hr", label: "Human Resources (HR)" },
   { value: "accounts", label: "Accounts" },
   { value: "general", label: "General" },
 ];

@@ -55,6 +55,7 @@ export const SIDEBAR_NAV = [
       { labelKey: "erpNav.machineAllocation", to: "/production/tasks", module: "production" },
       { labelKey: "erpNav.assignTasks", to: "/production/assign-tasks", module: "production" },
       { labelKey: "erpNav.batchTracking", to: "/production/batches", module: "production" },
+      { labelKey: "erpNav.dailyProductionReports", to: "/production/reports", module: "production" },
     ],
   },
   {

@@ -224,7 +224,7 @@ export default function Dispatch() {
       label: "Challan / Dispatch",
       render: (r) => r.challan_number || r.dispatch_number,
     },
-    { key: "so_number", label: "SO No" },
+    { key: "so_number", label: "Sales Order Number" },
     { key: "customer_name", label: "Customer" },
     { key: "courier", label: "Courier", render: (r) => r.courier || "—" },
     {

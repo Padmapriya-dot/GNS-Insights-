@@ -103,8 +103,18 @@ def check_session_active(user: User) -> bool:
 
 
 def touch_user_activity(db: Session, user: User) -> None:
-    user.last_activity_at = _utcnow()
-    db.commit()
+    now = _utcnow()
+    last = user.last_activity_at
+    if last is not None:
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        if (now - last).total_seconds() < 60:
+            return
+    user.last_activity_at = now
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
 
 
 def create_refresh_token(

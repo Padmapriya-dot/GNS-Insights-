@@ -71,7 +71,7 @@ function CompanyDetailContent() {
             <Item label="Phone" value={company.mobile_number} />
             <Item label="Status" value={company.status} />
             <Item label="Plan" value={company.subscription_plan} />
-            <Item label="GST" value={company.gst_number || "—"} />
+            <Item label="Goods & Services Tax (GST)" value={company.gst_number || "—"} />
             <Item label="Trial Expires" value={company.trial_expires_at ? new Date(company.trial_expires_at).toLocaleDateString() : "—"} />
             <Item label="Address" value={`${company.address || ""}, ${company.city || ""}, ${company.state || ""}`} className="sm:col-span-2" />
           </dl>

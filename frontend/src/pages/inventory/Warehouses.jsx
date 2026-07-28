@@ -104,14 +104,10 @@ export default function Warehouses() {
         getWarehouseSummary().catch(() => ({ data: null })),
       ]);
       const apiRows = wRes.data || [];
-      if (apiRows.length > 0) {
-        setWarehouses(apiRows.map((row, i) => enrichApiWarehouse(row, i)));
-      } else {
-        setWarehouses(DEMO_WAREHOUSES);
-      }
+      setWarehouses(apiRows.map((row, i) => enrichApiWarehouse(row, i)));
       setApiSummary(sRes.data);
     } catch {
-      setWarehouses(DEMO_WAREHOUSES);
+      setWarehouses([]);
     } finally {
       setLoading(false);
     }

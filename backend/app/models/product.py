@@ -11,7 +11,7 @@ class Product(Base, TimestampMixin):
     tenant_id: Mapped[int] = mapped_column(
         ForeignKey("tenants.id"), nullable=False, index=True
     )
-    sku: Mapped[str] = mapped_column(String(64), nullable=False)
+    sku: Mapped[str | None] = mapped_column(String(64), nullable=True, default="")
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     unit_cost: Mapped[float | None] = mapped_column(Numeric(12, 2))
@@ -19,7 +19,7 @@ class Product(Base, TimestampMixin):
     min_stock: Mapped[int | None] = mapped_column(Integer, default=1)
     max_stock: Mapped[int | None] = mapped_column(Integer, default=100)
     current_stock: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    unit: Mapped[str | None] = mapped_column(String(32), default="Pcs")
+    unit: Mapped[str | None] = mapped_column(String(32), default="PCS")
 
     tenant = relationship("Tenant", back_populates="products")
     bom_items = relationship(
