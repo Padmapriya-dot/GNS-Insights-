@@ -91,7 +91,10 @@ class StockMovementBase(BaseModel):
     warehouse_id: int
     item_id: int
     quantity: int
-    movement_type: str  # in, out, adjustment
+    movement_type: str  # in, out, adjustment, return, scrap, transfer
+    reference: str | None = None
+    batch_number: str | None = None
+    created_by: str | None = None
 
 
 class StockMovementCreate(StockMovementBase):

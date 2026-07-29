@@ -109,6 +109,7 @@ class ValidateResetTokenResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str = Field(..., min_length=16, max_length=512)
+    all_devices: bool = False
 
 
 class VerifyEmailRequest(BaseModel):

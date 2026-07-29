@@ -436,3 +436,188 @@ def inventory_hub(
     tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
 ):
     return get_inventory_hub(db, tenant_id)
+
+
+# ─── Manufacturing store workflow ───────────────────────────────────────────
+
+from datetime import date as date_cls
+
+from app.schemas.store_workflow import (
+    PurchaseRequisitionCreated,
+    PurchaseRequisitionFromLowStock,
+    StoreConsumeCreate,
+    StoreDashboardRead,
+    StoreIssueRequestAction,
+    StoreIssueRequestCreate,
+    StoreIssueRequestRead,
+    StoreReturnCreate,
+    StoreReturnRead,
+    StoreStockInCreate,
+    StoreStockInRead,
+)
+from app.services import store_workflow_service as store_wf
+
+
+def _user_label(user: User) -> str:
+    return (
+        getattr(user, "full_name", None)
+        or getattr(user, "name", None)
+        or getattr(user, "email", None)
+        or "Store User"
+    )
+
+
+@router.get("/store/dashboard", response_model=StoreDashboardRead)
+def store_dashboard(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return store_wf.get_store_dashboard(db, tenant_id)
+
+
+@router.post("/store/stock-in", response_model=StoreStockInRead)
+def store_stock_in(
+    payload: StoreStockInCreate,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    result = store_wf.create_stock_in(db, user.tenant_id, payload, _user_label(user))
+    from app.services.alert_service import sync_low_stock_alerts
+
+    sync_low_stock_alerts(db, user.tenant_id)
+    return result
+
+
+@router.get("/store/material-requests", response_model=list[StoreIssueRequestRead])
+def store_list_material_requests(
+    status: str | None = Query(None),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return store_wf.list_issue_requests(db, tenant_id, status)
+
+
+@router.post("/store/material-requests", response_model=StoreIssueRequestRead)
+def store_create_material_request(
+    payload: StoreIssueRequestCreate,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return store_wf.create_issue_request(db, user.tenant_id, payload)
+
+
+@router.post("/store/material-requests/{request_id}/approve", response_model=StoreIssueRequestRead)
+def store_approve_material_request(
+    request_id: int,
+    payload: StoreIssueRequestAction | None = None,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return store_wf.approve_issue_request(
+        db, user.tenant_id, request_id, _user_label(user), payload.notes if payload else None
+    )
+
+
+@router.post("/store/material-requests/{request_id}/reject", response_model=StoreIssueRequestRead)
+def store_reject_material_request(
+    request_id: int,
+    payload: StoreIssueRequestAction | None = None,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return store_wf.reject_issue_request(
+        db, user.tenant_id, request_id, _user_label(user), payload.notes if payload else None
+    )
+
+
+@router.post("/store/material-requests/{request_id}/issue", response_model=StoreIssueRequestRead)
+def store_issue_material(
+    request_id: int,
+    payload: StoreIssueRequestAction | None = None,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    result = store_wf.issue_material(
+        db,
+        user.tenant_id,
+        request_id,
+        _user_label(user),
+        payload.issued_qty if payload else None,
+        payload.notes if payload else None,
+    )
+    from app.services.alert_service import sync_low_stock_alerts
+
+    sync_low_stock_alerts(db, user.tenant_id)
+    return result
+
+
+@router.post("/store/material-requests/{request_id}/confirm", response_model=StoreIssueRequestRead)
+def store_confirm_received(
+    request_id: int,
+    payload: StoreIssueRequestAction | None = None,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return store_wf.confirm_received(
+        db, user.tenant_id, request_id, _user_label(user)
+    )
+
+
+@router.post("/store/material-requests/{request_id}/consume", response_model=StoreIssueRequestRead)
+def store_consume_material(
+    request_id: int,
+    payload: StoreConsumeCreate,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    result = store_wf.record_consumption(
+        db, user.tenant_id, request_id, payload, _user_label(user)
+    )
+    from app.services.alert_service import sync_low_stock_alerts
+
+    sync_low_stock_alerts(db, user.tenant_id)
+    return result
+
+
+@router.post("/store/stock-return", response_model=StoreReturnRead)
+def store_stock_return(
+    payload: StoreReturnCreate,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    result = store_wf.create_stock_return(db, user.tenant_id, payload, _user_label(user))
+    from app.services.alert_service import sync_low_stock_alerts
+
+    sync_low_stock_alerts(db, user.tenant_id)
+    return result
+
+
+@router.post("/store/purchase-requisitions/from-low-stock", response_model=PurchaseRequisitionCreated)
+def store_pr_from_low_stock(
+    payload: PurchaseRequisitionFromLowStock,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return store_wf.create_pr_from_low_stock(db, user.tenant_id, payload, _user_label(user))
+
+
+@router.get("/store/history")
+def store_inventory_history(
+    item_id: int | None = Query(None),
+    warehouse_id: int | None = Query(None),
+    movement_type: str | None = Query(None),
+    user_name: str | None = Query(None),
+    date_from: date_cls | None = Query(None),
+    date_to: date_cls | None = Query(None),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return store_wf.list_enriched_movements(
+        db,
+        tenant_id,
+        item_id=item_id,
+        warehouse_id=warehouse_id,
+        movement_type=movement_type,
+        user_name=user_name,
+        date_from=date_from,
+        date_to=date_to,
+    )

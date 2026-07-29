@@ -62,11 +62,22 @@ To add or replace slides, drop PNG/JPG files into `frontend/public/auth/` using 
 
 ### Inventory & Raw Material Management
 - Raw material tracking
+- **Materials Master** (`/masters/products`) — categories (including Packaging Material, Utility / Raw Material), units (incl. Litre), warehouses, stock levels
+- **Warehouse Management** (`/inventory`, `/inventory/warehouses`) — enterprise dashboard (KPIs, charts, activity timeline, quick actions), searchable warehouse list with filters/export/bulk actions, detail modal with stock status colors (Healthy / Low / Out), location cards (zone → bin), GRN / issue / transfer / pick-pack workflow strips
 - Low stock alerts
 - Barcode support (scan or manual lookup)
 - Warehouse management
 - Supplier tracking
 - Stock movements (in/out/adjustment)
+
+### Procurement & Vendor Master
+- Purchase orders, material requests, goods receipt (GRN), supplier payments
+- **Enterprise Vendor Master** (`/procurement/vendors`) built on the existing `suppliers` table
+  - Company Name, Contact Person, GST, PAN, address (PIN auto-fill), bank & procurement terms
+  - Auto vendor codes (`VEN-0001` style), soft delete, bulk activate/deactivate
+  - List KPIs, filters, Excel/PDF export; detail tabs (Overview, Purchase History, Products, Payments, Documents, Performance, Audit)
+  - **Bank verification:** Account Number + IFSC validated via lookup API; Bank Name and Branch auto-filled; Account Holder Name auto-filled from Contact Person (editable)
+- Roles with vendor access/write: Admin, Purchase Manager, Procurement Manager, Store Manager
 
 ### HR & Employee Management
 - Worker attendance (clock in/out)
@@ -142,7 +153,10 @@ Dashboard → Production Module → **Create Work Order** (3 fields: Product, Qu
 - **Quick Create Work Order:** Dashboard → Click "Create Work Order" → Fill 3 fields → Save → Done ✅
 
 ### 3. Inventory
-Purchase Raw Material → Add to Inventory → Use in Production → Update Stock → Low Stock Alert → Reorder
+Purchase Raw Material → Add to Materials Master / Inventory → Use in Production → Update Stock → Low Stock Alert → Reorder
+
+### 3b. Vendor Master (Procurement)
+Vendors → Add Vendor → Fill Company & Contact → Enter Account Number + IFSC (auto-verify bank) → Save → View Vendor Detail / Create PO
 
 ### 4. Sales
 Create Customer → Create Sales Order → Generate Invoice → Dispatch Product → Receive Payment
@@ -202,8 +216,8 @@ GNS Insights/
 |--------|------------------|---------------------------|--------|
 | Auth | auth.py | auth_service.py | user, tenant, role |
 | Production | production.py | production_service.py | production, product, machine |
-| Inventory | inventory.py | inventory_service.py | inventory (Warehouse, Supplier, Item, StockLevel, StockMovement) |
-| Procurement | procurement.py | procurement_service.py | procurement (PurchaseOrder, MaterialRequest, GoodsReceipt, SupplierPayment) |
+| Inventory | inventory.py | inventory_service.py | inventory (Warehouse, Supplier/Vendor, Item, StockLevel, StockMovement) |
+| Procurement | procurement.py | procurement_service.py, vendor_service.py, bank_lookup_service.py | procurement (PurchaseOrder, MaterialRequest, GoodsReceipt, SupplierPayment); VendorProduct; Supplier enterprise fields |
 | Sales | sales.py | sales_service.py | sales (Customer, SalesOrder, Invoice, Payment) |
 | Accounts | accounts.py | accounts_service.py | accounts (Income, Expense) |
 | HR | hr.py | hr_service.py | hr (Employee, Shift, Attendance, Payroll, Performance) |
@@ -222,8 +236,9 @@ GNS Insights/
 | Auth | Login, Register | authApi, `BrandLogo`, `AuthSlider` |
 | Dashboard | Dashboard (KPIs, charts) | productionApi, inventoryApi, hrApi, analyticsApi, accountsApi |
 | Production | Planning, WorkOrders, BatchTracking, MachineStatus, DailyReports, CreateProduction, CreateMachine | productionApi |
-| Inventory | Dashboard, InventoryList, Warehouses, Suppliers, StockMovement, CreateItem/Warehouse/Supplier | inventoryApi |
-| Procurement | PurchaseOrders, VendorManagement, MaterialRequests, GoodsReceipt, SupplierPayments + create pages | procurementApi |
+| Inventory | Dashboard, InventoryList, Warehouses, StockMovement, CreateItem/Warehouse | inventoryApi |
+| Masters | ProductsMaster, CreateProduct (Materials), BomMaster, DepartmentManagement | productsApi |
+| Procurement | VendorManagement, CreateVendor, VendorDetail, PurchaseOrders, MaterialRequests, GoodsReceipt, SupplierPayments | procurementApi |
 | Sales | InvoiceDashboard, TaxInvoiceForm, SalesOrders, Customers, PaymentTracking + create pages | salesApi |
 | Accounts | Dashboard, ProfitLoss, ExpenseTracking, TaxReports, RecordIncome, RecordExpense | accountsApi |
 | HR | HRDashboard, Attendance, Shifts, Payroll, Performance, Employees + create pages | hrApi |
@@ -528,8 +543,8 @@ JWT_SECRET_KEY=your-long-random-secret
 3. **Notifications:** Click the bell icon (🔔) in the top bar to view in-app notifications. Unread items are highlighted; opening one marks it read and updates the badge without refreshing the page.
 4. **Dashboard:** View production, inventory, HR, and machine status summaries.
 5. **Production:** Create production orders, work orders, machines; track batches and daily reports. Tables support search, sorting, pagination.
-6. **Inventory:** Add warehouses and suppliers, create items (SKU, barcode), record stock movements.
-7. **Procurement:** Purchase orders, vendor management, material requests, goods receipt (GRN), supplier payments.
+6. **Inventory / Materials:** Add warehouses, manage Materials Master, create items, record stock movements.
+7. **Procurement / Vendors:** Manage Vendor Master (company, bank verify, documents), purchase orders, material requests, GRN, supplier payments.
 8. **Sales:** Manage invoices, sales orders, customers, and payments.
 9. **Accounts:** View analytics dashboard, Profit & Loss, expense tracking, tax reports; export to Excel/PDF.
 10. **Settings:** Configure theme (light/dark), language, date format, currency, company profile.
@@ -541,7 +556,7 @@ JWT_SECRET_KEY=your-long-random-secret
 | `/auth/` | `POST /login`, `POST /register` (JWT bearer) |
 | `/production/` | products, orders, work-orders, batches, machines, machine-status, daily-reports |
 | `/inventory/` | warehouses, suppliers, items, items/barcode/{barcode}, dashboard, stock-levels, stock-movements |
-| `/procurement/` | purchase-orders, vendors, material-requests, goods-receipt, supplier-payments |
+| `/procurement/` | purchase-orders, **vendors** (list, create, detail, update, soft-delete, bulk-status, summary, export, purchase-history, products), **vendors/bank-lookup**, material-requests, goods-receipt, supplier-payments |
 | `/hr/` | dashboard, employees, shifts, attendance (clock-in, clock-out), payroll, performance |
 | `/sales/` | customers, sales-orders, invoices, invoices/{id}, payments |
 | `/accounts/` | dashboard, profit-loss, tax-report, income, expenses |

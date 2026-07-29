@@ -1,0 +1,82 @@
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+
+const YELLOW = "#F5C518";
+
+export default function AddNoteModal({ open, onClose, onSave, initial }) {
+  const [note, setNote] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setNote(initial || "");
+  }, [open, initial]);
+
+  if (!open) return null;
+
+  const handleSave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const text = note.trim();
+    if (!text) return;
+    onSave?.(text);
+    onClose?.();
+  };
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-note-title"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
+    >
+      <form
+        onSubmit={handleSave}
+        className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-[#ececf0] px-5 py-4">
+          <h2 id="add-note-title" className="text-[17px] font-bold text-[#1a1a1f]">
+            Add Note
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1 text-[#9a9aa5] hover:bg-[#f5f5f7]"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="bg-[#f3f3f6] px-5 py-5">
+          <textarea
+            autoFocus
+            rows={6}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Enter note"
+            className="w-full resize-y rounded-xl border border-[#dcdce3] bg-white px-4 py-3 text-[14px] text-[#1a1a1f] placeholder:text-[#a0a0ab] focus:border-[#6b4eff] focus:outline-none focus:ring-1 focus:ring-[#6b4eff]"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3 border-t border-[#ececf0] px-5 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-[#d8d8e0] bg-white py-3 text-[14px] font-semibold text-[#1a1a1f]"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="rounded-xl py-3 text-[14px] font-semibold text-[#1a1a1f]"
+            style={{ background: YELLOW }}
+          >
+            Save
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body
+  );
+}

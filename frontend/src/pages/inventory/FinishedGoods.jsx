@@ -89,11 +89,10 @@ export default function FinishedGoods() {
   }, [products, summary]);
 
   const filtered = search.trim()
-    ? products.filter((p) => [p.sku, p.name, p.batch_number, p.customer_name].some((v) => v && String(v).toLowerCase().includes(search.toLowerCase())))
+    ? products.filter((p) => [p.name, p.batch_number, p.customer_name].some((v) => v && String(v).toLowerCase().includes(search.toLowerCase())))
     : products;
 
   const columns = [
-    { key: "sku", label: "SKU" },
     { key: "name", label: "Product" },
     { key: "batch_number", label: "Batch" },
     { key: "quantity", label: "Qty" },
@@ -134,7 +133,7 @@ export default function FinishedGoods() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <input type="search" placeholder="Search SKU, product, batch, customer..." value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4 w-full rounded-lg border px-3 py-2 text-sm" />
+        <input type="search" placeholder="Search product, batch, customer..." value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4 w-full rounded-lg border px-3 py-2 text-sm" />
         <DataTable columns={columns} data={filtered} showSearch={false} />
       </div>
     </div>

@@ -1,74 +1,45 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Filter, Plus, RefreshCw, ShoppingCart, Truck } from "lucide-react";
-
-import DataTable from "../../components/common/DataTable";
-import Loader from "../../components/common/Loader";
-import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
-import PODetailModal from "../../components/procurement/PODetailModal";
-import { useToast } from "../../context/ToastContext";
 import {
-  getPOSummary,
-  getPurchaseOrdersEnriched,
-  updatePurchaseOrderStatus,
-} from "../../api/procurementApi";
-import { formatInr, statusColor } from "../../data/procurementMasterData";
-import { exportToExcel } from "../../utils/exportUtils";
-import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Plus,
+  Search,
+} from "lucide-react";
 
-function KpiCard({ label, value, icon: Icon, color }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value ?? 0}</p>
-        </div>
-        {Icon && (
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
-          </div>
-        )}
-      </div>
-    </div>
-  );
+import Loader from "../../components/common/Loader";
+import { useToast } from "../../context/ToastContext";
+import { getPurchaseOrdersEnriched } from "../../api/procurementApi";
+import { formatInr } from "../../data/procurementMasterData";
+
+const YELLOW = "#F5C518";
+const PAGE_BG = "#F5F5F5";
+const PAGE_SIZES = [10, 20, 50];
+
+function fmtDate(iso) {
+  if (!iso) return "—";
+  const [y, m, d] = String(iso).slice(0, 10).split("-");
+  if (!y || !m || !d) return String(iso).slice(0, 10);
+  return `${d}/${m}/${y}`;
 }
-
-const defaultFilters = { vendor: "", status: "", buyer: "" };
-const emptySummary = {
-  total_po: 0,
-  pending: 0,
-  approved: 0,
-  delivered: 0,
-  cancelled: 0,
-  po_value: 0,
-};
 
 export default function PurchaseOrders() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(emptySummary);
   const [rows, setRows] = useState([]);
-  const [filters, setFilters] = useState(defaultFilters);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [selected, setSelected] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sumRes, listRes] = await Promise.allSettled([
-        getPOSummary(),
-        getPurchaseOrdersEnriched(),
-      ]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) {
-        setSummary({ ...emptySummary, ...sumRes.value.data });
-      } else {
-        setSummary(emptySummary);
-      }
-      if (listRes.status === "fulfilled") setRows(listRes.value?.data || []);
-      else setRows([]);
+      const res = await getPurchaseOrdersEnriched();
+      setRows(Array.isArray(res?.data) ? res.data : []);
     } catch {
       addToast("Failed to load purchase orders", "error");
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -78,216 +49,159 @@ export default function PurchaseOrders() {
     load();
   }, [load]);
 
-  useManufacturingRefresh(load);
+  useEffect(() => {
+    setPage(1);
+  }, [search, pageSize]);
 
   const filtered = useMemo(() => {
-    let list = rows;
-    if (filters.vendor) {
-      list = list.filter((r) =>
-        (r.vendor_name || r.supplier_name || "")
-          .toLowerCase()
-          .includes(filters.vendor.toLowerCase())
-      );
-    }
-    if (filters.status) list = list.filter((r) => r.status === filters.status);
-    if (filters.buyer) {
-      list = list.filter((r) =>
-        r.buyer?.toLowerCase().includes(filters.buyer.toLowerCase())
-      );
-    }
-    return list;
-  }, [rows, filters]);
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => {
+      const hay = `${r.po_number || ""} ${r.vendor_name || r.supplier_name || ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [rows, search]);
 
-  const handleStatus = async (po, status) => {
-    if (typeof po.id !== "number") {
-      addToast("Invalid purchase order", "error");
-      return;
-    }
-    try {
-      await updatePurchaseOrderStatus(po.id, status);
-      addToast(`PO marked as ${status}`);
-      setSelected(null);
-      load();
-    } catch (err) {
-      addToast(err.response?.data?.detail || "Update failed", "error");
-    }
-  };
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  const columns = [
-    {
-      key: "po_number",
-      label: "PO No",
-      render: (r) => (
-        <span className="font-medium text-[#2563EB]">{r.po_number || `PO-${r.id}`}</span>
-      ),
-    },
-    {
-      key: "vendor_name",
-      label: "Vendor",
-      render: (r) => r.vendor_name || r.supplier_name || "—",
-    },
-    {
-      key: "order_date",
-      label: "Date",
-      render: (r) => String(r.order_date || "").slice(0, 10),
-    },
-    {
-      key: "total_amount",
-      label: "Amount",
-      render: (r) => (r.total_amount != null ? formatInr(r.total_amount) : "—"),
-    },
-    {
-      key: "expected_date",
-      label: "Delivery Date",
-      render: (r) => r.expected_date || "—",
-    },
-    {
-      key: "payment_terms",
-      label: "Payment Terms",
-      render: (r) => r.payment_terms || "—",
-    },
-    {
-      key: "status",
-      label: "Status",
-      render: (r) => (
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}
-        >
-          {r.status}
-        </span>
-      ),
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      render: (r) => (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setSelected(r)}
-            className="text-xs font-semibold text-[#2563EB] hover:underline"
-          >
-            View
-          </button>
-          <Link
-            to={`/procurement/goods-receipt/create?po_id=${r.id}`}
-            className="text-xs font-semibold text-teal-700 hover:underline"
-          >
-            GRN
-          </Link>
-        </div>
-      ),
-    },
-  ];
-
-  if (loading) return <Loader label="Loading purchase orders..." />;
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center" style={{ background: PAGE_BG }}>
+        <Loader label="Loading purchase orders..." />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Purchase Orders</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Approve POs from material requests, then receive goods via GRN.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to="/procurement/purchase-orders/create" className="ui-btn-primary">
-            <Plus className="h-4 w-4" /> New PO
-          </Link>
-          <button
-            type="button"
-            onClick={() =>
-              exportToExcel(
-                filtered,
-                columns.filter((c) => !c.render),
-                "purchase-orders"
-              )
-            }
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <Download className="h-4 w-4" /> Export
-          </button>
-          <button
-            type="button"
-            onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </button>
-        </div>
-      </header>
-
-      <ManufacturingWorkflowBar currentStepId="purchase_order" />
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Total PO" value={summary.total_po} icon={ShoppingCart} color="bg-blue-600" />
-        <KpiCard label="Pending" value={summary.pending} icon={ShoppingCart} color="bg-amber-500" />
-        <KpiCard label="Approved" value={summary.approved} icon={ShoppingCart} color="bg-green-600" />
-        <KpiCard label="Delivered" value={summary.delivered} icon={Truck} color="bg-teal-600" />
-        <KpiCard label="Cancelled" value={summary.cancelled} icon={ShoppingCart} color="bg-red-500" />
-        <KpiCard
-          label="PO Value"
-          value={formatInr(summary.po_value)}
-          icon={ShoppingCart}
-          color="bg-indigo-600"
-        />
+    <div className="min-h-full" style={{ background: PAGE_BG }}>
+      <div className="flex items-center gap-2 p-4 sm:p-6">
+        <h1 className="text-[22px] font-bold text-[#1a1a1f]">Purchase Order</h1>
+        <span className="rounded-[4px] bg-[#d4d4d8] px-1.5 py-[2px] text-[10px] font-semibold uppercase leading-none text-white">
+          v2
+        </span>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-700"
-        >
-          <Filter className="h-4 w-4" /> Filters
-        </button>
-        {showAdvanced && (
-          <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mx-4 mb-6 rounded-2xl border border-[#e4e4ea] bg-white p-4 sm:mx-6 sm:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full max-w-md">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
             <input
-              value={filters.vendor}
-              onChange={(e) => setFilters({ ...filters, vendor: e.target.value })}
-              placeholder="Vendor"
-              className="rounded-lg border px-3 py-2 text-sm"
-            />
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className="rounded-lg border px-3 py-2 text-sm"
-            >
-              <option value="">All Status</option>
-              {["draft", "pending", "approved", "received", "delivered", "cancelled"].map(
-                (s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                )
-              )}
-            </select>
-            <input
-              value={filters.buyer}
-              onChange={(e) => setFilters({ ...filters, buyer: e.target.value })}
-              placeholder="Buyer"
-              className="rounded-lg border px-3 py-2 text-sm"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search"
+              className="w-full rounded-lg border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] placeholder:text-[#9a9aa5] focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-[#F5C518]/25"
             />
           </div>
-        )}
-        <DataTable
-          columns={columns}
-          data={filtered}
-          searchPlaceholder="Search PO, vendor..."
-          searchKeys={["po_number", "vendor_name", "supplier_name", "buyer"]}
-        />
-      </div>
+          <Link
+            to="/procurement/purchase-orders/create"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#1a1a1f] px-5 py-2.5 text-[14px] font-semibold text-white shadow-sm hover:bg-black"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.5} /> Create
+          </Link>
+        </div>
 
-      {selected && (
-        <PODetailModal
-          po={selected}
-          onClose={() => setSelected(null)}
-          onApprove={(po) => handleStatus(po, "approved")}
-          onReject={(po) => handleStatus(po, "cancelled")}
-        />
-      )}
+        <div className="overflow-hidden rounded-xl border border-[#e4e4ea]">
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse text-left text-[13px]">
+              <thead className="bg-[#efeaf8] text-[12px] font-semibold uppercase tracking-wide text-[#6b6b76]">
+                <tr>
+                  {[
+                    "Purchase Order No.",
+                    "Purchase Order Date",
+                    "Vendor Name",
+                    "Amount (₹)",
+                    "Action",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="border-b border-r border-[#d0d0d8] px-4 py-3 last:border-r-0"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-16 text-center">
+                      <ClipboardList className="mx-auto h-12 w-12 text-[#c4c4cc]" strokeWidth={1.25} />
+                      <p className="mt-3 text-[14px] text-[#9a9aa5]">No data available.</p>
+                      <Link
+                        to="/procurement/purchase-orders/create"
+                        className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-[#1a1a1f] px-4 py-2.5 text-[14px] font-semibold text-white"
+                      >
+                        <Plus className="h-4 w-4" /> Create
+                      </Link>
+                    </td>
+                  </tr>
+                ) : (
+                  pageRows.map((r) => (
+                    <tr key={r.id} className="hover:bg-[#fafafa]">
+                      <td className="border-t border-r border-[#d0d0d8] px-4 py-3 font-semibold text-[#6b4eff]">
+                        {r.po_number}
+                      </td>
+                      <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[#4a4a55]">
+                        {fmtDate(r.order_date)}
+                      </td>
+                      <td className="border-t border-r border-[#d0d0d8] px-4 py-3">
+                        {r.vendor_name || r.supplier_name || "—"}
+                      </td>
+                      <td className="border-t border-r border-[#d0d0d8] px-4 py-3 tabular-nums font-medium">
+                        {formatInr(r.total_amount || r.amount || 0)}
+                      </td>
+                      <td className="border-t border-[#d0d0d8] px-4 py-3 text-[#9a9aa5]">—</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 border-t border-[#e4e4ea] pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-[13px] text-[#6b6b76]">
+            <span>Show</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="rounded-md border border-[#e4e4ea] bg-white px-2 py-1"
+            >
+              {PAGE_SIZES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="rounded-md border border-[#e4e4ea] p-1.5 disabled:opacity-35"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span
+              className="min-w-[2rem] rounded-md border border-[#e4e4ea] px-2.5 py-1 text-center text-[13px] font-semibold"
+              style={{ background: `${YELLOW}B3` }}
+            >
+              {page}
+            </span>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="rounded-md border border-[#e4e4ea] p-1.5 disabled:opacity-35"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

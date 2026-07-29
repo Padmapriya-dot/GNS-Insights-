@@ -17,6 +17,8 @@ class CompanySettingsBase(BaseModel):
     state_code: str | None = None
     country: str | None = None
     pincode: str | None = None
+    logo_url: str | None = None
+    custom_fields: list[dict] | None = None
 
     default_gst_pct: float | None = None
     prices_include_tax: bool = False
@@ -58,6 +60,8 @@ class CompanySettingsUpdate(BaseModel):
     state_code: str | None = None
     country: str | None = None
     pincode: str | None = None
+    logo_url: str | None = None
+    custom_fields: list[dict] | None = None
 
     default_gst_pct: float | None = None
     prices_include_tax: bool | None = None

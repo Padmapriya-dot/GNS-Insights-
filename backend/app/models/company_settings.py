@@ -32,6 +32,8 @@ class CompanySettings(Base, TimestampMixin):
     state_code: Mapped[str | None] = mapped_column(String(16))
     country: Mapped[str | None] = mapped_column(String(128))
     pincode: Mapped[str | None] = mapped_column(String(16))
+    logo_url: Mapped[str | None] = mapped_column(Text)
+    custom_fields_json: Mapped[str | None] = mapped_column(Text)
 
     # Tax options
     default_gst_pct: Mapped[float | None] = mapped_column(Numeric(5, 2))

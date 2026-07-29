@@ -22,12 +22,14 @@ from app.api.alerts import router as alerts_router
 from app.api.analytics import router as analytics_router
 from app.api.audit_logs import router as audit_logs_router
 from app.api.auth import router as auth_router
+from app.api.business_documents_api import router as business_documents_router
 from app.api.audit_api import router as audit_api_router
 from app.api.login_history import router as login_history_router
 from app.api.platform_api import router as platform_router
 from app.api.rbac_api import router as rbac_api_router
 from app.middleware.audit_middleware import AuditMiddleware
 from app.api.dispatch import router as dispatch_router
+from app.api.dispatch_addresses_api import router as dispatch_addresses_router
 from app.api.documents import router as documents_router
 from app.api.factory_monitor import router as factory_monitor_router
 from app.api.forecasting import router as forecasting_router
@@ -570,6 +572,49 @@ def on_startup():
                 conn.execute(text(ddl))
         except Exception:
             pass
+    _invoice_v2_columns = [
+        "ALTER TABLE invoices ADD COLUMN invoice_prefix VARCHAR(32)",
+        "ALTER TABLE invoices ADD COLUMN document_type VARCHAR(32) DEFAULT 'tax_invoice'",
+        "ALTER TABLE invoices ADD COLUMN invoice_status VARCHAR(32) DEFAULT 'active'",
+        "ALTER TABLE invoices ADD COLUMN e_invoice_status VARCHAR(32) DEFAULT 'all'",
+        "ALTER TABLE invoices ADD COLUMN e_waybill_status VARCHAR(32) DEFAULT 'all'",
+        "ALTER TABLE invoices ADD COLUMN export_invoice_status VARCHAR(32)",
+        "ALTER TABLE invoices ADD COLUMN payment_status VARCHAR(32) DEFAULT 'unpaid'",
+        "ALTER TABLE invoices ADD COLUMN other_charge NUMERIC(12, 2) DEFAULT 0",
+        "ALTER TABLE invoices ADD COLUMN transport_mode VARCHAR(64)",
+        "ALTER TABLE invoices ADD COLUMN lr_number VARCHAR(128)",
+        "ALTER TABLE invoices ADD COLUMN lr_date DATE",
+        "ALTER TABLE invoices ADD COLUMN vehicle_no VARCHAR(64)",
+        "ALTER TABLE invoices ADD COLUMN distance_km NUMERIC(12, 2)",
+        "ALTER TABLE invoices ADD COLUMN transporter_name VARCHAR(255)",
+        "ALTER TABLE invoices ADD COLUMN place_of_supply VARCHAR(128)",
+        "ALTER TABLE invoices ADD COLUMN date_of_supply DATE",
+        "ALTER TABLE invoices ADD COLUMN supply_type VARCHAR(32)",
+        "ALTER TABLE invoices ADD COLUMN po_number VARCHAR(128)",
+        "ALTER TABLE invoices ADD COLUMN po_date DATE",
+        "ALTER TABLE invoices ADD COLUMN challan_number VARCHAR(128)",
+        "ALTER TABLE invoices ADD COLUMN ewaybill_number VARCHAR(128)",
+        "ALTER TABLE invoices ADD COLUMN sales_person VARCHAR(255)",
+        "ALTER TABLE invoices ADD COLUMN reverse_charge BOOLEAN DEFAULT 0",
+        "ALTER TABLE invoices ADD COLUMN terms_and_conditions TEXT",
+        "ALTER TABLE invoices ADD COLUMN show_signature BOOLEAN DEFAULT 0",
+        "ALTER TABLE invoices ADD COLUMN bank_details_json TEXT",
+        "ALTER TABLE invoices ADD COLUMN custom_fields_json TEXT",
+        "ALTER TABLE invoices ADD COLUMN notes TEXT",
+        "ALTER TABLE invoice_items ADD COLUMN hsn VARCHAR(32)",
+        "ALTER TABLE invoice_items ADD COLUMN tax_type VARCHAR(32) DEFAULT 'Exclusive'",
+        "ALTER TABLE invoice_items ADD COLUMN discount NUMERIC(12, 2) DEFAULT 0",
+        "ALTER TABLE invoice_items ADD COLUMN discount_type VARCHAR(8) DEFAULT '₹'",
+        "ALTER TABLE invoice_items ADD COLUMN taxable_value NUMERIC(12, 2) DEFAULT 0",
+        "ALTER TABLE invoice_items ADD COLUMN gst_pct NUMERIC(5, 2) DEFAULT 0",
+        "ALTER TABLE invoice_items ADD COLUMN gst_amount NUMERIC(12, 2) DEFAULT 0",
+    ]
+    for ddl in _invoice_v2_columns:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
     _task_columns = [
         "ALTER TABLE tasks ADD COLUMN start_date DATE",
         "ALTER TABLE tasks ADD COLUMN assigned_to_name VARCHAR(255)",
@@ -588,6 +633,8 @@ def on_startup():
         "ALTER TABLE company_settings ADD COLUMN mfa_email_otp BOOLEAN DEFAULT 1",
         "ALTER TABLE company_settings ADD COLUMN mfa_sms_otp BOOLEAN DEFAULT 0",
         "ALTER TABLE company_settings ADD COLUMN mfa_authenticator BOOLEAN DEFAULT 0",
+        "ALTER TABLE company_settings ADD COLUMN logo_url TEXT",
+        "ALTER TABLE company_settings ADD COLUMN custom_fields_json TEXT",
     ]
     for ddl in _company_settings_columns:
         try:
@@ -648,6 +695,7 @@ app.include_router(rbac_api_router, prefix="/api")
 
 # ERP domain modules (Sales, Finance, Procurement, Quality, Maintenance, Analytics, HR, Inventory)
 app.include_router(sales_router)
+app.include_router(business_documents_router)
 app.include_router(accounts_router)
 app.include_router(procurement_router)
 app.include_router(quality_router)
@@ -662,6 +710,7 @@ app.include_router(company_settings_router)
 app.include_router(documents_router)
 app.include_router(documents_router, prefix="/api")
 app.include_router(dispatch_router)
+app.include_router(dispatch_addresses_router)
 app.include_router(factory_monitor_router)
 app.include_router(forecasting_router)
 app.include_router(integration_router)

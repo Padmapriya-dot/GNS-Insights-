@@ -161,8 +161,6 @@ export default function InventoryList({
                 </span>
               ),
             },
-            { key: "sku", label: "SKU" },
-            { key: "barcode", label: "Barcode" },
             { key: "name", label: "Name" },
             { key: "total_quantity", label: "Stock Qty" },
             { key: "reorder_level", label: "Reorder Level" },

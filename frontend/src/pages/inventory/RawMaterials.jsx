@@ -132,7 +132,6 @@ export default function RawMaterials() {
   };
 
   const columns = [
-    { key: "sku", label: "SKU" },
     { key: "name", label: "Material" },
     { key: "category", label: "Category" },
     { key: "warehouse_name", label: "Warehouse" },
@@ -188,13 +187,12 @@ export default function RawMaterials() {
         </div>
         {showAdvanced && (
           <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <input placeholder="SKU" value={filters.sku} onChange={(e) => setFilters((f) => ({ ...f, sku: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
             <select value={filters.category} onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm"><option value="">Category</option>{MATERIAL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select>
             <select value={filters.warehouse} onChange={(e) => setFilters((f) => ({ ...f, warehouse: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm"><option value="">Warehouse</option>{WAREHOUSES.map((w) => <option key={w} value={w}>{w}</option>)}</select>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={filters.low_stock} onChange={(e) => setFilters((f) => ({ ...f, low_stock: e.target.checked }))} /> Low Stock</label>
           </div>
         )}
-        <DataTable columns={columns} data={filtered} searchKeys={["sku", "name", "batch_number"]} showSearch={false} />
+        <DataTable columns={columns} data={filtered} searchKeys={["name", "batch_number", "category"]} showSearch={false} />
       </div>
       {selected && <MaterialDetailModal material={selected} onClose={() => setSelected(null)} />}
     </div>

@@ -56,8 +56,11 @@ export async function refreshTokens(refreshToken) {
   return data;
 }
 
-export async function logout(refreshToken) {
-  const { data } = await api.post("/auth/logout", { refresh_token: refreshToken });
+export async function logout(refreshToken, { allDevices = false } = {}) {
+  const { data } = await api.post("/auth/logout", {
+    refresh_token: refreshToken,
+    all_devices: allDevices,
+  });
   return data;
 }
 

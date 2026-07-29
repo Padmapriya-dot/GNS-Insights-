@@ -98,17 +98,24 @@ export default function CreateItem() {
     e.preventDefault();
     const errs = {};
     if (!form.name?.trim()) errs.name = `${isFinishedGood ? "Product" : "Material"} Name is required`;
-    if (!form.sku?.trim()) errs.sku = `${isFinishedGood ? "Product" : "Material"} SKU is required`;
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
     setSaving(true);
     setError("");
     try {
+      const prefix = isFinishedGood ? "FG" : "RM";
+      const autoSku =
+        form.sku?.trim() ||
+        `${prefix}-${(form.name || "ITEM")
+          .replace(/[^a-zA-Z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 12)
+          .toUpperCase()}-${Date.now().toString().slice(-4)}`;
       const payload = {
         tenant_id: Number(tenantId) || 1,
         supplier_id: form.supplier_id ? Number(form.supplier_id) : null,
-        sku: form.sku.trim(),
+        sku: autoSku,
         barcode: form.barcode?.trim() || null,
         name: form.name.trim(),
         description: form.description?.trim() || null,
@@ -197,15 +204,6 @@ export default function CreateItem() {
             <>
               <FormRow>
                 <Input
-                  label="Product SKU *"
-                  required
-                  placeholder="e.g. FG-GEAR-1001"
-                  value={form.sku}
-                  onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-                  error={fieldErrors.sku}
-                  hint="Unique finished product SKU"
-                />
-                <Input
                   label="Product Name *"
                   required
                   placeholder="e.g. Precision Hydraulic Gearbox"
@@ -213,15 +211,15 @@ export default function CreateItem() {
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   error={fieldErrors.name}
                 />
-              </FormRow>
-
-              <FormRow>
                 <Input
                   label="Batch Number"
                   placeholder="e.g. BATCH-FG-001"
                   value={form.batch_number}
                   onChange={(e) => setForm((f) => ({ ...f, batch_number: e.target.value }))}
                 />
+              </FormRow>
+
+              <FormRow>
                 <Select
                   label="Warehouse"
                   value={form.warehouse_name}
@@ -300,24 +298,6 @@ export default function CreateItem() {
             </>
           ) : (
             <>
-              <FormRow>
-                <Input
-                  label="Material SKU *"
-                  required
-                  placeholder="e.g. RM-STEEL-001"
-                  value={form.sku}
-                  onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-                  error={fieldErrors.sku}
-                  hint="Unique raw material code"
-                />
-                <Input
-                  label="Material Code"
-                  placeholder="Optional material code"
-                  value={form.barcode}
-                  onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))}
-                />
-              </FormRow>
-
               <Input
                 label="Material Name *"
                 required
@@ -328,12 +308,21 @@ export default function CreateItem() {
               />
 
               <FormRow>
+                <Input
+                  label="Material Code"
+                  placeholder="Optional material code"
+                  value={form.barcode}
+                  onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))}
+                />
                 <Select
                   label="Category"
                   value={form.category}
                   onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
                   options={categoryOptions}
                 />
+              </FormRow>
+
+              <FormRow>
                 <Select
                   label="Warehouse"
                   value={form.warehouse_name}
@@ -437,4 +426,4 @@ export default function CreateItem() {
     </div>
   );
 }
-
+

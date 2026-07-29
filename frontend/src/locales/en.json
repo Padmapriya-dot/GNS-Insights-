@@ -444,14 +444,15 @@
   },
   "storeManagerNav": {
     "ariaLabel": "Store manager navigation",
-    "inventory": "Inventory",
-    "rawMaterials": "Raw Materials",
-    "finishedGoods": "Finished Goods",
-    "warehouse": "Warehouse",
-    "stockLedger": "Stock Ledger",
-    "grn": "GRN",
-    "dispatch": "Dispatch",
-    "lowStock": "Low Stock"
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "stockIn": "Stock In",
+    "stockOut": "Stock Out",
+    "stockTransfer": "Stock Transfer",
+    "stockAdjustment": "Stock Adjustment",
+    "warehouses": "Warehouses",
+    "reports": "Inventory Reports",
+    "scanSoon": "Scan (soon)"
   },
   "production": {
     "workOrders": "Work Orders",

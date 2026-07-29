@@ -2,9 +2,6 @@
 # GNS Insights Security Implementation Report
 
 Generated after production-ready security hardening across the React + FastAPI GNS Insights application.
-# SMRT AI ERP Security Implementation Report
-
-Generated after production-ready security hardening across the React + FastAPI SMRT application.
 
 ## Executive Summary
 

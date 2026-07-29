@@ -169,18 +169,31 @@ def record_stock_movement(
     db: Session, payload: StockMovementCreate, *, commit: bool = True
 ) -> StockMovement:
     """Post a stock movement and update stock_levels. Set commit=False for multi-step workflows."""
-    mov = StockMovement(**payload.model_dump())
+    data = payload.model_dump()
+    # Normalize types that increase / decrease stock
+    raw_type = (data.get("movement_type") or "in").lower()
+    if raw_type in ("return", "purchase", "stock_in"):
+        effective = "in"
+    elif raw_type in ("scrap", "waste", "issue", "material_issue", "stock_out"):
+        effective = "out"
+    elif raw_type == "adjustment":
+        effective = "adjustment"
+    else:
+        effective = raw_type
+
+    mov = StockMovement(**data)
     db.add(mov)
     stmt = select(StockLevel).where(
         StockLevel.warehouse_id == payload.warehouse_id,
         StockLevel.item_id == payload.item_id,
     )
     sl = db.scalars(stmt).first()
+    qty = abs(int(payload.quantity))
     if sl:
-        if payload.movement_type == "in":
-            sl.quantity += payload.quantity
-        elif payload.movement_type == "out":
-            if sl.quantity < abs(payload.quantity):
+        if effective == "in":
+            sl.quantity += qty
+        elif effective == "out":
+            if sl.quantity < qty:
                 from fastapi import HTTPException
 
                 raise HTTPException(
@@ -188,21 +201,21 @@ def record_stock_movement(
                     detail=(
                         f"Insufficient stock for item #{payload.item_id} "
                         f"in warehouse #{payload.warehouse_id}: "
-                        f"need {abs(payload.quantity)}, available {sl.quantity}"
+                        f"need {qty}, available {sl.quantity}"
                     ),
                 )
-            sl.quantity = sl.quantity - abs(payload.quantity)
-        elif payload.movement_type == "adjustment":
+            sl.quantity = sl.quantity - qty
+        elif effective == "adjustment":
             sl.quantity = max(0, sl.quantity + payload.quantity)
-    elif payload.movement_type == "in":
+    elif effective == "in":
         db.add(
             StockLevel(
                 warehouse_id=payload.warehouse_id,
                 item_id=payload.item_id,
-                quantity=payload.quantity,
+                quantity=qty,
             )
         )
-    elif payload.movement_type == "out":
+    elif effective == "out":
         from fastapi import HTTPException
 
         raise HTTPException(

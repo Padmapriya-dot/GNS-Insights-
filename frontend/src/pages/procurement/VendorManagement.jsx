@@ -16,8 +16,10 @@ import {
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
+import StoreManagerNav from "../../components/inventory/StoreManagerNav";
 import { useToast } from "../../context/ToastContext";
 import usePermissions from "../../hooks/usePermissions";
+import { isStoreManager } from "../../config/permissions";
 import {
   bulkVendorStatus,
   getVendorSummary,
@@ -85,6 +87,7 @@ export default function VendorManagement() {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const { user, isAdmin } = usePermissions();
+  const storeMode = isStoreManager(user);
   const roles = Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean);
   const canWrite =
     isAdmin ||
@@ -388,11 +391,17 @@ export default function VendorManagement() {
   );
 
   if (loading && vendors.length === 0) {
-    return <Loader label="Loading vendors..." />;
+    return (
+      <div className="space-y-6 pb-8">
+        {storeMode ? <StoreManagerNav /> : null}
+        <Loader label="Loading vendors..." />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6 pb-8">
+      {storeMode ? <StoreManagerNav /> : null}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Vendors</h1>

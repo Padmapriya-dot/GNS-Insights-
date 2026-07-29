@@ -1,3 +1,5 @@
+import json
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -31,16 +33,31 @@ def get_or_create_settings(db: Session, tenant_id: int) -> CompanySettings:
     return settings
 
 
+def _parse_custom_fields(raw: str | None) -> list[dict] | None:
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, list) else None
+    except Exception:
+        return None
+
+
 def to_settings_read(settings: CompanySettings) -> CompanySettingsRead:
     """Build API read model with sensitive fields decrypted (does not mutate ORM)."""
-    data = CompanySettingsRead.model_validate(settings).model_dump()
+    data = {
+        c.name: getattr(settings, c.name)
+        for c in settings.__table__.columns
+        if c.name != "custom_fields_json"
+    }
+    data["custom_fields"] = _parse_custom_fields(settings.custom_fields_json)
     for field in _SENSITIVE_FIELDS:
         raw = data.get(field)
         try:
             data[field] = decrypt_field(raw)
         except Exception:
             pass
-    return CompanySettingsRead(**data)
+    return CompanySettingsRead.model_validate(data)
 
 
 def update_settings(
@@ -48,6 +65,11 @@ def update_settings(
 ) -> CompanySettings:
     settings = get_or_create_settings(db, tenant_id)
     data = payload.model_dump(exclude_unset=True)
+    if "custom_fields" in data:
+        fields = data.pop("custom_fields")
+        data["custom_fields_json"] = (
+            json.dumps(fields) if fields is not None else None
+        )
     for field in _SENSITIVE_FIELDS:
         if field in data and data[field] is not None:
             data[field] = encrypt_field(data[field])

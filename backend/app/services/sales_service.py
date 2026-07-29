@@ -420,6 +420,12 @@ def create_payment(db: Session, payload: PaymentCreate) -> Payment:
         inv.amount_paid = (inv.amount_paid or 0) + payload.amount
         inv.status = "paid" if inv.amount_paid >= inv.grand_total else "partial"
         try:
+            from app.services.invoice_v2_service import sync_payment_status
+
+            sync_payment_status(inv)
+        except Exception:
+            inv.payment_status = inv.status if inv.status in ("paid", "partial") else "unpaid"
+        try:
             from app.models.accounts import Income
 
             income = Income(

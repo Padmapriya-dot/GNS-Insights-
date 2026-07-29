@@ -246,3 +246,32 @@ class StockAdjustment(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
     approved_by: Mapped[str | None] = mapped_column(String(255))
     adjustment_date: Mapped[date | None] = mapped_column(Date)
+
+
+class StoreIssueRequest(Base, TimestampMixin):
+    """Shop-floor material request → issue → confirm → consume workflow."""
+
+    __tablename__ = "store_issue_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    request_number: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    warehouse_id: Mapped[int] = mapped_column(ForeignKey("warehouses.id"), nullable=False)
+    item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id"), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    operator_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    employee_id: Mapped[str | None] = mapped_column(String(64))
+    machine: Mapped[str | None] = mapped_column(String(128))
+    shift: Mapped[str | None] = mapped_column(String(64))
+    reason: Mapped[str | None] = mapped_column(String(512))
+    # pending → approved → issued → received → closed | rejected
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    approved_by: Mapped[str | None] = mapped_column(String(255))
+    issued_by: Mapped[str | None] = mapped_column(String(255))
+    issued_qty: Mapped[int | None] = mapped_column(Integer)
+    used_qty: Mapped[int | None] = mapped_column(Integer)
+    waste_qty: Mapped[int | None] = mapped_column(Integer)
+    returned_qty: Mapped[int | None] = mapped_column(Integer)
+    notes: Mapped[str | None] = mapped_column(Text)

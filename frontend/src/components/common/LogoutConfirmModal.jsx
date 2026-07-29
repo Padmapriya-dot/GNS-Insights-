@@ -1,0 +1,84 @@
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { LogOut } from "lucide-react";
+
+/**
+ * Logout confirmation modal — yellow accent, all-devices checkbox, Cancel / Log Out.
+ */
+export default function LogoutConfirmModal({ open, onCancel, onConfirm, busy = false }) {
+  const titleId = useId();
+  const confirmRef = useRef(null);
+  const [allDevices, setAllDevices] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setAllDevices(false);
+      return undefined;
+    }
+    const onKeyDown = (e) => {
+      if (e.key === "Escape" && !busy) onCancel?.();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    confirmRef.current?.focus();
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onCancel, busy]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/45 p-4"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !busy) onCancel?.();
+      }}
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="w-full max-w-[380px] rounded-2xl bg-white px-8 py-9 text-center shadow-2xl"
+      >
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center">
+          <LogOut className="h-12 w-12 text-[#F5C518]" strokeWidth={1.75} />
+        </div>
+
+        <h2 id={titleId} className="text-xl font-bold leading-snug text-slate-900">
+          Are You Sure You Want To Log Out?
+        </h2>
+
+        <label className="mt-6 inline-flex cursor-pointer items-center gap-2.5 text-left text-sm text-slate-500">
+          <input
+            type="checkbox"
+            checked={allDevices}
+            onChange={(e) => setAllDevices(e.target.checked)}
+            disabled={busy}
+            className="h-4 w-4 rounded border-slate-300 text-[#F5C518] focus:ring-[#F5C518]/40"
+          />
+          Also log out from all devices
+        </label>
+
+        <div className="mt-8 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onCancel}
+            className="rounded-xl bg-slate-200 px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-300 disabled:opacity-60"
+          >
+            Cancel
+          </button>
+          <button
+            ref={confirmRef}
+            type="button"
+            disabled={busy}
+            onClick={() => onConfirm?.({ allDevices })}
+            className="rounded-xl bg-[#F5C518] px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-[#e6b800] disabled:opacity-60"
+          >
+            {busy ? "Logging out…" : "Log Out"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}

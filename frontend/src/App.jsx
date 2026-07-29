@@ -61,7 +61,39 @@ export default function App() {
   const location = useLocation();
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const showChatbot = shouldShowChatbot(user, location.pathname);
+  const isInvoiceEditor =
+    location.pathname === "/sales/invoices/create" ||
+    location.pathname === "/sales/quotations/create" ||
+    location.pathname === "/sales/payment-receipts/create" ||
+    location.pathname === "/sales/proforma-invoices/create" ||
+    location.pathname === "/sales/export-invoices/create" ||
+    location.pathname === "/sales/delivery-challans/create" ||
+    location.pathname === "/sales/credit-notes/create" ||
+    location.pathname === "/sales/debit-notes/create" ||
+    location.pathname === "/purchases/create" ||
+    location.pathname === "/purchases/payments-made/create" ||
+    location.pathname === "/purchases/debit-notes/create" ||
+    location.pathname === "/procurement/purchase-orders/create" ||
+    /^\/sales\/invoices\/[^/]+\/copy$/.test(location.pathname);
+  const isSalesDocList =
+    location.pathname === "/sales/invoices" ||
+    location.pathname === "/sales/quotations" ||
+    location.pathname === "/sales/payment-receipts" ||
+    location.pathname === "/sales/refund-vouchers" ||
+    location.pathname === "/sales/proforma-invoices" ||
+    location.pathname === "/sales/export-proforma-invoices" ||
+    location.pathname === "/sales/export-invoices" ||
+    location.pathname === "/sales/delivery-challans" ||
+    location.pathname === "/sales/credit-notes" ||
+    location.pathname === "/sales/debit-notes" ||
+    location.pathname === "/purchases" ||
+    location.pathname === "/purchases/payments-made" ||
+    location.pathname === "/purchases/debit-notes" ||
+    location.pathname === "/procurement/purchase-orders";
+  const isEInvoiceLogin = location.pathname === "/sales/e-invoice";
+  const isFullBleedSales = isInvoiceEditor || isSalesDocList || isEInvoiceLogin;
 
   if (isShellLessRoute(location.pathname)) {
     return (
@@ -87,21 +119,43 @@ export default function App() {
         aria-hidden="true"
       />
       <aside
-        className={`fixed left-0 top-0 z-50 h-full transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 w-60 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
+        className={`fixed left-0 top-0 z-50 h-full transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 ${
+          sidebarCollapsed ? "w-[72px]" : "w-60"
+        } ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
-        <Sidebar onClose={() => setSidebarOpen(false)} />
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+          onClose={() => setSidebarOpen(false)}
+        />
       </aside>
-      <div className="flex min-h-0 flex-1 flex-col min-w-0 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <Navbar onMenuClick={() => setSidebarOpen(true)} />
-        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto bg-[#F4F7FE] p-4 sm:p-5 lg:p-6 pb-8 outline-none">
-          <div className="ui-page ui-stack">
-            <Breadcrumbs />
-            <Suspense fallback={<RouteFallback />}>
-              <AppRoutes />
-            </Suspense>
-          </div>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className={`min-h-0 flex-1 outline-none ${
+            isInvoiceEditor || isEInvoiceLogin
+              ? "overflow-hidden bg-[#F5F5F5]"
+              : isSalesDocList
+                ? "overflow-y-auto bg-[#F5F5F5]"
+                : "overflow-y-auto bg-[#F4F7FE] p-4 pb-8 sm:p-5 lg:p-6"
+          }`}
+        >
+          {isFullBleedSales ? (
+            <div className={isInvoiceEditor || isEInvoiceLogin ? "h-full min-h-0" : "min-h-full"}>
+              <Suspense fallback={<RouteFallback />}>
+                <AppRoutes />
+              </Suspense>
+            </div>
+          ) : (
+            <div className="ui-page ui-stack">
+              <Breadcrumbs />
+              <Suspense fallback={<RouteFallback />}>
+                <AppRoutes />
+              </Suspense>
+            </div>
+          )}
           {showChatbot && <AiChatWidget />}
         </main>
       </div>
