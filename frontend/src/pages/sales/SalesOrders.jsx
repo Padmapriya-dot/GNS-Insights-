@@ -38,6 +38,7 @@ export default function SalesOrders() {
   const { addToast } = useToast();
   const { online, markRequestStart, markRequestEnd } = useNetworkStatus();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [rows, setRows] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
@@ -118,6 +119,7 @@ export default function SalesOrders() {
     },
     { key: "customer_name", label: "Customer" },
     { key: "order_date", label: "Order Date", render: (r) => String(r.order_date || r.so_date || "").slice(0, 10) || "—" },
+    { key: "due_date", label: "Due Date", render: (r) => String(r.due_date || "").slice(0, 10) || "—" },
     {
       key: "item_description",
       label: "Product",
@@ -165,13 +167,21 @@ export default function SalesOrders() {
       key: "actions",
       label: "Actions",
       render: (r) => (
-        <button
-          type="button"
-          onClick={() => setSelected(r)}
-          className="text-xs font-semibold text-[#2563EB] hover:underline"
-        >
-          View
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSelected(r)}
+            className="text-xs font-semibold text-[#2563EB] hover:underline"
+          >
+            View
+          </button>
+          <Link
+            to={`/sales/orders/create?edit=${r.order_number || r.so_number}`}
+            className="text-xs font-semibold text-slate-600 hover:underline"
+          >
+            Edit
+          </Link>
+        </div>
       ),
     },
   ];
@@ -204,11 +214,11 @@ export default function SalesOrders() {
           </button>
           <button
             type="button"
-            onClick={load}
-            disabled={loading}
+            onClick={async () => { setRefreshing(true); await load(); setRefreshing(false); }}
+            disabled={loading || refreshing}
             className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+            <RefreshCw className={`h-4 w-4 transition-transform ${refreshing ? "animate-spin" : ""}`} /> Refresh
           </button>
         </div>
       </header>

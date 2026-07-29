@@ -58,6 +58,14 @@ class SOSummaryRead(BaseModel):
     revenue: float = 0
 
 
+class SOLineItemRead(BaseModel):
+    item_description: str | None = None
+    quantity: float = 0
+    unit: str | None = None
+    unit_price: float = 0
+    line_total: float = 0
+
+
 class SOListRead(BaseModel):
     id: int
     order_number: str
@@ -65,6 +73,7 @@ class SOListRead(BaseModel):
     order_date: str
     delivery_date: str | None = None
     amount: float = 0
+    total_amount: float = 0
     payment_terms: str | None = None
     status: str = "draft"
     sales_person: str | None = None
@@ -72,6 +81,7 @@ class SOListRead(BaseModel):
     packed: bool = False
     shipped: bool = False
     invoiced: bool = False
+    line_items: list[SOLineItemRead] = []
 
 
 class DispatchSummaryRead(BaseModel):

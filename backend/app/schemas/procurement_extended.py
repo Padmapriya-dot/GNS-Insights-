@@ -32,6 +32,25 @@ class RFQSummaryRead(BaseModel):
     awarded_rfqs: int = 0
 
 
+class RFQCreate(BaseModel):
+    rfq_number: str | None = None
+    material_request_id: int | None = None
+    due_date: str | None = None
+    notes: str | None = None
+
+
+class VendorQuotationCreate(BaseModel):
+    supplier_id: int
+    price: float
+    delivery_days: int | None = 7
+    gst_pct: float | None = 18.0
+    warranty: str | None = "1 Year"
+
+
+class RFQAward(BaseModel):
+    supplier_id: int
+
+
 class RFQListRead(BaseModel):
     id: int
     rfq_number: str
@@ -40,6 +59,7 @@ class RFQListRead(BaseModel):
     due_date: str | None = None
     quotation_count: int = 0
     status: str = "open"
+
 
 
 class VendorComparisonRead(BaseModel):
@@ -96,6 +116,21 @@ class GRNListRead(BaseModel):
     receipt_date: str | None = None
 
 
+class VendorBillCreate(BaseModel):
+    bill_number: str | None = None
+    supplier_id: int
+    purchase_order_id: int | None = None
+    goods_receipt_id: int | None = None
+    amount: float
+    gst_amount: float | None = None
+    bill_date: str | None = None
+    due_date: str | None = None
+
+
+class VendorBillStatusUpdate(BaseModel):
+    status: str
+
+
 class VendorBillSummaryRead(BaseModel):
     total_bills: int = 0
     due_bills: int = 0
@@ -113,6 +148,7 @@ class VendorBillListRead(BaseModel):
     gst_amount: float | None = None
     due_date: str | None = None
     status: str = "pending"
+
 
 
 class ProcurementHubRead(BaseModel):

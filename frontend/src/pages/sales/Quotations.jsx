@@ -5,10 +5,11 @@ import { Download, FileText, Filter, Plus, RefreshCw } from "lucide-react";
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
-import QuoteDetailModal from "../../components/sales/QuoteDetailModal";
 import CreateQuotationModal from "../../components/sales/CreateQuotationModal";
+import QuoteDetailModal from "../../components/sales/QuoteDetailModal";
 import { useToast } from "../../context/ToastContext";
-import { getQuotationSummary, getQuotationsEnriched, updateQuotationStatus } from "../../api/salesApi";
+import useTenantId from "../../hooks/useTenantId";
+import { getQuotationSummary, getQuotationsEnriched, updateQuotationStatus, createQuotation } from "../../api/salesApi";
 import { DEMO_QUOTE_LIST, formatInr, statusColor } from "../../data/salesMasterData";
 import { exportToExcel } from "../../utils/exportUtils";
 
@@ -26,7 +27,9 @@ function KpiCard({ label, value, icon: Icon, color }) {
 export default function Quotations() {
   const [searchParams] = useSearchParams();
   const { addToast } = useToast();
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [rows, setRows] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [selected, setSelected] = useState(null);
@@ -81,6 +84,17 @@ export default function Quotations() {
     if (!statusFilter) return rows;
     return rows.filter((r) => String(r.status || "").toLowerCase() === statusFilter.toLowerCase());
   }, [rows, statusFilter]);
+
+  const handleCreateQuotation = async (payload) => {
+    try {
+      await createQuotation({ ...payload, tenant_id: tenantId });
+      addToast("Quotation created successfully", "success");
+      setShowCreateModal(false);
+      await load();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Could not create quotation", "error");
+    }
+  };
 
   const handleStatus = async (quote, status) => {
     if (typeof quote.id === "number") {
@@ -138,6 +152,11 @@ export default function Quotations() {
       ),
     },
     {
+      key: "unit",
+      label: "Unit",
+      render: (r) => <span className="text-slate-600">{r.items?.[0]?.unit ?? r.unit ?? "—"}</span>,
+    },
+    {
       key: "unit_price",
       label: "Unit Price",
       render: (r) => (
@@ -175,11 +194,11 @@ export default function Quotations() {
             <Plus className="h-4 w-4" /> New Quotation
           </button>
           <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "quotations")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+          <button type="button" onClick={async () => { setRefreshing(true); await load(); setRefreshing(false); }} disabled={refreshing} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"><RefreshCw className={`h-4 w-4 transition-transform ${refreshing ? "animate-spin" : ""}`} /> Refresh</button>
         </div>
       </header>
 
-      <ManufacturingWorkflowBar currentStepId="sales_order" />
+      <ManufacturingWorkflowBar currentStepId="quotation" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiCard label="Total Quotations" value={summary.total_quotations ?? 0} icon={FileText} color="bg-blue-600" />

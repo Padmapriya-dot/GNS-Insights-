@@ -29,8 +29,12 @@ class DocumentBase(BaseModel):
     def sanitize_file_path(cls, value: str | None) -> str | None:
         if value is None:
             return None
+        raw = str(value).strip()
+        # Data URL uploads (used by document UI) — keep as-is up to limit
+        if raw.startswith("data:"):
+            return raw[:2_000_000]
         cleaned = sanitize_text(value, max_length=1024)
-        if ".." in cleaned or cleaned.startswith(("/", "\\")):
+        if cleaned and (".." in cleaned or cleaned.startswith(("/", "\\"))):
             raise ValueError("Invalid file path")
         return cleaned
 
@@ -64,8 +68,12 @@ class DocumentUpdate(BaseModel):
     def sanitize_file_path(cls, value: str | None) -> str | None:
         if value is None:
             return None
+        raw = str(value).strip()
+        # Data URL uploads (used by document UI) — keep as-is up to limit
+        if raw.startswith("data:"):
+            return raw[:2_000_000]
         cleaned = sanitize_text(value, max_length=1024)
-        if ".." in cleaned or cleaned.startswith(("/", "\\")):
+        if cleaned and (".." in cleaned or cleaned.startswith(("/", "\\"))):
             raise ValueError("Invalid file path")
         return cleaned
 

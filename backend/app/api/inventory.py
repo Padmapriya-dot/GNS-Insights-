@@ -57,12 +57,16 @@ from app.schemas.inventory_extended import (
     MaterialListRead,
     StockAdjustmentCreate,
     StockAdjustmentRead,
+    StockAdjustmentStatusUpdate,
     StockTransferCreate,
     StockTransferRead,
+    StockTransferStatusUpdate,
 )
 from app.services.inventory_extended_service import (
     create_adjustment,
+    update_adjustment_status,
     create_transfer,
+    update_transfer_status,
     get_finished_goods_summary,
     get_inventory_hub,
     get_ledger_summary,
@@ -356,6 +360,24 @@ def create_transfer_endpoint(
     return match
 
 
+@router.patch("/transfers/{transfer_id}/status", response_model=StockTransferRead)
+def update_transfer_status_endpoint(
+    transfer_id: int,
+    payload: StockTransferStatusUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    t = update_transfer_status(db, tenant_id, transfer_id, payload.status, payload.approved_by)
+    if not t:
+        raise HTTPException(404, "Stock transfer not found")
+    rows = list_transfers(db, tenant_id)
+    match = next((r for r in rows if r.id == t.id), None)
+    if not match:
+        raise HTTPException(500, "Transfer updated but could not be loaded")
+    return match
+
+
+
 @router.get("/adjustments", response_model=list[StockAdjustmentRead])
 def adjustments_list(
     tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
@@ -375,6 +397,24 @@ def create_adjustment_endpoint(
     if not match:
         raise HTTPException(500, "Adjustment created but could not be loaded")
     return match
+
+
+@router.patch("/adjustments/{adjustment_id}/status", response_model=StockAdjustmentRead)
+def update_adjustment_status_endpoint(
+    adjustment_id: int,
+    payload: StockAdjustmentStatusUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    a = update_adjustment_status(db, tenant_id, adjustment_id, payload.status, payload.approved_by)
+    if not a:
+        raise HTTPException(404, "Stock adjustment not found")
+    rows = list_adjustments(db, tenant_id)
+    match = next((r for r in rows if r.id == a.id), None)
+    if not match:
+        raise HTTPException(500, "Adjustment updated but could not be loaded")
+    return match
+
 
 
 @router.get("/ledger/summary", response_model=LedgerSummaryRead)

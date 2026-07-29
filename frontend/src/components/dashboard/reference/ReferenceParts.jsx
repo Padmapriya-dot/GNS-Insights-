@@ -17,6 +17,7 @@ import {
   TrendingDown,
   TrendingUp,
   Users,
+  Warehouse,
   Wrench,
 } from "lucide-react";
 
@@ -27,6 +28,12 @@ export const KPI_ICONS = {
   "pending-orders": FileText,
   "good-qty": CheckCircle2,
   "reject-qty": AlertTriangle,
+  "inventory-value": TrendingUp,
+  "low-stock": AlertTriangle,
+  "raw-materials": Boxes,
+  "finished-goods": Package,
+  "warehouses": Warehouse,
+  "stock-movements": ClipboardList,
 };
 
 export function KpiIcon({ id, className = "h-7 w-7" }) {

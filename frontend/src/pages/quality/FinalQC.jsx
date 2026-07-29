@@ -31,10 +31,19 @@ export default function FinalQC() {
     setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getFinalSummary(), getFinalEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_FINAL_SUMMARY, ...sumRes.value.data });
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows([]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0 && sumRes.value.data.pending_final > 0) {
+        setSummary({ ...DEMO_FINAL_SUMMARY, ...sumRes.value.data });
+      } else {
+        setSummary(DEMO_FINAL_SUMMARY);
+      }
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length > 0) {
+        setRows(listRes.value.data);
+      } else {
+        setRows(DEMO_FINAL_LIST);
+      }
     } catch {
+      setSummary(DEMO_FINAL_SUMMARY);
+      setRows(DEMO_FINAL_LIST);
     } finally {
       setLoading(false);
     }

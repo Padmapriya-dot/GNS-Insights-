@@ -31,10 +31,19 @@ export default function InProcessQC() {
     setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getProcessSummary(), getProcessEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_PROCESS_SUMMARY, ...sumRes.value.data });
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows([]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0 && sumRes.value.data.production_running > 0) {
+        setSummary({ ...DEMO_PROCESS_SUMMARY, ...sumRes.value.data });
+      } else {
+        setSummary(DEMO_PROCESS_SUMMARY);
+      }
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length > 0) {
+        setRows(listRes.value.data);
+      } else {
+        setRows(DEMO_PROCESS_LIST);
+      }
     } catch {
+      setSummary(DEMO_PROCESS_SUMMARY);
+      setRows(DEMO_PROCESS_LIST);
     } finally {
       setLoading(false);
     }

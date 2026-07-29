@@ -184,27 +184,39 @@ def gl_enriched_endpoint(
 def gst_extended_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)),
     year: int = Query(...),
-    financial_year: str | None = Query(None),
     month: str | None = Query(None),
     branch: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    # Extra query params kept for SMRT API compatibility; service uses year.
-    _ = (financial_year, month, branch)
-    return get_gst_extended(db, tenant_id, year)
+    return get_gst_extended(db, tenant_id, year, month, branch)
 
 
 @router.get("/profit-loss/extended")
 def pl_extended_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)),
     year: int = Query(...),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
     financial_year: str | None = Query(None),
     month: str | None = Query(None),
     branch: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
     _ = (financial_year, month, branch)
-    return get_pl_extended(db, tenant_id, year)
+    from datetime import datetime
+    sd = None
+    ed = None
+    if start_date:
+        try:
+            sd = datetime.fromisoformat(start_date).date()
+        except:
+            pass
+    if end_date:
+        try:
+            ed = datetime.fromisoformat(end_date).date()
+        except:
+            pass
+    return get_pl_extended(db, tenant_id, year, start_date=sd, end_date=ed)
 
 
 @router.get("/extended-reports")

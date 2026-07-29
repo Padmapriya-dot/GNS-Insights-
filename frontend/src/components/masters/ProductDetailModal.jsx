@@ -8,12 +8,10 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { PRODUCT_UNITS } from "../../data/productsMasterData";
 
 const TABS = [
   { id: "general", label: "General" },
   { id: "inventory", label: "Inventory" },
-  { id: "pricing", label: "Pricing" },
   { id: "bom", label: "BOM" },
   { id: "suppliers", label: "Suppliers" },
   { id: "purchase", label: "Purchase History" },
@@ -50,8 +48,6 @@ export default function ProductDetailModal({
   const [tab, setTab] = useState("general");
   if (!product) return null;
 
-  const formatPrice = (n) => (n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—");
-
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
       <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
@@ -59,7 +55,7 @@ export default function ProductDetailModal({
           <div>
             <p className="text-xs font-semibold text-[#2563EB]">{product.product_code}</p>
             <h2 className="text-xl font-bold text-slate-900">{product.name}</h2>
-            <p className="text-sm text-slate-500">{product.category} · {product.sku}</p>
+            <p className="text-sm text-slate-500">{product.category}</p>
           </div>
           <button
             type="button"
@@ -96,7 +92,6 @@ export default function ProductDetailModal({
                 <Field label="Product Name" value={product.name} />
                 <Field label="Category" value={product.category} />
                 <Field label="Product Type" value={product.product_type} />
-                <Field label="SKU" value={product.sku} />
                 <Field label="Barcode" value={product.barcode} />
                 <Field label="Brand" value={product.brand} />
                 <Field label="Unit" value={product.unit} />
@@ -128,21 +123,6 @@ export default function ProductDetailModal({
               <Field label="Maximum Stock" value={product.max_stock} />
               <Field label="Warehouse" value={product.warehouse} />
               <Field label="Unit" value={product.unit} />
-              <Field label="Stock Value" value={formatPrice(product.stock_value)} />
-            </div>
-          )}
-
-          {tab === "pricing" && (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <Field label="Purchase Price" value={formatPrice(product.purchase_price)} />
-              <Field label="Selling Price" value={formatPrice(product.selling_price)} />
-              <Field label="GST %" value={product.gst_percent != null ? `${product.gst_percent}%` : "—"} />
-              <Field label="HSN Code" value={product.hsn_code} />
-              <Field label="Margin" value={
-                product.selling_price && product.purchase_price
-                  ? formatPrice(product.selling_price - product.purchase_price)
-                  : "—"
-              } />
             </div>
           )}
 
@@ -205,168 +185,6 @@ export default function ProductDetailModal({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-export function ProductFormModal({ product, onClose, onSave }) {
-  const isEdit = Boolean(product?.id && !String(product.id).startsWith("demo-") && !String(product.id).startsWith("new-"));
-  const [form, setForm] = useState({
-    product_code: product?.product_code || "",
-    name: product?.name || "",
-    sku: product?.sku || "",
-    category: product?.category || "Finished Goods",
-    product_type: product?.product_type || "Finished Goods",
-    unit: product?.unit || "Nos",
-    brand: product?.brand || "",
-    warehouse: product?.warehouse || "Main Store",
-    purchase_price: product?.purchase_price ?? "",
-    selling_price: product?.selling_price ?? "",
-    min_stock: product?.min_stock ?? 1,
-    max_stock: product?.max_stock ?? 100,
-    current_stock: product?.current_stock ?? 1,
-    description: product?.description || "",
-    status: product?.status || "active",
-  });
-
-  const isValidNonNegative = (value) => {
-    if (value === "" || value === null || value === undefined) return true;
-    const num = Number(value);
-    return !isNaN(num) && num >= 0;
-  };
-
-  const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (
-      !isValidNonNegative(form.purchase_price) ||
-      !isValidNonNegative(form.selling_price) ||
-      !isValidNonNegative(form.min_stock) ||
-      !isValidNonNegative(form.current_stock)
-    ) {
-      window.alert("Please enter valid non-negative numbers for Purchase Price, Selling Price, Min Stock, and Current Stock.");
-      return;
-    }
-    onSave(form);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-900">{isEdit ? "Edit Product" : "Add Product"}</h2>
-          <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="grid max-h-[60vh] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Product Code</span>
-            <input
-              value={form.product_code}
-              onChange={(e) => set("product_code", e.target.value)}
-              placeholder="e.g. PRD001"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Product Name *</span>
-            <input required value={form.name} onChange={(e) => set("name", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">SKU *</span>
-            <input required value={form.sku} onChange={(e) => set("sku", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Category</span>
-            <select value={form.category} onChange={(e) => set("category", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              {["Raw Material", "WIP", "Finished Goods", "Consumables", "Spare Parts"].map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Unit</span>
-            <select
-              value={form.unit}
-              onChange={(e) => set("unit", e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              {PRODUCT_UNITS.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Purchase Price (₹)</span>
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={form.purchase_price}
-              onChange={(e) => set("purchase_price", e.target.value)}
-              placeholder="0"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Selling Price (₹)</span>
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={form.selling_price}
-              onChange={(e) => set("selling_price", e.target.value)}
-              placeholder="0"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Min Stock</span>
-            <input
-              type="number"
-              min="0"
-              value={form.min_stock}
-              onChange={(e) => set("min_stock", e.target.value)}
-              placeholder="0"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Current Stock</span>
-            <input
-              type="number"
-              min="0"
-              value={form.current_stock}
-              onChange={(e) => set("current_stock", e.target.value)}
-              placeholder="0"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="sm:col-span-2">
-            <span className="text-xs font-semibold text-slate-500">Status</span>
-            <select
-              value={form.status}
-              onChange={(e) => set("status", e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </label>
-          <label className="sm:col-span-2">
-            <span className="text-xs font-semibold text-slate-500">Description</span>
-            <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          </label>
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button>
-          <button type="submit" className="ui-btn-primary">{isEdit ? "Save Changes" : "Add Product"}</button>
-        </div>
-      </form>
     </div>
   );
 }

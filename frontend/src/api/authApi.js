@@ -75,10 +75,19 @@ export async function resendVerification(email) {
 export function getApiErrorMessage(err, fallback = "Something went wrong.") {
   const data = err?.response?.data;
   if (!data) return fallback;
-  if (typeof data.detail === "string") return data.detail;
-  if (Array.isArray(data.errors) && data.errors.length) return data.errors[0];
-  if (typeof data.errors === "string") return data.errors;
-  if (typeof data.message === "string") return data.message;
+  if (Array.isArray(data.errors) && data.errors.length) {
+    const first = data.errors[0];
+    if (typeof first === "string" && first.trim()) return first;
+    if (typeof first?.msg === "string" && first.msg.trim()) return first.msg;
+  }
+  if (typeof data.detail === "string" && data.detail.trim() && data.detail !== "Validation error") {
+    return data.detail;
+  }
+  if (typeof data.message === "string" && data.message.trim() && data.message !== "Validation failed") {
+    return data.message;
+  }
+  if (typeof data.detail === "string" && data.detail.trim()) return data.detail;
+  if (typeof data.message === "string" && data.message.trim()) return data.message;
   return fallback;
 }
 

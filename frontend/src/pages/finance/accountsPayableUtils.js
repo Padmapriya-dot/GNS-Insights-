@@ -27,7 +27,7 @@ export function normalizeSummaryPayload(payload) {
 
 export function normalizeVendorList(payload) {
   const normalized = normalizeListPayload(payload);
-  return normalized.filter((vendor) => vendor && typeof vendor === "object" && (vendor.name || vendor.vendor_code));
+  return normalized.filter((vendor) => vendor && typeof vendor === "object" && vendor.name);
 }
 
 export function getRowBranch(row, fallback = "Head Office") {

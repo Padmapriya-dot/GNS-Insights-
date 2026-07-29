@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.core.permissions import tenant_scope
+from app.core.permissions import require_permission, tenant_scope
+from app.models.user import User
 from app.services.analytics_extended_service import (
     get_executive_hub,
     get_finance_analytics,
@@ -85,11 +86,11 @@ def analytics_dashboard_endpoint(
 
 @router.get("/production/summary")
 def production_analytics_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)),
+    current_user: User = Depends(require_permission(MODULE)),
     year: int = Query(None),
     db: Session = Depends(get_db),
 ):
-    return get_production_analytics(db, tenant_id, year)
+    return get_production_analytics(db, current_user.tenant_id, year, user=current_user)
 
 
 @router.get("/inventory/summary")

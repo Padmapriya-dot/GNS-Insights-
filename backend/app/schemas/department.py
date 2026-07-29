@@ -16,6 +16,9 @@ class DepartmentBase(BaseModel):
     manager_mobile: str | None = None
     manager_email: str | None = None
     manager_designation: str | None = None
+    employee_count: int | None = 0
+    machine_count: int | None = 0
+    work_center_count: int | None = 0
     is_active: bool = True
 
 
@@ -35,6 +38,9 @@ class DepartmentUpdate(BaseModel):
     manager_mobile: str | None = None
     manager_email: str | None = None
     manager_designation: str | None = None
+    employee_count: int | None = None
+    machine_count: int | None = None
+    work_center_count: int | None = None
     is_active: bool | None = None
 
 

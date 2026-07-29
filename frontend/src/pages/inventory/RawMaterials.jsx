@@ -75,6 +75,44 @@ export default function RawMaterials() {
     return rows;
   }, [materials, filters]);
 
+  const displaySummary = useMemo(() => {
+    if (!materials || materials.length === 0) return summary;
+
+    let available_stock = 0;
+    let low_stock = 0;
+    let out_of_stock = 0;
+    let stock_value = 0;
+    let reorder_items = 0;
+
+    materials.forEach((m) => {
+      const q = Number(m.quantity) || 0;
+      const reorder = Number(m.reorder_level) || 0;
+      const cost = Number(m.unit_cost) || 0;
+      stock_value += (m.stock_value ? Number(m.stock_value) : q * cost);
+
+      if (reorder > 0) {
+        reorder_items += 1;
+      }
+
+      if (q <= 0 || m.status === "out_of_stock") {
+        out_of_stock += 1;
+      } else if ((reorder && q < reorder) || m.status === "low_stock") {
+        low_stock += 1;
+      } else {
+        available_stock += 1;
+      }
+    });
+
+    return {
+      total_items: materials.length,
+      available_stock,
+      low_stock,
+      out_of_stock,
+      stock_value,
+      reorder_items: reorder_items || summary.reorder_items || 0,
+    };
+  }, [materials, summary]);
+
   const openDetail = async (row) => {
     if (typeof row.id === "number") {
       try { const res = await getRawMaterialDetail(row.id); setSelected(res.data); return; } catch { /* fallback */ }
@@ -131,12 +169,12 @@ export default function RawMaterials() {
       <ManufacturingWorkflowBar currentStepId="raw_material" />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Total Materials" value={summary.total_items?.toLocaleString()} icon={Package} color="bg-[#2563EB]" />
-        <KpiCard label="Available Stock" value={summary.available_stock?.toLocaleString()} icon={Box} color="bg-green-500" />
-        <KpiCard label="Low Stock" value={summary.low_stock} icon={AlertTriangle} color="bg-amber-500" />
-        <KpiCard label="Out of Stock" value={summary.out_of_stock} icon={Trash2} color="bg-red-500" />
-        <KpiCard label="Stock Value" value={formatInr(summary.stock_value)} icon={Package} color="bg-indigo-500" />
-        <KpiCard label="Expiring Soon" value={summary.expiring_soon} icon={AlertTriangle} color="bg-orange-500" />
+        <KpiCard label="Total Materials" value={displaySummary.total_items?.toLocaleString()} icon={Package} color="bg-[#2563EB]" />
+        <KpiCard label="Available Stock" value={displaySummary.available_stock?.toLocaleString()} icon={Box} color="bg-green-500" />
+        <KpiCard label="Low Stock" value={displaySummary.low_stock} icon={AlertTriangle} color="bg-amber-500" />
+        <KpiCard label="Out of Stock" value={displaySummary.out_of_stock} icon={Trash2} color="bg-red-500" />
+        <KpiCard label="Stock Value" value={formatInr(displaySummary.stock_value)} icon={Package} color="bg-indigo-500" />
+        <KpiCard label="Reorder Items" value={displaySummary.reorder_items} icon={RefreshCw} color="bg-orange-500" />
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

@@ -29,8 +29,10 @@ export const getTaxReport = (_tenantId, year) =>
     params: { year },
   });
 
-export const getGSTExtended = (year) =>
-  api.get("/accounts/gst/extended", { params: { year } });
+export const getGSTExtended = (year, month, branch) =>
+  api.get("/accounts/gst/extended", {
+    params: { year, month: month || undefined, branch: branch || undefined },
+  });
 
 export const listIncome = (_tenantId, year = null) =>
   api.get("/accounts/income", {

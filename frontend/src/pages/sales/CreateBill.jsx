@@ -54,19 +54,14 @@ export default function CreateBill() {
   useEffect(() => {
     getCustomers()
       .then((res) => {
-        const arr = Array.isArray(res?.data ?? res) ? (res?.data ?? res) : [];
-        const seen = new Map();
-        arr.forEach((c) => {
-          const name = String(c.company || c.name || c.customer_name || "").trim();
-          if (name && !seen.has(name.toLowerCase())) seen.set(name.toLowerCase(), { ...c, name });
-        });
-        setCustomers(Array.from(seen.values()));
+        const arr = Array.isArray(res?.data) ? res.data : [];
+        setCustomers(arr);
       })
       .catch(() => setCustomers([]));
   }, []);
 
   const selectedCustomer = customers.find(
-    (c) => String(c.id) === String(form.customer_id) || c.name === form.customer_id
+    (c) => String(c.id) === String(form.customer_id)
   );
 
   useEffect(() => {
@@ -120,7 +115,7 @@ export default function CreateBill() {
 
     setSaving(true);
     const billNo = (form.invoice_number || "").trim() || genBillNumber();
-    const custName = selectedCustomer?.company || selectedCustomer?.name || form.customer_id || "Walk-in Customer";
+    const custName = selectedCustomer?.name || "Walk-in Customer";
 
     const apiPayload = {
       invoice_number: billNo,
@@ -231,7 +226,7 @@ export default function CreateBill() {
             <select value={form.customer_id} onChange={set("customer_id")} className={inputClass}>
               <option value="">— Select customer —</option>
               {customers.map((c) => (
-                <option key={c.id ?? c.name} value={c.id ?? c.name}>{c.name}</option>
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
             {customers.length === 0 && (
@@ -286,7 +281,8 @@ export default function CreateBill() {
 
         {/* Column headers */}
         <div className="hidden sm:grid sm:grid-cols-[2fr_80px_80px_110px_120px_40px] gap-2 px-1 text-xs font-bold uppercase tracking-wider text-slate-400">
-          <span>Item's</span>
+          <span>Description</span>
+          <span className="text-right">Qty</span>
           <span>Unit</span>
           <span className="text-right">Rate (₹)</span>
           <span className="text-right">Amount (₹)</span>

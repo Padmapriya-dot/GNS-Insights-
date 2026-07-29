@@ -104,14 +104,19 @@ export default function Warehouses() {
         getWarehouseSummary().catch(() => ({ data: null })),
       ]);
       const apiRows = wRes.data || [];
-      setWarehouses(apiRows.map((row, i) => enrichApiWarehouse(row, i)));
+      if (apiRows.length > 0) {
+        setWarehouses(apiRows.map((row, i) => enrichApiWarehouse(row, i)));
+      } else {
+        setWarehouses(DEMO_WAREHOUSES);
+      }
       setApiSummary(sRes.data);
     } catch {
-      setWarehouses([]);
+      setWarehouses(DEMO_WAREHOUSES);
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     loadWarehouses();
@@ -147,6 +152,7 @@ export default function Warehouses() {
 
   const summary = useMemo(() => computeWarehouseSummary(filtered), [filtered]);
 
+
   const exportColumns = [
     { key: "code", label: "Code" },
     { key: "name", label: "Warehouse Name" },
@@ -179,6 +185,8 @@ export default function Warehouses() {
   };
 
   const handleSave = async (form) => {
+    const usedCap = form.used_capacity !== "" && form.used_capacity != null ? Number(form.used_capacity) : 0;
+    const cap = form.capacity !== "" && form.capacity != null ? Number(form.capacity) : null;
     const payload = {
       tenant_id: tenantId,
       name: form.name,
@@ -191,13 +199,14 @@ export default function Warehouses() {
       address: form.address,
       manager_name: form.manager_name,
       manager_phone: form.manager_phone,
-      capacity: form.capacity ? Number(form.capacity) : null,
+      capacity: cap,
+      used_capacity: usedCap,
       is_primary: form.is_primary,
       status: form.status,
     };
     try {
       if (formWarehouse?.id && typeof formWarehouse.id === "number") {
-        await updateWarehouse(formWarehouse.id, form);
+        await updateWarehouse(formWarehouse.id, payload);
         addToast("Warehouse updated");
         loadWarehouses();
         setFormWarehouse(null);
@@ -211,6 +220,7 @@ export default function Warehouses() {
     } catch {
       /* local fallback */
     }
+
     if (formWarehouse?.id) {
       const cap = form.capacity ? Number(form.capacity) : 0;
       const used = form.used_capacity ? Number(form.used_capacity) : 0;

@@ -59,12 +59,18 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
       } else {
         onStatusChange?.(quote, "accepted");
         const newSo = {
-          so_number: `SO-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+          order_number: `SO-2026-${Math.floor(1000 + Math.random() * 9000)}`,
           customer_name: quote.customer_name,
           order_date: new Date().toISOString().slice(0, 10),
           total_amount: quote.amount || quote.total_amount || 0,
           status: "pending",
-          items: quote.items || [],
+          line_items: (quote.items || []).map((it) => ({
+            item_description: it.description || it.name || it.item_description || "",
+            quantity: Number(it.quantity) || 0,
+            unit: it.unit || "pcs",
+            unit_price: Number(it.unit_price) || 0,
+            line_total: (Number(it.quantity) || 0) * (Number(it.unit_price) || 0),
+          })),
         };
         const storedSO = localStorage.getItem("smrt_sales_orders");
         const currentSO = storedSO ? JSON.parse(storedSO) : [];

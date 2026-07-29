@@ -26,6 +26,7 @@ def _warehouse_stats(db: Session, warehouse_id: int) -> dict:
             InventoryItem.reorder_level,
             InventoryItem.item_type,
             InventoryItem.id,
+            InventoryItem.quantity,
         )
         .join(InventoryItem, StockLevel.item_id == InventoryItem.id)
         .where(StockLevel.warehouse_id == warehouse_id)
@@ -38,14 +39,16 @@ def _warehouse_stats(db: Session, warehouse_id: int) -> dict:
     out_of_stock = 0
     raw = finished = wip = 0
 
-    for qty, unit_cost, reorder, item_type, _item_id in rows:
-        q = int(qty or 0)
+    for sl_qty, unit_cost, reorder, item_type, _item_id, item_qty in rows:
+        q = int(sl_qty if sl_qty is not None else (item_qty or 0))
         used += q
         item_count += 1
-        value += q * float(unit_cost or 0)
-        if q == 0:
+        cost = float(unit_cost or 0)
+        value += q * cost
+        if q <= 0:
             out_of_stock += 1
-        elif reorder and q < reorder:
+            low_stock += 1
+        elif reorder and q <= reorder:
             low_stock += 1
         if item_type == "raw_material":
             raw += 1
@@ -68,14 +71,16 @@ def _warehouse_stats(db: Session, warehouse_id: int) -> dict:
 
 def _to_list_read(db: Session, wh: Warehouse) -> WarehouseListRead:
     stats = _warehouse_stats(db, wh.id)
-    available = (wh.capacity - stats["used_capacity"]) if wh.capacity else None
+    wh_used = getattr(wh, "used_capacity", 0) or 0
+    used_cap = max(stats["used_capacity"], wh_used)
+    available = (wh.capacity - used_cap) if wh.capacity is not None else None
     util = (
-        round(stats["used_capacity"] / wh.capacity * 100, 1)
+        round(used_cap / wh.capacity * 100, 1)
         if wh.capacity and wh.capacity > 0
         else None
     )
     data = WarehouseListRead.model_validate(wh)
-    data.used_capacity = stats["used_capacity"]
+    data.used_capacity = used_cap
     data.available_capacity = available
     data.utilization_pct = util
     data.inventory_value = stats["inventory_value"]
@@ -115,8 +120,20 @@ def get_warehouse_summary(db: Session, tenant_id: int) -> WarehouseSummaryRead:
         total_used += stats["used_capacity"]
         if wh.capacity:
             total_capacity += wh.capacity
-        if stats["low_stock_items"] > 0:
+        avail = (wh.capacity - stats["used_capacity"]) if wh.capacity else None
+        if stats["low_stock_items"] > 0 or stats["out_of_stock"] > 0 or (avail is not None and avail <= 0):
             low_stock_wh += 1
+
+
+    if total_value == 0:
+        all_items = db.execute(
+            select(InventoryItem.quantity, InventoryItem.unit_cost)
+            .where(InventoryItem.tenant_id == tenant_id, InventoryItem.is_active.is_(True))
+        ).all()
+        for i_qty, i_cost in all_items:
+            q = int(i_qty or 0)
+            c = float(i_cost or 0)
+            total_value += q * c
 
     util_pct = round(total_used / total_capacity * 100, 1) if total_capacity else 0
 
@@ -137,6 +154,7 @@ def get_warehouse_summary(db: Session, tenant_id: int) -> WarehouseSummaryRead:
         low_stock_warehouses=low_stock_wh,
         pending_transfers=pending,
     )
+
 
 
 def _default_bin_tree(wh: Warehouse) -> list[WarehouseBinNode]:

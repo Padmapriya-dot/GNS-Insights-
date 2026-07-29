@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, Box, Download, Package, Plus, QrCode, RefreshCw, Truck } from "lucide-react";
 
@@ -47,6 +47,47 @@ export default function FinishedGoods() {
   useEffect(() => { load(); }, [load]);
   useManufacturingRefresh(load);
 
+  const displaySummary = useMemo(() => {
+    if (!products || products.length === 0) return summary;
+
+    let total_products = products.length;
+    let available_count = 0;
+    let reserved_count = 0;
+    let ready_to_dispatch = 0;
+    let damaged = 0;
+    let stock_value = 0;
+
+    products.forEach((p) => {
+      const q = Number(p.quantity) || 0;
+      const r = Number(p.reserved) || 0;
+      const avail = p.available !== undefined ? Number(p.available) : Math.max(q - r, 0);
+      const cost = Number(p.unit_cost) || 0;
+      stock_value += (p.stock_value ? Number(p.stock_value) : q * cost);
+
+      if (avail > 0) {
+        available_count += 1;
+      }
+      if (r > 0) {
+        reserved_count += 1;
+      }
+
+      if (q <= 0 || p.status === "out_of_stock" || p.status === "damaged") {
+        damaged += 1;
+      } else if (p.status === "ready" || avail > 0) {
+        ready_to_dispatch += 1;
+      }
+    });
+
+    return {
+      total_products,
+      available: available_count,
+      reserved: reserved_count,
+      ready_to_dispatch,
+      damaged,
+      stock_value,
+    };
+  }, [products, summary]);
+
   const filtered = search.trim()
     ? products.filter((p) => [p.sku, p.name, p.batch_number, p.customer_name].some((v) => v && String(v).toLowerCase().includes(search.toLowerCase())))
     : products;
@@ -58,6 +99,8 @@ export default function FinishedGoods() {
     { key: "quantity", label: "Qty" },
     { key: "reserved", label: "Reserved" },
     { key: "available", label: "Available" },
+    { key: "unit_cost", label: "Cost", render: (r) => r.unit_cost ? `₹${r.unit_cost}` : "—" },
+    { key: "stock_value", label: "Value", render: (r) => r.stock_value ? formatInr(r.stock_value) : (r.unit_cost && r.quantity ? formatInr(r.unit_cost * r.quantity) : "—") },
     { key: "warehouse_name", label: "Warehouse" },
     { key: "customer_name", label: "Customer" },
     { key: "production_date", label: "Prod. Date" },
@@ -82,12 +125,12 @@ export default function FinishedGoods() {
       </header>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Total Products" value={summary.total_products ?? 0} icon={Package} color="bg-[#2563EB]" />
-        <KpiCard label="Available" value={summary.available ?? 0} icon={Box} color="bg-green-500" />
-        <KpiCard label="Reserved" value={summary.reserved ?? 0} icon={Package} color="bg-amber-500" />
-        <KpiCard label="Ready to Dispatch" value={summary.ready_to_dispatch ?? 0} icon={Truck} color="bg-teal-500" />
-        <KpiCard label="Damaged" value={summary.damaged ?? 0} icon={AlertTriangle} color="bg-red-500" />
-        <KpiCard label="Stock Value" value={formatInr(summary.stock_value)} icon={Box} color="bg-indigo-500" />
+        <KpiCard label="Total Products" value={displaySummary.total_products ?? 0} icon={Package} color="bg-[#2563EB]" />
+        <KpiCard label="Available" value={displaySummary.available ?? 0} icon={Box} color="bg-green-500" />
+        <KpiCard label="Reserved" value={displaySummary.reserved ?? 0} icon={Package} color="bg-amber-500" />
+        <KpiCard label="Ready to Dispatch" value={displaySummary.ready_to_dispatch ?? 0} icon={Truck} color="bg-teal-500" />
+        <KpiCard label="Damaged" value={displaySummary.damaged ?? 0} icon={AlertTriangle} color="bg-red-500" />
+        <KpiCard label="Stock Value" value={formatInr(displaySummary.stock_value)} icon={Box} color="bg-indigo-500" />
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

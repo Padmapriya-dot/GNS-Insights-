@@ -51,18 +51,20 @@ function EmptyChart({ message }) {
 export default function TaxReports() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [year, setYear] = useState(new Date().getFullYear());
   const [search, setSearch] = useState("");
-  const [financialYear, setFinancialYear] = useState("2025-26");
+  const [financialYear, setFinancialYear] = useState("2026-27");
   const [month, setMonth] = useState("All Months");
   const [branch, setBranch] = useState("");
   const [activeReport, setActiveReport] = useState("GSTR-3B");
   const [data, setData] = useState(EMPTY_GST);
 
+  // Derive calendar year from financial year string (e.g. "2025-26" → 2025)
+  const year = parseInt(financialYear?.split("-")?.[0]) || new Date().getFullYear();
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getGSTExtended(year);
+      const res = await getGSTExtended(year, month === "All Months" ? undefined : month, branch || undefined);
       if (res?.data && typeof res.data === "object") {
         setData({ ...EMPTY_GST, ...res.data });
       } else {
@@ -74,7 +76,7 @@ export default function TaxReports() {
     } finally {
       setLoading(false);
     }
-  }, [year, addToast]);
+  }, [year, month, branch, addToast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -131,12 +133,7 @@ export default function TaxReports() {
         branch={branch} onBranchChange={setBranch}
         searchPlaceholder="Search GSTIN, customer..."
       >
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Year</label>
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            {[2026, 2025, 2024, 2023].map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
+
       </FinanceFilters>
 
       {/* Report tabs */}

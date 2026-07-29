@@ -26,13 +26,17 @@ export default function ChartOfAccounts() {
     try {
       const res = await getExtendedReports(financialYear, month, branch);
       if (res.data && res.data.trial_balance_accounts) {
+        const typeMap = { Asset: "Assets", Liability: "Liabilities", Equity: "Equity", Revenue: "Revenue", Expense: "Expenses" };
+        const parentMap = { Asset: "Current Assets", Liability: "Current Liabilities", Equity: "Equity", Revenue: "Revenue", Expense: "Operating Cost" };
         const mapped = res.data.trial_balance_accounts.map((tb) => ({
           code: tb.code,
           name: tb.name,
-          parent: tb.category === "Asset" ? "Current Assets" : tb.category === "Liability" ? "Current Liabilities" : "Operating Cost",
-          type: tb.category === "Asset" ? "Assets" : tb.category === "Liability" ? "Liabilities" : tb.category === "Revenue" ? "Revenue" : "Expenses",
-          balance: tb.debit > 0 ? tb.debit : -tb.credit,
-          status: "Active"
+          parent: tb.parent || parentMap[tb.category] || tb.category,
+          type: typeMap[tb.category] || tb.category,
+          balance: ["Liability", "Equity", "Revenue"].includes(tb.category)
+            ? (tb.credit - tb.debit)
+            : (tb.debit - tb.credit),
+          status: tb.status || "Active"
         }));
         setAccounts(mapped);
       }

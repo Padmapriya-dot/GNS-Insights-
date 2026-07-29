@@ -70,7 +70,7 @@ export const CreateSalesOrder = lazy(() => import("../pages/sales/CreateSalesOrd
 export const Customers = lazy(() => import("../pages/sales/Customers"));
 export const CreateCustomer = lazy(() => import("../pages/sales/CreateCustomer"));
 export const PaymentTracking = lazy(() => import("../pages/finance/PaymentTracking"));
-export const AccountsPayable = lazy(() => import("../pages/finance/AccountsPayable"));
+export const AccountsPayable = lazy(() => import("../pages/accounts/AccountsPayable"));
 export const AccountsReceivable = lazy(() => import("../pages/finance/AccountsReceivable"));
 export const GeneralLedger = lazy(() => import("../pages/finance/GeneralLedger"));
 export const CreatePayment = lazy(() => import("../pages/sales/CreatePayment"));
@@ -94,6 +94,7 @@ export const PurchaseOrders = lazy(() => import("../pages/procurement/PurchaseOr
 export const CreatePurchaseOrder = lazy(() => import("../pages/procurement/CreatePurchaseOrder"));
 export const VendorManagement = lazy(() => import("../pages/procurement/VendorManagement"));
 export const CreateVendor = lazy(() => import("../pages/procurement/CreateVendor"));
+export const VendorDetail = lazy(() => import("../pages/procurement/VendorDetail"));
 export const MaterialRequests = lazy(() => import("../pages/procurement/MaterialRequests"));
 export const CreateMaterialRequest = lazy(() => import("../pages/procurement/CreateMaterialRequest"));
 export const GoodsReceipt = lazy(() => import("../pages/procurement/GoodsReceipt"));
@@ -174,6 +175,8 @@ export const Drones = lazy(() => import("../pages/iot/Drones"));
 export const SmartPackaging = lazy(() => import("../pages/iot/SmartPackaging"));
 export const LiveOperations = lazy(() => import("../pages/iot/LiveOperations"));
 export const ProductsMaster = lazy(() => import("../pages/masters/ProductsMaster"));
+export const CreateProduct = lazy(() => import("../pages/masters/CreateProduct"));
 export const BomMaster = lazy(() => import("../pages/masters/BomMaster"));
 export const DepartmentManagement = lazy(() => import("../pages/masters/DepartmentManagement"));
+export const RoleWorkflowBoard = lazy(() => import("../pages/manufacturing/RoleWorkflowBoard"));
 export const NotFound = lazy(() => import("../pages/NotFound"));

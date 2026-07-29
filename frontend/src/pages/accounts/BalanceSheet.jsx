@@ -1,28 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
-import { Landmark, RefreshCw, Download, Wallet, ShieldCheck, PieChart as ChartIcon } from "lucide-react";
-import * as XLSX from "xlsx";
-import FinanceFilters from "../../components/finance/FinanceFilters";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getExtendedReports } from "../../api/accountsApi";
 import { formatInr } from "../../data/financeMasterData";
 
-function KpiCard({ label, value, icon: Icon, color }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{value}</p>
-        </div>
-        {Icon && (
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
-          </div>
-        )}
-      </div>
-    </div>
-  );
+function formatAmount(value) {
+  return formatInr(value ?? 0);
 }
 
 export default function BalanceSheet() {
@@ -31,7 +14,6 @@ export default function BalanceSheet() {
   const [financialYear, setFinancialYear] = useState("2026-27");
   const [month, setMonth] = useState("All Months");
   const [branch, setBranch] = useState("");
-  const [search, setSearch] = useState("");
   const [data, setData] = useState({
     assets_current: [],
     assets_non_current: [],
@@ -42,6 +24,165 @@ export default function BalanceSheet() {
     total_liabilities: 0,
     total_equity: 0,
   });
+
+  const liabilityLabels = [
+    "Capital Account",
+    "Retained Earnings (Reserves & Surplus)",
+    "Reserves & Surplus",
+    "Loans (Liability)",
+    "Bank OCC A/c (Bank OD A/c)",
+    "Secured Loans",
+    "Unsecured Loans",
+    "Current Liabilities",
+    "Duties & Taxes",
+    "Provisions",
+    "Sundry Creditors",
+    "Branch / Divisions",
+    "BRANCH NOIDA",
+    "HEAD OFFICE STICON",
+    "Profit & Loss A/c",
+    "Opening Balance",
+    "Current Period",
+  ];
+
+  const assetLabels = [
+    "FIXED ASSET",
+    "CAPITAL WORK IN PROGRESS",
+    "CIVILWORKS COST",
+    "COMPUTER & LAPTOP",
+    "Fixed Asset -21-22",
+    "FURNITURE & FIXTURE",
+    "IMMOVABLE PROPERTY",
+    "LAB EQUIPMENT",
+    "Land Level Works Cost",
+    "PLANT & MACHINERY",
+    "VEHICLES",
+    "Depreciation Reserve",
+    "Inverter -Amaraon",
+    "Current Assets",
+    "Closing Stock",
+    "Deposits (Asset)",
+    "Loans & Advances (Asset)",
+    "Sundry Debtors",
+    "Cash-in-Hand",
+    "Bank Accounts",
+    "Advances",
+    "RENT -ADVANCE",
+    "SALARY ADVANCES",
+    "Staff Advances",
+    "Capital Subsidy Receivable",
+    "GST ON RCM",
+    "Suspense A/c",
+    "Suspense A/c",
+    "Miscellaneous Expenses Written Off",
+    "Preoperative Expenses - 21-22",
+    "Raw Material",
+    "Raw Material",
+  ];
+
+  const normalizeLabel = (value) =>
+    String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const labelAlias = {
+    capitalaccount: "equitysharecapital",
+    retainedearningsreservesurplus: "retainedearnings",
+    reservesurplus: "retainedearnings",
+    loansliability: "longtermbankborrowings",
+    bankocca: "cashcashequivalents",
+    bankodacca: "cashcashequivalents",
+    securedloans: "longtermbankborrowings",
+    unsecuredloans: "longtermbankborrowings",
+    currentliabilities: "totalcurrentliabilities",
+    dutiesandtaxes: "accruedliabilitiestaxes",
+    sundrycreditors: "accountspayable",
+    profitandlossac: "retainedearnings",
+    fixedasset: "plantmachinerynetbookvalue",
+    plantmachinery: "plantmachinerynetbookvalue",
+    closingstock: "inventoryvaluationfinished",
+    sundrydebtors: "accountsreceivable",
+    cashinhand: "cashcashequivalents",
+    bankaccounts: "cashcashequivalents",
+    currentassets: "totalcurrentassets",
+    rawmaterial: "inventoryvaluationraw",
+  };
+
+  const allRows = [
+    ...data.assets_current,
+    ...data.assets_non_current,
+    ...data.liabilities_current,
+    ...data.liabilities_non_current,
+    ...data.equity,
+  ];
+
+  const boldLabels = new Set([
+    "capital account",
+    "current liabilities",
+    "branch / divisions",
+    "branch noida",
+    "head office sticon",
+    "profit & loss a/c",
+    "fixed asset",
+    "current assets",
+    "raw material",
+  ]);
+
+  const findAmount = (label, index) => {
+    const normalized = normalizeLabel(label);
+
+    const exactMatch = allRows.find((row) => normalizeLabel(row.name) === normalized);
+    if (exactMatch) return formatAmount(exactMatch.amount);
+
+    const aliasKey = labelAlias[normalized];
+    if (aliasKey) {
+      if (aliasKey === "totalcurrentassets") {
+        return formatAmount(data.assets_current.reduce((sum, row) => sum + (row.amount || 0), 0));
+      }
+      if (aliasKey === "totalcurrentliabilities") {
+        return formatAmount(data.liabilities_current.reduce((sum, row) => sum + (row.amount || 0), 0));
+      }
+      if (aliasKey === "inventoryvaluationraw") {
+        const rawRows = data.assets_current.filter((row) => normalizeLabel(row.name).includes("inventoryvaluation") && normalizeLabel(row.name).includes("raw"));
+        const rawRow = rawRows[0];
+        return rawRow ? formatAmount(rawRow.amount) : "";
+      }
+      const aliasMatch = allRows.find((row) => normalizeLabel(row.name) === aliasKey);
+      if (aliasMatch) return formatAmount(aliasMatch.amount);
+    }
+
+    const partialMatch = allRows.find((row) => {
+      const rowNorm = normalizeLabel(row.name);
+      return rowNorm.includes(normalized) || normalized.includes(rowNorm);
+    });
+    if (partialMatch) return formatAmount(partialMatch.amount);
+
+    return "";
+  };
+
+  const rowCount = Math.max(liabilityLabels.length, assetLabels.length);
+  const totalLiabilitiesAndEquity = data.total_liabilities + data.total_equity;
+
+  const months = [
+    "All Months",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+    "January",
+    "February",
+    "March",
+  ];
+  const financialYears = ["2026-27", "2025-26", "2024-25", "2023-24"];
+  const branches = ["", "Head Office", "Plant-1"];
+
+  const getPeriodLabel = () => {
+    if (month === "All Months") return financialYear;
+    return `${financialYear}, ${month}`;
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,230 +198,86 @@ export default function BalanceSheet() {
 
   useEffect(() => { load(); }, [load]);
 
-  const totalCurrentAssets = data.assets_current.reduce((s, x) => s + x.amount, 0);
-  const totalNonCurrentAssets = data.assets_non_current.reduce((s, x) => s + x.amount, 0);
-  const totalAssets = data.total_assets;
-  const totalCurrentLiabilities = data.liabilities_current.reduce((s, x) => s + x.amount, 0);
-  const totalNonCurrentLiabilities = data.liabilities_non_current.reduce((s, x) => s + x.amount, 0);
-  const totalLiabilities = data.total_liabilities;
-  const totalEquity = data.total_equity;
-  const totalLiabilitiesAndEquity = totalLiabilities + totalEquity;
-
-  const exportExcel = () => {
-    const wsData = [
-      ["GNS Insights - BALANCE SHEET", `${financialYear} (${month})`],
-      ["Branch:", branch || "Consolidated"],
-      [],
-      ["ASSETS", "", "LIABILITIES & EQUITY"],
-      ["Current Assets", "", "Current Liabilities"],
-      ...data.assets_current.map((a, i) => {
-        const l = data.liabilities_current[i] || { name: "", amount: "" };
-        return [a.name, a.amount, l.name, l.amount];
-      }),
-      ["Total Current Assets", totalCurrentAssets, "Total Current Liabilities", totalCurrentLiabilities],
-      [],
-      ["Non-Current Assets", "", "Non-Current Liabilities"],
-      ...data.assets_non_current.map((a, i) => {
-        const l = data.liabilities_non_current[i] || { name: "", amount: "" };
-        return [a.name, a.amount, l.name, l.amount];
-      }),
-      ["Total Non-Current Assets", totalNonCurrentAssets, "Total Non-Current Liabilities", totalNonCurrentLiabilities],
-      [],
-      ["", "", "Equity"],
-      ...data.equity.map((eq) => ["", "", eq.name, eq.amount]),
-      ["", "", "Total Equity", totalEquity],
-      [],
-      ["TOTAL ASSETS", totalAssets, "TOTAL LIABILITIES & EQUITY", totalLiabilitiesAndEquity],
-    ];
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Balance Sheet");
-    XLSX.writeFile(wb, `Balance_Sheet_${financialYear}.xlsx`);
-  };
-
-  const filter = (arr) => arr.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
-
   if (loading) return <Loader label="Loading Balance Sheet..." />;
 
   return (
     <div className="space-y-6 p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <header className="space-y-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Balance Sheet</h1>
-          <p className="mt-1 text-base text-slate-500">Assets, liabilities, and owner equity overview for capital structure tracking.</p>
+          <p className="text-sm text-slate-500">{getPeriodLabel()}</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={exportExcel}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm"
-          >
-            <Download className="h-4 w-4 text-slate-400" /> Excel
-          </button>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <label className="text-slate-600">Financial Year</label>
+            <select value={financialYear} onChange={(e) => setFinancialYear(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm">
+              {financialYears.map((fy) => <option key={fy} value={fy}>{fy}</option>)}
+            </select>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <label className="text-slate-600">Month</label>
+            <select value={month} onChange={(e) => setMonth(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm">
+              {months.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <label className="text-slate-600">Branch</label>
+            <select value={branch} onChange={(e) => setBranch(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm">
+              {branches.map((b) => <option key={b} value={b}>{b || "All Branches"}</option>)}
+            </select>
+          </div>
           <button
             type="button"
             onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
-            <RefreshCw className="h-4 w-4" /> Refresh
+            Refresh
           </button>
         </div>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Total Assets" value={formatInr(totalAssets)} icon={Landmark} color="bg-blue-600" />
-        <KpiCard label="Total Liabilities" value={formatInr(totalLiabilities)} icon={Wallet} color="bg-red-500" />
-        <KpiCard label="Total Equity" value={formatInr(totalEquity)} icon={ShieldCheck} color="bg-green-600" />
-        <KpiCard label="Net Worth" value={formatInr(totalAssets - totalLiabilities)} icon={ChartIcon} color="bg-indigo-600" />
-      </div>
-
-      <FinanceFilters
-        search={search} onSearchChange={setSearch}
-        financialYear={financialYear} onFinancialYearChange={setFinancialYear}
-        month={month} onMonthChange={setMonth}
-        branch={branch} onBranchChange={setBranch}
-        searchPlaceholder="Search accounts..."
-      />
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Assets */}
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
-          <h2 className="text-xl font-semibold text-slate-900 border-b border-slate-200 pb-3">ASSETS</h2>
-
-          <div>
-            <h3 className="text-base font-semibold text-slate-700 mb-3 uppercase tracking-[0.18em]">Current Assets</h3>
-            <table className="min-w-full text-base">
-              <thead>
-                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                  <th className="p-4 text-left font-semibold">Account Category</th>
-                  <th className="p-4 text-right font-semibold">Balance</th>
+      <div className="overflow-x-auto rounded-3xl border border-slate-300 bg-white shadow-sm">
+        <table className="min-w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              <th className="border border-slate-600 bg-slate-100 px-3 py-2 text-left uppercase tracking-[0.1em]">Liabilities + Equity</th>
+              <th className="border border-slate-600 bg-slate-100 px-3 py-2 text-right">as at 28-Jul-26</th>
+              <th className="border border-slate-600 bg-slate-100 px-3 py-2 text-left uppercase tracking-[0.1em]">Assets</th>
+              <th className="border border-slate-600 bg-slate-100 px-3 py-2 text-right">as at 28-Jul-26</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: rowCount }).map((_, index) => {
+              const liabilityLabel = liabilityLabels[index] || "";
+              const assetLabel = assetLabels[index] || "";
+              const liabilityBold = boldLabels.has(liabilityLabel.toLowerCase());
+              const assetBold = boldLabels.has(assetLabel.toLowerCase());
+              return (
+                <tr key={`row-${index}`} className={index % 2 === 0 ? "bg-slate-50" : "bg-white"}>
+                  <td className={`border border-slate-600 px-3 py-2 ${liabilityBold ? "font-semibold" : "text-slate-900"}`}>
+                    {liabilityLabel}
+                  </td>
+                  <td className="border border-slate-600 px-3 py-2 text-right text-slate-900">
+                    {liabilityLabel ? findAmount(liabilityLabel, index) : ""}
+                  </td>
+                  <td className={`border border-slate-600 px-3 py-2 ${assetBold ? "font-semibold" : "text-slate-900"}`}>
+                    {assetLabel}
+                  </td>
+                  <td className="border border-slate-600 px-3 py-2 text-right text-slate-900">
+                    {assetLabel ? findAmount(assetLabel, index) : ""}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {filter(data.assets_current).map((a) => (
-                  <tr key={a.name} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 text-slate-700">{a.name}</td>
-                    <td className="p-4 text-right font-semibold text-slate-900">{formatInr(a.amount)}</td>
-                  </tr>
-                ))}
-                <tr className="bg-blue-50/50 font-semibold text-slate-900">
-                  <td className="p-4">Total Current Assets</td>
-                  <td className="p-4 text-right">{formatInr(totalCurrentAssets)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+              );
+            })}
 
-          <div>
-            <h3 className="text-base font-semibold text-slate-700 mb-3 uppercase tracking-[0.18em]">Non-Current Assets</h3>
-            <table className="min-w-full text-base">
-              <thead>
-                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                  <th className="p-4 text-left font-semibold">Account Category</th>
-                  <th className="p-4 text-right font-semibold">Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {filter(data.assets_non_current).map((a) => (
-                  <tr key={a.name} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 text-slate-700">{a.name}</td>
-                    <td className="p-4 text-right font-semibold text-slate-900">{formatInr(a.amount)}</td>
-                  </tr>
-                ))}
-                <tr className="bg-blue-50/50 font-semibold text-slate-900">
-                  <td className="p-4">Total Non-Current Assets</td>
-                  <td className="p-4 text-right">{formatInr(totalNonCurrentAssets)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex justify-between items-center bg-blue-600 text-white rounded-2xl p-5 font-semibold shadow-md">
-            <span className="text-base">TOTAL ASSETS</span>
-            <span className="text-base">{formatInr(totalAssets)}</span>
-          </div>
-        </div>
-
-        {/* Liabilities & Equity */}
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
-          <h2 className="text-xl font-semibold text-slate-900 border-b border-slate-200 pb-3">LIABILITIES & EQUITY</h2>
-
-          <div>
-            <h3 className="text-base font-semibold text-slate-700 mb-3 uppercase tracking-[0.18em]">Current Liabilities</h3>
-            <table className="min-w-full text-base">
-              <thead>
-                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                  <th className="p-4 text-left font-semibold">Account Category</th>
-                  <th className="p-4 text-right font-semibold">Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {filter(data.liabilities_current).map((l) => (
-                  <tr key={l.name} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 text-slate-700">{l.name}</td>
-                    <td className="p-4 text-right font-semibold text-slate-900">{formatInr(l.amount)}</td>
-                  </tr>
-                ))}
-                <tr className="bg-red-50/50 font-semibold text-slate-900">
-                  <td className="p-4">Total Current Liabilities</td>
-                  <td className="p-4 text-right">{formatInr(totalCurrentLiabilities)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div>
-            <h3 className="text-base font-semibold text-slate-700 mb-3 uppercase tracking-[0.18em]">Non-Current Liabilities</h3>
-            <table className="min-w-full text-base">
-              <thead>
-                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                  <th className="p-4 text-left font-semibold">Account Category</th>
-                  <th className="p-4 text-right font-semibold">Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {filter(data.liabilities_non_current).map((l) => (
-                  <tr key={l.name} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 text-slate-700">{l.name}</td>
-                    <td className="p-4 text-right font-semibold text-slate-900">{formatInr(l.amount)}</td>
-                  </tr>
-                ))}
-                <tr className="bg-red-50/50 font-semibold text-slate-900">
-                  <td className="p-4">Total Non-Current Liabilities</td>
-                  <td className="p-4 text-right">{formatInr(totalNonCurrentLiabilities)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div>
-            <h3 className="text-base font-semibold text-slate-700 mb-3 uppercase tracking-[0.18em]">Owner's Equity</h3>
-            <table className="min-w-full text-base">
-              <thead>
-                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                  <th className="p-4 text-left font-semibold">Equity Account</th>
-                  <th className="p-4 text-right font-semibold">Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {filter(data.equity).map((eq) => (
-                  <tr key={eq.name} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 text-slate-700">{eq.name}</td>
-                    <td className="p-4 text-right font-semibold text-slate-900">{formatInr(eq.amount)}</td>
-                  </tr>
-                ))}
-                <tr className="bg-green-50/50 font-semibold text-slate-900">
-                  <td className="p-4">Total Equity</td>
-                  <td className="p-4 text-right">{formatInr(totalEquity)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex justify-between items-center bg-blue-600 text-white rounded-2xl p-5 font-semibold shadow-md">
-            <span className="text-base">TOTAL LIABILITIES & EQUITY</span>
-            <span className="text-base">{formatInr(totalLiabilitiesAndEquity)}</span>
-          </div>
-        </div>
+            <tr className="bg-slate-200 font-semibold">
+              <td className="border border-slate-600 px-3 py-2">Total Liabilities + Equity</td>
+              <td className="border border-slate-600 px-3 py-2 text-right">{formatAmount(totalLiabilitiesAndEquity)}</td>
+              <td className="border border-slate-600 px-3 py-2">Total Assets</td>
+              <td className="border border-slate-600 px-3 py-2 text-right">{formatAmount(data.total_assets)}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );

@@ -90,7 +90,12 @@ def user_can_action(user: User, module: str, action: str) -> bool:
     perms = get_user_permissions(user)
     if "admin" in perms or "*" in perms or f"{module}:*" in perms:
         return True
-    return f"{module}:{action}" in perms or module in perms
+    if f"{module}:{action}" in perms:
+        return True
+    role_names = set(get_role_names(user))
+    if role_names.intersection(RESTRICTED_ACTION_ROLES):
+        return action in ("read", "view") and module in perms
+    return module in perms
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:

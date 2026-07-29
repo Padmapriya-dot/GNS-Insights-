@@ -5,7 +5,7 @@ from datetime import date
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.sales import Customer, DispatchShipment, Invoice, Lead, Quotation, SalesOrder
+from app.models.sales import Customer, DispatchShipment, Invoice, Lead, Quotation, SalesOrder, SalesOrderLine
 from app.schemas.sales_extended import (
     DispatchListRead,
     DispatchSummaryRead,
@@ -16,6 +16,7 @@ from app.schemas.sales_extended import (
     QuotationListRead,
     QuotationSummaryRead,
     SalesHubRead,
+    SOLineItemRead,
     SOListRead,
     SOSummaryRead,
 )
@@ -109,10 +110,11 @@ def get_so_summary(db: Session, tenant_id: int) -> SOSummaryRead:
 
 
 def list_so_enriched(db: Session, tenant_id: int) -> list[SOListRead]:
+    from sqlalchemy.orm import selectinload
     orders = list(
         db.scalars(
             select(SalesOrder)
-            .options(joinedload(SalesOrder.customer))
+            .options(joinedload(SalesOrder.customer), selectinload(SalesOrder.line_items))
             .where(SalesOrder.tenant_id == tenant_id)
             .order_by(SalesOrder.order_date.desc())
         ).all()
@@ -124,6 +126,17 @@ def list_so_enriched(db: Session, tenant_id: int) -> list[SOListRead]:
             from app.models.inventory import Warehouse
             wh = db.get(Warehouse, o.warehouse_id)
             wh_name = wh.name if wh else None
+        lines = [
+            SOLineItemRead(
+                item_description=l.item_description,
+                quantity=float(l.quantity or 0),
+                unit=l.unit,
+                unit_price=float(l.unit_price or 0),
+                line_total=float(l.line_total or 0),
+            )
+            for l in (o.line_items or [])
+        ]
+        total = float(o.total_amount or 0)
         result.append(
             SOListRead(
                 id=o.id,
@@ -131,7 +144,8 @@ def list_so_enriched(db: Session, tenant_id: int) -> list[SOListRead]:
                 customer_name=o.customer.name if o.customer else None,
                 order_date=o.order_date.isoformat() if o.order_date else "",
                 delivery_date=o.delivery_date.isoformat() if getattr(o, "delivery_date", None) else None,
-                amount=float(o.total_amount or 0),
+                amount=total,
+                total_amount=total,
                 payment_terms=getattr(o, "payment_terms", None) or "Net 30",
                 status=o.status,
                 sales_person=getattr(o, "sales_person", None),
@@ -139,6 +153,7 @@ def list_so_enriched(db: Session, tenant_id: int) -> list[SOListRead]:
                 packed=o.packed,
                 shipped=o.shipped,
                 invoiced=o.invoiced,
+                line_items=lines,
             )
         )
     return result

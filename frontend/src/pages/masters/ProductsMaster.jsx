@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -24,10 +25,9 @@ import {
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
-import ProductDetailModal, { ProductFormModal } from "../../components/masters/ProductDetailModal";
+import ProductDetailModal from "../../components/masters/ProductDetailModal";
 import { useToast } from "../../context/ToastContext";
-import useTenantId from "../../hooks/useTenantId";
-import { getProducts, createProduct, updateProduct, deleteProduct } from "../../api/productsApi";
+import { getProducts, deleteProduct } from "../../api/productsApi";
 import {
   BRANDS,
   DEMO_PRODUCTS,
@@ -77,11 +77,10 @@ function StatusPill({ status }) {
 
 export default function ProductsMaster() {
   const { addToast } = useToast();
-  const tenantId = useTenantId();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [formProduct, setFormProduct] = useState(null);
   const [filters, setFilters] = useState({
     category: "",
     brand: "",
@@ -98,63 +97,20 @@ export default function ProductsMaster() {
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getProducts().catch(() => null);
-      const apiRows = res?.data || [];
-      const stored = localStorage.getItem("smrt_products");
-      const localRows = stored ? JSON.parse(stored) : [];
-      const deletedStored = localStorage.getItem("smrt_deleted_products");
-      const deletedIds = (deletedStored ? JSON.parse(deletedStored) : []).map((d) => String(d).trim().toLowerCase());
-
-      const map = new Map();
-      // 1. API product rows
-      apiRows.forEach((row, i) => {
-        const enriched = enrichApiProduct(row, i);
-        const k = getProductKey(enriched);
-        if (k) map.set(k, enriched);
-      });
-      // 2. Persistent local product rows (takes precedence for updated form fields)
-      localRows.forEach((row, i) => {
-        const enriched = enrichApiProduct(row, i);
-        const k = getProductKey(enriched);
-        if (k) map.set(k, enriched);
-      });
-
-      // 3. Filter out deleted products
-      const finalProducts = Array.from(map.values()).filter((p) => {
-        const k = getProductKey(p);
-        const codeKey = String(p.product_code || "").trim().toLowerCase();
-        const skuKey = String(p.sku || "").trim().toLowerCase();
-        const idKey = String(p.id || "").trim().toLowerCase();
-        return !deletedIds.includes(k) && !deletedIds.includes(codeKey) && !deletedIds.includes(skuKey) && !deletedIds.includes(idKey);
-      });
-
-      setProducts(finalProducts);
+      const res = await getProducts();
+      const apiRows = res.data || [];
+      if (apiRows.length > 0) {
+        setProducts(apiRows.map((row, i) => enrichApiProduct(row, i)));
+      } else {
+        setProducts(DEMO_PRODUCTS);
+      }
     } catch {
-      const stored = localStorage.getItem("smrt_products");
-      const localRows = stored ? JSON.parse(stored) : [];
-      const deletedStored = localStorage.getItem("smrt_deleted_products");
-      const deletedIds = (deletedStored ? JSON.parse(deletedStored) : []).map((d) => String(d).trim().toLowerCase());
-
-      const map = new Map();
-      localRows.forEach((row, i) => {
-        const enriched = enrichApiProduct(row, i);
-        const k = getProductKey(enriched);
-        if (k) map.set(k, enriched);
-      });
-
-      const finalProducts = Array.from(map.values()).filter((p) => {
-        const k = getProductKey(p);
-        const codeKey = String(p.product_code || "").trim().toLowerCase();
-        const skuKey = String(p.sku || "").trim().toLowerCase();
-        const idKey = String(p.id || "").trim().toLowerCase();
-        return !deletedIds.includes(k) && !deletedIds.includes(codeKey) && !deletedIds.includes(skuKey) && !deletedIds.includes(idKey);
-      });
-
-      setProducts(finalProducts);
+      setProducts(DEMO_PRODUCTS);
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     loadProducts();
@@ -190,24 +146,22 @@ export default function ProductsMaster() {
   );
 
   const exportColumns = [
-    { key: "product_code", label: "Product Code" },
-    { key: "name", label: "Product Name" },
+    { key: "product_code", label: "Material Code" },
+    { key: "name", label: "Material Name" },
     { key: "category", label: "Category" },
-    { key: "sku", label: "SKU" },
     { key: "unit", label: "Unit" },
-    { key: "selling_price", label: "Price" },
     { key: "current_stock", label: "Stock" },
     { key: "status", label: "Status" },
   ];
 
   const handleExport = () => {
     exportToExcel(filteredProducts, exportColumns, "products-master");
-    addToast("Products exported to Excel");
+    addToast("Materials exported to Excel");
   };
 
   const handleDownloadTemplate = () => {
     const row = IMPORT_TEMPLATE_HEADERS.join(",");
-    const blob = new Blob([`${row}\nPRD006,Sample Product,Finished Goods,SKU-006,Nos,100,150,10,100,Main Store,active`], { type: "text/csv" });
+    const blob = new Blob([`${row}\nPRD006,Sample Material,Finished Goods,Nos,10,100,Main Store,active`], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -223,76 +177,6 @@ export default function ProductsMaster() {
     input.accept = ".csv,.xlsx";
     input.onchange = () => addToast("Import queued — map file columns in a future release", "info");
     input.click();
-  };
-
-  const handleSaveProduct = async (form) => {
-    const payload = {
-      tenant_id: tenantId,
-      sku: form.sku || form.product_code || `SKU-${Date.now()}`,
-      name: form.name,
-      description: form.description || null,
-      unit_cost: form.purchase_price != null && form.purchase_price !== "" ? Number(form.purchase_price) : 0,
-      unit_price: form.selling_price != null && form.selling_price !== "" ? Number(form.selling_price) : 0,
-      min_stock: form.min_stock != null && form.min_stock !== "" ? Number(form.min_stock) : 0,
-      current_stock: form.current_stock != null && form.current_stock !== "" ? Number(form.current_stock) : 0,
-    };
-    const code = form.product_code?.trim() || `PRD${String(products.length + 1).padStart(3, "0")}`;
-    const targetId = formProduct?.id || `prd-${Date.now()}`;
-
-    try {
-      if (formProduct?.id && typeof formProduct.id === "number") {
-        await updateProduct(formProduct.id, payload).catch(() => null);
-      } else {
-        await createProduct(payload).catch(() => null);
-      }
-    } catch {
-      /* fall through to local */
-    }
-
-    const newProduct = enrichApiProduct({
-      ...formProduct,
-      ...form,
-      id: targetId,
-      product_code: code,
-      name: form.name,
-      category: form.category || "Finished Goods",
-      product_type: form.product_type || "Finished Goods",
-      sku: form.sku || code,
-      unit: form.unit || "Nos",
-      brand: form.brand || "Generic",
-      warehouse: form.warehouse || "Main Store",
-      purchase_price: form.purchase_price != null && form.purchase_price !== "" ? Number(form.purchase_price) : 0,
-      selling_price: form.selling_price != null && form.selling_price !== "" ? Number(form.selling_price) : 0,
-      min_stock: form.min_stock != null && form.min_stock !== "" ? Number(form.min_stock) : 0,
-      max_stock: form.max_stock != null && form.max_stock !== "" ? Number(form.max_stock) : 1000,
-      current_stock: form.current_stock != null && form.current_stock !== "" ? Number(form.current_stock) : 0,
-      status: form.status || "active",
-      created_at: formProduct?.created_at || new Date().toISOString().slice(0, 10),
-    });
-
-    const stored = localStorage.getItem("smrt_products");
-    const localRows = stored ? JSON.parse(stored) : [];
-    const map = new Map();
-    localRows.forEach((item) => {
-      const k = getProductKey(item);
-      if (k) map.set(k, item);
-    });
-    map.set(getProductKey(newProduct), newProduct);
-    const updatedLocal = Array.from(map.values());
-    localStorage.setItem("smrt_products", JSON.stringify(updatedLocal));
-
-    setProducts((prev) => {
-      const pMap = new Map();
-      prev.forEach((item) => {
-        const k = getProductKey(item);
-        if (k) pMap.set(k, item);
-      });
-      pMap.set(getProductKey(newProduct), newProduct);
-      return Array.from(pMap.values());
-    });
-
-    addToast(formProduct?.id ? "Product updated successfully" : "Product created successfully");
-    setFormProduct(null);
   };
 
   const handleDelete = async (product) => {
@@ -328,21 +212,14 @@ export default function ProductsMaster() {
       if (typeof product.id === "number") {
         await deleteProduct(product.id).catch(() => null);
       }
+      setProducts((prev) => prev.filter((p) => p.id !== product.id));
+      setSelected(null);
+      addToast("Material deleted");
     } catch {
-      /* local delete handles it */
+      setProducts((prev) => prev.filter((p) => p.id !== product.id));
+      setSelected(null);
+      addToast("Material removed");
     }
-
-    setProducts((prev) =>
-      prev.filter((p) => {
-        const k = getProductKey(p);
-        const pCode = String(p.product_code || "").trim().toLowerCase();
-        const pSku = String(p.sku || "").trim().toLowerCase();
-        const pId = String(p.id || "").trim().toLowerCase();
-        return k !== targetKey && pCode !== codeKey && pSku !== skuKey && pId !== idKey;
-      })
-    );
-    setSelected(null);
-    addToast("Product deleted");
   };
 
   const handleDuplicate = (product) => {
@@ -355,22 +232,16 @@ export default function ProductsMaster() {
     };
     setProducts((prev) => [...prev, copy]);
     setSelected(null);
-    addToast("Product duplicated");
+    addToast("Material duplicated");
   };
 
   const clearFilters = () => setFilters({ category: "", brand: "", product_type: "", status: "", warehouse: "" });
 
   const columns = [
-    { key: "product_code", label: "Product Code" },
-    { key: "name", label: "Product Name" },
+    { key: "product_code", label: "Material Code" },
+    { key: "name", label: "Material Name" },
     { key: "category", label: "Category" },
-    { key: "sku", label: "SKU" },
     { key: "unit", label: "Unit" },
-    {
-      key: "selling_price",
-      label: "Price",
-      render: (r) => `₹${Number(r.selling_price || 0).toLocaleString("en-IN")}`,
-    },
     {
       key: "current_stock",
       label: "Stock",
@@ -388,7 +259,16 @@ export default function ProductsMaster() {
       render: (r) => (
         <div className="flex flex-wrap gap-1">
           <button type="button" onClick={() => setSelected(r)} className="text-xs font-semibold text-[#2563EB] hover:underline">View</button>
-          <button type="button" onClick={() => setFormProduct(r)} className="text-xs font-semibold text-slate-600 hover:underline">Edit</button>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof r?.id === "number") navigate(`/masters/products/${r.id}/edit`);
+              else navigate("/masters/products/create");
+            }}
+            className="text-xs font-semibold text-slate-600 hover:underline"
+          >
+            Edit
+          </button>
           <button type="button" onClick={() => handleDelete(r)} className="text-xs font-semibold text-red-600 hover:underline">Delete</button>
         </div>
       ),
@@ -398,31 +278,31 @@ export default function ProductsMaster() {
   const tableFilters = [
     { key: "category", label: "Category", options: PRODUCT_CATEGORIES.map((c) => ({ value: c, label: c })) },
     { key: "brand", label: "Brand", options: BRANDS.map((b) => ({ value: b, label: b })) },
-    { key: "product_type", label: "Product Type", options: PRODUCT_TYPES.map((t) => ({ value: t, label: t })) },
+    { key: "product_type", label: "Material Type", options: PRODUCT_TYPES.map((t) => ({ value: t, label: t })) },
     { key: "status", label: "Status", options: PRODUCT_STATUSES.map((s) => ({ value: s, label: s })) },
     { key: "warehouse", label: "Warehouse", options: WAREHOUSES.map((w) => ({ value: w, label: w })) },
   ];
 
-  if (loading) return <Loader label="Loading products..." />;
+  if (loading) return <Loader label="Loading materials..." />;
 
   return (
     <div className="space-y-6 pb-8">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Products Master</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Materials</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
-            Manage all products, SKUs, pricing, categories, and inventory details.
+            Manage materials, stock levels, categories, and inventory details.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setFormProduct({})} className="ui-btn-primary">
-            <Plus className="h-4 w-4" /> Add Product
-          </button>
+          <Link to="/masters/products/create" className="ui-btn-primary">
+            <Plus className="h-4 w-4" /> Add Materials
+          </Link>
           <button type="button" onClick={handleImport} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <Upload className="h-4 w-4" /> Import Products
+            <Upload className="h-4 w-4" /> Import Materials
           </button>
           <button type="button" onClick={handleExport} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <Download className="h-4 w-4" /> Export Products
+            <Download className="h-4 w-4" /> Export Materials
           </button>
           <button type="button" onClick={handleDownloadTemplate} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <FileDown className="h-4 w-4" /> Download Template
@@ -431,11 +311,11 @@ export default function ProductsMaster() {
       </header>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <SummaryCard label="Total Products" value={summary.total} icon={Package} color="bg-[#2563EB]" />
-        <SummaryCard label="Active Products" value={summary.active} icon={PackageCheck} color="bg-green-500" />
-        <SummaryCard label="Inactive Products" value={summary.inactive} icon={PackageMinus} color="bg-slate-500" />
-        <SummaryCard label="Low Stock Products" value={summary.lowStock} icon={PackageMinus} color="bg-orange-500" />
-        <SummaryCard label="Out of Stock Products" value={summary.outOfStock} icon={PackageX} color="bg-red-500" />
+        <SummaryCard label="Total Materials" value={summary.total} icon={Package} color="bg-[#2563EB]" />
+        <SummaryCard label="Active Materials" value={summary.active} icon={PackageCheck} color="bg-green-500" />
+        <SummaryCard label="Inactive Materials" value={summary.inactive} icon={PackageMinus} color="bg-slate-500" />
+        <SummaryCard label="Low Stock Materials" value={summary.lowStock} icon={PackageMinus} color="bg-orange-500" />
+        <SummaryCard label="Out of Stock Materials" value={summary.outOfStock} icon={PackageX} color="bg-red-500" />
         <SummaryCard label="Categories" value={summary.categories} icon={Layers} color="bg-purple-500" />
       </div>
 
@@ -464,8 +344,8 @@ export default function ProductsMaster() {
         <DataTable
           columns={columns}
           data={filteredProducts}
-          searchPlaceholder="Search Product"
-          searchKeys={["product_code", "name", "category", "sku", "brand"]}
+          searchPlaceholder="Search Material"
+          searchKeys={["product_code", "name", "category", "brand"]}
           filters={[]}
           pageSize={10}
         />
@@ -475,7 +355,7 @@ export default function ProductsMaster() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="mb-3 text-sm font-bold text-slate-800">Quick Statistics</h3>
           <ul className="space-y-2 text-sm">
-            <li className="flex justify-between rounded-lg bg-slate-50 px-3 py-2"><span className="text-slate-500">Most Sold Product</span><span className="font-semibold">{quickStats.mostSold}</span></li>
+            <li className="flex justify-between rounded-lg bg-slate-50 px-3 py-2"><span className="text-slate-500">Most Used Material</span><span className="font-semibold">{quickStats.mostSold}</span></li>
             <li className="flex justify-between rounded-lg bg-slate-50 px-3 py-2"><span className="text-slate-500">Highest Stock</span><span className="font-semibold">{quickStats.highestStock}</span></li>
             <li className="flex justify-between rounded-lg bg-slate-50 px-3 py-2"><span className="text-slate-500">Lowest Stock</span><span className="font-semibold">{quickStats.lowestStock}</span></li>
             <li className="flex justify-between rounded-lg bg-slate-50 px-3 py-2"><span className="text-slate-500">Recently Added</span><span className="font-semibold">{quickStats.recentlyAdded}</span></li>
@@ -484,7 +364,7 @@ export default function ProductsMaster() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-bold text-slate-800">Product Categories Chart</h3>
+          <h3 className="mb-3 text-sm font-bold text-slate-800">Material Categories</h3>
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -502,7 +382,7 @@ export default function ProductsMaster() {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-bold text-slate-800">Top Selling Products</h3>
+          <h3 className="mb-3 text-sm font-bold text-slate-800">Top Materials</h3>
           <div className="h-[180px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={topSelling} layout="vertical" margin={{ left: 0, right: 8 }}>
@@ -520,11 +400,11 @@ export default function ProductsMaster() {
           <p className="text-3xl font-bold text-[#2563EB]">
             ₹{filteredProducts.reduce((s, p) => s + (p.stock_value || 0), 0).toLocaleString("en-IN")}
           </p>
-          <p className="mt-1 text-xs text-slate-500">Total inventory value across filtered products</p>
+          <p className="mt-1 text-xs text-slate-500">Total inventory value across filtered materials</p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-bold text-slate-800">Low Stock Products</h3>
+          <h3 className="mb-3 text-sm font-bold text-slate-800">Low Stock Materials</h3>
           <ul className="space-y-2 text-sm">
             {lowStockList.length === 0 ? (
               <li className="text-slate-400">No low stock items</li>
@@ -541,7 +421,7 @@ export default function ProductsMaster() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="mb-3 text-sm font-bold text-slate-800">Recent Products</h3>
+        <h3 className="mb-3 text-sm font-bold text-slate-800">Recent Materials</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
@@ -570,17 +450,13 @@ export default function ProductsMaster() {
         <ProductDetailModal
           product={selected}
           onClose={() => setSelected(null)}
-          onEdit={(p) => { setSelected(null); setFormProduct(p); }}
+          onEdit={(p) => {
+            setSelected(null);
+            if (typeof p?.id === "number") navigate(`/masters/products/${p.id}/edit`);
+            else navigate("/masters/products/create");
+          }}
           onDuplicate={handleDuplicate}
           onDelete={handleDelete}
-        />
-      )}
-
-      {formProduct && (
-        <ProductFormModal
-          product={formProduct}
-          onClose={() => setFormProduct(null)}
-          onSave={handleSaveProduct}
         />
       )}
     </div>

@@ -1,5 +1,8 @@
+import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
+
 const inputBase =
-  "w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed";
+  "w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
 const labelBase = "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5";
 
@@ -25,9 +28,14 @@ export function Input({
   hint,
   required,
   icon: Icon,
+  type = "text",
   className = "",
   ...props
 }) {
+  const [visible, setVisible] = useState(false);
+  const isPassword = type === "password";
+  const inputType = isPassword ? (visible ? "text" : "password") : type;
+
   return (
     <FormField label={label} error={error} hint={hint} required={required}>
       <div className="relative">
@@ -35,9 +43,21 @@ export function Input({
           <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
         )}
         <input
-          className={`${inputBase} ${Icon ? "pl-10" : ""} ${error ? "border-red-500 dark:border-red-500" : ""} ${className}`}
+          type={inputType}
+          className={`${inputBase} ${Icon ? "pl-10" : ""} ${isPassword ? "pr-11" : ""} ${error ? "border-red-500 dark:border-red-500" : ""} ${className}`}
           {...props}
         />
+        {isPassword ? (
+          <button
+            type="button"
+            onClick={() => setVisible((v) => !v)}
+            className="absolute right-2.5 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500/40 dark:hover:text-slate-200"
+            aria-label={visible ? "Hide password" : "Show password"}
+            tabIndex={-1}
+          >
+            {visible ? <EyeOff className="h-4 w-4 shrink-0" /> : <Eye className="h-4 w-4 shrink-0" />}
+          </button>
+        ) : null}
       </div>
     </FormField>
   );
@@ -92,7 +112,7 @@ export function Textarea({
 
 export function FormRow({ children, className = "" }) {
   return (
-    <div className={`grid gap-4 sm:grid-cols-2 ${className}`}>
+    <div className={`grid gap-4 ${className.includes("grid-cols") ? className : `sm:grid-cols-2 ${className}`}`.trim()}>
       {children}
     </div>
   );

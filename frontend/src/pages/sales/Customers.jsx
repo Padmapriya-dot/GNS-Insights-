@@ -149,6 +149,7 @@ export default function Customers() {
     }
   }, []);
 
+
   useEffect(() => {
     loadCustomers();
   }, [loadCustomers]);
@@ -229,6 +230,10 @@ export default function Customers() {
       gstin: form.gstin,
       state: form.state,
       address_line1: form.billing_address,
+      customer_code: form.customer_code || `CUS${String(customers.length + 1).padStart(3, "0")}`,
+      credit_limit: form.credit_limit != null && form.credit_limit !== "" ? Number(form.credit_limit) : 500000,
+      outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
+      status: form.status || "active",
     };
     try {
       if (!formCustomer?.id || typeof formCustomer.id !== "number") {

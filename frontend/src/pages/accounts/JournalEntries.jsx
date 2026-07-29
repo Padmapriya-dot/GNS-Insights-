@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, CheckCircle, RefreshCw, Trash2, X } from "lucide-react";
+import { Plus, CheckCircle, RefreshCw, Trash2, X } from "lucide-react";
 import FinanceFilters from "../../components/finance/FinanceFilters";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
@@ -9,27 +9,29 @@ import { formatInr } from "../../data/financeMasterData";
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
 
+const EMPTY_ENTRY = {
+  date: new Date().toISOString().split("T")[0],
+  ref: "",
+  desc: "",
+  branch: "Head Office",
+  status: "Posted",
+  legs: [
+    { account: "", debit: 0, credit: 0 },
+    { account: "", debit: 0, credit: 0 },
+  ],
+};
+
 export default function JournalEntries() {
   const { addToast } = useToast();
-  const [loading, setLoading] = useState(true);       // initial page load
-  const [refreshing, setRefreshing] = useState(false); // button-only spinner
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [financialYear, setFinancialYear] = useState("2026-27");
   const [month, setMonth] = useState("All Months");
   const [branch, setBranch] = useState("");
   const [search, setSearch] = useState("");
   const [entries, setEntries] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [newEntry, setNewEntry] = useState({
-    date: new Date().toISOString().split("T")[0],
-    ref: "",
-    desc: "",
-    branch: "Head Office",
-    status: "Posted",
-    legs: [
-      { account: "Office Supplies", debit: 15000, credit: 0 },
-      { account: "Cash at Bank", debit: 0, credit: 15000 },
-    ]
-  });
+  const [newEntry, setNewEntry] = useState(EMPTY_ENTRY);
 
   const load = useCallback(async ({ isRefresh = false } = {}) => {
     if (isRefresh) setRefreshing(true);
@@ -103,17 +105,7 @@ export default function JournalEntries() {
       await createJournalEntry(payload);
       addToast("Journal Entry posted successfully!", "success");
       setModalOpen(false);
-      setNewEntry({
-        date: new Date().toISOString().split("T")[0],
-        ref: "",
-        desc: "",
-        branch: "Head Office",
-        status: "Posted",
-        legs: [
-          { account: "Office Supplies", debit: 15000, credit: 0 },
-          { account: "Cash at Bank", debit: 0, credit: 15000 },
-        ]
-      });
+      setNewEntry({ ...EMPTY_ENTRY, date: new Date().toISOString().split("T")[0] });
       await load();
     } catch (error) {
       const detail = error?.response?.data?.detail || error?.message || "Failed to post Journal Entry";
@@ -181,8 +173,6 @@ export default function JournalEntries() {
                 <th className="p-3">Description</th>
                 <th className="p-3 text-right">Debit (₹)</th>
                 <th className="p-3 text-right">Credit (₹)</th>
-                <th className="p-3 text-right">CGST (₹)</th>
-                <th className="p-3 text-right">SGST (₹)</th>
                 <th className="p-3">Branch</th>
                 <th className="p-3">Status</th>
               </tr>
@@ -196,16 +186,8 @@ export default function JournalEntries() {
                   <td className="p-3 text-slate-700">
                     <div>{e.desc}</div>
                     <div className="mt-1.5 space-y-1 text-xs pl-2 border-l-2 border-slate-200">
-                      {/* CGST and SGST legs first, then the rest */}
-                      {[
-                        ...e.legs.filter((l) => /(cgst|sgst)/i.test(l.account)),
-                        ...e.legs.filter((l) => !/(cgst|sgst)/i.test(l.account)),
-                      ].map((l, i) => (
-                        <div key={i} className={`flex justify-between w-64 ${
-                          /(cgst|sgst)/i.test(l.account)
-                            ? "text-indigo-500 font-semibold"
-                            : "text-slate-400"
-                        }`}>
+                      {(e.legs || []).map((l, i) => (
+                        <div key={i} className="flex justify-between w-64 text-slate-400">
                           <span>{l.account}</span>
                           <span>{l.debit > 0 ? `Dr ${formatInr(l.debit)}` : `Cr ${formatInr(l.credit)}`}</span>
                         </div>
@@ -214,18 +196,6 @@ export default function JournalEntries() {
                   </td>
                   <td className="p-3 text-right font-bold text-slate-900 tabular-nums">{formatInr(e.debit)}</td>
                   <td className="p-3 text-right font-bold text-slate-900 tabular-nums">{formatInr(e.credit)}</td>
-                  <td className="p-3 text-right font-bold text-indigo-700 tabular-nums">
-                    {formatInr(
-                      (e.legs || []).filter((l) => /cgst/i.test(l.account))
-                        .reduce((sum, l) => sum + Number(l.credit || l.debit || 0), 0)
-                    )}
-                  </td>
-                  <td className="p-3 text-right font-bold text-indigo-700 tabular-nums">
-                    {formatInr(
-                      (e.legs || []).filter((l) => /sgst/i.test(l.account))
-                        .reduce((sum, l) => sum + Number(l.credit || l.debit || 0), 0)
-                    )}
-                  </td>
                   <td className="p-3 text-slate-600">{e.branch}</td>
                   <td className="p-3">
                     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -238,7 +208,7 @@ export default function JournalEntries() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center p-6 text-slate-400">
+                  <td colSpan={6} className="text-center p-6 text-slate-400">
                     No ledger adjustments recorded for the selected period
                   </td>
                 </tr>

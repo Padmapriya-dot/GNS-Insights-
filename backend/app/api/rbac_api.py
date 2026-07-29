@@ -12,6 +12,7 @@ from app.core.rbac_constants import (
     PERMISSION_MATRIX,
     REGISTERABLE_ROLES,
     SIDEBAR_MENU_CATALOG,
+    store_manager_path_allowed,
 )
 from app.models.permission import Permission
 from app.models.role import Role
@@ -34,6 +35,14 @@ def _user_can_see_module(user: User, module: str) -> bool:
     if user_is_admin(user):
         return True
     return user_has_permission(user, module)
+
+
+def _is_store_manager(user: User) -> bool:
+    return any(r.name == "Store Manager" for r in (user.roles or []))
+
+
+def _filter_store_manager_children(children: list[dict]) -> list[dict]:
+    return [c for c in children if store_manager_path_allowed(c.get("path"))]
 
 
 def _svc(db: Session, admin: User) -> SettingsService:
@@ -115,6 +124,7 @@ def get_sidebar_menus(
 ):
     """Return only sidebar menus allowed for the logged-in role."""
     db.refresh(current_user, ["roles"])
+    store_mgr = _is_store_manager(current_user) and not user_is_admin(current_user)
     menus: list[SidebarItemResponse] = []
     for section in SIDEBAR_MENU_CATALOG:
         if section["key"] == "alerts" and "Operator" in [r.name for r in current_user.roles]:
@@ -145,14 +155,12 @@ def get_sidebar_menus(
 
         if children_src:
             allowed_children = [
-                SidebarChildResponse(
-                    label=c["label"],
-                    path=c["path"],
-                    module=c["module"],
-                )
+                c
                 for c in children_src
                 if _user_can_see_module(current_user, c["module"])
             ]
+            if store_mgr:
+                allowed_children = _filter_store_manager_children(allowed_children)
             if allowed_children:
                 menus.append(
                     SidebarItemResponse(
@@ -160,9 +168,20 @@ def get_sidebar_menus(
                         label=section["label"],
                         path=section.get("path"),
                         module=section["module"],
-                        children=allowed_children,
+                        children=[
+                            SidebarChildResponse(
+                                label=c["label"],
+                                path=c["path"],
+                                module=c["module"],
+                            )
+                            for c in allowed_children
+                        ],
                     )
                 )
+            continue
+
+        # Leaf sections (no children) — path allowlist for Store Manager
+        if store_mgr and not store_manager_path_allowed(section.get("path")):
             continue
 
         menus.append(

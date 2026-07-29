@@ -28,6 +28,9 @@ const QUICK_LINKS = [
   { label: "Stock Adjustment", to: "/inventory/stock-adjustment" },
   { label: "Stock Ledger", to: "/inventory/stock-ledger" },
   { label: "Warehouses", to: "/inventory/warehouses" },
+  { label: "Goods Receipt (GRN)", to: "/procurement/goods-receipt" },
+  { label: "Dispatch", to: "/sales/dispatch" },
+  { label: "Low Stock Alerts", to: "/alerts/low-stock" },
 ];
 
 export default function InventoryDashboard() {
@@ -57,7 +60,7 @@ export default function InventoryDashboard() {
     <div className="space-y-6 p-4 sm:p-6">
       <StoreManagerNav />
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-900">Inventory Dashboard</h1><p className="mt-1 text-sm text-slate-500">Enterprise inventory control — value, movement, ABC analysis, and warehouse overview.</p></div>
+        <div><h1 className="text-2xl font-bold text-slate-900">Store / Inventory Dashboard</h1><p className="mt-1 text-sm text-slate-500">Stock control, warehouses, GRN, finished goods, and dispatch preparation.</p></div>
         <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
       </header>
 

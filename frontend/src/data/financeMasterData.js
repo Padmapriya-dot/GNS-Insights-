@@ -119,8 +119,8 @@ export const DEMO_FINANCE_HUB = {
 
 export const GL_PLANNED_FEATURES = [
   "Chart of Accounts", "Journal Entries", "Trial Balance", "Cost Center Allocation",
-  "Multi-branch Ledger", "Bank Reconciliation", "Fixed Assets & Depreciation",
-  "Budget vs Actual", "Financial Year Closing",
+  "Bank Reconciliation", "Fixed Assets & Depreciation",
+  "Budget vs Actual",
 ];
 
 export function formatInr(v) {

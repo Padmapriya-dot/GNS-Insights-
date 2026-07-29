@@ -37,6 +37,7 @@ class MastersService:
                 "sku": p.sku,
                 "name": p.name,
                 "description": p.description,
+                "unit": getattr(p, "unit", None) or "Pcs",
                 "unit_cost": float(p.unit_cost) if p.unit_cost else None,
                 "unit_price": float(p.unit_price) if p.unit_price else None,
                 "min_stock": int(p.min_stock) if p.min_stock is not None else None,
@@ -55,6 +56,7 @@ class MastersService:
             "sku": p.sku,
             "name": p.name,
             "description": p.description,
+            "unit": getattr(p, "unit", None) or "Pcs",
             "unit_cost": float(p.unit_cost) if p.unit_cost else None,
             "unit_price": float(p.unit_price) if p.unit_price else None,
             "min_stock": int(p.min_stock) if p.min_stock is not None else None,
@@ -66,13 +68,13 @@ class MastersService:
     def create_product(self, payload: ProductCreate) -> dict:
         payload.tenant_id = self.tenant_id
         p = create_product(self.db, payload)
-        return {"id": p.id, "sku": p.sku, "name": p.name}
+        return {"id": p.id, "sku": p.sku, "name": p.name, "unit": getattr(p, "unit", None) or "Pcs"}
 
     def update_product(self, product_id: int, payload: ProductUpdate) -> dict | None:
         p = update_product(self.db, self.tenant_id, product_id, payload)
         if not p:
             return None
-        return {"id": p.id, "sku": p.sku, "name": p.name}
+        return {"id": p.id, "sku": p.sku, "name": p.name, "unit": getattr(p, "unit", None) or "Pcs"}
 
     def delete_product(self, product_id: int) -> bool:
         return delete_product(self.db, self.tenant_id, product_id)

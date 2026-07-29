@@ -94,11 +94,13 @@ def build_access_token_for_user(user: User, *, role_name: str | None = None) -> 
     )
 
 
-def assert_user_has_role(user: User, selected_role: str) -> str:
-    """Ensure the selected login role matches a role assigned to the user."""
-    selected = (selected_role or "").strip()
-    user_roles = {r.name for r in (getattr(user, "roles", None) or [])}
-    if selected not in user_roles:
+def assert_user_has_role(user: User, selected_role: str | None = None) -> str:
+    """Ensure the selected login role matches a role assigned to the user, or pick primary role if omitted."""
+    user_roles = [r.name for r in (getattr(user, "roles", None) or [])]
+    if not selected_role or not selected_role.strip():
+        return user_roles[0] if user_roles else "Operator"
+    selected = selected_role.strip()
+    if selected not in set(user_roles):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=ROLE_MISMATCH_MESSAGE,

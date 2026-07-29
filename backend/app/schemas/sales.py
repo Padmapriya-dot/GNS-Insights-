@@ -146,7 +146,6 @@ class PaymentRead(PaymentBase):
 
 
 class LeadBase(BaseModel):
-    tenant_id: int
     name: str
     company: str | None = None
     email: str | None = None
@@ -154,14 +153,23 @@ class LeadBase(BaseModel):
     source: str | None = None
     status: str = "new"
     notes: str | None = None
+    sales_executive: str | None = None
+    industry: str | None = None
+    region: str | None = None
+    priority: str = "medium"
+    next_followup: date | None = None
+    opportunity_value: float | None = None
 
 
 class LeadCreate(LeadBase):
-    pass
+    """tenant_id is forced from the JWT on the API — optional in the body."""
+
+    tenant_id: int = 0
 
 
 class LeadRead(LeadBase):
     id: int
+    tenant_id: int
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -178,8 +186,21 @@ class QuotationBase(BaseModel):
     notes: str | None = None
 
 
-class QuotationCreate(QuotationBase):
-    pass
+class QuotationCreate(BaseModel):
+    """tenant_id / quote_number are filled by the API when omitted."""
+
+    tenant_id: int = 0
+    quote_number: str | None = None
+    customer_id: int | None = None
+    lead_id: int | None = None
+    customer_name: str | None = None
+    quote_date: date | None = None
+    valid_until: date | None = None
+    status: str = "draft"
+    total_amount: float = 0
+    notes: str | None = None
+    sales_person: str | None = None
+    discount: float = 0
 
 
 class QuotationRead(QuotationBase):

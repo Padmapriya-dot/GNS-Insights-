@@ -1,27 +1,33 @@
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
+  AlertTriangle,
   Boxes,
   ClipboardList,
   Package,
+  PackageCheck,
+  Truck,
   Warehouse,
 } from "lucide-react";
 
 import useAuth from "../../hooks/useAuth";
-import { isAdmin, userCanAccess } from "../../config/permissions";
+import { isAdmin, isStoreManager, storeManagerPathAllowed } from "../../config/permissions";
 
 const NAV_ITEMS = [
-  { key: "inventory", labelKey: "storeManagerNav.inventory", to: "/inventory", icon: Package, module: "inventory", end: true },
-  { key: "warehouse", labelKey: "storeManagerNav.warehouse", to: "/inventory/warehouses", icon: Warehouse, module: "inventory" },
-  { key: "stockLedger", labelKey: "storeManagerNav.stockLedger", to: "/inventory/stock-ledger", icon: ClipboardList, module: "inventory" },
-  { key: "grn", labelKey: "storeManagerNav.grn", to: "/procurement/goods-receipt", icon: Boxes, module: "procurement" },
+  { key: "inventory", labelKey: "storeManagerNav.inventory", to: "/inventory", icon: Package, end: true },
+  { key: "rawMaterials", labelKey: "storeManagerNav.rawMaterials", to: "/inventory/raw-materials", icon: Boxes },
+  { key: "finishedGoods", labelKey: "storeManagerNav.finishedGoods", to: "/inventory/finished-goods", icon: PackageCheck },
+  { key: "warehouse", labelKey: "storeManagerNav.warehouse", to: "/inventory/warehouses", icon: Warehouse },
+  { key: "stockLedger", labelKey: "storeManagerNav.stockLedger", to: "/inventory/stock-ledger", icon: ClipboardList },
+  { key: "grn", labelKey: "storeManagerNav.grn", to: "/procurement/goods-receipt", icon: Boxes },
+  { key: "dispatch", labelKey: "storeManagerNav.dispatch", to: "/sales/dispatch", icon: Truck },
+  { key: "lowStock", labelKey: "storeManagerNav.lowStock", to: "/alerts/low-stock", icon: AlertTriangle },
 ];
 
 function shouldShowNav(user) {
   if (!user) return false;
   if (isAdmin(user)) return true;
-  const roles = Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role];
-  return roles.includes("Store Manager");
+  return isStoreManager(user);
 }
 
 export default function StoreManagerNav() {
@@ -30,7 +36,9 @@ export default function StoreManagerNav() {
 
   if (!shouldShowNav(user)) return null;
 
-  const visible = NAV_ITEMS.filter((item) => userCanAccess(user, item.module));
+  const visible = isAdmin(user)
+    ? NAV_ITEMS
+    : NAV_ITEMS.filter((item) => storeManagerPathAllowed(item.to));
   if (visible.length === 0) return null;
 
   const linkClass = ({ isActive }) =>

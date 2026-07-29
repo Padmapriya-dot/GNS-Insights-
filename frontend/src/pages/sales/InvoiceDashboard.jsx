@@ -43,6 +43,7 @@ export default function InvoiceDashboard() {
   const { settings } = useCompanySettings();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState(emptySummary);
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -251,10 +252,11 @@ export default function InvoiceDashboard() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            onClick={async () => { setRefreshing(true); await load(); setRefreshing(false); }}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
           >
-            <RefreshCw className="h-4 w-4" /> Refresh
+            <RefreshCw className={`h-4 w-4 transition-transform ${refreshing ? "animate-spin" : ""}`} /> Refresh
           </button>
         </div>
       </header>

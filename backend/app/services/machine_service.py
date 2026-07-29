@@ -63,6 +63,7 @@ def _to_list_read(db: Session, tenant_id: int, machine: Machine) -> MachineListR
     data = MachineListRead.model_validate(machine)
     data.display_status = _display_status(machine)
     data.current_work_order = ctx["current_work_order"]
+    data.current_product = ctx["current_product"]
     data.todays_output = ctx["todays_output"]
     data.target_quantity = ctx["target_quantity"]
     return data

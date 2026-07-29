@@ -7,10 +7,15 @@ from app.models.hr import Employee, PerformanceReview
 from app.models.inventory import InventoryItem, StockLevel, StockMovement
 from app.models.machine import Machine
 from app.models.production import DailyProductionReport
+from app.models.user import User
 
 
-def get_monthly_production_trend(db: Session, tenant_id: int, year: int) -> list[dict]:
+def get_monthly_production_trend(
+    db: Session, tenant_id: int, year: int, user: User | None = None
+) -> list[dict]:
     """Monthly production volumes (sum of produced_quantity)."""
+    from app.core.permissions import get_role_names, user_is_admin
+
     months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     stmt = (
         select(
@@ -19,8 +24,11 @@ def get_monthly_production_trend(db: Session, tenant_id: int, year: int) -> list
         )
         .where(DailyProductionReport.tenant_id == tenant_id)
         .where(func.extract("year", DailyProductionReport.report_date) == year)
-        .group_by(func.extract("month", DailyProductionReport.report_date))
     )
+    if user and not user_is_admin(user) and "Operator" in get_role_names(user):
+        stmt = stmt.where(DailyProductionReport.created_by_user_id == user.id)
+
+    stmt = stmt.group_by(func.extract("month", DailyProductionReport.report_date))
     rows = {int(r[0]): float(r[1] or 0) for r in db.execute(stmt).all()}
     return [
         {"month": months[i], "value": rows.get(i + 1, 0), "monthNum": i + 1}

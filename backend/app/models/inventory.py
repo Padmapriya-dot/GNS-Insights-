@@ -16,6 +16,7 @@ class Warehouse(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     code: Mapped[str] = mapped_column(String(64), nullable=False)
     capacity: Mapped[int | None] = mapped_column(Integer)
+    used_capacity: Mapped[int | None] = mapped_column(Integer, default=0)
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
     warehouse_type: Mapped[str | None] = mapped_column(String(64))
@@ -36,6 +37,8 @@ class Warehouse(Base, TimestampMixin):
 
 
 class Supplier(Base, TimestampMixin):
+    """Vendor master (table name kept as suppliers for backward compatibility)."""
+
     __tablename__ = "suppliers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -48,38 +51,87 @@ class Supplier(Base, TimestampMixin):
     email: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(64))
     alternate_contact: Mapped[str | None] = mapped_column(String(255))
+    alternate_phone: Mapped[str | None] = mapped_column(String(64))
+    alternate_email: Mapped[str | None] = mapped_column(String(255))
     website: Mapped[str | None] = mapped_column(String(255))
     approval_status: Mapped[str] = mapped_column(
         String(32), default="approved", nullable=False
     )  # pending, approved, rejected
     status: Mapped[str] = mapped_column(
         String(32), default="active", nullable=False
-    )  # active, inactive
+    )  # active, inactive, blacklisted
     vendor_type: Mapped[str | None] = mapped_column(String(64))
     category: Mapped[str | None] = mapped_column(String(128))
     material_type: Mapped[str | None] = mapped_column(String(128))
     gstin: Mapped[str | None] = mapped_column(String(64))
     pan: Mapped[str | None] = mapped_column(String(32))
     msme: Mapped[str | None] = mapped_column(String(64))
+    business_type: Mapped[str | None] = mapped_column(String(64))
+    gst_registration_type: Mapped[str | None] = mapped_column(String(64))
     billing_address: Mapped[str | None] = mapped_column(String(512))
     factory_address: Mapped[str | None] = mapped_column(String(512))
+    address_line1: Mapped[str | None] = mapped_column(String(255))
+    address_line2: Mapped[str | None] = mapped_column(String(255))
+    landmark: Mapped[str | None] = mapped_column(String(255))
     city: Mapped[str | None] = mapped_column(String(128))
     state: Mapped[str | None] = mapped_column(String(128))
     country: Mapped[str | None] = mapped_column(String(64), default="India")
     pincode: Mapped[str | None] = mapped_column(String(16))
     bank_name: Mapped[str | None] = mapped_column(String(255))
+    account_holder_name: Mapped[str | None] = mapped_column(String(255))
     account_number: Mapped[str | None] = mapped_column(String(64))
     ifsc: Mapped[str | None] = mapped_column(String(32))
+    bank_branch: Mapped[str | None] = mapped_column(String(255))
+    upi_id: Mapped[str | None] = mapped_column(String(128))
     payment_terms: Mapped[str | None] = mapped_column(String(64))
+    currency: Mapped[str | None] = mapped_column(String(16), default="INR")
+    credit_limit: Mapped[float | None] = mapped_column(Numeric(14, 2))
     credit_days: Mapped[int | None] = mapped_column(Integer)
+    lead_time_days: Mapped[int | None] = mapped_column(Integer)
+    minimum_order_quantity: Mapped[float | None] = mapped_column(Numeric(12, 2))
+    minimum_order_value: Mapped[float | None] = mapped_column(Numeric(14, 2))
+    preferred_vendor: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    outstanding: Mapped[float | None] = mapped_column(Numeric(12, 2), default=0.0)
     rating: Mapped[float | None] = mapped_column(Numeric(3, 1))
     quality_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
     delivery_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
     price_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
     service_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    on_time_delivery_percentage: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    rejection_percentage: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    onboarding_date: Mapped[date | None] = mapped_column(Date)
+    created_by: Mapped[str | None] = mapped_column(String(255))
+    updated_by: Mapped[str | None] = mapped_column(String(255))
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    deleted_at: Mapped[date | None] = mapped_column(Date)
 
     inventory_items = relationship("InventoryItem", back_populates="supplier")
     purchase_orders = relationship("PurchaseOrder", back_populates="supplier")
+    vendor_products = relationship(
+        "VendorProduct",
+        back_populates="vendor",
+        cascade="all, delete-orphan",
+    )
+
+
+class VendorProduct(Base, TimestampMixin):
+    """Many-to-many link between vendors (suppliers) and Product Master."""
+
+    __tablename__ = "vendor_products"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    vendor_id: Mapped[int] = mapped_column(
+        ForeignKey("suppliers.id"), nullable=False, index=True
+    )
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey("products.id"), nullable=False, index=True
+    )
+
+    vendor = relationship("Supplier", back_populates="vendor_products")
+    product = relationship("Product")
 
 
 class InventoryItem(Base, TimestampMixin):
@@ -101,6 +153,16 @@ class InventoryItem(Base, TimestampMixin):
         String(32), default="raw_material", nullable=False
     )  # raw_material, finished_good
     category: Mapped[str | None] = mapped_column(String(128))
+    warehouse_name: Mapped[str | None] = mapped_column(String(128))
+    batch_number: Mapped[str | None] = mapped_column(String(128))
+    quantity: Mapped[int | None] = mapped_column(Integer, default=0)
+    reserved: Mapped[int | None] = mapped_column(Integer, default=0)
+    status: Mapped[str | None] = mapped_column(String(64), default="in_stock")
+    customer_name: Mapped[str | None] = mapped_column(String(255))
+    serial_number: Mapped[str | None] = mapped_column(String(128))
+    expiry_date: Mapped[str | None] = mapped_column(String(64))
+    production_date: Mapped[str | None] = mapped_column(String(64))
+    warranty: Mapped[str | None] = mapped_column(String(128))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     supplier = relationship("Supplier", back_populates="inventory_items")

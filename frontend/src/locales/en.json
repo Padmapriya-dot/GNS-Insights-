@@ -1,8 +1,9 @@
 {
   "erpNav": {
     "dashboard": "Dashboard",
+    "roleWorkflow": "Role Workflow",
     "masters": "Masters",
-    "products": "Products",
+    "products": "Materials",
     "bom": "BOM",
     "customers": "Customers",
     "vendors": "Vendors",
@@ -65,8 +66,6 @@
     "bankReconciliation": "Bank Reconciliation",
     "budgetActual": "Budget vs Actual",
     "costAllocation": "Cost Allocation",
-    "multiBranchLedger": "Multi-Branch Ledger",
-    "yearClosing": "Year Closing",
     "suppliers": "Suppliers",
     "quality": "Quality",
     "qualityDashboard": "Quality Dashboard",
@@ -351,6 +350,18 @@
     "wipItems": "WIP Items",
     "finishedGoods": "Finished Goods",
     "lowStockItems": "Low Stock Items",
+    "inventoryValue": "Inventory Value",
+    "warehouses": "Warehouses",
+    "stockMovesToday": "Stock Moves (Today)",
+    "unitsOnHand": "units on hand",
+    "activeLocations": "active locations",
+    "grnsToday": "GRNs today",
+    "pendingDispatch": "Pending Dispatch",
+    "pendingGrnQc": "Pending GRN QC",
+    "storeOperations": "Store Operations",
+    "grnEntry": "Goods Receipt",
+    "stockAdjustment": "Stock Adjustment",
+    "dispatch": "Dispatch",
     "warehouseLocation": "Warehouse Location",
     "mainStore": "Main Store",
     "productionStore": "Production Store",
@@ -435,9 +446,13 @@
   "storeManagerNav": {
     "ariaLabel": "Store manager navigation",
     "inventory": "Inventory",
+    "rawMaterials": "Raw Materials",
+    "finishedGoods": "Finished Goods",
     "warehouse": "Warehouse",
     "stockLedger": "Stock Ledger",
-    "grn": "GRN"
+    "grn": "GRN",
+    "dispatch": "Dispatch",
+    "lowStock": "Low Stock"
   },
   "production": {
     "workOrders": "Work Orders",

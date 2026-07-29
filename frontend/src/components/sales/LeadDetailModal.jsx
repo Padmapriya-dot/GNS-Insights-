@@ -7,7 +7,7 @@ import { getLeadActivities, createLeadActivity } from "../../api/salesApi";
 
 const TABS = ["Overview", "Contacts", "Notes", "Timeline", "Activities"];
 
-export default function LeadDetailModal({ lead, onClose, onStatusChange }) {
+export default function LeadDetailModal({ lead, onClose, onStatusChange, onConvertToQuotation, converting }) {
   const [tab, setTab] = useState("Overview");
   const [activities, setActivities] = useState([]);
   const [showAddActivity, setShowAddActivity] = useState(false);

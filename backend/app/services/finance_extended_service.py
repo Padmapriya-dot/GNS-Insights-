@@ -9,7 +9,7 @@ from app.models.accounts import Expense, FixedAsset, GLAccount, Income, JournalE
 from app.models.inventory import InventoryItem, StockLevel, Supplier
 from app.models.department import Department
 from app.models.procurement import PurchaseOrder, SupplierPayment, VendorBill
-from app.models.sales import Customer, Invoice, Payment
+from app.models.sales import Customer, Invoice, InvoiceItem, Payment
 from app.schemas.finance_extended import (
     APListRead,
     APSummaryRead,
@@ -421,54 +421,118 @@ def list_payments_enriched(db: Session, tenant_id: int) -> list[PaymentListRead]
 
 
 def get_gl_summary(db: Session, tenant_id: int) -> GLSummaryRead:
-    rev = float(
-        db.scalar(
-            select(func.coalesce(func.sum(Invoice.grand_total), 0)).where(
-                Invoice.tenant_id == tenant_id, Invoice.status != "draft"
-            )
-        ) or 0
+    account_rows = list(
+        db.scalars(select(GLAccount).where(GLAccount.tenant_id == tenant_id)).all()
     )
-    exp = float(
-        db.scalar(
-            select(func.coalesce(func.sum(Expense.amount), 0)).where(Expense.tenant_id == tenant_id)
-        ) or 0
-    )
-    inc = float(
-        db.scalar(
-            select(func.coalesce(func.sum(Income.amount), 0)).where(Income.tenant_id == tenant_id)
-        ) or 0
-    )
-    revenue = rev + inc
-    expenses = exp
-    cash_in = float(
-        db.scalar(
-            select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.tenant_id == tenant_id)
+    journal_rows = list(
+        db.scalars(
+            select(JournalEntry)
+            .options(joinedload(JournalEntry.legs))
+            .where(JournalEntry.tenant_id == tenant_id)
         )
-        or 0
+        .unique()
+        .all()
     )
-    cash_out = float(
-        db.scalar(
-            select(func.coalesce(func.sum(SupplierPayment.amount), 0)).where(
-                SupplierPayment.tenant_id == tenant_id
+
+    ledger_totals: dict[str, dict[str, float]] = {}
+
+    for account in account_rows:
+        name = (account.name or "").strip() or "Unassigned"
+        account_type = (account.type or "Assets").strip() or "Assets"
+        ledger_totals[name] = {
+            "type": account_type,
+            "debit": 0.0,
+            "credit": 0.0,
+            "balance": float(account.balance or 0),
+        }
+
+    for entry in journal_rows:
+        for leg in entry.legs or []:
+            name = (leg.account or "").strip() or "Unassigned"
+            bucket = ledger_totals.setdefault(
+                name,
+                {"type": "Assets", "debit": 0.0, "credit": 0.0, "balance": 0.0},
             )
+            bucket["debit"] += float(leg.debit or 0)
+            bucket["credit"] += float(leg.credit or 0)
+
+    total_assets = 0.0
+    total_liabilities = 0.0
+    equity = 0.0
+    revenue = 0.0
+    expenses = 0.0
+    cash_balance = 0.0
+
+    for name, bucket in ledger_totals.items():
+        account_type = bucket["type"]
+        if bucket["debit"] or bucket["credit"]:
+            balance = bucket["debit"] - bucket["credit"]
+        else:
+            balance = bucket["balance"]
+
+        if account_type.lower() in {"asset", "assets"}:
+            total_assets += balance
+            if any(token in name.lower() for token in ["cash", "bank", "checking", "current account"]):
+                cash_balance += balance
+        elif account_type.lower() in {"liability", "liabilities"}:
+            total_liabilities += balance
+        elif account_type.lower() in {"equity"}:
+            equity += balance
+        elif account_type.lower() in {"revenue", "revenues"}:
+            revenue += balance
+        elif account_type.lower() in {"expense", "expenses"}:
+            expenses += balance
+
+    if not ledger_totals:
+        rev = float(
+            db.scalar(
+                select(func.coalesce(func.sum(Invoice.grand_total), 0)).where(
+                    Invoice.tenant_id == tenant_id, Invoice.status != "draft"
+                )
+            ) or 0
         )
-        or 0
-    )
-    cash_balance = cash_in - cash_out
-    assets = cash_balance + rev  # receivable proxy not duplicated here
-    liabilities = expenses * 0.0 + float(
-        db.scalar(
-            select(func.coalesce(func.sum(VendorBill.amount), 0)).where(
-                VendorBill.tenant_id == tenant_id,
-                VendorBill.status.in_(("pending", "due", "overdue")),
+        exp = float(
+            db.scalar(
+                select(func.coalesce(func.sum(Expense.amount), 0)).where(Expense.tenant_id == tenant_id)
+            ) or 0
+        )
+        inc = float(
+            db.scalar(
+                select(func.coalesce(func.sum(Income.amount), 0)).where(Income.tenant_id == tenant_id)
+            ) or 0
+        )
+        revenue = rev + inc
+        expenses = exp
+        cash_in = float(
+            db.scalar(
+                select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.tenant_id == tenant_id)
             )
+            or 0
         )
-        or 0
-    )
-    equity = assets - liabilities
+        cash_out = float(
+            db.scalar(
+                select(func.coalesce(func.sum(SupplierPayment.amount), 0)).where(
+                    SupplierPayment.tenant_id == tenant_id
+                )
+            )
+            or 0
+        )
+        cash_balance = cash_in - cash_out
+        total_assets = cash_balance + rev
+        total_liabilities = expenses * 0.0 + float(
+            db.scalar(
+                select(func.coalesce(func.sum(VendorBill.amount), 0)).where(
+                    VendorBill.tenant_id == tenant_id,
+                    VendorBill.status.in_("pending", "due", "overdue"),
+                )
+            )
+            or 0
+        )
+        equity = total_assets - total_liabilities
+
     return GLSummaryRead(
-        total_assets=assets,
-        total_liabilities=liabilities,
+        total_assets=total_assets,
+        total_liabilities=total_liabilities,
         equity=equity,
         revenue=revenue,
         expenses=expenses,
@@ -477,63 +541,52 @@ def get_gl_summary(db: Session, tenant_id: int) -> GLSummaryRead:
 
 
 def list_gl_enriched(db: Session, tenant_id: int) -> list[GLListRead]:
+    """List GL entries from real journal entries, not dummy data."""
     entries = []
-    invs = list(
-        db.scalars(
-            select(Invoice).where(Invoice.tenant_id == tenant_id, Invoice.status != "draft").limit(20)
-        ).all()
-    )
-    for i, inv in enumerate(invs):
-        amt = float(inv.grand_total or 0)
-        entries.append(
-            GLListRead(
-                id=i + 1,
-                voucher_no=f"JV-2026-{i + 1:04d}",
-                entry_date=inv.issue_date.isoformat() if inv.issue_date else None,
-                account="Accounts Receivable",
-                debit=amt,
-                credit=0,
-                balance=amt,
-                narration=f"Sales invoice {inv.invoice_number}",
-                cost_center="Sales",
-                branch="Head Office",
+    
+    # Try to get real journal entries first
+    try:
+        journal_entries = list(
+            db.scalars(
+                select(JournalEntry)
+                .options(joinedload(JournalEntry.legs))
+                .where(JournalEntry.tenant_id == tenant_id)
+                .order_by(JournalEntry.entry_date.desc())
+                .limit(80)
             )
+            .unique()
+            .all()
         )
-        entries.append(
-            GLListRead(
-                id=i + 100,
-                voucher_no=f"JV-2026-{i + 1:04d}",
-                entry_date=inv.issue_date.isoformat() if inv.issue_date else None,
-                account="Sales Revenue",
-                debit=0,
-                credit=amt * 0.82,
-                balance=amt * 0.82,
-                narration=f"Sales invoice {inv.invoice_number}",
-                cost_center="Sales",
-                branch="Head Office",
-            )
-        )
-    exps = list(db.scalars(select(Expense).where(Expense.tenant_id == tenant_id).limit(10)).all())
-    for j, e in enumerate(exps):
-        amt = float(e.amount or 0)
-        entries.append(
-            GLListRead(
-                id=200 + j,
-                voucher_no=f"PV-2026-{j + 1:04d}",
-                entry_date=e.expense_date.isoformat() if e.expense_date else None,
-                account=e.category or "Operating Expense",
-                debit=amt,
-                credit=0,
-                balance=amt,
-                narration=e.vendor or "Expense entry",
-                cost_center=e.category or "Administration",
-                branch="Plant-1",
-            )
-        )
-    return entries[:40]
+        
+        entry_id = 1
+        for je in journal_entries:
+            for leg in je.legs or []:
+                entries.append(
+                    GLListRead(
+                        id=entry_id,
+                        voucher_no=je.entry_number or f"JE-{je.id}",
+                        entry_date=je.entry_date.isoformat() if je.entry_date else None,
+                        account=leg.account or "Unassigned",
+                        debit=float(leg.debit or 0),
+                        credit=float(leg.credit or 0),
+                        balance=float(leg.debit or 0) - float(leg.credit or 0),
+                        narration=je.description or "Journal Entry",
+                        cost_center=None,
+                        branch=je.branch or None,
+                    )
+                )
+                entry_id += 1
+        
+        if entries:
+            return entries
+    except Exception:
+        pass  # Fall back to empty if journal entries don't exist
+    
+    # Return empty list if no real GL data exists (do not use dummy data)
+    return []
 
 
-def get_gst_extended(db: Session, tenant_id: int, year: int) -> GSTExtendedRead:
+def get_gst_extended(db: Session, tenant_id: int, year: int, month: str | None = None, branch: str | None = None) -> GSTExtendedRead:
     base = get_tax_report(db, tenant_id, year)
     sgst = base["sgst_collected"]
     cgst = base["cgst_collected"]
@@ -541,18 +594,96 @@ def get_gst_extended(db: Session, tenant_id: int, year: int) -> GSTExtendedRead:
     total = base["total_tax"]
     taxable = base["total_taxable_value"]
     months = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"]
-    monthly = [{"month": m, "amount": (total / 12) * (0.85 + i * 0.02)} for i, m in enumerate(months)]
-    trend = [{"month": m, "sgst": sgst / 12, "cgst": cgst / 12, "igst": igst / 12} for m in months[:6]]
-    by_cust = [
-        {"name": "ABC Industries", "gst": total * 0.22},
-        {"name": "XYZ Corp", "gst": total * 0.18},
-        {"name": "PQR Ltd", "gst": total * 0.15},
-    ]
-    by_prod = [
-        {"name": "Finished Goods A", "gst": total * 0.35},
-        {"name": "Component B", "gst": total * 0.25},
-        {"name": "Spare Parts", "gst": total * 0.12},
-    ]
+    
+    # Filter by month if specified
+    month_filter = None
+    if month:
+        month_names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+        try:
+            month_filter = month_names.index(month) + 1
+        except ValueError:
+            pass
+    
+    # Calculate real monthly collection from actual invoices
+    monthly = []
+    for idx, m in enumerate(months):
+        month_num = (4 + idx - 1) % 12 + 1  # Apr=4, May=5, ... Mar=3
+        query = select(func.coalesce(func.sum(Invoice.sgst_amount + Invoice.cgst_amount + Invoice.igst_amount), 0)).where(
+            Invoice.tenant_id == tenant_id,
+            func.extract("month", Invoice.issue_date) == month_num,
+            func.extract("year", Invoice.issue_date) == year,
+        )
+        if branch:
+            query = query.where(Invoice.branch == branch)
+        month_total = float(db.scalar(query) or 0)
+        monthly.append({"month": m, "amount": month_total})
+    
+    # Real GST trend by month (first 6 months)
+    trend = []
+    for idx, m in enumerate(months[:6]):
+        month_num = (4 + idx - 1) % 12 + 1
+        sgst_query = select(func.coalesce(func.sum(Invoice.sgst_amount), 0)).where(
+            Invoice.tenant_id == tenant_id,
+            func.extract("month", Invoice.issue_date) == month_num,
+            func.extract("year", Invoice.issue_date) == year,
+        )
+        cgst_query = select(func.coalesce(func.sum(Invoice.cgst_amount), 0)).where(
+            Invoice.tenant_id == tenant_id,
+            func.extract("month", Invoice.issue_date) == month_num,
+            func.extract("year", Invoice.issue_date) == year,
+        )
+        igst_query = select(func.coalesce(func.sum(Invoice.igst_amount), 0)).where(
+            Invoice.tenant_id == tenant_id,
+            func.extract("month", Invoice.issue_date) == month_num,
+            func.extract("year", Invoice.issue_date) == year,
+        )
+        if branch:
+            sgst_query = sgst_query.where(Invoice.branch == branch)
+            cgst_query = cgst_query.where(Invoice.branch == branch)
+            igst_query = igst_query.where(Invoice.branch == branch)
+        
+        sgst_month = float(db.scalar(sgst_query) or 0)
+        cgst_month = float(db.scalar(cgst_query) or 0)
+        igst_month = float(db.scalar(igst_query) or 0)
+        trend.append({"month": m, "sgst": sgst_month, "cgst": cgst_month, "igst": igst_month})
+    
+    # Real GST by customer from actual invoices
+    by_cust = []
+    cust_query = select(Customer.name, func.sum(Invoice.sgst_amount + Invoice.cgst_amount + Invoice.igst_amount).label("gst_amt")).join(Invoice, Invoice.customer_id == Customer.id).where(
+        Invoice.tenant_id == tenant_id, 
+        func.extract("year", Invoice.issue_date) == year
+    ).group_by(Customer.id, Customer.name).order_by(func.sum(Invoice.sgst_amount + Invoice.cgst_amount + Invoice.igst_amount).desc()).limit(5)
+    
+    if branch:
+        cust_query = cust_query.where(Invoice.branch == branch)
+    
+    customers = db.execute(cust_query).all()
+    for cust_name, gst_amt in customers:
+        by_cust.append({"name": cust_name or "Unknown", "gst": float(gst_amt or 0)})
+    
+    # Real GST by product category from invoice line items
+    by_prod = []
+    product_gst_map: dict[str, float] = {}
+    
+    prod_query = select(
+        InvoiceItem.item_description,
+        func.sum(InvoiceItem.amount).label("total_amount")
+    ).join(Invoice, Invoice.id == InvoiceItem.invoice_id).where(
+        Invoice.tenant_id == tenant_id,
+        func.extract("year", Invoice.issue_date) == year
+    ).group_by(InvoiceItem.item_description).order_by(func.sum(InvoiceItem.amount).desc()).limit(10)
+    
+    if branch:
+        prod_query = prod_query.where(Invoice.branch == branch)
+    
+    products = db.execute(prod_query).all()
+    for product_name, item_amount in products:
+        # Calculate proportional GST for this product
+        product_gst = float(item_amount or 0) * (total / max(taxable, 1)) if taxable > 0 else 0
+        product_gst_map[product_name or "Unspecified"] = product_gst
+    
+    by_prod = [{"name": k, "gst": v} for k, v in product_gst_map.items()]
+    
     return GSTExtendedRead(
         year=year,
         sgst=sgst,
@@ -569,36 +700,48 @@ def get_gst_extended(db: Session, tenant_id: int, year: int) -> GSTExtendedRead:
     )
 
 
-def get_pl_extended(db: Session, tenant_id: int, year: int) -> PLExtendedRead:
+def get_pl_extended(db: Session, tenant_id: int, year: int, start_date: date | None = None, end_date: date | None = None) -> PLExtendedRead:
     months_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
     # Real per-month revenue from invoices
     rev_by_month = {m: 0.0 for m in range(1, 13)}
-    for row in db.execute(
-        select(func.extract("month", Invoice.issue_date).label("m"), func.sum(Invoice.grand_total))
-        .where(Invoice.tenant_id == tenant_id, Invoice.status != "draft",
-               Invoice.issue_date.isnot(None), func.extract("year", Invoice.issue_date) == year)
-        .group_by(func.extract("month", Invoice.issue_date))
-    ).all():
+    inv_query = select(func.extract("month", Invoice.issue_date).label("m"), func.sum(Invoice.grand_total)).where(
+        Invoice.tenant_id == tenant_id, Invoice.status != "draft", Invoice.issue_date.isnot(None)
+    )
+    if start_date and end_date:
+        inv_query = inv_query.where(Invoice.issue_date >= start_date, Invoice.issue_date <= end_date)
+    else:
+        inv_query = inv_query.where(func.extract("year", Invoice.issue_date) == year)
+    inv_query = inv_query.group_by(func.extract("month", Invoice.issue_date))
+    
+    for row in db.execute(inv_query).all():
         if row[0]: rev_by_month[int(row[0])] += float(row[1] or 0)
 
     # Real per-month income
-    for row in db.execute(
-        select(func.extract("month", Income.income_date).label("m"), func.sum(Income.amount))
-        .where(Income.tenant_id == tenant_id, Income.income_date.isnot(None),
-               func.extract("year", Income.income_date) == year)
-        .group_by(func.extract("month", Income.income_date))
-    ).all():
+    inc_query = select(func.extract("month", Income.income_date).label("m"), func.sum(Income.amount)).where(
+        Income.tenant_id == tenant_id, Income.income_date.isnot(None)
+    )
+    if start_date and end_date:
+        inc_query = inc_query.where(Income.income_date >= start_date, Income.income_date <= end_date)
+    else:
+        inc_query = inc_query.where(func.extract("year", Income.income_date) == year)
+    inc_query = inc_query.group_by(func.extract("month", Income.income_date))
+    
+    for row in db.execute(inc_query).all():
         if row[0]: rev_by_month[int(row[0])] += float(row[1] or 0)
 
     # Real per-month expenses
     exp_by_month = {m: 0.0 for m in range(1, 13)}
-    for row in db.execute(
-        select(func.extract("month", Expense.expense_date).label("m"), func.sum(Expense.amount))
-        .where(Expense.tenant_id == tenant_id, Expense.expense_date.isnot(None),
-               func.extract("year", Expense.expense_date) == year)
-        .group_by(func.extract("month", Expense.expense_date))
-    ).all():
+    exp_query = select(func.extract("month", Expense.expense_date).label("m"), func.sum(Expense.amount)).where(
+        Expense.tenant_id == tenant_id, Expense.expense_date.isnot(None)
+    )
+    if start_date and end_date:
+        exp_query = exp_query.where(Expense.expense_date >= start_date, Expense.expense_date <= end_date)
+    else:
+        exp_query = exp_query.where(func.extract("year", Expense.expense_date) == year)
+    exp_query = exp_query.group_by(func.extract("month", Expense.expense_date))
+    
+    for row in db.execute(exp_query).all():
         if row[0]: exp_by_month[int(row[0])] += float(row[1] or 0)
 
     rev = sum(rev_by_month.values())
@@ -615,19 +758,25 @@ def get_pl_extended(db: Session, tenant_id: int, year: int) -> PLExtendedRead:
 
     # Real department cost from expense categories
     dept_map: dict[str, float] = {}
-    for row in db.execute(
-        select(Expense.category, func.sum(Expense.amount))
-        .where(Expense.tenant_id == tenant_id, Expense.expense_date.isnot(None),
-               func.extract("year", Expense.expense_date) == year)
-        .group_by(Expense.category)
-    ).all():
+    dept_query = select(Expense.category, func.sum(Expense.amount)).where(
+        Expense.tenant_id == tenant_id, Expense.expense_date.isnot(None)
+    )
+    if start_date and end_date:
+        dept_query = dept_query.where(Expense.expense_date >= start_date, Expense.expense_date <= end_date)
+    else:
+        dept_query = dept_query.where(func.extract("year", Expense.expense_date) == year)
+    dept_query = dept_query.group_by(Expense.category)
+    
+    for row in db.execute(dept_query).all():
         dept_map[row[0] or "Other"] = float(row[1] or 0)
 
     monthly_rev = [{"month": months_labels[m - 1], "amount": rev_by_month[m]} for m in range(1, 13)]
-    exp_trend   = [{"month": months_labels[m - 1], "amount": exp_by_month[m]} for m in range(1, 13)]
+    exp_trend = [{"month": months_labels[m - 1], "amount": exp_by_month[m]} for m in range(1, 13)]
     profit_trend = [{"month": months_labels[m - 1], "amount": rev_by_month[m] - exp_by_month[m]} for m in range(1, 13)]
-    rev_vs_exp  = [{"month": months_labels[m - 1], "revenue": rev_by_month[m], "expense": exp_by_month[m]} for m in range(1, 13)]
-    dept_cost   = [{"name": k, "amount": v} for k, v in dept_map.items()]
+    rev_vs_exp = [{"month": months_labels[m - 1], "revenue": rev_by_month[m], "expense": exp_by_month[m]} for m in range(1, 13)]
+    dept_cost = [{"name": k, "amount": v} for k, v in dept_map.items()]
+
+    pl_rows = get_profit_loss(db, tenant_id, year, 12, start_date=start_date, end_date=end_date)
 
     return PLExtendedRead(
         year=year,
@@ -644,11 +793,11 @@ def get_pl_extended(db: Session, tenant_id: int, year: int) -> PLExtendedRead:
         revenue_vs_expense=rev_vs_exp,
         department_cost=dept_cost,
         factory_cost=[],
-        revenue_rows=[],
-        expense_rows=[],
-        total_revenue=rev,
-        total_expenses=exp,
-        profit=profit,
+        revenue_rows=pl_rows.get("revenue", []),
+        expense_rows=pl_rows.get("expenses", []),
+        total_revenue=pl_rows.get("total_revenue", rev),
+        total_expenses=pl_rows.get("total_expenses", exp),
+        profit=pl_rows.get("profit", profit),
     )
 
 
@@ -855,14 +1004,14 @@ def get_extended_reports(
         except ValueError:
             pass
 
-    # Branch Filter
+    # Branch Filter - only filter by actual stored branch values, do not use dummy defaults
     if branch:
-        invs = [i for i in invs if (getattr(i, "branch", None) or ("Head Office" if i.id % 2 == 0 else "Plant-1")) == branch]
-        incomes = [inc for inc in incomes if (getattr(inc, "branch", None) or ("Head Office" if inc.id % 2 == 0 else "Plant-1")) == branch]
-        exps = [e for e in exps if (getattr(e, "branch", None) or ("Head Office" if e.id % 2 == 0 else "Plant-1")) == branch]
-        payments = [p for p in payments if (getattr(p, "branch", None) or ("Head Office" if p.id % 2 == 0 else "Plant-1")) == branch]
-        bills = [b for b in bills if (getattr(b, "branch", None) or ("Head Office" if b.id % 2 == 0 else "Plant-1")) == branch]
-        supplier_payments = [sp for sp in supplier_payments if (getattr(sp, "branch", None) or ("Head Office" if sp.id % 2 == 0 else "Plant-1")) == branch]
+        invs = [i for i in invs if (getattr(i, "branch", None) or "") == branch]
+        incomes = [inc for inc in incomes if (getattr(inc, "branch", None) or "") == branch]
+        exps = [e for e in exps if (getattr(e, "branch", None) or "") == branch]
+        payments = [p for p in payments if (getattr(p, "branch", None) or "") == branch]
+        bills = [b for b in bills if (getattr(b, "branch", None) or "") == branch]
+        supplier_payments = [sp for sp in supplier_payments if (getattr(sp, "branch", None) or "") == branch]
 
     # Calculate cash and AR/AP balances
     total_sales = sum(float(i.grand_total or 0) for i in invs)
@@ -957,63 +1106,28 @@ def get_extended_reports(
       { "name": "Equity Share Capital", "amount": share_capital },
     ]
 
-    # 4. Journal Entries
+    # 4. Journal Entries — only user-created entries from the JournalEntry table
     journal_entries = []
-    for inc in incomes:
-        branch_name = getattr(inc, "branch", None) or ("Head Office" if inc.id % 2 == 0 else "Plant-1")
-        journal_entries.append({
-            "id": f"JV-INC-{inc.id:03d}",
-            "date": inc.income_date.isoformat() if inc.income_date else date.today().isoformat(),
-            "ref": f"INC-REF-{inc.id}",
-            "desc": inc.description or f"Receipt for {inc.category}",
-            "debit": float(inc.amount),
-            "credit": float(inc.amount),
-            "status": "Posted",
-            "branch": branch_name,
-            "legs": [
-                { "account": "Cash at Bank", "debit": float(inc.amount), "credit": 0.0 },
-                { "account": inc.category or "Other Income", "debit": 0.0, "credit": float(inc.amount) },
-            ]
-        })
-    for e in exps:
-        branch_name = getattr(e, "branch", None) or ("Head Office" if e.id % 2 == 0 else "Plant-1")
-        journal_entries.append({
-            "id": f"JV-EXP-{e.id:03d}",
-            "date": e.expense_date.isoformat() if e.expense_date else date.today().isoformat(),
-            "ref": f"EXP-REF-{e.id}",
-            "desc": e.description or f"Payment for {e.category}",
-            "debit": float(e.amount),
-            "credit": float(e.amount),
-            "status": "Posted",
-            "branch": branch_name,
-            "legs": [
-                { "account": e.category or "Other Expense", "debit": float(e.amount), "credit": 0.0 },
-                { "account": "Cash at Bank", "debit": 0.0, "credit": float(e.amount) },
-            ]
-        })
+    month_names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
-    # Fetch custom DB journal entries
-    db_jvs = list(db.scalars(
+    jv_stmt = (
         select(JournalEntry)
         .options(joinedload(JournalEntry.legs))
         .where(JournalEntry.tenant_id == tenant_id)
-    ).unique().all())
+        .order_by(JournalEntry.entry_date.desc(), JournalEntry.id.desc())
+    )
+    db_jvs = list(db.scalars(jv_stmt).unique().all())
 
     for jv in db_jvs:
-        # Apply month filters
         if month and month != "All Months":
-            month_names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
             try:
                 m_idx = month_names.index(month) + 1
                 if jv.entry_date.month != m_idx:
                     continue
             except ValueError:
                 pass
-        
-        # Apply branch filters
         if branch and jv.branch != branch:
             continue
-
         journal_entries.append({
             "id": jv.entry_number,
             "date": jv.entry_date.isoformat(),
@@ -1022,22 +1136,38 @@ def get_extended_reports(
             "debit": sum(float(leg.debit) for leg in jv.legs),
             "credit": sum(float(leg.credit) for leg in jv.legs),
             "status": jv.status,
-            "branch": jv.branch or "Head Office",
+            "branch": jv.branch or None,
             "legs": [
-                { "account": leg.account, "debit": float(leg.debit), "credit": float(leg.credit) }
+                {"account": leg.account, "debit": float(leg.debit), "credit": float(leg.credit)}
                 for leg in jv.legs
-            ]
+            ],
         })
-
-    journal_entries.sort(key=lambda x: x["date"], reverse=True)
 
     # 5. Fixed Assets
     fixed_assets = []
-    
-    # Query custom fixed assets from DB
-    db_assets = list(db.scalars(
-        select(FixedAsset).where(FixedAsset.tenant_id == tenant_id)
-    ).all())
+
+    # Query custom fixed assets from DB — apply same date filters as other statements
+    fa_stmt = select(FixedAsset).where(FixedAsset.tenant_id == tenant_id)
+    if financial_year and financial_year != "All Years":
+        parts = financial_year.split("-")
+        if len(parts) == 2:
+            try:
+                sy = int(parts[0])
+                fa_stmt = fa_stmt.where(
+                    FixedAsset.purchase_date >= date(sy, 4, 1),
+                    FixedAsset.purchase_date <= date(sy + 1, 3, 31),
+                )
+            except ValueError:
+                pass
+    if month and month not in ("All Months", None):
+        month_names = ["January","February","March","April","May","June",
+                       "July","August","September","October","November","December"]
+        try:
+            m_idx = month_names.index(month) + 1
+            fa_stmt = fa_stmt.where(func.strftime("%m", FixedAsset.purchase_date) == f"{m_idx:02d}")
+        except ValueError:
+            pass
+    db_assets = list(db.scalars(fa_stmt).all())
     for fa in db_assets:
         fixed_assets.append({
             "code": fa.code,
@@ -1097,21 +1227,7 @@ def get_extended_reports(
             "variance": budget_val - actual_val
         })
 
-    # 8. Trial Balance accounts
-    tb_accounts = [
-        { "code": "1001", "name": "Cash at Bank", "category": "Asset", "debit": max(0.0, cash_balance), "credit": abs(min(0.0, cash_balance)) },
-        { "code": "1002", "name": "Accounts Receivable", "category": "Asset", "debit": total_receivable_outstanding, "credit": 0.0 },
-        { "code": "2001", "name": "Accounts Payable", "category": "Liability", "debit": 0.0, "credit": total_payable_outstanding },
-    ]
-    for cat, val in exp_by_cat.items():
-        tb_accounts.append({ "code": f"50{len(tb_accounts):02d}", "name": cat, "category": "Expense", "debit": val, "credit": 0.0 })
-
-    # Fetch custom GL accounts from DB
-    db_accounts = list(db.scalars(
-        select(GLAccount).where(GLAccount.tenant_id == tenant_id)
-    ).all())
-    
-    existing_codes = {a["code"] for a in tb_accounts}
+    # 8. Trial Balance accounts — only from real DB sources
     category_map = {
         "Assets": "Asset",
         "Liabilities": "Liability",
@@ -1120,21 +1236,68 @@ def get_extended_reports(
         "Expenses": "Expense"
     }
 
+    # Start from GLAccount rows
+    db_accounts = list(db.scalars(
+        select(GLAccount).where(GLAccount.tenant_id == tenant_id)
+    ).all())
+    tb_map: dict[str, dict] = {}
     for dba in db_accounts:
-        if dba.code not in existing_codes:
-            cat = category_map.get(dba.type, "Asset")
-            debit_val = float(dba.balance) if cat in ("Asset", "Expense") else 0.0
-            credit_val = float(dba.balance) if cat not in ("Asset", "Expense") else 0.0
-            
-            tb_accounts.append({
-                "code": dba.code,
-                "name": dba.name,
-                "category": cat,
-                "debit": debit_val,
-                "credit": credit_val,
-                "parent": dba.parent,
-                "status": dba.status
-            })
+        cat = category_map.get(dba.type, "Asset")
+        debit_val = float(dba.balance) if cat in ("Asset", "Expense") else 0.0
+        credit_val = float(dba.balance) if cat not in ("Asset", "Expense") else 0.0
+        tb_map[dba.code] = {
+            "code": dba.code,
+            "name": dba.name,
+            "category": cat,
+            "parent": dba.parent or "",
+            "status": dba.status or "Active",
+            "debit": debit_val,
+            "credit": credit_val,
+        }
+
+    # Aggregate journal entry legs into TB by account name
+    je_rows = list(
+        db.scalars(
+            select(JournalEntry)
+            .options(joinedload(JournalEntry.legs))
+            .where(JournalEntry.tenant_id == tenant_id)
+        ).unique().all()
+    )
+    leg_totals: dict[str, dict[str, float]] = {}
+    for je in je_rows:
+        for leg in je.legs or []:
+            acc = (leg.account or "Unassigned").strip()
+            if acc not in leg_totals:
+                leg_totals[acc] = {"debit": 0.0, "credit": 0.0}
+            leg_totals[acc]["debit"] += float(leg.debit or 0)
+            leg_totals[acc]["credit"] += float(leg.credit or 0)
+
+    # Match leg accounts to existing GL codes by name, or add as new rows
+    name_to_code = {v["name"].lower(): k for k, v in tb_map.items()}
+    for acc_name, totals in leg_totals.items():
+        code = name_to_code.get(acc_name.lower())
+        if code:
+            tb_map[code]["debit"] += totals["debit"]
+            tb_map[code]["credit"] += totals["credit"]
+        else:
+            synthetic_code = f"JE-{acc_name[:8].upper().replace(' ', '')}"
+            # Infer category: credit-heavy = Liability/Revenue, debit-heavy = Asset/Expense
+            inferred = "Liability" if totals["credit"] > totals["debit"] else "Expense"
+            if synthetic_code not in tb_map:
+                tb_map[synthetic_code] = {
+                    "code": synthetic_code,
+                    "name": acc_name,
+                    "category": inferred,
+                    "parent": "",
+                    "status": "Active",
+                    "debit": totals["debit"],
+                    "credit": totals["credit"],
+                }
+            else:
+                tb_map[synthetic_code]["debit"] += totals["debit"]
+                tb_map[synthetic_code]["credit"] += totals["credit"]
+
+    tb_accounts = list(tb_map.values())
 
     return {
         "assets_current": assets_current,

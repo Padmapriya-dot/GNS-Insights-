@@ -7,7 +7,7 @@ import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getAPSummary } from "../../api/accountsApi";
 import { getVendors, createSupplierPayment, getSupplierPayments } from "../../api/procurementApi";
-import { createSupplier } from "../../api/inventoryApi";
+import { createVendor } from "../../api/procurementApi";
 import { FINANCE_FLOW, formatInr } from "../../data/financeMasterData";
 import useTenantId from "../../hooks/useTenantId";
 import { INITIAL_AP_SUMMARY, normalizeListPayload, normalizeSummaryPayload, normalizeVendorList } from "./accountsPayableUtils";
@@ -39,7 +39,7 @@ export default function AccountsPayable() {
   const [vendors, setVendors] = useState([]);
   const [showCreatePayment, setShowCreatePayment] = useState(false);
   const [showInlineSupplierModal, setShowInlineSupplierModal] = useState(false);
-  const [inlineSupplier, setInlineSupplier] = useState({ name: "", contact: "", email: "", phone: "" });
+  const [inlineSupplier, setInlineSupplier] = useState({ name: "", contact_person: "", email: "", phone: "" });
   const [savingInlineSupplier, setSavingInlineSupplier] = useState(false);
   const [newPayment, setNewPayment] = useState({
     supplier_id: "",
@@ -116,13 +116,24 @@ export default function AccountsPayable() {
     e.preventDefault();
     setSavingInlineSupplier(true);
     try {
-      const res = await createSupplier({ tenant_id: tenantId, ...inlineSupplier });
+      const res = await createVendor({
+        tenant_id: tenantId,
+        name: inlineSupplier.name,
+        contact_person: inlineSupplier.contact_person,
+        email: inlineSupplier.email,
+        phone: inlineSupplier.phone,
+        status: "active",
+      });
+      const created = res?.data ?? res;
+      const createdId = created?.id;
       addToast("Supplier created successfully", "success");
       setShowInlineSupplierModal(false);
-      setInlineSupplier({ name: "", contact: "", email: "", phone: "" });
+      setInlineSupplier({ name: "", contact_person: "", email: "", phone: "" });
       await load();
-      const createdId = res?.data?.id || res?.id;
-      if (createdId) setNewPayment((prev) => ({ ...prev, supplier_id: String(createdId) }));
+      if (createdId) {
+        setShowCreatePayment(true);
+        setNewPayment((prev) => ({ ...prev, supplier_id: String(createdId) }));
+      }
     } catch (err) {
       addToast(err.response?.data?.detail || err.message || "Failed to create supplier", "error");
     } finally {
@@ -338,7 +349,7 @@ export default function AccountsPayable() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase">Contact Person</label>
-                <input type="text" value={inlineSupplier.contact} onChange={(e) => setInlineSupplier({ ...inlineSupplier, contact: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-white" placeholder="e.g. John Doe" />
+                <input type="text" value={inlineSupplier.contact_person} onChange={(e) => setInlineSupplier({ ...inlineSupplier, contact_person: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-white" placeholder="e.g. John Doe" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

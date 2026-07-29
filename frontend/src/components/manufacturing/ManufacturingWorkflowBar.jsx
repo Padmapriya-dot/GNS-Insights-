@@ -1,22 +1,46 @@
 import { Link } from "react-router-dom";
-import { Check, Circle } from "lucide-react";
+import { Check, Circle, Lock } from "lucide-react";
 
-import { buildWorkflowProgress } from "../../config/manufacturingWorkflow";
+import {
+  buildWorkflowProgress,
+  getPrimaryRoleName,
+  canViewFullWorkflow,
+} from "../../config/manufacturingWorkflow";
+import useAuth from "../../hooks/useAuth";
 
 /**
- * Manufacturing spine progress: Previous → Current → Next
- * ✔ completed · 🟡 in progress · ⚪ pending
+ * Manufacturing spine progress filtered by the signed-in user's role.
+ * Admin / Management see the full chain; others see only their stages.
  */
 export default function ManufacturingWorkflowBar({
   currentStepId,
   className = "",
   compact = false,
+  /** Force a role (tests); defaults to signed-in user role */
+  roleName: roleNameProp = null,
+  filterByRole = true,
 }) {
-  const steps = buildWorkflowProgress(currentStepId);
+  const { user } = useAuth();
+  const roleName = roleNameProp || getPrimaryRoleName(user);
+  const steps = buildWorkflowProgress(currentStepId, {
+    roleName,
+    filterByRole: filterByRole && !canViewFullWorkflow(roleName),
+  });
   const currentIdx = steps.findIndex((s) => s.state === "current");
   const prev = currentIdx > 0 ? steps[currentIdx - 1] : null;
-  const curr = steps[currentIdx] || steps[0];
-  const next = currentIdx >= 0 && currentIdx < steps.length - 1 ? steps[currentIdx + 1] : null;
+  const curr = currentIdx >= 0 ? steps[currentIdx] : steps.find((s) => s.state === "current") || steps[0];
+  const next =
+    currentIdx >= 0 && currentIdx < steps.length - 1 ? steps[currentIdx + 1] : null;
+
+  if (!steps.length) {
+    return (
+      <div
+        className={`rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900 ${className}`}
+      >
+        No manufacturing workflow stages are assigned to your role ({roleName || "unknown"}).
+      </div>
+    );
+  }
 
   return (
     <div
@@ -24,7 +48,7 @@ export default function ManufacturingWorkflowBar({
     >
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Manufacturing workflow
+          {canViewFullWorkflow(roleName) ? "Manufacturing workflow" : `My workflow · ${roleName}`}
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           {prev && (
@@ -64,6 +88,12 @@ export default function ManufacturingWorkflowBar({
             </Link>
           )}
         </div>
+        <Link
+          to="/manufacturing/workflow"
+          className="ml-auto text-xs font-semibold text-teal-700 hover:underline dark:text-teal-400"
+        >
+          Open role board →
+        </Link>
       </div>
 
       {!compact && (
@@ -75,8 +105,8 @@ export default function ManufacturingWorkflowBar({
               <Link
                 key={step.id}
                 to={step.path}
-                title={step.label}
-                className={`flex min-w-[4.5rem] flex-col items-center gap-1 rounded-lg px-1.5 py-1.5 text-center transition ${
+                title={`${step.label} · ${step.responsibleRole || ""}`}
+                className={`flex min-w-[5rem] flex-col items-center gap-1 rounded-lg px-1.5 py-1.5 text-center transition ${
                   isCurrent
                     ? "bg-amber-50 ring-1 ring-amber-200 dark:bg-amber-950/30"
                     : "hover:bg-slate-50 dark:hover:bg-slate-800"
@@ -91,10 +121,16 @@ export default function ManufacturingWorkflowBar({
                         : "bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                   }`}
                 >
-                  {isDone ? <Check className="h-3.5 w-3.5" /> : <Circle className="h-2.5 w-2.5 fill-current" />}
+                  {isDone ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : isCurrent ? (
+                    <Circle className="h-2.5 w-2.5 fill-current" />
+                  ) : (
+                    <Lock className="h-3 w-3 opacity-50" />
+                  )}
                 </span>
                 <span
-                  className={`max-w-[4.5rem] truncate text-[10px] font-medium leading-tight ${
+                  className={`max-w-[5rem] truncate text-[10px] font-medium leading-tight ${
                     isCurrent
                       ? "text-amber-900 dark:text-amber-200"
                       : isDone
@@ -104,6 +140,9 @@ export default function ManufacturingWorkflowBar({
                 >
                   {step.label}
                 </span>
+                {step.responsibleRole ? (
+                  <span className="max-w-[5rem] truncate text-[9px] text-slate-400">{step.responsibleRole}</span>
+                ) : null}
               </Link>
             );
           })}

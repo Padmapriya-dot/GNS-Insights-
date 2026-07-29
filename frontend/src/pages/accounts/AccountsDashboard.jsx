@@ -289,8 +289,6 @@ export default function AccountsDashboard() {
         <QuickLink to="/accounts/bank-reconciliation" label="Bank Reconciliation" />
         <QuickLink to="/accounts/budget-actual" label="Budget vs Actual" />
         <QuickLink to="/accounts/cost-allocation" label="Cost Allocation" />
-        <QuickLink to="/accounts/multi-branch-ledger" label="Multi-Branch Ledger" />
-        <QuickLink to="/accounts/year-closing" label="Year Closing" />
       </div>
 
       {showRecordIncome && (

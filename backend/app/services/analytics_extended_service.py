@@ -10,6 +10,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from app.models.user import User
 from app.schemas.analytics_extended import (
     AlertItem,
     BenchmarkItem,
@@ -54,12 +55,17 @@ def _kpi(key, label, value, change_pct=None, unit=None, fmt="number", drill=None
 # Production Analytics
 # ---------------------------------------------------------------------------
 
-def get_production_analytics(db: Session, tenant_id: int, year=None) -> ProductionAnalyticsRead:  # noqa: C901
+def get_production_analytics(
+    db: Session, tenant_id: int, year: int | None = None, user: User | None = None
+) -> ProductionAnalyticsRead:
+    from sqlalchemy import func, select
+
     from app.models.production import DailyProductionReport, WorkOrder
     from app.models.quality import QualityInspection
+    from app.models.user import User
 
     y = year or date.today().year
-    trend   = get_monthly_production_trend(db, tenant_id, y)
+    trend = get_monthly_production_trend(db, tenant_id, y, user=user)
     machine = get_machine_efficiency(db, tenant_id)
     worker  = get_worker_performance_score(db, tenant_id)
 
@@ -110,110 +116,18 @@ def get_production_analytics(db: Session, tenant_id: int, year=None) -> Producti
         _kpi("avg_month",  "Avg / Month",           round(actual / 12) if actual else 0, None, "units", "number", "monthly"),
     ]
 
-    monthly  = [ChartPoint(label=m["month"], value=m["value"], value2=None) for m in trend]
-    machines = [
-        ChartPoint(label=f"Machine {m['machine_id']}", value=m["efficiency"])
-        for m in (machine.get("by_machine") or [])[:6]
-    ]
-
-    # Daily output — last 30 days from DailyProductionReport (real user data)
-    try:
-        rows = db.execute(
-            select(
-                DailyProductionReport.report_date,
-                func.coalesce(func.sum(DailyProductionReport.produced_quantity), 0),
-            )
-            .where(DailyProductionReport.tenant_id == tenant_id)
-            .where(DailyProductionReport.report_date >= date.today() - timedelta(days=30))
-            .group_by(DailyProductionReport.report_date)
-            .order_by(DailyProductionReport.report_date)
-        ).all()
-        daily_output = [ChartPoint(label=r[0].strftime("%d %b"), value=float(r[1] or 0)) for r in rows]
-    except Exception:
-        daily_output = []
-
-    # Shift-wise production from WorkOrders (WorkOrder has shift column)
-    try:
-        rows = db.execute(
-            select(
-                WorkOrder.shift,
-                func.coalesce(func.sum(WorkOrder.actual_quantity), 0),
-            )
-            .where(WorkOrder.tenant_id == tenant_id)
-            .where(WorkOrder.shift.isnot(None))
-            .group_by(WorkOrder.shift)
-        ).all()
-        shift_wise = [
-            ChartPoint(label=str(r[0]).title(), value=float(r[1] or 0))
-            for r in rows if r[0] and float(r[1] or 0) > 0
+    has_monthly = any(m.get("value", 0) > 0 for m in trend)
+    monthly = (
+        [ChartPoint(label=m["month"], value=m["value"], value2=None) for m in trend]
+        if has_monthly
+        else []
+    )
+    machines = []
+    if machine.get("by_machine"):
+        machines = [
+            ChartPoint(label=f"Machine {m['machine_id']}", value=m["efficiency"])
+            for m in machine["by_machine"][:6]
         ]
-    except Exception:
-        shift_wise = []
-
-    # Product-wise from DailyProductionReport joined with InventoryItem (real user data)
-    try:
-        from app.models.inventory import InventoryItem
-        rows = db.execute(
-            select(
-                InventoryItem.name,
-                func.coalesce(func.sum(DailyProductionReport.produced_quantity), 0),
-            )
-            .join(InventoryItem, DailyProductionReport.product_id == InventoryItem.id)
-            .where(DailyProductionReport.tenant_id == tenant_id)
-            .where(DailyProductionReport.product_id.isnot(None))
-            .group_by(InventoryItem.name)
-            .order_by(func.sum(DailyProductionReport.produced_quantity).desc())
-            .limit(8)
-        ).all()
-        product_wise = [
-            ChartPoint(label=str(r[0]), value=float(r[1] or 0))
-            for r in rows if r[0] and float(r[1] or 0) > 0
-        ]
-    except Exception:
-        product_wise = []
-
-    # Operator performance from WorkOrders by operator_name (real user data)
-    try:
-        rows = db.execute(
-            select(
-                WorkOrder.operator_name,
-                func.coalesce(func.sum(WorkOrder.actual_quantity), 0),
-                func.coalesce(func.sum(WorkOrder.planned_quantity), 0),
-            )
-            .where(WorkOrder.tenant_id == tenant_id)
-            .where(WorkOrder.operator_name.isnot(None))
-            .group_by(WorkOrder.operator_name)
-            .order_by(func.sum(WorkOrder.actual_quantity).desc())
-            .limit(8)
-        ).all()
-        operator_performance = []
-        for op_name, produced, pl in rows:
-            score = min(100, round(float(produced) / float(pl) * 100, 1)) if pl and float(pl) > 0 else 0.0
-            if score > 0:
-                operator_performance.append(ChartPoint(label=str(op_name), value=score))
-    except Exception:
-        operator_performance = []
-
-    # Downtime by machine from DailyProductionReport (real user data)
-    try:
-        rows = db.execute(
-            select(
-                DailyProductionReport.machine_id,
-                func.coalesce(func.sum(DailyProductionReport.downtime_minutes), 0),
-            )
-            .where(DailyProductionReport.tenant_id == tenant_id)
-            .where(DailyProductionReport.machine_id.isnot(None))
-            .where(func.extract("year", DailyProductionReport.report_date) == y)
-            .group_by(DailyProductionReport.machine_id)
-            .order_by(func.sum(DailyProductionReport.downtime_minutes).desc())
-            .limit(8)
-        ).all()
-        downtime_analysis = [
-            ChartPoint(label=f"Machine {r[0]}", value=round(float(r[1] or 0) / 60, 1))
-            for r in rows if r[0] and float(r[1] or 0) > 0
-        ]
-    except Exception:
-        downtime_analysis = []
 
     alerts = []
     if planned and efficiency < 90:

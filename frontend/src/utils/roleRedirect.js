@@ -10,6 +10,8 @@ export function getDashboardPathForRole(role) {
       return "/gns-admin";
     case "Admin":
       return "/";
+    case "Sales Manager":
+      return "/sales/dashboard";
     case "Production Manager":
       return "/production/dashboard";
     case "Store Manager":

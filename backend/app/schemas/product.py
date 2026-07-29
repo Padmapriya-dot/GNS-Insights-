@@ -11,6 +11,7 @@ class ProductBase(BaseModel):
     min_stock: int | None = Field(None, ge=1)
     max_stock: int | None = Field(None, ge=1)
     current_stock: int | None = Field(None, ge=1)
+    unit: str | None = Field("Pcs", max_length=32)
 
 
 class ProductCreate(ProductBase):
@@ -26,6 +27,7 @@ class ProductUpdate(BaseModel):
     min_stock: int | None = Field(None, ge=1)
     max_stock: int | None = Field(None, ge=1)
     current_stock: int | None = Field(None, ge=1)
+    unit: str | None = Field(None, max_length=32)
 
 
 class ProductDetailRead(ProductBase):

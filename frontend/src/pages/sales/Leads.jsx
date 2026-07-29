@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Filter, LayoutGrid, List, PhoneCall, Plus, RefreshCw, Target, TrendingUp, UserPlus, Users, XCircle } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
-import LeadDetailModal from "../../components/sales/LeadDetailModal";
 import CreateLeadModal from "../../components/sales/CreateLeadModal";
+import LeadDetailModal from "../../components/sales/LeadDetailModal";
 import { useToast } from "../../context/ToastContext";
-import { getLeadSummary, getLeadsEnriched, updateLeadStatus } from "../../api/salesApi";
+import useTenantId from "../../hooks/useTenantId";
+import {
+  convertLeadToQuotation,
+  createLead,
+  getLeadSummary,
+  getLeadsEnriched,
+  updateLeadStatus,
+} from "../../api/salesApi";
 import {
   DEMO_LEAD_LIST,
   DEMO_LEAD_SUMMARY,
@@ -39,7 +46,10 @@ const defaultFilters = { sales_executive: "", source: "", industry: "", region: 
 
 export default function Leads() {
   const { addToast } = useToast();
+  const tenantId = useTenantId();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [rows, setRows] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -196,7 +206,7 @@ export default function Leads() {
           >
             <Plus className="h-4 w-4" /> New Lead
           </button>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+          <button type="button" onClick={async () => { setRefreshing(true); await load(); setRefreshing(false); }} disabled={refreshing} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"><RefreshCw className={`h-4 w-4 transition-transform ${refreshing ? "animate-spin" : ""}`} /> Refresh</button>
         </div>
       </header>
 

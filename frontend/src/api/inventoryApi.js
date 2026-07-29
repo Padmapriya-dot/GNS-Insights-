@@ -31,8 +31,14 @@ export const getFinishedGoodsSummary = () => api.get("/inventory/finished-goods/
 export const getFinishedGoods = () => api.get("/inventory/finished-goods");
 export const getStockTransfers = () => api.get("/inventory/transfers");
 export const createStockTransfer = (payload) => api.post("/inventory/transfers", payload);
+export const updateStockTransferStatus = (transferId, payload) =>
+  api.patch(`/inventory/transfers/${transferId}/status`, payload);
+
 export const getStockAdjustments = () => api.get("/inventory/adjustments");
 export const createStockAdjustment = (payload) => api.post("/inventory/adjustments", payload);
+export const updateStockAdjustmentStatus = (adjustmentId, payload) =>
+  api.patch(`/inventory/adjustments/${adjustmentId}/status`, payload);
+
 export const getLedgerSummary = () => api.get("/inventory/ledger/summary");
 export const getStockLedger = () => api.get("/inventory/ledger");
 export const getInventoryHub = () => api.get("/inventory/hub");

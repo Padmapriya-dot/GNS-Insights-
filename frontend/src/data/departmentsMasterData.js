@@ -49,7 +49,60 @@ export const IMPORT_TEMPLATE_HEADERS = [
   "manager_mobile", "manager_email", "status",
 ];
 
-export const DEMO_DEPARTMENTS = [];
+export const DEMO_DEPARTMENTS = [
+  {
+    id: "dep-101",
+    code: "DEP-PROD-01",
+    name: "Production & Assembly",
+    department_type: "production",
+    plant: "Plant-1 Hyderabad",
+    branch: "Hyderabad",
+    status: "active",
+    manager_name: "Rajesh Sharma",
+    manager_mobile: "+91 98490 55443",
+    manager_email: "rajesh.sharma@gns.com",
+    manager_designation: "Production Head",
+    employee_count: 42,
+    machine_count: 12,
+    work_center_count: 4,
+    created_at: new Date().toISOString().slice(0, 10),
+  },
+  {
+    id: "dep-102",
+    code: "DEP-QUAL-02",
+    name: "Quality Assurance & Inspection",
+    department_type: "support",
+    plant: "Plant-1 Hyderabad",
+    branch: "Hyderabad",
+    status: "active",
+    manager_name: "Priya Nair",
+    manager_mobile: "+91 98850 33221",
+    manager_email: "priya.nair@gns.com",
+    manager_designation: "QA Manager",
+    employee_count: 14,
+    machine_count: 4,
+    work_center_count: 2,
+    created_at: new Date().toISOString().slice(0, 10),
+  },
+  {
+    id: "dep-103",
+    code: "DEP-MAINT-03",
+    name: "Plant Maintenance & Utility",
+    department_type: "support",
+    plant: "Plant-2 Bengaluru",
+    branch: "Bengaluru",
+    status: "active",
+    manager_name: "Suresh Varma",
+    manager_mobile: "+91 94400 88776",
+    manager_email: "suresh.varma@gns.com",
+    manager_designation: "Maintenance Lead",
+    employee_count: 18,
+    machine_count: 8,
+    work_center_count: 3,
+    created_at: new Date().toISOString().slice(0, 10),
+  },
+];
+
 
 export function enrichApiDepartment(row, index = 0) {
   const code = row.code || `DEP${String(row.id || index + 1).padStart(3, "0")}`;

@@ -62,3 +62,35 @@ def normalize_indian_pin(value: str) -> str:
     if digits[0] == "0":
         raise ValueError("PIN Code cannot start with 0")
     return digits
+
+
+_PAN_RE = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
+_IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z0-9]{6}$")
+
+
+def validate_pan(value: str | None, *, required: bool = False) -> str | None:
+    if value is None or not str(value).strip():
+        if required:
+            raise ValueError("PAN Number is required")
+        return None
+    pan = re.sub(r"\s+", "", str(value).strip().upper())
+    if not _PAN_RE.match(pan):
+        raise ValueError("Invalid PAN Number format (e.g. ABCDE1234F)")
+    return pan
+
+
+def validate_ifsc(value: str | None, *, required: bool = False) -> str | None:
+    if value is None or not str(value).strip():
+        if required:
+            raise ValueError("IFSC Code is required")
+        return None
+    ifsc = re.sub(r"\s+", "", str(value).strip().upper())
+    if not _IFSC_RE.match(ifsc):
+        raise ValueError("Invalid IFSC Code format (e.g. SBIN0001234)")
+    return ifsc
+
+
+def normalize_optional_mobile(value: str | None) -> str | None:
+    if value is None or not str(value).strip():
+        return None
+    return normalize_indian_mobile(value)

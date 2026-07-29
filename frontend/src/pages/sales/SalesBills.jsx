@@ -42,6 +42,7 @@ export default function SalesBills() {
   const { addToast } = useToast();
   const [bills, setBills] = useState([]);
   const [loadingBills, setLoadingBills] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -134,7 +135,7 @@ export default function SalesBills() {
     },
     {
       key: "items",
-      label: "Item(s)",
+      label: "Description",
       render: (r) => {
         const firstItem = r.items?.[0] || {};
         const productName = firstItem.item_description || firstItem.description || r.item_description || "";
@@ -265,9 +266,9 @@ export default function SalesBills() {
             className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <Download className="h-4 w-4" /> Export
           </button>
-          <button type="button" onClick={fetchBills}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <RefreshCw className={`h-4 w-4 ${loadingBills ? "animate-spin" : ""}`} /> Refresh
+          <button type="button" onClick={async () => { setRefreshing(true); await fetchBills(); setRefreshing(false); }} disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+            <RefreshCw className={`h-4 w-4 transition-transform ${refreshing ? "animate-spin" : ""}`} /> Refresh
           </button>
         </div>
       </header>

@@ -25,8 +25,10 @@ export default function CreateQuotationModal({ isOpen, onClose, onSuccess }) {
     notes: "Payment Terms: 30% advance, 70% upon dispatch. Validity: 30 days.",
   });
 
+  const UNITS = ["pcs", "nos", "kg", "ltr", "box", "set", "mtr"];
+
   const [items, setItems] = useState([
-    { description: "Standard Steel Components / Finished Product", quantity: 10, unit_price: 1500 },
+    { description: "Standard Steel Components / Finished Product", quantity: 10, unit: "pcs", unit_price: 1500 },
   ]);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export default function CreateQuotationModal({ isOpen, onClose, onSuccess }) {
   if (!isOpen) return null;
 
   const handleAddItem = () => {
-    setItems((prev) => [...prev, { description: "", quantity: 1, unit_price: 0 }]);
+    setItems((prev) => [...prev, { description: "", quantity: 1, unit: "pcs", unit_price: 0 }]);
   };
 
   const handleRemoveItem = (index) => {
@@ -228,6 +230,7 @@ export default function CreateQuotationModal({ isOpen, onClose, onSuccess }) {
             <div className="flex items-center gap-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">
               <span className="flex-1">Item Description / Product</span>
               <span className="w-16 text-center">Qty</span>
+              <span className="w-20 text-center">Unit</span>
               <span className="w-24 text-right">Unit Price (₹)</span>
               <span className="w-24 text-right">Total (₹)</span>
               <span className="w-6"></span>
@@ -252,6 +255,13 @@ export default function CreateQuotationModal({ isOpen, onClose, onSuccess }) {
                     onChange={(e) => handleItemChange(idx, "quantity", e.target.value)}
                     className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-center text-slate-800 focus:outline-none"
                   />
+                  <select
+                    value={item.unit || "pcs"}
+                    onChange={(e) => handleItemChange(idx, "unit", e.target.value)}
+                    className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800 focus:outline-none"
+                  >
+                    {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                  </select>
                   <input
                     type="number"
                     placeholder="Unit Price (₹)"

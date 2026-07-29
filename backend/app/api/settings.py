@@ -97,8 +97,9 @@ def contact_sales_endpoint(
 
 @router.get("/company", response_model=CompanySettingsRead)
 def get_company_settings(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> CompanySettingsRead:
+    tenant_id = user.tenant_id
     row = company_settings_service.get_or_create_settings(db, tenant_id)
     return company_settings_service.to_settings_read(row)
 

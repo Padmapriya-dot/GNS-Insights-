@@ -63,9 +63,29 @@ def update_supplier_approval(
 def create_inventory_item(
     db: Session, payload: InventoryItemCreate
 ) -> InventoryItem:
-    item = InventoryItem(**payload.model_dump())
+    data = payload.model_dump()
+    valid_keys = {c.name for c in InventoryItem.__table__.columns}
+    item_data = {k: v for k, v in data.items() if k in valid_keys}
+    item = InventoryItem(**item_data)
     db.add(item)
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        err_msg = str(e).lower()
+        if "has no column named" in err_msg or "no such column" in err_msg or "column" in err_msg:
+            from sqlalchemy import text
+            for col in ["production_date", "warranty", "warehouse_name", "batch_number", "quantity", "reserved", "status", "customer_name", "serial_number", "expiry_date"]:
+                try:
+                    db.execute(text(f"ALTER TABLE inventory_items ADD COLUMN {col} VARCHAR(255)"))
+                    db.commit()
+                except Exception:
+                    db.rollback()
+            item = InventoryItem(**item_data)
+            db.add(item)
+            db.commit()
+        else:
+            raise e
     db.refresh(item)
     return item
 

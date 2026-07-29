@@ -216,12 +216,12 @@ export default function TaxInvoiceForm() {
             )}
           </div>
 
-          <div style={{ background: "#e8dcc8", padding: "8px 16px", marginBottom: 12, textAlign: "center", fontWeight: 700 }}>Item</div>
+          <div style={{ background: "#e8dcc8", padding: "8px 16px", marginBottom: 12, textAlign: "center", fontWeight: 700 }}>Description of Goods</div>
 
           <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", marginBottom: 16 }}>
             <thead>
               <tr style={{ background: "#e5e7eb" }}>
-                <th style={{ padding: 8, border: "1px solid #d1d5db", textAlign: "left" }}>Item</th>
+                <th style={{ padding: 8, border: "1px solid #d1d5db", textAlign: "left", minWidth: 180 }}>Description of Goods</th>
                 <th style={{ padding: 8, border: "1px solid #d1d5db", textAlign: "left" }}>Sizes</th>
                 <th style={{ padding: 8, border: "1px solid #d1d5db", textAlign: "left" }}>Grade</th>
                 <th style={{ padding: 8, border: "1px solid #d1d5db" }}>Qty</th>
@@ -233,7 +233,7 @@ export default function TaxInvoiceForm() {
             <tbody>
               {items.map((row, idx) => (
                 <tr key={idx} style={{ background: idx % 2 === 0 ? "#f0fdf4" : "#fff" }}>
-                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="text" value={row.item_description} onChange={(e) => updateItem(idx, "item_description", e.target.value)} style={{ ...inputStyle, width: "100%", minWidth: 120 }} /></td>
+                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="text" value={row.item_description} onChange={(e) => updateItem(idx, "item_description", e.target.value)} style={{ ...inputStyle, width: "100%", minWidth: 160 }} /></td>
                   <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="text" value={row.sizes} onChange={(e) => updateItem(idx, "sizes", e.target.value)} style={{ ...inputStyle, width: 80 }} /></td>
                   <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="text" value={row.grade} onChange={(e) => updateItem(idx, "grade", e.target.value)} style={{ ...inputStyle, width: 80 }} /></td>
                   <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="number" step="0.01" value={row.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} style={{ ...inputStyle, width: 70 }} /></td>
