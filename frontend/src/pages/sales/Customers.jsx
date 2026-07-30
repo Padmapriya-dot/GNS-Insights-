@@ -90,7 +90,35 @@ export default function Customers() {
     try {
       const res = await getCustomers();
       const apiRows = res.data || [];
-      setCustomers(apiRows.map((row, i) => enrichApiCustomer(row, i)));
+      const enriched = apiRows.map((row, i) => enrichApiCustomer(row, i));
+      enriched.sort((a, b) => {
+        if (!a.created_at && !b.created_at) return 0;
+        if (!a.created_at) return 1;
+        if (!b.created_at) return -1;
+        return String(b.created_at).localeCompare(String(a.created_at));
+      });
+      try {
+        const raw = localStorage.getItem("recentlyCreatedCustomers");
+        const recent = raw ? JSON.parse(raw) : [];
+        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+        const fresh = recent.filter((r) => r.ts && r.ts > cutoff);
+        localStorage.setItem("recentlyCreatedCustomers", JSON.stringify(fresh));
+        const recentIds = fresh.map((r) => String(r.id)).filter(Boolean);
+        if (recentIds.length > 0) {
+          const recentItems = [];
+          const others = [];
+          for (const item of enriched) {
+            if (recentIds.includes(String(item.id))) recentItems.push(item);
+            else others.push(item);
+          }
+          recentItems.sort((a, b) => recentIds.indexOf(String(a.id)) - recentIds.indexOf(String(b.id)));
+          setCustomers([...recentItems, ...others]);
+          return;
+        }
+      } catch {
+        // ignore storage issues
+      }
+      setCustomers(enriched);
     } catch {
       setCustomers([]);
     } finally {
@@ -110,7 +138,7 @@ export default function Customers() {
       if (filters.contact && !c.contact_person.toLowerCase().includes(filters.contact.toLowerCase())) return false;
       if (filters.gstin && !String(c.gstin).toLowerCase().includes(filters.gstin.toLowerCase())) return false;
       if (filters.state && c.state !== filters.state) return false;
-      if (filters.city && !c.city.toLowerCase().includes(filters.city.toLowerCase())) return false;
+      if (filters.city && !c.city?.toLowerCase().includes(filters.city.toLowerCase())) return false;
       if (filters.status && c.status !== filters.status) return false;
       if (filters.customer_type && c.customer_type !== filters.customer_type) return false;
       if (filters.sales_executive && c.sales_executive !== filters.sales_executive) return false;
@@ -175,21 +203,40 @@ export default function Customers() {
       phone: form.phone,
       email: form.email,
       gstin: form.gstin,
-      state: form.state,
+      city: form.city?.trim() || undefined,
+      state: form.state?.trim() || undefined,
+      state_code: form.state_code?.trim() || null,
       address_line1: form.billing_address,
       customer_code: form.customer_code || `CUS${String(customers.length + 1).padStart(3, "0")}`,
-      credit_limit: form.credit_limit != null && form.credit_limit !== "" ? Number(form.credit_limit) : 500000,
-      outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
+      credit_limit: form.credit_limit != null && form.credit_limit !== "" ? Number(form.credit_limit) : undefined,
+      outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : undefined,
       status: form.status || "active",
     };
     try {
       if (formCustomer?.id && typeof formCustomer.id === "number") {
         addToast("Update API not available — saved locally");
       } else {
-        await createCustomer(payload);
+        const res = await createCustomer(payload);
+        const createdRow = res?.data || payload;
+        const createdId = createdRow?.id ?? null;
+        try {
+          const raw = localStorage.getItem("recentlyCreatedCustomers");
+          const recent = raw ? JSON.parse(raw) : [];
+          const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+          const filtered = recent.filter((r) => r.ts && r.ts > cutoff);
+          if (createdId) filtered.unshift({ id: createdId, ts: Date.now() });
+          localStorage.setItem("recentlyCreatedCustomers", JSON.stringify(filtered.slice(0, 50)));
+        } catch {
+          // ignore storage issues
+        }
+        const newC = {
+          ...enrichApiCustomer(createdRow, customers.length),
+          ...createdRow,
+        };
+        setCustomers((prev) => [newC, ...prev]);
         addToast("Customer created");
-        loadCustomers();
         setFormCustomer(null);
+        setTimeout(() => loadCustomers(), 2000);
         return;
       }
     } catch {
@@ -205,14 +252,14 @@ export default function Customers() {
         id: `new-${Date.now()}`,
         ...form,
         customer_code: cusCode,
-        credit_limit: form.credit_limit != null && form.credit_limit !== "" ? Number(form.credit_limit) : 500000,
-        outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
+        credit_limit: form.credit_limit != null && form.credit_limit !== "" ? Number(form.credit_limit) : undefined,
+        outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : undefined,
         status: form.status || "active",
         company: form.company,
         name: form.company,
         created_at: new Date().toISOString().slice(0, 10),
       };
-      setCustomers((prev) => [...prev, newC]);
+      setCustomers((prev) => [newC, ...prev]);
       addToast("Customer added");
     }
     setFormCustomer(null);
@@ -232,17 +279,28 @@ export default function Customers() {
     { key: "phone", label: "Phone" },
     { key: "email", label: "Email" },
     { key: "gstin", label: "GSTIN" },
-    { key: "city", label: "City" },
-    { key: "state", label: "State" },
+    {
+      key: "city",
+      label: "City",
+      render: (r) => r.city || "—",
+    },
+    {
+      key: "state",
+      label: "State",
+      render: (r) => r.state || "—",
+    },
     {
       key: "credit_limit",
       label: "Credit Limit",
-      render: (r) => `₹${Number(r.credit_limit || 0).toLocaleString("en-IN")}`,
+      render: (r) =>
+        r.credit_limit != null
+          ? `₹${Number(r.credit_limit).toLocaleString("en-IN")}`
+          : "—",
     },
     {
       key: "outstanding",
       label: "Outstanding",
-      render: (r) => `₹${Number(r.outstanding || 0).toLocaleString("en-IN")}`,
+      render: (r) => r.outstanding != null ? `₹${Number(r.outstanding).toLocaleString("en-IN")}` : "—",
     },
     {
       key: "status",

@@ -122,6 +122,7 @@ export default function CreateProduct() {
       sku,
       name: form.name.trim(),
       description: form.description.trim() || null,
+      category: form.category || "Finished Goods",
       unit_cost: null,
       unit_price: null,
       min_stock: minStock,

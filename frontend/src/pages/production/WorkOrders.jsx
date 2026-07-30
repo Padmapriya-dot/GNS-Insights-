@@ -168,7 +168,16 @@ export default function WorkOrders() {
       const poId = poFilter ? Number(poFilter) : undefined;
       const wRes = await getWorkOrders(poId).catch(() => ({ data: [] }));
       const apiRows = wRes.data || [];
-      setWorkOrders(apiRows.map((r, i) => enrichApiWorkOrder(r, i)));
+      const enriched = apiRows.map((r, i) => enrichApiWorkOrder(r, i));
+      enriched.sort((a, b) => {
+        const idA = typeof a.id === "number" ? a.id : Number(String(a.id).replace(/\D/g, "")) || 0;
+        const idB = typeof b.id === "number" ? b.id : Number(String(b.id).replace(/\D/g, "")) || 0;
+        if (idA && idB && idA !== idB) return idB - idA;
+        const dateA = a.created_at || a.created_date || a.planned_start || "";
+        const dateB = b.created_at || b.created_date || b.planned_start || "";
+        return dateB.localeCompare(dateA);
+      });
+      setWorkOrders(enriched);
     } catch {
       setWorkOrders([]);
     } finally {

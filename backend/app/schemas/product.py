@@ -6,6 +6,7 @@ class ProductBase(BaseModel):
     sku: str | None = Field(default=None, max_length=64)
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
+    category: str | None = Field(default="Finished Goods", max_length=128)
     unit_cost: float | None = None
     unit_price: float | None = None
     min_stock: int | None = Field(None, ge=1)
@@ -22,6 +23,7 @@ class ProductUpdate(BaseModel):
     sku: str | None = Field(None, max_length=64)
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
+    category: str | None = Field(None, max_length=128)
     unit_cost: float | None = None
     unit_price: float | None = None
     min_stock: int | None = Field(None, ge=1)

@@ -22,9 +22,55 @@ export const MANUFACTURING_WORKFLOW_STEPS = [
   { id: "dashboard", label: "Dashboard", path: "/" },
 ];
 
+/** Nine high-level phases (Enquiry → Closure) displayed in the workflow legend. */
+export const WORKFLOW_PHASES = [
+  { id: 1, label: "Enquiry & Order" },
+  { id: 2, label: "Planning" },
+  { id: 3, label: "Procurement" },
+  { id: 4, label: "Inventory" },
+  { id: 5, label: "Scheduling" },
+  { id: 6, label: "Production" },
+  { id: 7, label: "Quality" },
+  { id: 8, label: "Dispatch & Invoicing" },
+  { id: 9, label: "Closure & Payment" },
+];
+
+/** Roles that are allowed to view the full manufacturing workflow chain. */
+const FULL_ACCESS_ROLES = ["admin", "management", "manager", "superadmin", "super_admin", "super_user"];
+
+/**
+ * Extract the primary role name string from a user object.
+ * Handles both `user.role` (string) and `user.roles` (array) shapes.
+ * Also accepts a plain role string directly.
+ * @param {object|string|null} user
+ * @returns {string}
+ */
+export function getPrimaryRoleName(user) {
+  if (!user) return "";
+  if (typeof user === "string") return user;
+  if (typeof user.role === "string") return user.role;
+  if (Array.isArray(user.roles) && user.roles.length > 0) {
+    const first = user.roles[0];
+    return typeof first === "string" ? first : first?.name ?? "";
+  }
+  return "";
+}
+
+/**
+ * Returns true when the given role should see the full manufacturing workflow
+ * (admin / management) rather than only their department stages.
+ * @param {string} roleName
+ * @returns {boolean}
+ */
+export function canViewFullWorkflow(roleName) {
+  if (!roleName) return false;
+  return FULL_ACCESS_ROLES.includes(roleName.toLowerCase());
+}
+
 /**
  * Map a page/context key to the current step index in the manufacturing spine.
  * @param {string} currentStepId
+ * @returns {number}
  */
 export function getWorkflowStepIndex(currentStepId) {
   const idx = MANUFACTURING_WORKFLOW_STEPS.findIndex((s) => s.id === currentStepId);
@@ -33,12 +79,25 @@ export function getWorkflowStepIndex(currentStepId) {
 
 /**
  * Build step statuses relative to the current step.
+ * @param {string} currentStepId
+ * @param {{ roleName?: string, filterByRole?: boolean }} [options]
  * @returns {{ id: string, label: string, path: string, state: 'completed'|'current'|'pending' }[]}
  */
-export function buildWorkflowProgress(currentStepId) {
+export function buildWorkflowProgress(currentStepId, options = {}) {
+  const { filterByRole = false } = options;
   const current = getWorkflowStepIndex(currentStepId);
-  return MANUFACTURING_WORKFLOW_STEPS.map((step, i) => ({
+  const steps = MANUFACTURING_WORKFLOW_STEPS.map((step, i) => ({
     ...step,
     state: i < current ? "completed" : i === current ? "current" : "pending",
   }));
+
+  // When filterByRole is true, show a focused window around the current step.
+  // Full role-based filtering is handled by the backend via getManufacturingWorkflowBoard.
+  if (filterByRole) {
+    return steps.filter(
+      (_, i) => i >= Math.max(0, current - 2) && i <= Math.min(steps.length - 1, current + 2)
+    );
+  }
+
+  return steps;
 }

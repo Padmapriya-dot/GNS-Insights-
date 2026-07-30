@@ -365,7 +365,7 @@ export function VendorFormModal({ vendor, onClose, onSave }) {
     city: vendor?.city || "",
     state: vendor?.state || "",
     payment_terms: vendor?.payment_terms || "Net 30",
-    outstanding: vendor?.outstanding ?? 0,
+    outstanding: vendor?.outstanding ?? "",
     rating: vendor?.rating ?? 4.0,
     category: vendor?.category || "General",
     material_type: vendor?.material_type || "General",
@@ -488,8 +488,9 @@ export function VendorFormModal({ vendor, onClose, onSave }) {
             <label className="block text-sm font-medium text-slate-700">
               Outstanding (₹)
               <input
-                type="number"
-                min="0"
+                type="text"
+                inputMode="numeric"
+                placeholder="e.g. 25000"
                 value={form.outstanding}
                 onChange={(e) => set("outstanding", e.target.value)}
                 className={inputClass}

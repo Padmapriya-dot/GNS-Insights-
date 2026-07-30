@@ -14,6 +14,7 @@ class Product(Base, TimestampMixin):
     sku: Mapped[str | None] = mapped_column(String(64), nullable=True, default="")
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str | None] = mapped_column(String(128), default="Finished Goods")
     unit_cost: Mapped[float | None] = mapped_column(Numeric(12, 2))
     unit_price: Mapped[float | None] = mapped_column(Numeric(12, 2))
     min_stock: Mapped[int | None] = mapped_column(Integer, default=1)

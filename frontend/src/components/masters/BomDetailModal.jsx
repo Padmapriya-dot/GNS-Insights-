@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowDown,
@@ -13,8 +13,9 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { addBomItem, deleteBomItem } from "../../api/bomApi";
+import { addBomItem, deleteBomItem, getBillOfMaterials } from "../../api/bomApi";
 import { getProducts } from "../../api/productsApi";
+import { DEMO_PRODUCTS, enrichApiProduct } from "../../data/productsMasterData";
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
 
@@ -136,7 +137,7 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
                   <Field label="Created By" value={bom.created_by} />
                   <Field label="Approved By" value={bom.approved_by} />
                 </div>
-                <div className="mt-3"><Field label="Description" value={bom.description} /></div>
+                  <div className="mt-3"><Field label="Description" value={bom.description} /></div>
               </div>
 
               <div>
@@ -391,15 +392,115 @@ export function BomFormModal({ bom, onClose, onSave }) {
     description: bom?.description || "",
   });
 
+  const [productOptions, setProductOptions] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [existingBomNumbers, setExistingBomNumbers] = useState([]);
+  const [query, setQuery] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
   const [saving, setSaving] = useState(false);
 
   const setField = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
 
+  useEffect(() => {
+    let mounted = true;
+    setLoadingProducts(true);
+    getProducts()
+      .then((res) => {
+        const apiData = res?.data || [];
+        const combined = apiData.length > 0 ? apiData : DEMO_PRODUCTS;
+        const rows = combined.map((r) => enrichApiProduct(r));
+        if (mounted) setProductOptions(rows);
+      })
+      .catch(() => {
+        if (mounted) setProductOptions(DEMO_PRODUCTS.map((r) => enrichApiProduct(r)));
+      })
+      .finally(() => mounted && setLoadingProducts(false));
+    return () => (mounted = false);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    getBillOfMaterials()
+      .then((res) => {
+        const rows = res?.data || [];
+        const nums = rows.map((r) => r.bom_number);
+        if (mounted) setExistingBomNumbers(nums.filter(Boolean));
+      })
+      .catch(() => {
+        if (mounted) setExistingBomNumbers([]);
+      });
+    return () => (mounted = false);
+  }, []);
+
+  // close dropdown when clicking outside
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  const q = (query || form.product_code || "").toLowerCase().trim();
+  const filteredOptions = productOptions.filter((p) => {
+    if (!q) return true;
+    return (
+      (p.product_code || "").toLowerCase().includes(q) ||
+      (p.name || "").toLowerCase().includes(q) ||
+      (p.sku || "").toLowerCase().includes(q)
+    );
+  });
+
+  const handleSelectProductCode = (code) => {
+    setField("product_code", code);
+    if (!code) return;
+    const p = productOptions.find(
+      (x) =>
+        x.product_code === code ||
+        x.sku === code ||
+        String(x.id) === String(code)
+    );
+    if (p) {
+      setField("product_name", p.name || "");
+      const costVal = p.selling_price ?? p.total_cost ?? p.price_per_unit ?? p.purchase_price ?? p.unit_cost ?? "";
+      setField("total_cost", costVal);
+      setField("status", p.status || "active");
+      setField("description", p.description || "");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.product_name.trim()) {
+    // Validate mandatory fields
+    const bomNo = String(form.bom_number || "").trim();
+    const prodCode = String(form.product_code || "").trim();
+    const prodName = String(form.product_name || "").trim();
+
+    if (!bomNo) {
+      addToast("Please enter BOM No", "error");
+      return;
+    }
+    if (!prodCode) {
+      addToast("Please enter Product Code", "error");
+      return;
+    }
+    if (!prodName) {
       addToast("Please enter Product Name", "error");
       return;
+    }
+    // Validate BOM number uniqueness
+    const entered = bomNo;
+    if (entered) {
+      const exists = existingBomNumbers.some((n) => String(n || "").toLowerCase() === entered.toLowerCase());
+      const isSameAsEditing = bom?.bom_number && String(bom.bom_number).toLowerCase() === entered.toLowerCase();
+      if (exists && !isSameAsEditing) {
+        addToast("BOM No already exists — please choose a unique BOM No", "error");
+        return;
+      }
     }
 
     setSaving(true);
@@ -407,15 +508,15 @@ export function BomFormModal({ bom, onClose, onSave }) {
 
     const savedBom = {
       id: bom?.id || `bom-custom-${Date.now()}`,
-      bom_number: form.bom_number || `BOM-${String(Date.now()).slice(-4)}`,
-      product_name: form.product_name,
-      product: form.product_name,
-      product_code: form.product_code || `PRD-${String(Date.now()).slice(-4)}`,
+      bom_number: bomNo || `BOM-${String(Date.now()).slice(-4)}`,
+      product_name: prodName,
+      product: prodName,
+      product_code: prodCode || `PRD-${String(Date.now()).slice(-4)}`,
       version: form.version || "V1.0",
       status: form.status || "active",
       category: bom?.category || "Finished Goods",
       warehouse: bom?.warehouse || "Main Store",
-      description: form.description || "",
+      description: String(form.description || "").trim(),
       created_by: bom?.created_by || "Store Manager",
       created_date: bom?.created_date || new Date().toISOString().slice(0, 10),
       last_updated: "Just now",
@@ -456,33 +557,72 @@ export function BomFormModal({ bom, onClose, onSave }) {
           </button>
         </div>
 
-        {/* Row 1: BOM No & Version */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              BOM No
-            </label>
-            <input
-              value={form.bom_number}
-              onChange={(e) => setField("bom_number", e.target.value)}
-              placeholder="e.g. BOM-2024-001"
-              className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all placeholder:text-slate-400"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Version
-            </label>
-            <input
-              value={form.version}
-              onChange={(e) => setField("version", e.target.value)}
-              placeholder="V1.0"
-              className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all placeholder:text-slate-400"
-            />
+        {/* Row 1: BOM No */}
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            BOM No *
+          </label>
+          <input
+            value={form.bom_number}
+            onChange={(e) => setField("bom_number", e.target.value)}
+            placeholder="e.g. BOM-2024-001"
+            className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all placeholder:text-slate-400"
+          />
+        </div>
+
+        {/* Row 2: Product Code */}
+        <div className="relative" ref={wrapperRef}>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Product Code *
+          </label>
+          <div className="relative">
+            {/* Searchable dropdown container */}
+            <div className="relative">
+              <input
+                value={form.product_code}
+                onChange={(e) => {
+                  setField("product_code", e.target.value);
+                  setQuery(e.target.value);
+                  setDropdownOpen(true);
+                }}
+                onFocus={() => setDropdownOpen(true)}
+                placeholder={loadingProducts ? "Loading products..." : "Select a product"}
+                className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
+              />
+              <button type="button" onClick={() => setDropdownOpen((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
+                ▾
+              </button>
+            </div>
+
+            {dropdownOpen && (
+              <div className="absolute z-40 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-slate-100 bg-white shadow-lg">
+                <ul className="p-2">
+                  {filteredOptions.length === 0 ? (
+                    <li className="px-3 py-2 text-sm text-slate-400">No products</li>
+                  ) : (
+                    filteredOptions.map((p) => (
+                      <li
+                        key={p.product_code || p.id}
+                        onMouseDown={() => {
+                          // use onMouseDown to avoid losing focus before click
+                          handleSelectProductCode(p.product_code);
+                          setQuery(p.product_code);
+                          setDropdownOpen(false);
+                        }}
+                        className="cursor-pointer rounded-lg px-3 py-2 hover:bg-slate-50"
+                      >
+                        <div className="text-sm font-bold text-slate-800">{p.product_code}</div>
+                        <div className="text-xs text-slate-500">{p.name}</div>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Row 2: Product Name * */}
+        {/* Row 3: Product Name * */}
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">
             Product Name *
@@ -495,18 +635,8 @@ export function BomFormModal({ bom, onClose, onSave }) {
           />
         </div>
 
-        {/* Row 3: Product Code & Cost (₹) */}
+        {/* Row 4: Cost (₹) & Status */}
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Product Code
-            </label>
-            <input
-              value={form.product_code}
-              onChange={(e) => setField("product_code", e.target.value)}
-              className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
-            />
-          </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">
               Cost (₹)
@@ -520,26 +650,24 @@ export function BomFormModal({ bom, onClose, onSave }) {
               className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all placeholder:text-slate-400"
             />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Status
+            </label>
+            <select
+              value={form.status}
+              onChange={(e) => setField("status", e.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all text-slate-700"
+            >
+              <option value="active">Active</option>
+              <option value="draft">Draft</option>
+              <option value="inactive">Inactive</option>
+              <option value="pending_approval">Pending Approval</option>
+            </select>
+          </div>
         </div>
 
-        {/* Row 4: Status */}
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
-            Status
-          </label>
-          <select
-            value={form.status}
-            onChange={(e) => setField("status", e.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all text-slate-700"
-          >
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="inactive">Inactive</option>
-            <option value="pending_approval">Pending Approval</option>
-          </select>
-        </div>
-
-        {/* Row 5: Description */}
+        {/* Row 6: Description */}
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">
             Description

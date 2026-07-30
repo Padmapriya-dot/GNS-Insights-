@@ -38,33 +38,19 @@ def list_products(db: Session, tenant_id: int) -> list[Product]:
 
 def create_production_order(db: Session, payload: ProductionOrderCreate) -> ProductionOrder:
     order_num = payload.order_number.strip() if payload.order_number else ""
-    stmt = select(ProductionOrder).where(
-        ProductionOrder.tenant_id == payload.tenant_id,
-        (ProductionOrder.order_number == order_num) | (ProductionOrder.product_id == payload.product_id),
-    )
-    existing = db.scalars(stmt).first()
-    if existing:
-        existing.planned_quantity = payload.planned_quantity
-        if payload.priority:
-            existing.priority = payload.priority
-        if payload.start_date:
-            existing.start_date = payload.start_date
-        if payload.due_date:
-            existing.due_date = payload.due_date
-        if payload.customer_name:
-            existing.customer_name = payload.customer_name
-        if payload.bom_version:
-            existing.bom_version = payload.bom_version
-        if payload.shift:
-            existing.shift = payload.shift
-        if payload.machine_id:
-            existing.machine_id = payload.machine_id
-            wo = db.scalars(select(WorkOrder).where(WorkOrder.production_order_id == existing.id, WorkOrder.tenant_id == existing.tenant_id)).first()
-            if wo:
-                wo.machine_id = payload.machine_id
-        db.commit()
-        db.refresh(existing)
-        return existing
+    if order_num:
+        stmt = select(ProductionOrder).where(
+            ProductionOrder.tenant_id == payload.tenant_id,
+            ProductionOrder.order_number == order_num,
+        )
+        existing = db.scalars(stmt).first()
+        if existing:
+            raise HTTPException(400, f"Order number '{order_num}' already exists.")
+    else:
+        # Auto-generate unique order number if not provided
+        last_id = db.scalars(select(ProductionOrder.id).order_by(ProductionOrder.id.desc())).first() or 0
+        order_num = f"PO-{str(last_id + 1).zfill(4)}"
+        payload.order_number = order_num
 
     data = payload.model_dump()
     actual_qty = data.get("actual_quantity") if data.get("actual_quantity") is not None else data.get("produced_quantity")

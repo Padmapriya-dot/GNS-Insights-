@@ -427,6 +427,9 @@ def on_startup():
             pass
     _customer_columns = [
         "ALTER TABLE customers ADD COLUMN customer_code VARCHAR(64)",
+        "ALTER TABLE customers ADD COLUMN city VARCHAR(128)",
+        "ALTER TABLE customers ADD COLUMN state VARCHAR(128)",
+        "ALTER TABLE customers ADD COLUMN state_code VARCHAR(16)",
         "ALTER TABLE customers ADD COLUMN credit_limit NUMERIC(14, 2) DEFAULT 0",
         "ALTER TABLE customers ADD COLUMN outstanding NUMERIC(14, 2) DEFAULT 0",
         "ALTER TABLE customers ADD COLUMN status VARCHAR(32) DEFAULT 'active'",

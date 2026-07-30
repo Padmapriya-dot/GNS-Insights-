@@ -95,7 +95,14 @@ export default function ProductsMaster() {
     try {
       const res = await getProducts();
       const apiRows = res.data || [];
-      setProducts(apiRows.map((row, i) => enrichApiProduct(row, i)));
+      const enriched = apiRows.map((row, i) => enrichApiProduct(row, i));
+      enriched.sort((a, b) => {
+        const idA = typeof a.id === "number" ? a.id : Number(String(a.id).replace(/\D/g, "")) || 0;
+        const idB = typeof b.id === "number" ? b.id : Number(String(b.id).replace(/\D/g, "")) || 0;
+        if (idA && idB && idA !== idB) return idB - idA;
+        return (b.created_at || "").localeCompare(a.created_at || "");
+      });
+      setProducts(enriched);
     } catch {
       setProducts([]);
     } finally {
@@ -181,7 +188,9 @@ export default function ProductsMaster() {
     // Backend Product model fields: unit_cost = price per unit, unit_price = total cost, current_stock = quantity
     const payload = {
       tenant_id: tenantId,
+      sku: form.product_code || null,
       name: form.name,
+      category: form.category || "Finished Goods",
       description: form.description || null,
       unit_cost: ppu,          // price per unit → stored as unit_cost
       unit_price: totalCost,   // total cost → stored as unit_price

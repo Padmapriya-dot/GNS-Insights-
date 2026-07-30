@@ -158,6 +158,14 @@ export default function BomMaster() {
     addToast("BOM list exported");
   };
 
+  const handleImport = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".csv,.xlsx";
+    input.onchange = () => addToast("Import queued — map file columns in a future release", "info");
+    input.click();
+  };
+
   const handlePrintPdf = (bom) => {
     const target = bom || filteredBoms[0];
     if (!target) return;
@@ -230,6 +238,16 @@ export default function BomMaster() {
         const storedKey = `gns_custom_boms_${tenantId}`;
         const stored = localStorage.getItem(storedKey);
         let list = stored ? JSON.parse(stored) : [];
+
+        // Uniqueness check: reject if another BOM (different id) already has this bom_number
+        const duplicate = boms.find(
+          (b) => b.bom_number && b.bom_number === savedBom.bom_number && b.id !== savedBom.id
+        );
+        if (duplicate) {
+          addToast(`BOM No "${savedBom.bom_number}" already exists. Please use a unique BOM No.`, "error");
+          return;
+        }
+
         const idx = list.findIndex((b) => b.id === savedBom.id || b.bom_number === savedBom.bom_number);
         if (idx >= 0) {
           list[idx] = savedBom;
@@ -250,6 +268,7 @@ export default function BomMaster() {
     setFilters({ bom_number: "", category: "", version: "", status: "", warehouse: "", created_by: "" });
 
   const columns = [
+    { key: "bom_number", label: "BOM No" },
     { key: "product_name", label: "Product" },
     {
       key: "costing",
@@ -286,7 +305,7 @@ export default function BomMaster() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setFormBom({})} className="ui-btn-primary">
+          <button type="button" onClick={() => setFormBom({ _existingBoms: boms })} className="ui-btn-primary">
             <Plus className="h-4 w-4" /> Create Bill of Materials (BOM)
           </button>
           <button type="button" onClick={() => selected && setFormBom(selected)} disabled={!selected} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40">
@@ -295,7 +314,7 @@ export default function BomMaster() {
           <button type="button" onClick={() => selected && handleCopy(selected)} disabled={!selected} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40">
             <Copy className="h-4 w-4" /> Copy Bill of Materials (BOM)
           </button>
-          <button type="button" onClick={() => addToast("Import queued — CSV mapping coming soon", "info")} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <button type="button" onClick={handleImport} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <Upload className="h-4 w-4" /> Import Bill of Materials (BOM)
           </button>
           <button type="button" onClick={handleExport} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">

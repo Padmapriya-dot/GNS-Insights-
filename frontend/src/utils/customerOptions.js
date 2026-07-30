@@ -43,6 +43,7 @@ export async function resolveCustomerId(customerId, customers, tenantId) {
     tenant_id: tenantId,
     name: customer.name,
     contact_name: customer.contact_name || null,
+    city: customer.city || null,
     address_line1: customer.address_line1 || null,
     address_line2: customer.address_line2 || null,
     state: customer.state || null,

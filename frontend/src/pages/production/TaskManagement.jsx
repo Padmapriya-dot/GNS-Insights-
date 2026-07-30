@@ -75,7 +75,7 @@ export default function TaskManagement() {
     <ResourcePage
       title="Task Management"
       subtitle="Assign and track production and operations tasks."
-      fetcher={() => getTasks()}
+      fetcher={getTasks}
       createFn={(payload) => createTask({ ...payload, tenant_id: tenantId })}
       createLabel="+ New Task"
       emptyTitle="No tasks yet"

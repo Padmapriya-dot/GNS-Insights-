@@ -40,6 +40,7 @@ class MastersService:
             "product_code": code,
             "name": p.name,
             "description": p.description,
+            "category": getattr(p, "category", None) or "Finished Goods",
             "unit": getattr(p, "unit", None) or "PCS",
             "unit_cost": float(p.unit_cost) if p.unit_cost is not None else None,
             "unit_price": float(p.unit_price) if p.unit_price is not None else None,

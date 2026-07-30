@@ -173,10 +173,19 @@ export default function ProductionPlanning() {
       const rawList = [...localOrders, ...apiOrders];
       const seen = new Set();
       const list = rawList.filter((o) => {
-        const key = o.id || o.order_number || o.product_id || o.product_name;
+        const key = o.id ? `id-${o.id}` : o.order_number ? `num-${o.order_number}` : null;
+        if (!key) return true;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
+      });
+      list.sort((a, b) => {
+        const idA = typeof a.id === "number" ? a.id : Number(String(a.id).replace(/\D/g, "")) || 0;
+        const idB = typeof b.id === "number" ? b.id : Number(String(b.id).replace(/\D/g, "")) || 0;
+        if (idA && idB && idA !== idB) return idB - idA;
+        const dateA = a.created_at || a.start_date || "";
+        const dateB = b.created_at || b.start_date || "";
+        return dateB.localeCompare(dateA);
       });
       setOrders(list);
       setApiSummary(sRes.data || null);
