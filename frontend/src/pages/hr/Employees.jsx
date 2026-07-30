@@ -230,7 +230,7 @@ export default function Employees() {
           <div className="mb-4 grid gap-3 sm:grid-cols-3">
             <select value={filters.department} onChange={(e) => setFilters({ ...filters, department: e.target.value })} className="rounded-lg border px-3 py-2 text-sm">
               <option value="">All Departments</option>
-              {["Production", "Quality", "Maintenance", "Stores", "HR"].map((d) => <option key={d} value={d}>{d}</option>)}
+              {["Production", "Quality", "Maintenance", "Stores", "Human Resources (HR)"].map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
             <select value={filters.employment_type} onChange={(e) => setFilters({ ...filters, employment_type: e.target.value })} className="rounded-lg border px-3 py-2 text-sm">
               <option value="">All Types</option>
@@ -327,7 +327,7 @@ export default function Employees() {
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100"
                   >
                     <option value="">Select Department</option>
-                    {["Production", "Quality", "Maintenance", "Stores", "HR"].map((d) => (
+                    {["Production", "Quality", "Maintenance", "Stores", "Human Resources (HR)"].map((d) => (
                       <option key={d} value={d}>{d}</option>
                     ))}
                   </select>

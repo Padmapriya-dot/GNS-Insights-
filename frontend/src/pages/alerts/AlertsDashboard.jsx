@@ -1001,7 +1001,7 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
                         const name = emp.full_name || `${emp.first_name || ""} ${emp.last_name || ""}`.trim() || emp.name || `Emp #${emp.id}`;
                         return (
                           <option key={emp.id} value={name}>
-                            {name} ({emp.department || "HR"})
+                            {name} ({emp.department || "Human Resources (HR)"})
                           </option>
                         );
                       })}

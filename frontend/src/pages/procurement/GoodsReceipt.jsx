@@ -5,7 +5,6 @@ import { CheckCircle, Package, Plus, RefreshCw, X } from "lucide-react";
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
-import StoreManagerNav from "../../components/inventory/StoreManagerNav";
 import { useToast } from "../../context/ToastContext";
 import {
   approveGoodsReceiptQC,
@@ -18,8 +17,6 @@ import {
   MANUFACTURING_EVENTS,
   notifyManufacturingSpine,
 } from "../../utils/manufacturingEvents";
-import useAuth from "../../hooks/useAuth";
-import { isStoreManager } from "../../config/permissions";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
@@ -141,8 +138,6 @@ const emptySummary = {
 
 export default function GoodsReceipt() {
   const { addToast } = useToast();
-  const { user } = useAuth();
-  const storeMode = isStoreManager(user);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(emptySummary);
   const [rows, setRows] = useState([]);
@@ -208,14 +203,14 @@ export default function GoodsReceipt() {
   };
 
   const columns = [
-    { key: "grn_number", label: "GRN" },
-    { key: "po_number", label: "PO" },
+    { key: "grn_number", label: "Goods Receipt Note (GRN) Number" },
+    { key: "po_number", label: "Purchase Order Number" },
     { key: "vendor_name", label: "Vendor" },
     { key: "warehouse_name", label: "Warehouse" },
-    { key: "quantity", label: "Qty" },
+    { key: "quantity", label: "Quantity" },
     {
       key: "qc_status",
-      label: "QC",
+      label: "Quality Control (QC)",
       render: (r) => (
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcColor(r.qc_status)}`}
@@ -251,23 +246,15 @@ export default function GoodsReceipt() {
     },
   ];
 
-  if (loading) {
-    return (
-      <div className="space-y-6 p-4 sm:p-6">
-        {storeMode ? <StoreManagerNav /> : null}
-        <Loader label="Loading goods receipts..." />
-      </div>
-    );
-  }
+  if (loading) return <Loader label="Loading goods receipts..." />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      {storeMode ? <StoreManagerNav /> : null}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Stock In (GRN)</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Goods Receipt Note (GRN)</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Receive materials against purchase orders and post accepted quantity to inventory.
+            Receive against PO, run incoming QC, then post accepted qty to raw material inventory.
           </p>
         </div>
         <div className="flex gap-2">
@@ -284,7 +271,7 @@ export default function GoodsReceipt() {
         </div>
       </header>
 
-      {!storeMode ? <ManufacturingWorkflowBar currentStepId="grn" /> : null}
+      <ManufacturingWorkflowBar currentStepId="grn" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard label="Today's GRN" value={summary.todays_grn} icon={Package} color="bg-blue-600" />

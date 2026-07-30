@@ -1,31 +1,17 @@
 import { useEffect, useState } from "react";
-import { PackageMinus, RefreshCw } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
-import StoreManagerNav from "../../components/inventory/StoreManagerNav";
-import { useToast } from "../../context/ToastContext";
 import {
   getInventoryDashboard,
   getWarehouses,
   recordStockMovement,
 } from "../../api/inventoryApi";
 import useTenantId from "../../hooks/useTenantId";
-import { isStoreManager } from "../../config/permissions";
-import useAuth from "../../hooks/useAuth";
 
-function itemLabel(item) {
-  const code = item.product_code || item.code || item.item_code;
-  const name = item.name || "Item";
-  const stock = item.total_quantity ?? item.current_stock ?? 0;
-  return code ? `${code} — ${name} (Stock: ${stock})` : `${name} (Stock: ${stock})`;
-}
+
 
 export default function StockMovement() {
   const tenantId = useTenantId();
-  const { addToast } = useToast();
-  const { user } = useAuth();
-  const storeMode = isStoreManager(user);
-
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -33,155 +19,145 @@ export default function StockMovement() {
     warehouse_id: "",
     item_id: "",
     quantity: "",
-    notes: "",
+    movement_type: "in",
   });
   const [submitting, setSubmitting] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const [itemsRes, whRes] = await Promise.all([
-        getInventoryDashboard(),
-        getWarehouses(tenantId),
-      ]);
-      setItems(itemsRes.data || []);
-      setWarehouses(whRes.data || []);
-    } catch {
-      setItems([]);
-      setWarehouses([]);
-      addToast("Could not load stock data", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [itemsRes, whRes] = await Promise.all([
+          getInventoryDashboard(),
+          getWarehouses(tenantId),
+        ]);
+        setItems(itemsRes.data || []);
+        setWarehouses(whRes.data || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId]);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    setMessage("");
     try {
       await recordStockMovement({
         tenant_id: tenantId,
         warehouse_id: Number(form.warehouse_id),
         item_id: Number(form.item_id),
-        quantity: Math.max(1, Math.round(Number(form.quantity))),
-        movement_type: "out",
+        quantity: Number(form.quantity),
+        movement_type: form.movement_type,
       });
-      addToast("Material issued successfully");
-      setForm({ warehouse_id: "", item_id: "", quantity: "", notes: "" });
-      load();
-    } catch {
-      addToast("Failed to issue material", "error");
+      setMessage("Movement recorded.");
+      setForm({ warehouse_id: "", item_id: "", quantity: "", movement_type: "in" });
+    } catch (err) {
+      setMessage("Failed to record movement.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        {storeMode ? <StoreManagerNav /> : null}
-        <Loader label="Loading stock out…" />
-      </div>
-    );
-  }
+  if (loading) return <Loader label="Loading..." />;
 
   return (
-    <div className="space-y-6 pb-8">
-      {storeMode ? <StoreManagerNav /> : null}
-
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Stock Out</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Issue material from a warehouse to production or another department.
-          </p>
-        </div>
+    <div style={{ maxWidth: "480px" }}>
+      <h2>Stock Movement</h2>
+      <form
+        onSubmit={handleSubmit}
+        style={{ display: "grid", gap: "12px", marginTop: "16px" }}
+      >
+        <label>
+          Type
+          <select
+            value={form.movement_type}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, movement_type: e.target.value }))
+            }
+            style={{ width: "100%", padding: "8px", marginTop: "6px" }}
+          >
+            <option value="in">In</option>
+            <option value="out">Out</option>
+            <option value="adjustment">Adjustment</option>
+          </select>
+        </label>
+        <label>
+          Warehouse
+          <select
+            value={form.warehouse_id}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, warehouse_id: e.target.value }))
+            }
+            required
+            style={{ width: "100%", padding: "8px", marginTop: "6px" }}
+          >
+            <option value="">Select</option>
+            {warehouses.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name} ({w.code})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Item
+          <select
+            value={form.item_id}
+            onChange={(e) => setForm((f) => ({ ...f, item_id: e.target.value }))}
+            required
+            style={{ width: "100%", padding: "8px", marginTop: "6px" }}
+          >
+            <option value="">Select</option>
+            {items.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.sku} - {i.name} (Stock: {i.total_quantity ?? 0})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Quantity
+          <input
+            type="number"
+            value={form.quantity}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, quantity: e.target.value }))
+            }
+            required
+            min="1"
+            style={{ width: "100%", padding: "8px", marginTop: "6px" }}
+          />
+        </label>
+        {message && (
+          <div
+            style={{
+              color: message.includes("Failed") ? "#b91c1c" : "#166534",
+            }}
+          >
+            {message}
+          </div>
+        )}
         <button
-          type="button"
-          onClick={load}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          type="submit"
+          disabled={submitting}
+          style={{
+            padding: "10px 16px",
+            background: "#111827",
+            color: "#fff",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+          }}
         >
-          <RefreshCw className="h-4 w-4" /> Refresh
+          {submitting ? "Saving..." : "Record"}
         </button>
-      </header>
-
-      <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <PackageMinus className="h-4 w-4 text-[var(--color-primary)]" />
-          Issue Material
-        </div>
-
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <label className="block text-sm">
-            <span className="font-medium text-slate-700">Warehouse</span>
-            <select
-              value={form.warehouse_id}
-              onChange={(e) => setForm((f) => ({ ...f, warehouse_id: e.target.value }))}
-              required
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-            >
-              <option value="">Select warehouse</option>
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                  {w.code ? ` (${w.code})` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block text-sm">
-            <span className="font-medium text-slate-700">Product</span>
-            <select
-              value={form.item_id}
-              onChange={(e) => setForm((f) => ({ ...f, item_id: e.target.value }))}
-              required
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-            >
-              <option value="">Select product</option>
-              {items.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {itemLabel(i)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block text-sm">
-            <span className="font-medium text-slate-700">Quantity to issue</span>
-            <input
-              type="number"
-              min="1"
-              step="any"
-              value={form.quantity}
-              onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
-              required
-              placeholder="Enter quantity"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-            />
-          </label>
-
-          <label className="block text-sm">
-            <span className="font-medium text-slate-700">Notes (optional)</span>
-            <textarea
-              value={form.notes}
-              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              rows={2}
-              placeholder="Work order, department, or reason…"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-            />
-          </label>
-
-          <button type="submit" disabled={submitting} className="ui-btn-primary w-full">
-            {submitting ? "Issuing…" : "Issue Material"}
-          </button>
-        </form>
-      </div>
+      </form>
     </div>
   );
 }

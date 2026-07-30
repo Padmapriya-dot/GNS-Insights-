@@ -18,23 +18,10 @@ export const updateSalesOrderDispatch = (orderId, flags) =>
 export const confirmSalesOrderDelivery = (orderId) =>
   api.post(`/sales/sales-orders/${orderId}/confirm-delivery`);
 
-export const getInvoices = (_tenantId, status = null, params = {}) =>
-  api
-    .get("/sales/invoices", { params: { payment_filter: status || undefined, page_size: 500, ...params } })
-    .then((res) => {
-      const data = res.data;
-      if (Array.isArray(data)) return res;
-      const items = (data?.items || []).map((row) => ({
-        ...row,
-        customer_name: row.buyer_name ?? row.customer_name,
-        grand_total: row.amount ?? row.grand_total,
-      }));
-      return { ...res, data: items };
-    });
-export const getInvoicesV2 = (params = {}) => api.get("/sales/invoices/v2", { params });
-export const getInvoicesEnriched = (params = {}) => api.get("/sales/invoices/v2", { params });
-export const getInvoiceSummary = (params = {}) =>
-  api.get("/sales/invoices/summary", { params });
+export const getInvoices = (_tenantId, status = null) =>
+  api.get("/sales/invoices", { params: { status } });
+export const getInvoicesEnriched = () => api.get("/sales/invoices/enriched");
+export const getInvoiceSummary = () => api.get("/sales/invoices/summary");
 export const getInvoiceDetail = (invoiceId) => api.get(`/sales/invoices/${invoiceId}`);
 export const createInvoice = (payload) => api.post("/sales/invoices", payload);
 

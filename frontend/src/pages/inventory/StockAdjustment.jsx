@@ -3,10 +3,7 @@ import { CheckCircle2, ClipboardCheck, Plus, RefreshCw, XCircle } from "lucide-r
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
-import StoreManagerNav from "../../components/inventory/StoreManagerNav";
 import { useToast } from "../../context/ToastContext";
-import useAuth from "../../hooks/useAuth";
-import { isStoreManager } from "../../config/permissions";
 import {
   createStockAdjustment,
   getInventoryDashboard,
@@ -18,16 +15,8 @@ import { ADJUSTMENT_REASONS } from "../../data/inventoryMasterData";
 
 const APPROVAL_FLOW = ["Store Executive", "Store Manager", "Inventory Manager"];
 
-function itemLabel(item) {
-  const code = item.product_code || item.code || item.item_code;
-  const name = item.name || "Item";
-  return code ? `${code} — ${name}` : name;
-}
-
 export default function StockAdjustment() {
   const { addToast } = useToast();
-  const { user } = useAuth();
-  const storeMode = isStoreManager(user);
   const [loading, setLoading] = useState(true);
   const [adjustments, setAdjustments] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -175,18 +164,10 @@ export default function StockAdjustment() {
     },
   ];
 
-  if (loading) {
-    return (
-      <div className="space-y-6 p-4 sm:p-6">
-        {storeMode ? <StoreManagerNav /> : null}
-        <Loader label="Loading adjustments..." />
-      </div>
-    );
-  }
+  if (loading) return <Loader label="Loading adjustments..." />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      {storeMode ? <StoreManagerNav /> : null}
       <header>
         <h1 className="text-2xl font-bold text-slate-900">Stock Adjustment</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -239,7 +220,7 @@ export default function StockAdjustment() {
                 <option value="">Select</option>
                 {items.map((i) => (
                   <option key={i.id} value={i.id}>
-                    {itemLabel(i)}
+                    {i.sku} - {i.name}
                   </option>
                 ))}
               </select>

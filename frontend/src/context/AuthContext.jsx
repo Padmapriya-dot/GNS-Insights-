@@ -107,11 +107,11 @@ export function AuthProvider({ children }) {
     } catch {}
   }, []);
 
-  const logout = useCallback(async ({ allDevices = false } = {}) => {
+  const logout = useCallback(async () => {
     try {
       const refreshToken = localStorage.getItem("smrt-refresh-token");
       if (refreshToken) {
-        await logoutApi(refreshToken, { allDevices }).catch(() => {});
+        await logoutApi(refreshToken).catch(() => {});
       }
     } catch {}
     setUser(null);

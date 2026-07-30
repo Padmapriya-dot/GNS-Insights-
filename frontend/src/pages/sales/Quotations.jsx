@@ -1,148 +1,48 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  Filter,
-  ListFilter,
-  Plus,
-  Search,
-  X,
-} from "lucide-react";
+import { Download, FileText, Filter, Plus, RefreshCw } from "lucide-react";
 
+import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
+import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
+import CreateQuotationModal from "../../components/sales/CreateQuotationModal";
 import QuoteDetailModal from "../../components/sales/QuoteDetailModal";
 import { useToast } from "../../context/ToastContext";
+import useTenantId from "../../hooks/useTenantId";
 import {
+  createQuotation,
   getQuotationSummary,
   getQuotationsEnriched,
   updateQuotationStatus,
 } from "../../api/salesApi";
 import { formatInr, statusColor } from "../../data/salesMasterData";
+import { exportToExcel } from "../../utils/exportUtils";
 
-const YELLOW = "#F5C518";
-const PURPLE = "#6b4eff";
-const PAGE_SIZES = [10, 20, 50];
-
-const SORT_OPTIONS = [
-  { id: "date_desc", label: "Quotation date (Latest First)" },
-  { id: "date_asc", label: "Quotation date (Oldest First)" },
-  { id: "amount_desc", label: "Quotation Amount (High to Low)" },
-  { id: "amount_asc", label: "Quotation Amount (Low to High)" },
-];
-
-const EMPTY_FILTERS = {
-  quotationType: "",
-  amountBand: "",
-};
-
-const AMOUNT_BANDS = [
-  { id: "under_2k", label: "under ₹2,000", min: 0, max: 2000 },
-  { id: "2k_5k", label: "₹2,000-₹5,000", min: 2000, max: 5000 },
-  { id: "5k_10k", label: "₹5,000-₹10,000", min: 5000, max: 10000 },
-  { id: "10k_20k", label: "₹10,000-₹20,000", min: 10000, max: 20000 },
-  { id: "20k_above", label: "₹20,000-Above", min: 20000, max: Infinity },
-];
-
-function Chip({ label, active, onClick }) {
+function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-[13px] font-medium transition ${
-        active
-          ? "bg-[#2d2a4a] text-white"
-          : "bg-[#f0f0f3] text-[#4a4a55] hover:bg-[#e4e4ea]"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function FilterSection({ label, children }) {
-  return (
-    <div className="border-b border-[#d0d0d8] py-4 last:border-b-0">
-      <p className="mb-2.5 text-[12px] font-medium text-[#9a9aa5]">{label}</p>
-      <div className="flex flex-wrap gap-2">{children}</div>
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold text-slate-900">{value}</p></div>
+        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+      </div>
     </div>
   );
 }
 
-function SummaryTab({ label, count, amount, active, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`min-w-0 flex-1 border-b-[3px] px-5 py-3.5 text-left transition ${
-        active
-          ? "border-[#6b4eff] bg-white text-[#6b4eff]"
-          : "border-transparent bg-transparent text-[#6b6b76] hover:bg-white/70"
-      }`}
-    >
-      <p className={`text-[13px] font-medium ${active ? "" : "text-[#6b6b76]"}`}>
-        {label}{" "}
-        <span className={active ? "opacity-70" : "text-[#a0a0ab]"}>({count})</span>
-      </p>
-      <p
-        className={`mt-1 text-[18px] font-bold tabular-nums ${
-          active ? "text-[#6b4eff]" : "text-[#1a1a1f]"
-        }`}
-      >
-        {amount}
-      </p>
-    </button>
-  );
-}
-
-function inAmountBand(amount, bandId) {
-  const band = AMOUNT_BANDS.find((b) => b.id === bandId);
-  if (!band) return true;
-  const n = Number(amount) || 0;
-  return n >= band.min && n < band.max;
-}
-
-function statusBucket(status) {
-  const s = String(status || "").toLowerCase();
-  if (["accepted", "approved"].includes(s)) return "accepted";
-  if (["rejected", "cancelled", "canceled", "expired"].includes(s)) return "cancelled";
-  return "pending";
-}
-
-function fmtDate(iso) {
-  if (!iso) return "—";
-  const [y, m, d] = String(iso).slice(0, 10).split("-");
-  if (!y || !m || !d) return String(iso).slice(0, 10);
-  return `${d}/${m}/${y}`;
-}
-
 export default function Quotations() {
   const { addToast } = useToast();
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState({});
+  const [rows, setRows] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("");
   const [selected, setSelected] = useState(null);
-  const [kpiFilter, setKpiFilter] = useState("all");
-  const [search, setSearch] = useState("");
-  const [dateFrom, setDateFrom] = useState("2026-04-01");
-  const [dateTo, setDateTo] = useState("2027-03-31");
-  const [showFilters, setShowFilters] = useState(false);
-  const [showSort, setShowSort] = useState(false);
-  const [sortId, setSortId] = useState("date_desc");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS);
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sumRes, listRes] = await Promise.allSettled([
-        getQuotationSummary(),
-        getQuotationsEnriched(),
-      ]);
+      const [sumRes, listRes] = await Promise.allSettled([getQuotationSummary(), getQuotationsEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary(sumRes.value.data);
       else setSummary({});
       if (listRes.status === "fulfilled") setRows(listRes.value?.data || []);
@@ -154,64 +54,30 @@ export default function Quotations() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [kpiFilter, search, filters, sortId, pageSize, dateFrom, dateTo]);
+  const filtered = useMemo(() => {
+    if (!statusFilter) return rows;
+    return rows.filter((r) => r.status === statusFilter);
+  }, [rows, statusFilter]);
 
-  const filteredSorted = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let list = rows.filter((r) => {
-      if (q) {
-        const hay = `${r.quote_number || ""} ${r.customer_name || ""} ${r.sales_person || ""}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      const d = String(r.quote_date || r.valid_until || "").slice(0, 10);
-      if (dateFrom && d && d < dateFrom) return false;
-      if (dateTo && d && d > dateTo) return false;
-      const bucket = statusBucket(r.status);
-      if (kpiFilter === "pending" && bucket !== "pending") return false;
-      if (kpiFilter === "accepted" && bucket !== "accepted") return false;
-      if (kpiFilter === "cancelled" && bucket !== "cancelled") return false;
-      if (filters.quotationType === "converted" && !r.converted_to_invoice) return false;
-      if (filters.quotationType === "not_converted" && r.converted_to_invoice) return false;
-      if (filters.amountBand && !inAmountBand(r.amount, filters.amountBand)) return false;
-      return true;
-    });
-
-    list = [...list].sort((a, b) => {
-      const da = String(a.quote_date || a.valid_until || "");
-      const db = String(b.quote_date || b.valid_until || "");
-      const aa = Number(a.amount) || 0;
-      const ab = Number(b.amount) || 0;
-      if (sortId === "date_asc") return da.localeCompare(db);
-      if (sortId === "amount_desc") return ab - aa;
-      if (sortId === "amount_asc") return aa - ab;
-      return db.localeCompare(da);
-    });
-    return list;
-  }, [rows, search, dateFrom, dateTo, kpiFilter, filters, sortId]);
-
-  const tabStats = useMemo(() => {
-    const base = rows;
-    const sumAmt = (arr) => arr.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-    const pending = base.filter((r) => statusBucket(r.status) === "pending");
-    const accepted = base.filter((r) => statusBucket(r.status) === "accepted");
-    const cancelled = base.filter((r) => statusBucket(r.status) === "cancelled");
-    return {
-      all: { count: base.length, amount: sumAmt(base) },
-      pending: { count: pending.length, amount: sumAmt(pending) },
-      accepted: { count: accepted.length, amount: sumAmt(accepted) },
-      cancelled: { count: cancelled.length, amount: sumAmt(cancelled) },
-    };
-  }, [rows]);
-
-  const total = filteredSorted.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const pageRows = filteredSorted.slice((page - 1) * pageSize, page * pageSize);
+  const handleCreateQuotation = async (payload) => {
+    setSaving(true);
+    try {
+      await createQuotation({
+        ...payload,
+        tenant_id: tenantId,
+      });
+      addToast("Quotation created successfully", "success");
+      setShowCreate(false);
+      await load();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Could not create quotation", "error");
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleStatus = async (quote, status) => {
     if (typeof quote.id === "number") {
@@ -223,353 +89,82 @@ export default function Quotations() {
         addToast(err.response?.data?.detail || "Update failed", "error");
         return;
       }
+    } else {
+      addToast(`Quotation marked as ${status} (demo)`);
     }
     setSelected(null);
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-[#F5F5F5]">
-        <Loader label="Loading quotations..." />
-      </div>
-    );
-  }
+  const columns = [
+    { key: "quote_number", label: "Quote No", render: (r) => <span className="font-medium text-[#2563EB]">{r.quote_number}</span> },
+    { key: "customer_name", label: "Customer" },
+    { key: "sales_person", label: "Sales Person" },
+    { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
+    { key: "valid_until", label: "Valid Until", render: (r) => String(r.valid_until || "").slice(0, 10) || "—" },
+    { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
+    { key: "actions", label: "Actions", render: (r) => (
+      <button type="button" onClick={() => setSelected(r)} className="text-xs font-semibold text-[#2563EB] hover:underline">View</button>
+    )},
+  ];
+
+  if (loading) return <Loader label="Loading quotations..." />;
 
   return (
-    <div className="min-h-full space-y-4 bg-[#F5F5F5] p-4 sm:p-6">
-      <div className="flex items-center gap-2">
-        <h1 className="text-[22px] font-bold text-[#1a1a1f]">Quotation</h1>
-        <span className="rounded-[4px] bg-[#d4d4d8] px-1.5 py-[2px] text-[10px] font-semibold uppercase leading-none text-white">
-          v2
-        </span>
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-[#f7f7f9]">
-        <div className="flex overflow-x-auto">
-          <SummaryTab
-            label="All Quotations"
-            count={tabStats.all.count}
-            amount={formatInr(tabStats.all.amount)}
-            active={kpiFilter === "all"}
-            onClick={() => setKpiFilter("all")}
-          />
-          <SummaryTab
-            label="Pending"
-            count={tabStats.pending.count}
-            amount={formatInr(tabStats.pending.amount)}
-            active={kpiFilter === "pending"}
-            onClick={() => setKpiFilter("pending")}
-          />
-          <SummaryTab
-            label="Accepted"
-            count={tabStats.accepted.count}
-            amount={formatInr(tabStats.accepted.amount)}
-            active={kpiFilter === "accepted"}
-            onClick={() => setKpiFilter("accepted")}
-          />
-          <SummaryTab
-            label="Cancelled"
-            count={tabStats.cancelled.count}
-            amount={formatInr(tabStats.cancelled.amount)}
-            active={kpiFilter === "cancelled"}
-            onClick={() => setKpiFilter("cancelled")}
-          />
+    <div className="space-y-6 p-4 sm:p-6">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Quotations</h1>
+          <p className="mt-1 text-sm text-slate-500">Create, approve, and send quotations with GST, discount, and PDF export.</p>
         </div>
-      </div>
-
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="inline-flex items-center gap-2 rounded-lg border border-[#e4e4ea] bg-white px-3 py-2 text-[13px] text-[#4a4a55] shadow-sm">
-          <Calendar className="h-4 w-4 shrink-0 text-[#9a9aa5]" />
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="w-[118px] border-0 bg-transparent p-0 text-[13px] focus:outline-none"
-          />
-          <span className="text-[#9a9aa5]">→</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="w-[118px] border-0 bg-transparent p-0 text-[13px] focus:outline-none"
-          />
-        </div>
-        <Link
-          to="/sales/quotations/create"
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-[14px] font-semibold text-[#1a1a1f] shadow-sm"
-          style={{ background: YELLOW }}
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
-          Create Quotation
-        </Link>
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full max-w-xl">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search"
-            className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] shadow-sm placeholder:text-[#9a9aa5] focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-[#F5C518]/25"
-          />
-        </div>
-        <div className="relative flex gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setDraftFilters(filters);
-              setShowFilters(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#ececf0] px-3.5 py-2 text-[13px] font-medium text-[#4a4a55] hover:bg-[#e0e0e6]"
-          >
-            <Filter className="h-4 w-4" />
-            Filters
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setShowCreate(true)} className="ui-btn-primary">
+            <Plus className="h-4 w-4" /> New Quotation
           </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowSort((v) => !v)}
-              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium ${
-                showSort
-                  ? "bg-[#dcdce3] text-[#1a1a1f]"
-                  : "bg-[#ececf0] text-[#4a4a55] hover:bg-[#e0e0e6]"
-              }`}
-            >
-              <ListFilter className="h-4 w-4" />
-              Sort by
-            </button>
-            {showSort ? (
-              <>
-                <button
-                  type="button"
-                  className="fixed inset-0 z-10 cursor-default"
-                  aria-label="Close sort"
-                  onClick={() => setShowSort(false)}
-                />
-                <div className="absolute right-0 z-20 mt-1.5 w-[280px] overflow-hidden rounded-xl border border-[#d0d0d8] bg-white py-1 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
-                  {SORT_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => {
-                        setSortId(opt.id);
-                        setShowSort(false);
-                      }}
-                      className={`block w-full px-4 py-2.5 text-left text-[13px] hover:bg-[#f5f5f7] ${
-                        sortId === opt.id ? "font-semibold text-[#1a1a1f]" : "text-[#4a4a55]"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : null}
-          </div>
+          <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "quotations")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
+          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
         </div>
+      </header>
+
+      <ManufacturingWorkflowBar currentStepId="quotation" />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Total Quotations" value={summary.total_quotations ?? 0} icon={FileText} color="bg-blue-600" />
+        <KpiCard label="Draft" value={summary.draft ?? 0} icon={FileText} color="bg-slate-500" />
+        <KpiCard label="Sent" value={summary.sent ?? 0} icon={FileText} color="bg-indigo-600" />
+        <KpiCard label="Accepted" value={summary.accepted ?? 0} icon={FileText} color="bg-green-600" />
+        <KpiCard label="Rejected" value={summary.rejected ?? 0} icon={FileText} color="bg-red-500" />
+        <KpiCard label="Expired" value={summary.expired ?? 0} icon={FileText} color="bg-orange-500" />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-white">
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-left text-[13px]">
-            <thead className="bg-[#f3f3f6] text-[12px] font-semibold uppercase tracking-wide text-[#6b6b76]">
-              <tr>
-                <th className="border-b border-r border-[#d0d0d8] px-4 py-3 last:border-r-0">Quotation No.</th>
-                <th className="border-b border-r border-[#d0d0d8] px-4 py-3 last:border-r-0">Date</th>
-                <th className="border-b border-r border-[#d0d0d8] px-4 py-3 last:border-r-0">Party Name</th>
-                <th className="border-b border-r border-[#d0d0d8] px-4 py-3 last:border-r-0">Amount</th>
-                <th className="border-b border-r border-[#d0d0d8] px-4 py-3 last:border-r-0">Status</th>
-                <th className="border-b border-r border-[#d0d0d8] px-4 py-3 last:border-r-0">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageRows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center">
-                    <FileText className="mx-auto h-12 w-12 text-[#c4c4cc]" />
-                    <p className="mt-3 text-[14px] text-[#6b6b76]">
-                      No Quotations available, Create new quotation
-                    </p>
-                    <Link
-                      to="/sales/quotations/create"
-                      className="mt-4 inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-[14px] font-semibold text-[#1a1a1f]"
-                      style={{ background: YELLOW }}
-                    >
-                      <Plus className="h-4 w-4" /> Create Quotation
-                    </Link>
-                  </td>
-                </tr>
-              ) : (
-                pageRows.map((r) => (
-                  <tr key={r.id} className="hover:bg-[#fafafa]">
-                    <td className="border-t border-r border-[#d0d0d8] px-4 py-3 font-semibold" style={{ color: PURPLE }}>
-                      {r.quote_number}
-                    </td>
-                    <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[#4a4a55]">{fmtDate(r.quote_date)}</td>
-                    <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[#1a1a1f]">{r.customer_name || "—"}</td>
-                    <td className="border-t border-r border-[#d0d0d8] px-4 py-3 tabular-nums font-medium text-[#1a1a1f]">
-                      {formatInr(r.amount)}
-                    </td>
-                    <td className="border-t border-r border-[#d0d0d8] px-4 py-3">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}
-                      >
-                        {r.status}
-                      </span>
-                    </td>
-                    <td className="border-t border-r border-[#d0d0d8] px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => setSelected(r)}
-                        className="text-[12px] font-semibold hover:underline"
-                        style={{ color: PURPLE }}
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center gap-2">
+          <Filter className="h-4 w-4 text-slate-500" />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
+            <option value="">All Status</option>
+            {["draft", "sent", "accepted", "rejected", "expired", "pending_approval", "approved"].map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
         </div>
-
-        <div className="flex flex-col gap-3 border-t border-[#ececf0] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-[13px] text-[#4a4a55]">
-            <span>Rows per page:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="rounded-md border border-[#e4e4ea] bg-white px-2 py-1 text-[13px]"
-            >
-              {PAGE_SIZES.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-            <span className="text-[#9a9aa5]">
-              {total === 0
-                ? "1-0 of 0"
-                : `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)} of ${total}`}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-md border border-[#e4e4ea] p-1.5 text-[#4a4a55] disabled:opacity-35"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="min-w-[2rem] rounded-md bg-[#F5C518]/70 px-2.5 py-1 text-center text-[13px] font-semibold text-[#1a1a1f]">
-              {page}
-            </span>
-            <button
-              type="button"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="rounded-md border border-[#e4e4ea] p-1.5 text-[#4a4a55] disabled:opacity-35"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+        <DataTable columns={columns} data={filtered} searchPlaceholder="Search quote, customer..." searchKeys={["quote_number", "customer_name", "sales_person"]} />
       </div>
 
-      {showFilters ? (
-        <div
-          className="fixed inset-0 z-50 flex justify-end bg-black/35"
-          role="presentation"
-          onMouseDown={(e) => e.target === e.currentTarget && setShowFilters(false)}
-        >
-          <aside className="flex h-full w-full max-w-[400px] flex-col bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#d0d0d8] px-5 py-4">
-              <h2 className="text-[18px] font-bold text-[#1a1a1f]">Filters</h2>
-              <button
-                type="button"
-                onClick={() => setShowFilters(false)}
-                className="rounded-lg p-1 text-[#9a9aa5] hover:bg-[#f5f5f7]"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5">
-              <FilterSection label="Quotation Type">
-                <Chip
-                  label="Converted to Invoice"
-                  active={draftFilters.quotationType === "converted"}
-                  onClick={() =>
-                    setDraftFilters((f) => ({
-                      ...f,
-                      quotationType: f.quotationType === "converted" ? "" : "converted",
-                    }))
-                  }
-                />
-                <Chip
-                  label="Not Converted"
-                  active={draftFilters.quotationType === "not_converted"}
-                  onClick={() =>
-                    setDraftFilters((f) => ({
-                      ...f,
-                      quotationType: f.quotationType === "not_converted" ? "" : "not_converted",
-                    }))
-                  }
-                />
-              </FilterSection>
-              <FilterSection label="Total Amount">
-                {AMOUNT_BANDS.map((b) => (
-                  <Chip
-                    key={b.id}
-                    label={b.label}
-                    active={draftFilters.amountBand === b.id}
-                    onClick={() =>
-                      setDraftFilters((f) => ({
-                        ...f,
-                        amountBand: f.amountBand === b.id ? "" : b.id,
-                      }))
-                    }
-                  />
-                ))}
-              </FilterSection>
-            </div>
-            <div className="grid grid-cols-2 gap-3 border-t border-[#d0d0d8] px-5 py-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setDraftFilters(EMPTY_FILTERS);
-                  setFilters(EMPTY_FILTERS);
-                  setShowFilters(false);
-                }}
-                className="rounded-xl border border-[#d8d8e0] bg-[#f0f0f4] py-3 text-[14px] font-semibold text-[#1a1a1f]"
-              >
-                Clear Filter
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFilters(draftFilters);
-                  setShowFilters(false);
-                }}
-                className="rounded-xl py-3 text-[14px] font-semibold text-[#1a1a1f]"
-                style={{ background: YELLOW }}
-              >
-                Apply Filter
-              </button>
-            </div>
-          </aside>
-        </div>
-      ) : null}
-
-      {selected ? (
+      {selected && (
         <QuoteDetailModal
           quote={selected}
           onClose={() => setSelected(null)}
           onStatusChange={handleStatus}
+          onConverted={() => {
+            addToast("Quotation converted to sales order", "success");
+            load();
+          }}
         />
-      ) : null}
+      )}
+
+      <CreateQuotationModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onSubmit={handleCreateQuotation}
+        saving={saving}
+      />
     </div>
   );
 }

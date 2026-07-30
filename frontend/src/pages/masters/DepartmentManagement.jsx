@@ -98,14 +98,10 @@ export default function DepartmentManagement() {
         getDepartmentSummary().catch(() => ({ data: null })),
       ]);
       const apiRows = dRes.data || [];
-      if (apiRows.length > 0) {
-        setDepartments(apiRows.map((row, i) => enrichApiDepartment(row, i)));
-      } else {
-        setDepartments(DEMO_DEPARTMENTS);
-      }
+      setDepartments(apiRows.map((row, i) => enrichApiDepartment(row, i)));
       setApiSummary(sRes.data);
     } catch {
-      setDepartments(DEMO_DEPARTMENTS);
+      setDepartments([]);
     } finally {
       setLoading(false);
     }

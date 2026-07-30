@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowDown,
@@ -13,6 +13,11 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { addBomItem, deleteBomItem, getBillOfMaterials } from "../../api/bomApi";
+import { getProducts } from "../../api/productsApi";
+import { DEMO_PRODUCTS, enrichApiProduct } from "../../data/productsMasterData";
+import { useToast } from "../../context/ToastContext";
+import useTenantId from "../../hooks/useTenantId";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -66,12 +71,27 @@ function WorkflowStep({ step, index, total }) {
   );
 }
 
-export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete, onPrint }) {
+export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete, onPrint, onRefresh }) {
   const [tab, setTab] = useState("overview");
+  const { addToast } = useToast();
+
   if (!bom) return null;
 
   const formatInr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
   const componentCount = bom.components?.length || 0;
+
+  const handleDeleteLine = async (lineId) => {
+    if (!window.confirm("Remove this component line?")) return;
+    try {
+      if (typeof lineId === "number") {
+        await deleteBomItem(lineId);
+      }
+      addToast("Component removed");
+      onRefresh?.();
+    } catch {
+      addToast("Failed to remove component", "error");
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
@@ -79,7 +99,7 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div>
             <p className="text-xs font-semibold text-[#2563EB]">{bom.bom_number}</p>
-            <h2 className="text-xl font-bold text-slate-900">{bom.product_name}</h2>
+            <h2 className="text-xl font-bold text-slate-900">{bom.product_name || bom.product}</h2>
             <p className="text-sm text-slate-500">{bom.product_code} · {bom.version} · {componentCount} components</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
@@ -104,10 +124,10 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
           {tab === "overview" && (
             <div className="space-y-5">
               <div>
-                <h3 className="mb-3 text-sm font-bold text-slate-800">BOM Information</h3>
+                <h3 className="mb-3 text-sm font-bold text-slate-800">Bill of Materials (BOM) Information</h3>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <Field label="BOM Number" value={bom.bom_number} />
-                  <Field label="Product Name" value={bom.product_name} />
+                  <Field label="Bill of Materials (BOM) Number" value={bom.bom_number} />
+                  <Field label="Product Name" value={bom.product_name || bom.product} />
                   <Field label="Product Code" value={bom.product_code} />
                   <Field label="Version" value={bom.version} />
                   <Field label="Revision" value={bom.revision} />
@@ -117,7 +137,7 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
                   <Field label="Created By" value={bom.created_by} />
                   <Field label="Approved By" value={bom.approved_by} />
                 </div>
-                <div className="mt-3"><Field label="Description" value={bom.description} /></div>
+                  <div className="mt-3"><Field label="Description" value={bom.description} /></div>
               </div>
 
               <div>
@@ -141,11 +161,6 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
 
           {tab === "components" && (
             <div className="space-y-3">
-              <div className="flex gap-2">
-                <button type="button" className="inline-flex items-center gap-1 rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white"><Plus className="h-3.5 w-3.5" /> Add Component</button>
-                <button type="button" className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600">Remove Component</button>
-                <button type="button" className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600">Duplicate Component</button>
-              </div>
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase text-slate-500">
@@ -157,20 +172,35 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
                       <th className="px-3 py-2">Qty</th>
                       <th className="px-3 py-2">Unit Cost</th>
                       <th className="px-3 py-2">Total Cost</th>
+                      <th className="px-3 py-2">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(bom.components || []).map((c) => (
-                      <tr key={c.id} className="border-t border-slate-100">
-                        <td className="px-3 py-2 font-medium">{c.component}</td>
-                        <td className="px-3 py-2">{c.item_code}</td>
-                        <td className="px-3 py-2">{c.category}</td>
-                        <td className="px-3 py-2">{c.unit}</td>
-                        <td className="px-3 py-2">{c.qty}</td>
-                        <td className="px-3 py-2">{formatInr(c.unit_cost)}</td>
-                        <td className="px-3 py-2 font-semibold">{formatInr(c.total_cost)}</td>
-                      </tr>
-                    ))}
+                    {(bom.components || []).length === 0 ? (
+                      <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-400">No components added yet</td></tr>
+                    ) : (
+                      (bom.components || []).map((c, i) => (
+                        <tr key={c.id || i} className="border-t border-slate-100">
+                          <td className="px-3 py-2 font-medium">{c.component}</td>
+                          <td className="px-3 py-2">{c.item_code}</td>
+                          <td className="px-3 py-2">{c.category}</td>
+                          <td className="px-3 py-2">{c.unit}</td>
+                          <td className="px-3 py-2">{c.qty}</td>
+                          <td className="px-3 py-2">{formatInr(c.unit_cost)}</td>
+                          <td className="px-3 py-2 font-semibold">{formatInr(c.total_cost)}</td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteLine(c.id)}
+                              className="text-red-500 hover:text-red-700"
+                              title="Remove"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -346,66 +376,326 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
   );
 }
 
+/**
+ * BomFormModal — Create or edit a full Bill of Materials.
+ */
 export function BomFormModal({ bom, onClose, onSave }) {
+  const { addToast } = useToast();
+
   const [form, setForm] = useState({
     bom_number: bom?.bom_number || "",
-    product_name: bom?.product_name || "",
-    product_code: bom?.product_code || "",
     version: bom?.version || "V1.0",
+    product_name: bom?.product_name || bom?.product || "",
+    product_code: bom?.product_code || "",
     total_cost: bom?.costing?.total_cost ?? "",
     status: bom?.status || "active",
     description: bom?.description || "",
-    category: bom?.category || "Finished Goods",
   });
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const [productOptions, setProductOptions] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [existingBomNumbers, setExistingBomNumbers] = useState([]);
+  const [query, setQuery] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  const [saving, setSaving] = useState(false);
+
+  const setField = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
+
+  useEffect(() => {
+    let mounted = true;
+    setLoadingProducts(true);
+    getProducts()
+      .then((res) => {
+        const apiData = res?.data || [];
+        const combined = apiData.length > 0 ? apiData : DEMO_PRODUCTS;
+        const rows = combined.map((r) => enrichApiProduct(r));
+        if (mounted) setProductOptions(rows);
+      })
+      .catch(() => {
+        if (mounted) setProductOptions(DEMO_PRODUCTS.map((r) => enrichApiProduct(r)));
+      })
+      .finally(() => mounted && setLoadingProducts(false));
+    return () => (mounted = false);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    getBillOfMaterials()
+      .then((res) => {
+        const rows = res?.data || [];
+        const nums = rows.map((r) => r.bom_number);
+        if (mounted) setExistingBomNumbers(nums.filter(Boolean));
+      })
+      .catch(() => {
+        if (mounted) setExistingBomNumbers([]);
+      });
+    return () => (mounted = false);
+  }, []);
+
+  // close dropdown when clicking outside
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  const q = (query || form.product_code || "").toLowerCase().trim();
+  const filteredOptions = productOptions.filter((p) => {
+    if (!q) return true;
+    return (
+      (p.product_code || "").toLowerCase().includes(q) ||
+      (p.name || "").toLowerCase().includes(q) ||
+      (p.sku || "").toLowerCase().includes(q)
+    );
+  });
+
+  const handleSelectProductCode = (code) => {
+    setField("product_code", code);
+    if (!code) return;
+    const p = productOptions.find(
+      (x) =>
+        x.product_code === code ||
+        x.sku === code ||
+        String(x.id) === String(code)
+    );
+    if (p) {
+      setField("product_name", p.name || "");
+      const costVal = p.selling_price ?? p.total_cost ?? p.price_per_unit ?? p.purchase_price ?? p.unit_cost ?? "";
+      setField("total_cost", costVal);
+      setField("status", p.status || "active");
+      setField("description", p.description || "");
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    // Validate mandatory fields
+    const bomNo = String(form.bom_number || "").trim();
+    const prodCode = String(form.product_code || "").trim();
+    const prodName = String(form.product_name || "").trim();
+
+    if (!bomNo) {
+      addToast("Please enter BOM No", "error");
+      return;
+    }
+    if (!prodCode) {
+      addToast("Please enter Product Code", "error");
+      return;
+    }
+    if (!prodName) {
+      addToast("Please enter Product Name", "error");
+      return;
+    }
+    // Validate BOM number uniqueness
+    const entered = bomNo;
+    if (entered) {
+      const exists = existingBomNumbers.some((n) => String(n || "").toLowerCase() === entered.toLowerCase());
+      const isSameAsEditing = bom?.bom_number && String(bom.bom_number).toLowerCase() === entered.toLowerCase();
+      if (exists && !isSameAsEditing) {
+        addToast("BOM No already exists — please choose a unique BOM No", "error");
+        return;
+      }
+    }
+
+    setSaving(true);
+    const costVal = form.total_cost !== "" && form.total_cost != null ? Number(form.total_cost) : 0;
+
+    const savedBom = {
+      id: bom?.id || `bom-custom-${Date.now()}`,
+      bom_number: bomNo || `BOM-${String(Date.now()).slice(-4)}`,
+      product_name: prodName,
+      product: prodName,
+      product_code: prodCode || `PRD-${String(Date.now()).slice(-4)}`,
+      version: form.version || "V1.0",
+      status: form.status || "active",
+      category: bom?.category || "Finished Goods",
+      warehouse: bom?.warehouse || "Main Store",
+      description: String(form.description || "").trim(),
+      created_by: bom?.created_by || "Store Manager",
+      created_date: bom?.created_date || new Date().toISOString().slice(0, 10),
+      last_updated: "Just now",
+      components: bom?.components || [
+        { id: 1, component: "Raw Material Item", item_code: "RM-001", category: "Raw Material", unit: "Nos", qty: 1, unit_cost: costVal, total_cost: costVal }
+      ],
+      costing: {
+        material_cost: costVal,
+        labour_cost: Math.round(costVal * 0.2),
+        machine_cost: Math.round(costVal * 0.1),
+        electricity_cost: Math.round(costVal * 0.05),
+        overhead_cost: Math.round(costVal * 0.08),
+        total_cost: costVal,
+      },
+    };
+
+    setSaving(false);
+    onSave(savedBom);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <form
-        onSubmit={(e) => { e.preventDefault(); onSave(form); }}
-        className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+        onSubmit={handleSubmit}
+        className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl space-y-4"
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">{bom?.bom_number ? "Edit BOM" : "Create BOM"}</h2>
-          <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-800">
+            {bom?.id ? "Edit BOM" : "Create BOM"}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1 text-slate-400 hover:bg-slate-100 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label>
-            <span className="text-xs font-semibold text-slate-500">BOM No</span>
-            <input value={form.bom_number} onChange={(e) => set("bom_number", e.target.value)} placeholder="e.g. BOM-2024-001" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+
+        {/* Row 1: BOM No */}
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            BOM No *
           </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Version</span>
-            <input value={form.version} onChange={(e) => set("version", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          <input
+            value={form.bom_number}
+            onChange={(e) => setField("bom_number", e.target.value)}
+            placeholder="e.g. BOM-2024-001"
+            className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all placeholder:text-slate-400"
+          />
+        </div>
+
+        {/* Row 2: Product Code */}
+        <div className="relative" ref={wrapperRef}>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Product Code *
           </label>
-          <label className="sm:col-span-2">
-            <span className="text-xs font-semibold text-slate-500">Product Name *</span>
-            <input required value={form.product_name} onChange={(e) => set("product_name", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          <div className="relative">
+            {/* Searchable dropdown container */}
+            <div className="relative">
+              <input
+                value={form.product_code}
+                onChange={(e) => {
+                  setField("product_code", e.target.value);
+                  setQuery(e.target.value);
+                  setDropdownOpen(true);
+                }}
+                onFocus={() => setDropdownOpen(true)}
+                placeholder={loadingProducts ? "Loading products..." : "Select a product"}
+                className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
+              />
+              <button type="button" onClick={() => setDropdownOpen((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
+                ▾
+              </button>
+            </div>
+
+            {dropdownOpen && (
+              <div className="absolute z-40 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-slate-100 bg-white shadow-lg">
+                <ul className="p-2">
+                  {filteredOptions.length === 0 ? (
+                    <li className="px-3 py-2 text-sm text-slate-400">No products</li>
+                  ) : (
+                    filteredOptions.map((p) => (
+                      <li
+                        key={p.product_code || p.id}
+                        onMouseDown={() => {
+                          // use onMouseDown to avoid losing focus before click
+                          handleSelectProductCode(p.product_code);
+                          setQuery(p.product_code);
+                          setDropdownOpen(false);
+                        }}
+                        className="cursor-pointer rounded-lg px-3 py-2 hover:bg-slate-50"
+                      >
+                        <div className="text-sm font-bold text-slate-800">{p.product_code}</div>
+                        <div className="text-xs text-slate-500">{p.name}</div>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Row 3: Product Name * */}
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Product Name *
           </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Product Code</span>
-            <input value={form.product_code} onChange={(e) => set("product_code", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Cost (₹)</span>
-            <input type="number" min="0" step="0.01" value={form.total_cost} onChange={(e) => set("total_cost", e.target.value)} placeholder="e.g. 500" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          </label>
-          <label className="sm:col-span-2">
-            <span className="text-xs font-semibold text-slate-500">Status</span>
-            <select value={form.status} onChange={(e) => set("status", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+          <input
+            required
+            value={form.product_name}
+            onChange={(e) => setField("product_name", e.target.value)}
+            className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
+          />
+        </div>
+
+        {/* Row 4: Cost (₹) & Status */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Cost (₹)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={form.total_cost}
+              onChange={(e) => setField("total_cost", e.target.value)}
+              placeholder="e.g. 500"
+              className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all placeholder:text-slate-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Status
+            </label>
+            <select
+              value={form.status}
+              onChange={(e) => setField("status", e.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all text-slate-700"
+            >
               <option value="active">Active</option>
               <option value="draft">Draft</option>
               <option value="inactive">Inactive</option>
+              <option value="pending_approval">Pending Approval</option>
             </select>
-          </label>
-          <label className="sm:col-span-2">
-            <span className="text-xs font-semibold text-slate-500">Description</span>
-            <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          </label>
+          </div>
         </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button>
-          <button type="submit" className="ui-btn-primary">Save BOM</button>
+
+        {/* Row 6: Description */}
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Description
+          </label>
+          <textarea
+            rows={3}
+            value={form.description}
+            onChange={(e) => setField("description", e.target.value)}
+            className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all resize-none"
+          />
+        </div>
+
+        {/* Footer */}
+        <div className="pt-2 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-full bg-[#0D8780] hover:bg-[#0A6C67] px-6 py-2.5 text-sm font-semibold text-white transition-all shadow-sm active:scale-95 disabled:opacity-60"
+          >
+            {saving ? "Saving..." : "Save BOM"}
+          </button>
         </div>
       </form>
     </div>

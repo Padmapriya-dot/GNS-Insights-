@@ -3,14 +3,11 @@ import { ArrowDown, ArrowUp, Download, RefreshCw, Repeat } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
-import StoreManagerNav from "../../components/inventory/StoreManagerNav";
 import { useToast } from "../../context/ToastContext";
 import { getLedgerSummary, getStockLedger } from "../../api/inventoryApi";
 import { TRANSACTION_TYPES, formatInr } from "../../data/inventoryMasterData";
 import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
 import { exportToExcel } from "../../utils/exportUtils";
-import useAuth from "../../hooks/useAuth";
-import { isStoreManager } from "../../config/permissions";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
@@ -25,8 +22,6 @@ function KpiCard({ label, value, icon: Icon, color }) {
 
 export default function StockLedger() {
   const { addToast } = useToast();
-  const { user } = useAuth();
-  const storeMode = isStoreManager(user);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState({});
   const [entries, setEntries] = useState([]);
@@ -71,20 +66,12 @@ export default function StockLedger() {
     { key: "reference", label: "Reference", render: (r) => r.reference || "—" },
   ];
 
-  if (loading) {
-    return (
-      <div className="space-y-6 p-4 sm:p-6">
-        {storeMode ? <StoreManagerNav /> : null}
-        <Loader label="Loading stock ledger..." />
-      </div>
-    );
-  }
+  if (loading) return <Loader label="Loading stock ledger..." />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      {storeMode ? <StoreManagerNav /> : null}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-900">Inventory Reports</h1><p className="mt-1 text-sm text-slate-500">Stock movement history for warehouse and store operations.</p></div>
+        <div><h1 className="text-2xl font-bold text-slate-900">Stock Ledger</h1><p className="mt-1 text-sm text-slate-500">Complete history of all stock movements across the inventory module.</p></div>
         <div className="flex gap-2">
           <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "stock-ledger")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
           <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>

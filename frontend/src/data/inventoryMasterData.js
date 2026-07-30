@@ -9,7 +9,7 @@ export const TRANSFER_STATUSES = ["draft", "pending_approval", "approved", "in_t
 export const TRANSACTION_TYPES = ["Purchase", "Production", "Transfer", "Adjustment", "Sales", "Return", "Scrap"];
 
 export const INVENTORY_FLOW = [
-  "Vendor", "Purchase Order", "GRN", "Raw Material Inventory", "Material Issue",
+  "Vendor", "Purchase Order", "Goods Receipt Note (GRN)", "Raw Material Inventory", "Material Issue",
   "Production", "Finished Goods", "Warehouse", "Sales Order", "Dispatch", "Customer",
 ];
 

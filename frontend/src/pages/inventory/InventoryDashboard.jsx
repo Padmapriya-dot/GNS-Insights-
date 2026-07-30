@@ -1,303 +1,122 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  AlertTriangle,
-  ArrowLeftRight,
-  Building2,
-  ClipboardList,
-  History,
-  Package,
-  PackageMinus,
-  PackagePlus,
-  PackageX,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  Warehouse,
-} from "lucide-react";
+import { AlertTriangle, ArrowRight, Box, Package, RefreshCw, TrendingUp, Zap } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import StoreManagerNav from "../../components/inventory/StoreManagerNav";
 import { useToast } from "../../context/ToastContext";
-import {
-  createPrFromLowStock,
-  getInventoryDashboard,
-  getStoreDashboard,
-  getWarehouseSummary,
-} from "../../api/inventoryApi";
-import { getVendorSummary } from "../../api/procurementApi";
-import { getProducts as getMasterProducts } from "../../api/productsApi";
-import { enrichApiProduct } from "../../data/productsMasterData";
+import { getInventoryHub } from "../../api/inventoryApi";
+import { INVENTORY_FLOW, formatInr } from "../../data/inventoryMasterData";
 import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
-import {
-  MANUFACTURING_EVENTS,
-  notifyManufacturingSpine,
-} from "../../utils/manufacturingEvents";
+import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 
-function Kpi({ label, value, icon: Icon, tone = "slate", to }) {
-  const tones = {
-    primary: "bg-[var(--color-primary)]",
-    emerald: "bg-emerald-600",
-    amber: "bg-amber-500",
-    red: "bg-red-500",
-    sky: "bg-sky-600",
-    teal: "bg-teal-600",
-    slate: "bg-slate-600",
-    orange: "bg-orange-500",
-  };
-  const card = (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className="mt-1 truncate text-xl font-bold tabular-nums text-slate-900">{value ?? "—"}</p>
-        </div>
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}>
-          <Icon className="h-4 w-4 text-white" />
-        </div>
+function KpiCard({ label, value, icon: Icon, color }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value ?? 0}</p></div>
+        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
       </div>
     </div>
   );
-  return to ? <Link to={to}>{card}</Link> : card;
 }
 
-function QuickAction({ to, icon: Icon, label, hint }) {
-  return (
-    <Link
-      to={to}
-      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-[var(--color-primary)]/40 hover:shadow-md"
-    >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-slate-900">{label}</p>
-        {hint ? <p className="text-xs text-slate-500">{hint}</p> : null}
-      </div>
-    </Link>
-  );
-}
-
-const WORKFLOW = [
-  "Dashboard",
-  "Products",
-  "Stock In",
-  "Material Request",
-  "Issue",
-  "Return",
-  "Transfer",
-  "History",
+const QUICK_LINKS = [
+  { label: "Raw Materials", to: "/inventory/raw-materials" },
+  { label: "Finished Goods", to: "/inventory/finished-goods" },
+  { label: "Stock Transfer", to: "/inventory/stock-transfer" },
+  { label: "Stock Adjustment", to: "/inventory/stock-adjustment" },
+  { label: "Stock Ledger", to: "/inventory/stock-ledger" },
+  { label: "Warehouses", to: "/inventory/warehouses" },
+  { label: "Goods Receipt (GRN)", to: "/procurement/goods-receipt" },
+  { label: "Dispatch", to: "/sales/dispatch" },
+  { label: "Low Stock Alerts", to: "/alerts/low-stock" },
 ];
 
 export default function InventoryDashboard() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [dash, setDash] = useState({});
-  const [whSummary, setWhSummary] = useState(null);
-  const [vendorCount, setVendorCount] = useState(0);
-  const [invItems, setInvItems] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [search, setSearch] = useState("");
-  const [prBusy, setPrBusy] = useState(null);
+  const [hub, setHub] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [dRes, sumRes, invRes, prodRes, vendorRes] = await Promise.allSettled([
-        getStoreDashboard(),
-        getWarehouseSummary(),
-        getInventoryDashboard(),
-        getMasterProducts(),
-        getVendorSummary(),
-      ]);
-      setDash(dRes.status === "fulfilled" ? dRes.value?.data || {} : {});
-      setWhSummary(sumRes.status === "fulfilled" ? sumRes.value?.data : null);
-      setInvItems(invRes.status === "fulfilled" ? invRes.value?.data || [] : []);
-      setProducts(
-        prodRes.status === "fulfilled"
-          ? (prodRes.value?.data || []).map((row) => enrichApiProduct(row))
-          : []
-      );
-      const vData = vendorRes.status === "fulfilled" ? vendorRes.value?.data : null;
-      setVendorCount(
-        Number(vData?.total_vendors ?? vData?.total ?? vData?.active_vendors ?? 0) || 0
-      );
-    } finally {
-      setLoading(false);
+      const res = await getInventoryHub();
+      if (res?.data) setHub(res.data);
+      else setHub({});
+    } catch {
+      addToast("Failed to load inventory hub", "error");
+      setHub({});
     }
-  }, []);
+    finally { setLoading(false); }
+  }, [addToast]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
+  useEffect(() => { load(); }, [load]);
   useManufacturingRefresh(load);
 
-  const lowStockItems = useMemo(
-    () => (invItems || []).filter((i) => i.needs_reorder).slice(0, 5),
-    [invItems]
-  );
-
-  const searchResults = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return [];
-    return products
-      .filter((p) => `${p.product_code} ${p.name} ${p.category} ${p.warehouse}`.toLowerCase().includes(q))
-      .slice(0, 8);
-  }, [products, search]);
-
-  const createPr = async (item) => {
-    setPrBusy(item.id);
-    try {
-      const res = await createPrFromLowStock({ item_id: item.id });
-      addToast(`Purchase Requisition ${res.data.mr_number} created`);
-      notifyManufacturingSpine(MANUFACTURING_EVENTS.DASHBOARD_REFRESH, {});
-      load();
-    } catch (err) {
-      addToast(err?.response?.data?.detail || "Could not create PR", "error");
-    } finally {
-      setPrBusy(null);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <StoreManagerNav />
-        <Loader label="Loading store dashboard…" />
-      </div>
-    );
-  }
+  if (loading) return <div className="space-y-6"><StoreManagerNav /><Loader label="Loading inventory dashboard..." /></div>;
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 p-4 sm:p-6">
       <StoreManagerNav />
-
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Store Dashboard</h1>
-        </div>
-        <button
-          type="button"
-          onClick={load}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          <RefreshCw className="h-4 w-4" /> Refresh
-        </button>
+        <div><h1 className="text-2xl font-bold text-slate-900">Store / Inventory Dashboard</h1><p className="mt-1 text-sm text-slate-500">Stock control, warehouses, GRN, finished goods, and dispatch preparation.</p></div>
+        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
       </header>
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search products by name, code, category, or warehouse…"
-          className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-        />
-        {searchResults.length > 0 && (
-          <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-            {searchResults.map((p) => (
-              <li key={p.id}>
-                <Link
-                  to="/masters/products"
-                  className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-slate-50"
-                  onClick={() => setSearch("")}
-                >
-                  <span className="font-medium text-slate-800">{p.name}</span>
-                  <span className="text-xs text-slate-500">
-                    {p.product_code} · {p.current_stock} {p.unit}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <ManufacturingWorkflowBar currentStepId="raw_material" />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Kpi label="Total Products" value={dash.total_products} icon={Package} tone="primary" to="/masters/products" />
-        <Kpi label="Vendors" value={vendorCount} icon={Building2} tone="slate" to="/procurement/vendors" />
-        <Kpi label="Low Stock Items" value={dash.low_stock_items} icon={AlertTriangle} tone="amber" to="/alerts/low-stock" />
-        <Kpi label="Out of Stock" value={dash.out_of_stock_items} icon={PackageX} tone="red" to="/masters/products" />
-        <Kpi label="Pending Requests" value={dash.pending_material_requests} icon={ClipboardList} tone="sky" to="/inventory/material-requests" />
-        <Kpi
-          label="Warehouse Utilization"
-          value={`${dash.warehouse_utilization_pct ?? whSummary?.storage_utilization_pct ?? 0}%`}
-          icon={Warehouse}
-          tone="teal"
-          to="/inventory/warehouses"
-        />
-      </div>
-
-      <div>
-        <h2 className="mb-3 text-sm font-bold text-slate-800">Quick actions</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <QuickAction to="/masters/products/create" icon={Package} label="Add Product" hint="Product master" />
-          <QuickAction to="/procurement/vendors" icon={Building2} label="Vendors" hint="Supplier master" />
-          <QuickAction to="/inventory/stock-in" icon={PackagePlus} label="Stock In" hint="Receive materials" />
-          <QuickAction to="/inventory/material-requests" icon={ClipboardList} label="Material Request" hint="From production" />
-          <QuickAction to="/inventory/issue-materials" icon={PackageMinus} label="Issue Materials" hint="Approve & issue" />
-          <QuickAction to="/inventory/stock-return" icon={RotateCcw} label="Stock Return" hint="Return unused" />
-          <QuickAction to="/inventory/stock-transfer" icon={ArrowLeftRight} label="Stock Transfer" hint="Between warehouses" />
-          <QuickAction to="/inventory/warehouses" icon={Warehouse} label="Warehouses" hint="Locations & capacity" />
-          <QuickAction to="/inventory/history" icon={History} label="Inventory History" hint="Full audit trail" />
-        </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Inventory Value" value={formatInr(hub.total_inventory_value)} icon={TrendingUp} color="bg-[#2563EB]" />
+        <KpiCard label="Low Stock Items" value={hub.low_stock_items} icon={AlertTriangle} color="bg-amber-500" />
+        <KpiCard label="Dead Stock" value={hub.dead_stock} icon={Box} color="bg-slate-500" />
+        <KpiCard label="Fast Moving" value={hub.fast_moving} icon={Zap} color="bg-green-500" />
+        <KpiCard label="Slow Moving" value={hub.slow_moving} icon={Package} color="bg-orange-500" />
+        <KpiCard label="Today's Transactions" value={hub.todays_transactions} icon={TrendingUp} color="bg-indigo-500" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800">Low stock alerts</h3>
-          {lowStockItems.length === 0 ? (
-            <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-700">
-              No low stock items right now.
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {lowStockItems.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 px-3 py-2.5"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-amber-900">{item.name}</p>
-                    <p className="text-xs text-amber-800">
-                      Current {item.total_quantity ?? 0} · Min {item.reorder_level ?? "—"}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={prBusy === item.id}
-                    onClick={() => createPr(item)}
-                    className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                  >
-                    Create Purchase Requisition
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h3 className="mb-4 text-sm font-bold text-slate-800">Warehouse Stock</h3>
+          <div className="space-y-3">
+            {(hub.warehouse_stock || []).map((w) => (
+              <div key={w.name}>
+                <div className="mb-0.5 flex justify-between text-sm"><span className="font-medium text-slate-700">{w.name}</span><span className="tabular-nums text-slate-600">{w.quantity?.toLocaleString()}</span></div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${Math.min(100, (w.quantity / 10000) * 100)}%` }} /></div>
+              </div>
+            ))}
+          </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-bold text-slate-800">Daily store workflow</h3>
-          <ol className="flex flex-wrap items-center gap-2">
-            {WORKFLOW.map((step, i) => (
-              <li key={step} className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] text-white">
-                    {i + 1}
-                  </span>
-                  {step}
-                </span>
-                {i < WORKFLOW.length - 1 ? <span className="text-slate-300">→</span> : null}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h3 className="mb-4 text-sm font-bold text-slate-800">Top 10 Materials</h3>
+          <ol className="space-y-2">
+            {(hub.top_materials || []).map((m, i) => (
+              <li key={m.name} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm">
+                <span><span className="font-bold text-[#2563EB]">{i + 1}.</span> {m.name}</span>
+                <span className="font-semibold tabular-nums">{m.qty?.toLocaleString()}</span>
               </li>
             ))}
           </ol>
-          <p className="mt-4 text-sm text-slate-500">
-            Every movement is recorded digitally with automatic stock updates — no paper registers.
-          </p>
         </section>
+      </div>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h3 className="mb-3 text-sm font-bold text-slate-800">Quick Module Access</h3>
+        <div className="flex flex-wrap gap-2">
+          {QUICK_LINKS.map((l) => (
+            <Link key={l.to} to={l.to} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{l.label}<ArrowRight className="h-3.5 w-3.5" /></Link>
+          ))}
+        </div>
+      </section>
+
+      <div className="flex flex-wrap gap-2 rounded-xl bg-slate-50 px-4 py-3">
+        {INVENTORY_FLOW.map((step, i) => (
+          <span key={step} className="flex items-center gap-2 text-xs text-slate-600">
+            <span className="font-semibold text-[#2563EB]">{step}</span>
+            {i < INVENTORY_FLOW.length - 1 && <span className="text-slate-300">↓</span>}
+          </span>
+        ))}
       </div>
     </div>
   );

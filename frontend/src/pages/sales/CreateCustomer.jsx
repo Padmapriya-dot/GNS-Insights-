@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Building2, MapPin, Phone, Receipt } from "lucide-react";
 
@@ -8,6 +8,7 @@ import { useToast } from "../../context/ToastContext";
 import { createCustomer } from "../../api/salesApi";
 import useTenantId from "../../hooks/useTenantId";
 import { INDIAN_STATES } from "../../data/customersMasterData";
+import CITIES_MAP from "../../data/indiaCitiesToStates.json";
 
 const STATE_CODES = {
   "Andhra Pradesh": "37",
@@ -27,18 +28,71 @@ const STATE_OPTIONS = INDIAN_STATES.map((name) => ({
   label: `${name}${STATE_CODES[name] ? ` (${STATE_CODES[name]})` : ""}`,
 }));
 
+// ── Validators ────────────────────────────────────────────────────────────────
+const VALIDATORS = {
+  name: (v) => {
+    if (!v.trim()) return "Company / customer name is required.";
+    return "";
+  },
+  contact_name: (v) => {
+    if (!v.trim()) return "";
+    if (!/^[A-Za-z\s.'-]+$/.test(v.trim()))
+      return "Contact person name should contain only letters.";
+    return "";
+  },
+  customer_code: (v) => {
+    if (!v.trim()) return "";
+    if (!/^[A-Za-z0-9_-]+$/.test(v.trim()))
+      return "Customer code must be alphanumeric (letters, digits, - or _).";
+    return "";
+  },
+  city: (v) => {
+    if (!v.trim()) return "";
+    if (!/^[A-Za-z\s.'-]+$/.test(v.trim()))
+      return "City should contain only letters.";
+    return "";
+  },
+  email: (v) => {
+    if (!v.trim()) return "";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()))
+      return "Enter a valid email address.";
+    return "";
+  },
+  phone: (v) => {
+    if (!v.trim()) return "";
+    if (!/^\d{10}$/.test(v.trim()))
+      return "Phone must be exactly 10 digits (numbers only).";
+    return "";
+  },
+  credit_limit: (v) => {
+    if (v === "" || v == null) return "";
+    if (isNaN(Number(v)) || Number(v) < 0)
+      return "Credit limit must be a non-negative number.";
+    return "";
+  },
+  gstin: (v) => {
+    const g = (v || "").trim().toUpperCase();
+    if (!g) return "";
+    if (g.length !== 15) return "GSTIN should be exactly 15 characters.";
+    if (!/^[0-9A-Z]{15}$/.test(g)) return "Enter a valid GSTIN (alphanumeric, uppercase).";
+    return "";
+  },
+};
+
 export default function CreateCustomer() {
   const tenantId = useTenantId();
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [submitError, setSubmitError] = useState("");
   const [form, setForm] = useState({
     name: "",
     contact_name: "",
     customer_code: "",
     address_line1: "",
     address_line2: "",
+    city: "",
     state: "",
     state_code: "",
     gstin: "",
@@ -47,7 +101,38 @@ export default function CreateCustomer() {
     credit_limit: "",
   });
 
-  const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const getStateForCity = (city) => {
+    if (!city) return null;
+    const key = String(city).trim().toLowerCase();
+    return CITIES_MAP[key] || null;
+  };
+
+  // Validate a single field and update fieldErrors
+  const validateField = (key, value) => {
+    const fn = VALIDATORS[key];
+    if (!fn) return "";
+    const err = fn(value);
+    setFieldErrors((prev) => ({ ...prev, [key]: err }));
+    return err;
+  };
+
+  const set = (key, value) => {
+    setForm((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "city") {
+        const mapped = getStateForCity(value);
+        const prevMapped = getStateForCity(prev.city);
+        if (mapped && (!prev.state || prev.state === "" || prev.state === prevMapped)) {
+          next.state = mapped;
+          next.state_code = STATE_CODES[mapped] || prev.state_code || "";
+        }
+      }
+      return next;
+    });
+    // Live-validate on change (except on first keystroke to avoid annoying errors)
+    if (value) validateField(key, value);
+    else setFieldErrors((prev) => ({ ...prev, [key]: "" }));
+  };
 
   const onStateChange = (state) => {
     setForm((prev) => ({
@@ -57,23 +142,33 @@ export default function CreateCustomer() {
     }));
   };
 
-  const gstinError = useMemo(() => {
-    const g = (form.gstin || "").trim().toUpperCase();
-    if (!g) return "";
-    if (g.length !== 15) return "GSTIN should be 15 characters.";
-    if (!/^[0-9A-Z]{15}$/.test(g)) return "Enter a valid GSTIN.";
-    return "";
-  }, [form.gstin]);
+  // Only allow digit keystrokes in phone field
+  const onPhoneKeyDown = (e) => {
+    const allowedKeys = ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End"];
+    if (allowedKeys.includes(e.key)) return;
+    if (e.ctrlKey || e.metaKey) return; // allow copy/paste shortcuts
+    if (!/^\d$/.test(e.key)) e.preventDefault();
+  };
+
+  // Full form validation before submit
+  const validateAll = () => {
+    const keys = ["name", "contact_name", "customer_code", "city", "email", "phone", "credit_limit", "gstin"];
+    const errors = {};
+    let hasError = false;
+    keys.forEach((key) => {
+      const err = VALIDATORS[key] ? VALIDATORS[key](form[key]) : "";
+      errors[key] = err;
+      if (err) hasError = true;
+    });
+    setFieldErrors(errors);
+    return !hasError;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    if (!form.name.trim()) {
-      setError("Company / customer name is required.");
-      return;
-    }
-    if (gstinError) {
-      setError(gstinError);
+    setSubmitError("");
+    if (!validateAll()) {
+      addToast("Please fix the highlighted fields before saving.", "error");
       return;
     }
     setSaving(true);
@@ -85,12 +180,16 @@ export default function CreateCustomer() {
         customer_code: form.customer_code.trim() || null,
         address_line1: form.address_line1.trim() || null,
         address_line2: form.address_line2.trim() || null,
+        city: form.city.trim() || null,
         state: form.state || null,
         state_code: form.state_code.trim() || null,
         gstin: form.gstin.trim().toUpperCase() || null,
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
-        credit_limit: form.credit_limit ? Number(form.credit_limit) : 0,
+        credit_limit:
+          form.credit_limit != null && form.credit_limit !== ""
+            ? Number(form.credit_limit)
+            : undefined,
         status: "active",
       });
       addToast("Customer created successfully", "success");
@@ -98,7 +197,7 @@ export default function CreateCustomer() {
     } catch (err) {
       const detail = err?.response?.data?.detail;
       const msg = typeof detail === "string" ? detail : "Failed to create customer.";
-      setError(msg);
+      setSubmitError(msg);
       addToast(msg, "error");
     } finally {
       setSaving(false);
@@ -120,13 +219,14 @@ export default function CreateCustomer() {
         subtitle="Add a billing customer for quotations, sales orders, and invoices."
       />
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {error ? (
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        {submitError ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
-            {error}
+            {submitError}
           </div>
         ) : null}
 
+        {/* ── Company ────────────────────────────────── */}
         <section className="ui-card space-y-4 p-5 sm:p-6">
           <SectionTitle icon={Building2} title="Company" hint="Legal / trading name used on documents" />
           <Input
@@ -136,6 +236,7 @@ export default function CreateCustomer() {
             onChange={(e) => set("name", e.target.value)}
             placeholder="e.g. Acme Manufacturing Pvt Ltd"
             autoFocus
+            error={fieldErrors.name}
           />
           <FormRow>
             <Input
@@ -143,17 +244,21 @@ export default function CreateCustomer() {
               value={form.contact_name}
               onChange={(e) => set("contact_name", e.target.value)}
               placeholder="Primary contact name"
+              error={fieldErrors.contact_name}
+              hint="Letters only"
             />
             <Input
               label="Customer code"
               value={form.customer_code}
               onChange={(e) => set("customer_code", e.target.value)}
               placeholder="Optional internal code"
-              hint="Leave blank if you assign codes later"
+              hint="Alphanumeric, - or _"
+              error={fieldErrors.customer_code}
             />
           </FormRow>
         </section>
 
+        {/* ── Billing address ────────────────────────── */}
         <section className="ui-card space-y-4 p-5 sm:p-6">
           <SectionTitle icon={MapPin} title="Billing address" hint="Used on invoices and delivery documents" />
           <Input
@@ -167,6 +272,14 @@ export default function CreateCustomer() {
             value={form.address_line2}
             onChange={(e) => set("address_line2", e.target.value)}
             placeholder="City / additional line"
+          />
+          <Input
+            label="City"
+            value={form.city}
+            onChange={(e) => set("city", e.target.value)}
+            placeholder="e.g. Lucknow"
+            error={fieldErrors.city}
+            hint="Letters only"
           />
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_7.5rem]">
             <Select
@@ -187,6 +300,7 @@ export default function CreateCustomer() {
           </div>
         </section>
 
+        {/* ── Tax ───────────────────────────────────── */}
         <section className="ui-card space-y-4 p-5 sm:p-6">
           <SectionTitle icon={Receipt} title="Tax" hint="GST identification for India invoices" />
           <Input
@@ -195,11 +309,13 @@ export default function CreateCustomer() {
             onChange={(e) => set("gstin", e.target.value.toUpperCase())}
             placeholder="22AAAAA0000A1Z5"
             maxLength={15}
-            error={gstinError || undefined}
+            error={fieldErrors.gstin}
             className="font-mono tracking-wide uppercase sm:max-w-sm"
+            hint="15-character alphanumeric GST number"
           />
         </section>
 
+        {/* ── Contact & Credit ──────────────────────── */}
         <section className="ui-card space-y-4 p-5 sm:p-6">
           <SectionTitle icon={Phone} title="Contact & credit" hint="How your team reaches this customer" />
           <FormRow>
@@ -209,13 +325,23 @@ export default function CreateCustomer() {
               value={form.email}
               onChange={(e) => set("email", e.target.value)}
               placeholder="accounts@company.com"
+              error={fieldErrors.email}
             />
             <Input
               label="Phone"
               type="tel"
+              inputMode="numeric"
+              maxLength={10}
               value={form.phone}
-              onChange={(e) => set("phone", e.target.value)}
-              placeholder="10-digit mobile / landline"
+              onChange={(e) => {
+                // Strip non-digits on paste/autofill too
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                set("phone", digits);
+              }}
+              onKeyDown={onPhoneKeyDown}
+              placeholder="10-digit mobile number"
+              error={fieldErrors.phone}
+              hint="Numbers only, 10 digits"
             />
           </FormRow>
           <Input
@@ -227,6 +353,7 @@ export default function CreateCustomer() {
             onChange={(e) => set("credit_limit", e.target.value)}
             placeholder="0"
             className="sm:max-w-xs"
+            error={fieldErrors.credit_limit}
           />
         </section>
 

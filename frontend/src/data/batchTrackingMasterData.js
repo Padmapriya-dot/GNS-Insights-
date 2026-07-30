@@ -12,7 +12,7 @@ export const DEMO_BATCH_SUMMARY = {
 export const DEMO_BATCHES = [];
 
 export const BATCH_TRACE_STEPS = [
-  "Raw Material", "BOM", "Production", "QC", "Packing", "Dispatch", "Customer",
+  "Raw Material", "Bill of Materials (BOM)", "Production", "Quality Control (QC)", "Packing", "Dispatch", "Customer",
 ];
 
 export const DEMO_BATCH_DETAIL = {

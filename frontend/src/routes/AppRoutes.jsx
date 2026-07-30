@@ -211,46 +211,6 @@ export default function AppRoutes() {
         }
       />
       <Route
-        path="/inventory/stock-in"
-        element={
-          <ProtectedRoute>
-            <P.StoreStockIn />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/inventory/material-requests"
-        element={
-          <ProtectedRoute>
-            <P.StoreMaterialRequests />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/inventory/issue-materials"
-        element={
-          <ProtectedRoute>
-            <P.StoreIssueMaterials />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/inventory/stock-return"
-        element={
-          <ProtectedRoute>
-            <P.StoreStockReturn />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/inventory/history"
-        element={
-          <ProtectedRoute>
-            <P.StoreInventoryHistory />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/inventory/warehouses"
         element={
           <ProtectedRoute>
@@ -443,14 +403,6 @@ export default function AppRoutes() {
         }
       />
       <Route
-        path="/sales/quotations/create"
-        element={
-          <ProtectedRoute>
-            <P.QuotationForm />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/sales/dispatch"
         element={
           <ProtectedRoute>
@@ -578,30 +530,6 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route path="/sales/payment-receipts" element={<ProtectedRoute><P.PaymentReceipts /></ProtectedRoute>} />
-      <Route path="/sales/payment-receipts/create" element={<ProtectedRoute><P.PaymentReceiptForm /></ProtectedRoute>} />
-      <Route path="/sales/refund-vouchers" element={<ProtectedRoute><P.RefundVouchers /></ProtectedRoute>} />
-      <Route path="/sales/proforma-invoices" element={<ProtectedRoute><P.ProformaInvoices /></ProtectedRoute>} />
-      <Route path="/sales/proforma-invoices/create" element={<ProtectedRoute><P.ProformaInvoiceForm /></ProtectedRoute>} />
-      <Route path="/sales/export-invoices" element={<ProtectedRoute><P.ExportInvoices /></ProtectedRoute>} />
-      <Route path="/sales/export-invoices/create" element={<ProtectedRoute><P.ExportInvoiceForm /></ProtectedRoute>} />
-      <Route path="/sales/export-proforma-invoices" element={<ProtectedRoute><P.ProformaInvoices /></ProtectedRoute>} />
-      <Route path="/sales/delivery-challans" element={<ProtectedRoute><P.DeliveryChallans /></ProtectedRoute>} />
-      <Route path="/sales/delivery-challans/create" element={<ProtectedRoute><P.DeliveryChallanForm /></ProtectedRoute>} />
-      <Route path="/sales/credit-notes" element={<ProtectedRoute><P.CreditNotes /></ProtectedRoute>} />
-      <Route path="/sales/credit-notes/create" element={<ProtectedRoute><P.CreditNoteForm /></ProtectedRoute>} />
-      <Route path="/sales/debit-notes" element={<ProtectedRoute><P.DebitNotes /></ProtectedRoute>} />
-      <Route path="/sales/debit-notes/create" element={<ProtectedRoute><P.DebitNoteForm /></ProtectedRoute>} />
-      <Route path="/sales/e-invoice" element={<ProtectedRoute><P.EInvoiceLogin /></ProtectedRoute>} />
-      <Route path="/ewaybill/login" element={<ProtectedRoute><P.EwaybillLogin /></ProtectedRoute>} />
-      <Route path="/digital-signature" element={<ProtectedRoute><P.DigitalSignatureSetup /></ProtectedRoute>} />
-      <Route path="/purchases" element={<ProtectedRoute><P.Purchases /></ProtectedRoute>} />
-      <Route path="/purchases/create" element={<ProtectedRoute><P.PurchaseForm /></ProtectedRoute>} />
-      <Route path="/purchases/payments-made" element={<ProtectedRoute><P.PaymentsMade /></ProtectedRoute>} />
-      <Route path="/purchases/payments-made/create" element={<ProtectedRoute><P.MakePaymentForm /></ProtectedRoute>} />
-      <Route path="/purchases/debit-notes" element={<ProtectedRoute><P.PurchaseDebitNotes /></ProtectedRoute>} />
-      <Route path="/purchases/debit-notes/create" element={<ProtectedRoute><P.PurchaseDebitNoteForm /></ProtectedRoute>} />
-      <Route path="/accounts/reports" element={<ProtectedRoute><P.AccountingReports /></ProtectedRoute>} />
       <Route path="/accounts" element={<ProtectedRoute><P.AccountsDashboard /></ProtectedRoute>} />
       <Route path="/accounts/profit-loss" element={<ProtectedRoute><P.ProfitLoss /></ProtectedRoute>} />
       <Route path="/accounts/expenses" element={<ProtectedRoute><P.ExpenseTracking /></ProtectedRoute>} />
@@ -677,17 +605,6 @@ export default function AppRoutes() {
       <Route path="/documents/reports" element={<ProtectedRoute><P.ReportsArchive /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><P.SettingsLayout /></ProtectedRoute>}>
         <Route index element={<P.SettingsHome />} />
-        <Route path="change-template" element={<P.SettingsFeatureModule />} />
-        <Route path="change-format" element={<P.SettingsFeatureModule />} />
-        <Route path="invoice-settings" element={<P.SettingsFeatureModule />} />
-        <Route path="expense-settings" element={<P.SettingsFeatureModule />} />
-        <Route path="sector-settings" element={<P.SettingsFeatureModule />} />
-        <Route path="inventory-settings" element={<P.SettingsFeatureModule />} />
-        <Route path="merge-products" element={<P.SettingsFeatureModule />} />
-        <Route path="merge-buyers" element={<P.SettingsFeatureModule />} />
-        <Route path="merge-sellers" element={<P.SettingsFeatureModule />} />
-        <Route path="prefix-management" element={<P.SettingsFeatureModule />} />
-        <Route path="sequence-reset" element={<P.SettingsFeatureModule />} />
         <Route path=":sectionId" element={<P.SettingsSectionPage />} />
         {/* Legacy deep links → section pages (must not target the same path or it loops) */}
         <Route path="addresses/billing" element={<Navigate to="/settings/company" replace />} />

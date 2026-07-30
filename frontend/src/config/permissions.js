@@ -28,7 +28,7 @@ export const ROLE_PERMISSIONS = {
     "masters", "inventory", "maintenance", "procurement", "settings", "iot",
   ],
   "Store Manager": [
-    "dashboard", "inventory", "procurement", "masters", "alerts", "documents", "settings",
+    "dashboard", "inventory", "procurement", "sales", "masters", "alerts", "documents", "analytics",
   ],
   "HR Manager": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents", "masters"],
   Accountant: ["dashboard", "accounts", "sales", "documents", "analytics", "alerts", "masters"],
@@ -64,9 +64,6 @@ export const ROUTE_MODULE_OVERRIDES = {
   "/analytics/sales": "analytics",
   "/analytics/finance": "analytics",
   "/manufacturing/workflow": "dashboard",
-  "/ewaybill/login": "sales",
-  "/digital-signature": "sales",
-  "/purchases": "procurement",
 };
 
 export const ROUTE_MODULES = {
@@ -76,11 +73,8 @@ export const ROUTE_MODULES = {
   "/production": "production",
   "/inventory": "inventory",
   "/procurement": "procurement",
-  "/purchases": "procurement",
   "/hr": "hr",
   "/sales": "sales",
-  "/ewaybill": "sales",
-  "/digital-signature": "sales",
   "/accounts": "accounts",
   "/finance": "accounts",
   "/quality": "quality",
@@ -158,32 +152,25 @@ export function userCanAccess(user, module) {
   return userHasModule(user, module);
 }
 
-/** Paths Store Manager may open (inventory & warehouse operations only). */
+/** Paths Store Manager may open (mirrors backend STORE_MANAGER_ALLOWED_PATHS). */
 export const STORE_MANAGER_ALLOWED_PATHS = new Set([
   "/",
+  "/manufacturing/workflow",
   "/inventory",
   "/inventory/raw-materials",
   "/inventory/finished-goods",
   "/inventory/stock-transfer",
   "/inventory/stock-adjustment",
   "/inventory/stock-ledger",
-  "/inventory/stock-movement",
-  "/inventory/stock-in",
-  "/inventory/material-requests",
-  "/inventory/issue-materials",
-  "/inventory/stock-return",
-  "/inventory/history",
   "/inventory/warehouses",
   "/procurement/goods-receipt",
-  "/procurement/material-requests",
   "/procurement/vendors",
+  "/sales/dispatch",
   "/masters/products",
-  "/settings",
-  "/settings/subscription",
-  "/settings/my-account",
   "/alerts/low-stock",
   "/documents",
   "/documents/purchase",
+  "/analytics/inventory",
 ]);
 
 export function isStoreManager(user) {
@@ -201,9 +188,10 @@ export function storeManagerPathAllowed(pathname) {
   if (path.startsWith("/inventory/")) return true;
   if (path.startsWith("/masters/products")) return true;
   if (path.startsWith("/procurement/goods-receipt")) return true;
-  if (path.startsWith("/procurement/material-requests")) return true;
-  if (path.startsWith("/procurement/vendors")) return true;
-  if (path.startsWith("/settings")) return true;
+  if (path.startsWith("/procurement/vendors")) {
+    return true;
+  }
+  if (path.startsWith("/sales/dispatch")) return true;
   return false;
 }
 
@@ -218,8 +206,12 @@ export function userCanAccessPath(user, pathname) {
 
 export function isOperator(user) {
   if (!user) return false;
-  const roles = Array.isArray(user.roles) ? user.roles : [];
-  return user.role === "Operator" || user.role_name === "Operator" || roles.includes("Operator");
+  const roles = Array.isArray(user.roles)
+    ? user.roles.map((r) => (typeof r === "object" ? r?.name || "" : String(r)).toLowerCase())
+    : [];
+  const roleStr = String(user.role || user.role_name || (typeof user.roles === "string" ? user.roles : "")).toLowerCase();
+  const allRoles = [...roles, roleStr];
+  return allRoles.some((r) => r === "operator" || r.includes("operator"));
 }
 
 /** Human-readable label for a module code or granular permission (e.g. production:read). */

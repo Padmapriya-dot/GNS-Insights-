@@ -90,10 +90,17 @@ function PriorityPill({ priority }) {
 
 function ProgressCell({ row }) {
   const pct = calculateProgressPct(row);
+  const planned = Number(row.planned_quantity || 0);
+  const rawProduced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
+  const produced = (row.status === "completed" || row.status === "closed" || row.status === "done")
+    ? Math.max(rawProduced, planned)
+    : rawProduced > 0
+    ? rawProduced
+    : Math.round((planned * pct) / 100);
   return (
     <div className="min-w-[100px]">
       <div className="mb-0.5 flex justify-between text-[10px] text-slate-500 print:text-black">
-        <span>{row.produced_quantity ?? 0}/{row.planned_quantity}</span>
+        <span>{produced}/{planned}</span>
         <span>{pct}%</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 print:border print:border-slate-300">
@@ -155,13 +162,30 @@ export default function ProductionPlanning() {
         getMachines().catch(() => ({ data: [] })),
       ]);
       setMachines(mRes?.data || []);
-      const rawList = Array.isArray(oRes.data) ? oRes.data.map(enrichApiOrder) : [];
+      const apiOrders = Array.isArray(oRes.data) ? oRes.data.map(enrichApiOrder) : [];
+      let localOrders = [];
+      try {
+        const stored = localStorage.getItem("smrt_local_production_orders");
+        if (stored) {
+          localOrders = JSON.parse(stored).map((r, i) => enrichApiOrder(r, i));
+        }
+      } catch (e) {}
+      const rawList = [...localOrders, ...apiOrders];
       const seen = new Set();
       const list = rawList.filter((o) => {
-        const key = o.id || o.order_number || o.product_id || o.product_name;
+        const key = o.id ? `id-${o.id}` : o.order_number ? `num-${o.order_number}` : null;
+        if (!key) return true;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
+      });
+      list.sort((a, b) => {
+        const idA = typeof a.id === "number" ? a.id : Number(String(a.id).replace(/\D/g, "")) || 0;
+        const idB = typeof b.id === "number" ? b.id : Number(String(b.id).replace(/\D/g, "")) || 0;
+        if (idA && idB && idA !== idB) return idB - idA;
+        const dateA = a.created_at || a.start_date || "";
+        const dateB = b.created_at || b.start_date || "";
+        return dateB.localeCompare(dateA);
       });
       setOrders(list);
       setApiSummary(sRes.data || null);
@@ -209,10 +233,17 @@ export default function ProductionPlanning() {
   }, [orders, filters]);
 
   const summary = useMemo(() => {
+    // Always compute from the actual merged orders list (local + API)
+    // so status changes (e.g. completed) are reflected immediately
+    const computed = computePlanningSummary(filteredOrders);
     if (apiSummary && !Object.values(filters).some(Boolean)) {
-      return apiSummary;
+      // Use API values only for fields not derivable from local orders (e.g. todays_target from backend)
+      return {
+        ...computed,
+        todays_target: apiSummary.todays_target ?? computed.todays_target,
+      };
     }
-    return computePlanningSummary(filteredOrders);
+    return computed;
   }, [apiSummary, filteredOrders, filters]);
 
   const showTodayStartOrders = () => {
@@ -282,10 +313,12 @@ export default function ProductionPlanning() {
         return;
       }
     }
+    const hasMachine = Boolean(order.machine_name && order.machine_name !== "—");
+    const hasOperator = Boolean(order.operator_name && order.operator_name !== "—");
     setStartChecks([
       { check_type: "material", label: "Material Availability", ready: true, message: "All required materials available" },
-      { check_type: "machine", label: "Machine Availability", ready: !!order.machine_name, message: order.machine_name ? "Machine ready" : "No machine assigned" },
-      { check_type: "operator", label: "Operator Availability", ready: !!order.operator_name, message: order.operator_name ? "Operator assigned" : "No operator" },
+      { check_type: "machine", label: "Machine Availability", ready: hasMachine, message: hasMachine ? `Machine ready (${order.machine_name})` : "No machine assigned" },
+      { check_type: "operator", label: "Operator Availability", ready: hasOperator, message: hasOperator ? `Operator assigned (${order.operator_name})` : "No operator assigned" },
     ]);
     setStartModal(order);
   };
@@ -358,6 +391,19 @@ export default function ProductionPlanning() {
       "Order marked completed",
     ]);
     setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: "completed", produced_quantity: o.planned_quantity, progress_pct: 100 } : o)));
+    // Persist the completed status to localStorage so summary counts update correctly
+    try {
+      const stored = localStorage.getItem("smrt_local_production_orders");
+      if (stored) {
+        const localOrders = JSON.parse(stored);
+        const updated = localOrders.map((o) =>
+          (o.id === order.id || o.order_number === order.order_number)
+            ? { ...o, status: "completed", produced_quantity: o.planned_quantity, progress_pct: 100 }
+            : o
+        );
+        localStorage.setItem("smrt_local_production_orders", JSON.stringify(updated));
+      }
+    } catch (e) {}
     setCompleteModal(order);
     addToast("Order completed");
   };
@@ -407,7 +453,15 @@ export default function ProductionPlanning() {
           });
         });
 
-        setOrders((prev) => [...importedRows, ...prev]);
+        setOrders((prev) => {
+          const updated = [...importedRows, ...prev];
+          try {
+            const stored = localStorage.getItem("smrt_local_production_orders");
+            const existing = stored ? JSON.parse(stored) : [];
+            localStorage.setItem("smrt_local_production_orders", JSON.stringify([...importedRows, ...existing]));
+          } catch (e) {}
+          return updated;
+        });
         addToast(`Successfully imported ${importedRows.length} production orders`);
       } catch (err) {
         addToast("Error parsing file. Please check CSV format.", "error");
@@ -459,8 +513,7 @@ export default function ProductionPlanning() {
       )
     },
     { key: "customer_name", label: "Customer" },
-    { key: "bom_version", label: "BOM" },
-    { key: "planned_quantity", label: "Planned Qty" },
+    { key: "planned_quantity", label: "Planned Quantity" },
     {
       key: "produced_quantity",
       label: "Produced",
@@ -469,7 +522,7 @@ export default function ProductionPlanning() {
     {
       key: "balance_quantity",
       label: "Balance",
-      render: (r) => r.balance_quantity ?? Math.max((r.planned_quantity || 0) - (r.produced_quantity || 0), 0),
+      render: (r) => Math.max((r.planned_quantity || 0) - (r.produced_quantity || 0), 0),
     },
     {
       key: "priority",
@@ -516,18 +569,17 @@ export default function ProductionPlanning() {
       render: (r) => (
         <div className="flex flex-wrap gap-1 text-xs print:hidden">
           <button type="button" title="View" onClick={() => openOrder(r)} className="font-semibold text-[#2563EB] hover:underline">👁 View</button>
-          <Link to="/production/create" className="font-semibold text-slate-600 hover:underline">✏ Edit</Link>
+          <Link to={`/production/create?id=${r.id}&product_id=${r.product_id || ""}&order_number=${encodeURIComponent(r.order_number || "")}&customer_name=${encodeURIComponent(r.customer_name || "")}&bom_version=${encodeURIComponent(r.bom_version || "BOM v1.0")}&planned_quantity=${r.planned_quantity || ""}&priority=${r.priority || "medium"}&shift=${encodeURIComponent(r.shift || "Shift A")}&machine_id=${r.machine_id || ""}&start_date=${r.start_date || ""}&due_date=${r.due_date || ""}`} className="font-semibold text-slate-600 hover:underline">✏ Edit</Link>
           {canStart(r.status) && (
             <button type="button" onClick={() => handleStartClick(r)} className="font-semibold text-green-700 hover:underline">▶ Start</button>
           )}
           {canPause(r.status) && (
             <button type="button" onClick={() => handlePause(r)} className="font-semibold text-amber-700 hover:underline">⏸ Pause</button>
           )}
-          {canComplete(r.status) && (
-            <button type="button" onClick={() => handleComplete(r)} className="font-semibold text-teal-700 hover:underline">✅ Complete</button>
-          )}
           <button type="button" onClick={() => handleIndividualPrint(r)} className="font-semibold text-slate-500 hover:underline">🖨 Print</button>
-          <Link to="/production/work-orders" className="font-semibold text-slate-500 hover:underline">📄 WO</Link>
+          {(!r.machine_name || r.machine_name === "—") && (
+            <Link to={`/production/work-orders/create-quick?production_order_id=${r.id}&product_id=${r.product_id || ""}&planned_quantity=${r.planned_quantity || ""}&order_number=${encodeURIComponent(r.order_number || "")}&customer_name=${encodeURIComponent(r.customer_name || "")}&shift=${encodeURIComponent(r.shift || "")}&priority=${r.priority || "medium"}&start_date=${r.start_date || ""}&due_date=${r.due_date || ""}`} className="font-semibold text-slate-500 hover:underline">📄 Work Order</Link>
+          )}
         </div>
       ),
     },

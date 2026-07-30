@@ -42,26 +42,3 @@ export const updateStockAdjustmentStatus = (adjustmentId, payload) =>
 export const getLedgerSummary = () => api.get("/inventory/ledger/summary");
 export const getStockLedger = () => api.get("/inventory/ledger");
 export const getInventoryHub = () => api.get("/inventory/hub");
-
-/* Manufacturing store workflow */
-export const getStoreDashboard = () => api.get("/inventory/store/dashboard");
-export const createStoreStockIn = (payload) => api.post("/inventory/store/stock-in", payload);
-export const getStoreMaterialRequests = (status) =>
-  api.get("/inventory/store/material-requests", { params: status ? { status } : undefined });
-export const createStoreMaterialRequest = (payload) =>
-  api.post("/inventory/store/material-requests", payload);
-export const approveStoreMaterialRequest = (id, payload = {}) =>
-  api.post(`/inventory/store/material-requests/${id}/approve`, payload);
-export const rejectStoreMaterialRequest = (id, payload = {}) =>
-  api.post(`/inventory/store/material-requests/${id}/reject`, payload);
-export const issueStoreMaterial = (id, payload = {}) =>
-  api.post(`/inventory/store/material-requests/${id}/issue`, payload);
-export const confirmStoreMaterialReceived = (id, payload = {}) =>
-  api.post(`/inventory/store/material-requests/${id}/confirm`, payload);
-export const consumeStoreMaterial = (id, payload) =>
-  api.post(`/inventory/store/material-requests/${id}/consume`, payload);
-export const createStoreStockReturn = (payload) => api.post("/inventory/store/stock-return", payload);
-export const createPrFromLowStock = (payload) =>
-  api.post("/inventory/store/purchase-requisitions/from-low-stock", payload);
-export const getStoreInventoryHistory = (params = {}) =>
-  api.get("/inventory/store/history", { params });
