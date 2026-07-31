@@ -36,7 +36,7 @@ function fmtDisplayDate(iso) {
 }
 
 function daysUntilDue(dueDate) {
-  if (!dueDate) return "—";
+  if (!dueDate) return "ΓÇö";
   const due = new Date(dueDate);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -205,7 +205,7 @@ export default function InvoiceDashboard() {
     setShowSort(false);
   };
 
-  if (loading && rows.length === 0) return <Loader label="Loading invoices…" />;
+  if (loading && rows.length === 0) return <Loader label="Loading invoicesΓÇª" />;
 
   return (
     <div className="min-h-full bg-[#F5F5F5] px-5 py-5 sm:px-6">
@@ -271,7 +271,7 @@ export default function InvoiceDashboard() {
               className="w-[118px] border-0 bg-transparent p-0 text-[13px] focus:outline-none"
               title={fmtDisplayDate(dateFrom)}
             />
-            <span className="text-[#9a9aa5]">→</span>
+            <span className="text-[#9a9aa5]">ΓåÆ</span>
             <input
               type="date"
               value={dateTo}
@@ -378,10 +378,10 @@ export default function InvoiceDashboard() {
                       {r.invoice_number}
                     </td>
                     <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[14px] text-[#4a4a55]">
-                      {fmtDisplayDate(r.issue_date || r.due_date) || "—"}
+                      {fmtDisplayDate(r.issue_date || r.due_date) || "ΓÇö"}
                     </td>
                     <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[14px] font-medium text-[#1a1a1f]">
-                      {r.buyer_name || r.customer_name || "—"}
+                      {r.buyer_name || r.customer_name || "ΓÇö"}
                     </td>
                     <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[14px] text-[#4a4a55]">
                       {r.due_in || daysUntilDue(r.due_date)}
@@ -457,7 +457,7 @@ export default function InvoiceDashboard() {
                                 className="block w-full px-3 py-2 text-left text-[13px] text-[#dc2626] hover:bg-[#fef2f2] disabled:opacity-40"
                                 onClick={() => handleCancelInvoice(r)}
                               >
-                                {deletingId === r.id ? "Cancelling…" : "Cancel Invoice"}
+                                {deletingId === r.id ? "CancellingΓÇª" : "Cancel Invoice"}
                               </button>
                             </div>
                           </>
@@ -516,7 +516,7 @@ export default function InvoiceDashboard() {
         </div>
       </div>
 
-      {/* Filters drawer — full sections from screenshot */}
+      {/* Filters drawer ΓÇö full sections from screenshot */}
       {showFilters && (
         <div
           className="fixed inset-0 z-50 flex justify-end bg-black/35"
@@ -691,11 +691,11 @@ export default function InvoiceDashboard() {
 
               <FilterSection label="Total Amount">
                 {[
-                  { id: "under2k", label: "under ₹2,000" },
-                  { id: "2to5", label: "₹2,000-₹5,000" },
-                  { id: "5to10", label: "₹5,000-₹10,000" },
-                  { id: "10to20", label: "₹10,000-₹20,000" },
-                  { id: "20plus", label: "₹20,000-Above" },
+                  { id: "under2k", label: "under Γé╣2,000" },
+                  { id: "2to5", label: "Γé╣2,000-Γé╣5,000" },
+                  { id: "5to10", label: "Γé╣5,000-Γé╣10,000" },
+                  { id: "10to20", label: "Γé╣10,000-Γé╣20,000" },
+                  { id: "20plus", label: "Γé╣20,000-Above" },
                 ].map((opt) => (
                   <Chip
                     key={opt.id}

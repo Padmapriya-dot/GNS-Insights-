@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class TaskBase(BaseModel):
@@ -14,6 +14,20 @@ class TaskBase(BaseModel):
     start_date: date | None = None
     assigned_to_name: str | None = None
     module: str | None = None
+
+    @field_validator("due_date", "start_date", mode="before")
+    @classmethod
+    def parse_empty_date(cls, v):
+        if v == "" or v == "null" or v is None:
+            return None
+        return v
+
+    @field_validator("assigned_to", "tenant_id", mode="before")
+    @classmethod
+    def parse_empty_int(cls, v):
+        if v == "" or v == "null" or v == 0:
+            return None
+        return v
 
 
 class TaskCreate(TaskBase):
@@ -30,6 +44,13 @@ class TaskUpdate(BaseModel):
     start_date: date | None = None
     assigned_to_name: str | None = None
     module: str | None = None
+
+    @field_validator("due_date", "start_date", mode="before")
+    @classmethod
+    def parse_empty_date(cls, v):
+        if v == "" or v == "null" or v is None:
+            return None
+        return v
 
 
 class TaskRead(TaskBase):

@@ -42,3 +42,35 @@ def test_production_work_orders(register_admin, client):
     headers = {"Authorization": f"Bearer {login.json()['data']['access_token']}"}
     resp = client.get("/api/production/work-orders", headers=headers)
     assert resp.status_code == 200
+
+
+def test_production_manager_sidebar_inventory(register_admin, client):
+    admin = register_admin()
+    email = "pm-test@example.com"
+    password = "Passw0rd!123"
+    reg = client.post(
+        "/auth/register",
+        json={
+            "company_name": "Test Company PM",
+            "full_name": "Production Manager User",
+            "email": email,
+            "password": password,
+            "role": "Production Manager",
+        },
+    )
+    assert reg.status_code in (200, 201), reg.text
+    login = client.post("/auth/login", json={"email": email, "password": password, "role": "Production Manager"})
+    assert login.status_code == 200, login.text
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    resp = client.get("/api/sidebar", headers=headers)
+    assert resp.status_code == 200
+    menus = resp.json()
+    inventory_menu = next((m for m in menus if m["key"] == "inventory"), None)
+    assert inventory_menu is not None
+    child_paths = [c["path"] for c in inventory_menu.get("children", [])]
+    assert "/inventory/raw-materials" in child_paths
+    assert "/inventory/finished-goods" in child_paths
+    assert "/inventory/stock-transfer" in child_paths
+    assert "/inventory/warehouses" not in child_paths
+
+

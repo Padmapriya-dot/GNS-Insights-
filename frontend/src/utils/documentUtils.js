@@ -5,7 +5,7 @@ export const DOC_TYPES = [
   { value: "production", label: "Production" },
   { value: "quality", label: "Quality" },
   { value: "report", label: "Finance / Reports" },
-  { value: "hr", label: "HR" },
+  { value: "hr", label: "Human Resources (HR)" },
   { value: "general", label: "General" },
 ];
 

@@ -106,8 +106,8 @@ export default function BatchTracking() {
     { key: "product_name", label: "Product" },
     { key: "work_order_number", label: "Work Order", render: (r) => r.work_order_number || "—" },
     { key: "production_date", label: "Production Date", render: (r) => formatDate(r.production_date) },
-    { key: "quantity", label: "Qty" },
-    { key: "good_qty", label: "Good Qty" },
+    { key: "quantity", label: "Quantity" },
+    { key: "good_qty", label: "Good Quantity" },
     { key: "scrap_qty", label: "Scrap" },
     {
       key: "status",

@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, CheckCircle2, Plus, RefreshCw, Truck, XCircle } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, Plus, RefreshCw, Truck, XCircle } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
-import StoreManagerNav from "../../components/inventory/StoreManagerNav";
-import {
-  WhPageShell,
-  WhStickyHeader,
-  WhWorkflowStrip,
-  WH_BTN_SECONDARY,
-} from "../../components/inventory/warehouseUi";
 import { useToast } from "../../context/ToastContext";
 import {
   createStockTransfer,
@@ -19,7 +12,7 @@ import {
   updateStockTransferStatus,
 } from "../../api/inventoryApi";
 import { TRANSFER_STATUSES } from "../../data/inventoryMasterData";
-import { TRANSFER_WORKFLOW } from "../../data/warehousesMasterData";
+import useTenantId from "../../hooks/useTenantId";
 
 const STATUS_COLORS = {
   draft: "bg-slate-100 text-slate-700",
@@ -31,19 +24,8 @@ const STATUS_COLORS = {
   rejected: "bg-red-100 text-red-800",
 };
 
-function asArray(value) {
-  return Array.isArray(value) ? value : [];
-}
-
-function itemLabel(item) {
-  const code = item.product_code || item.code || item.item_code;
-  const name = item.name || "Item";
-  const stock = item.total_quantity ?? item.current_stock;
-  const base = code ? `${code} — ${name}` : name;
-  return stock != null ? `${base} (Stock: ${stock})` : base;
-}
-
 export default function StockTransfer() {
+  const tenantId = useTenantId();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [transfers, setTransfers] = useState([]);
@@ -72,9 +54,13 @@ export default function StockTransfer() {
         getWarehouses(),
         getInventoryDashboard(),
       ]);
-      setTransfers(trRes.status === "fulfilled" ? asArray(trRes.value?.data) : []);
-      setWarehouses(whRes.status === "fulfilled" ? asArray(whRes.value?.data) : []);
-      setItems(itemsRes.status === "fulfilled" ? asArray(itemsRes.value?.data) : []);
+      if (trRes.status === "fulfilled" && trRes.value?.data) {
+        setTransfers(trRes.value.data);
+      } else {
+        setTransfers([]);
+      }
+      if (whRes.status === "fulfilled") setWarehouses(whRes.value?.data || []);
+      if (itemsRes.status === "fulfilled") setItems(itemsRes.value?.data || []);
     } finally {
       setLoading(false);
     }
@@ -213,61 +199,21 @@ export default function StockTransfer() {
             </button>
           );
         }
-        if (r.status === "draft") {
-          return (
-            <button
-              type="button"
-              disabled={isBusy}
-              onClick={() => handleStatusChange(r.id, "pending_approval")}
-              className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-amber-700 disabled:opacity-50"
-            >
-              Submit
-            </button>
-          );
-        }
-        if (r.status === "received" || r.status === "completed") {
-          return (
-            <span className="text-xs font-medium capitalize text-teal-700">
-              {String(r.status).replace(/_/g, " ")}
-            </span>
-          );
-        }
-        return (
-          <span className="text-xs capitalize text-slate-500">
-            {String(r.status || "closed").replace(/_/g, " ")}
-          </span>
-        );
+        return <span className="text-xs text-slate-400">—</span>;
       },
     },
   ];
 
-  if (loading) {
-    return (
-      <WhPageShell>
-        <StoreManagerNav />
-        <Loader label="Loading stock transfers..." />
-      </WhPageShell>
-    );
-  }
+  if (loading) return <Loader label="Loading stock transfers..." />;
 
   return (
-    <WhPageShell>
-      <StoreManagerNav />
-      <WhStickyHeader
-        breadcrumb={[
-          { label: "Inventory", to: "/inventory" },
-          { label: "Stock Transfer" },
-        ]}
-        title="Stock Transfer"
-        subtitle="Source → Destination → Product → Quantity → Approval → Confirmation."
-        actions={
-          <button type="button" onClick={load} className={WH_BTN_SECONDARY}>
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </button>
-        }
-      />
-
-      <WhWorkflowStrip title="Transfer Workflow" steps={TRANSFER_WORKFLOW} />
+    <div className="space-y-6 p-4 sm:p-6">
+      <header>
+        <h1 className="text-2xl font-bold text-slate-900">Stock Transfer</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Initiate or approve material transfers from Main Store to Shop Floor Store.
+        </p>
+      </header>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -331,17 +277,17 @@ export default function StockTransfer() {
             </label>
 
             <label className="text-sm sm:col-span-2">
-              Product
+              Item
               <select
                 value={form.item_id}
                 onChange={(e) => setForm((f) => ({ ...f, item_id: e.target.value }))}
                 required
                 className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
               >
-                <option value="">Select product</option>
+                <option value="">Select</option>
                 {items.map((i) => (
                   <option key={i.id} value={i.id}>
-                    {itemLabel(i)}
+                    {i.sku} - {i.name}
                   </option>
                 ))}
               </select>
@@ -396,7 +342,11 @@ export default function StockTransfer() {
               />
             </label>
 
-            <button type="submit" disabled={submitting} className="ui-btn-primary sm:col-span-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="ui-btn-primary sm:col-span-2"
+            >
               {submitting ? "Creating..." : "Create Transfer"}
             </button>
           </form>
@@ -434,6 +384,6 @@ export default function StockTransfer() {
         </div>
         <DataTable columns={historyColumns} data={transfers} showSearch={false} />
       </section>
-    </WhPageShell>
+    </div>
   );
 }

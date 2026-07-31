@@ -11,7 +11,7 @@ from app.schemas.product import BomItemCreate, ProductCreate, ProductUpdate
 
 
 def list_products(db: Session, tenant_id: int) -> list[Product]:
-    stmt = select(Product).where(Product.tenant_id == tenant_id).order_by(Product.name)
+    stmt = select(Product).where(Product.tenant_id == tenant_id).order_by(Product.id.desc())
     return list(db.scalars(stmt).all())
 
 

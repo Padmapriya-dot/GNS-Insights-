@@ -13,26 +13,39 @@ export default function CreateProduction() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  
+  const editId = searchParams.get("id") || "";
   const salesOrderId = searchParams.get("sales_order_id");
   const salesOrderNumber = searchParams.get("sales_order_number") || "";
   const prefilledProductId = searchParams.get("product_id") || "";
-  const prefilledQty = searchParams.get("quantity") || "";
+  const prefilledOrderNumber = searchParams.get("order_number") || "";
+  const prefilledCustomer = searchParams.get("customer_name") || "";
+  const prefilledBom = searchParams.get("bom_version") || "BOM v1.0";
+  const prefilledQty = searchParams.get("planned_quantity") || searchParams.get("quantity") || "";
+  const prefilledPriority = searchParams.get("priority") || "medium";
+  const prefilledShift = searchParams.get("shift") || "Shift A";
+  const prefilledMachineId = searchParams.get("machine_id") || "";
+  const prefilledStart = searchParams.get("start_date") || "";
+  const prefilledEnd = searchParams.get("due_date") || "";
+
+  const isEditing = Boolean(editId || prefilledOrderNumber);
 
   const [products, setProducts] = useState([]);
   const [machines, setMachines] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [form, setForm] = useState({
+    id: editId ? Number(editId) : null,
     tenant_id: tenantId,
     product_id: prefilledProductId,
-    order_number: salesOrderNumber ? `PO-${salesOrderNumber}` : "",
-    customer_name: "",
-    bom_version: "BOM v1.0",
+    order_number: prefilledOrderNumber ? prefilledOrderNumber : (salesOrderNumber ? `PO-${salesOrderNumber}` : ""),
+    customer_name: prefilledCustomer,
+    bom_version: prefilledBom,
     planned_quantity: prefilledQty,
-    priority: "medium",
-    machine_id: "",
-    shift: "Shift A",
-    start_date: "",
-    due_date: "",
+    priority: prefilledPriority,
+    machine_id: prefilledMachineId,
+    shift: prefilledShift,
+    start_date: prefilledStart ? String(prefilledStart).slice(0, 16) : "",
+    due_date: prefilledEnd ? String(prefilledEnd).slice(0, 16) : "",
     status: "planned",
     sales_order_id: salesOrderId ? Number(salesOrderId) : null,
     sales_order_number: salesOrderNumber || null,
@@ -47,9 +60,10 @@ export default function CreateProduction() {
       fetchProductsWithFallback().catch(() => []),
       getMachines().catch(() => ({ data: [] })),
     ])
-      .then(([prods, mRes]) => {
-        setProducts(Array.isArray(prods) ? prods : []);
-        setMachines(mRes?.data || []);
+      .then(([pRes, mRes]) => {
+        const rawProducts = pRes?.data || [];
+        const sortedProducts = [...rawProducts].sort((a, b) => (b.id || 0) - (a.id || 0));
+        setProducts(sortedProducts);        setMachines(mRes?.data || []);
       })
       .finally(() => setLoadingProducts(false));
   }, [tenantId]);
@@ -98,6 +112,8 @@ export default function CreateProduction() {
         order_number: poNumber,
         product_id: pid,
         planned_quantity: Number(form.planned_quantity),
+        actual_quantity: null,
+        produced_quantity: null,
         customer_name: form.customer_name || null,
         bom_version: form.bom_version || "BOM v1.0",
         priority: form.priority || "medium",
@@ -145,7 +161,7 @@ export default function CreateProduction() {
   return (
     <div className="max-w-3xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-800">{t("createProduction.title")}</h2>
+        <h2 className="text-xl font-bold text-slate-800">{isEditing ? "Edit Production Order" : t("createProduction.title")}</h2>
         <Link
           to={salesOrderId ? `/sales/orders/${salesOrderId}` : "/production/planning"}
           className="text-sm font-medium text-slate-600 hover:text-slate-900"
@@ -180,12 +196,14 @@ export default function CreateProduction() {
               className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
             >
               <option value="">{loadingProducts ? t("createProduction.loading") : t("createProduction.selectProduct")}</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} {p.product_code || p.sku ? `(${p.product_code || p.sku})` : ""}
-                </option>
-              ))}
-            </select>
+              {products.map((p) => {
+                const code = p.product_code || p.sku || p.code || (p.id ? `PRD${String(p.id).padStart(3, "0")}` : "");
+                return (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{code ? ` (${code})` : ""}
+                  </option>
+                );
+              })}            </select>
             {products.length === 0 && !loadingProducts && (
               <div className="mt-2">
                 <p className="text-xs text-amber-600">No products found. Please add products first via Masters → Products.</p>
@@ -217,44 +235,25 @@ export default function CreateProduction() {
           </div>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label htmlFor="customer_name" className="block text-sm font-medium text-slate-700">
-              Customer Name
-            </label>
-            <input
-              id="customer_name"
-              type="text"
-              name="customer_name"
-              value={form.customer_name}
-              onChange={handleChange}
-              placeholder="e.g. Acme Corp"
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="bom_version" className="block text-sm font-medium text-slate-700">
-              BOM Version
-            </label>
-            <select
-              id="bom_version"
-              name="bom_version"
-              value={form.bom_version}
-              onChange={handleChange}
-              className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              <option value="BOM v1.0">BOM v1.0</option>
-              <option value="BOM v1.1">BOM v1.1</option>
-              <option value="BOM v2.0">BOM v2.0</option>
-            </select>
-          </div>
+        <div>
+          <label htmlFor="customer_name" className="block text-sm font-medium text-slate-700">
+            Customer Name
+          </label>
+          <input
+            id="customer_name"
+            type="text"
+            name="customer_name"
+            value={form.customer_name}
+            onChange={handleChange}
+            placeholder="e.g. Acme Corp"
+            className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label htmlFor="planned_quantity" className="block text-sm font-medium text-slate-700">
-              {t("createProduction.plannedQuantity")}
+              {t("createProduction.plannedQuantity")} <span className="text-red-500">*</span>
             </label>
             <input
               id="planned_quantity"
@@ -362,7 +361,7 @@ export default function CreateProduction() {
             disabled={saving || loadingProducts}
             className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:bg-slate-400"
           >
-            {saving ? t("createProduction.creating") : t("createProduction.createOrder")}
+            {saving ? "Saving..." : (isEditing ? "Update Order" : t("createProduction.createOrder"))}
           </button>
           <Link
             to="/production/planning"

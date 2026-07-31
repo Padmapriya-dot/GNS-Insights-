@@ -59,11 +59,6 @@ export default function Table({ columns, data, emptyState, sortable }) {
               >
                 <span className="flex items-center gap-1.5">
                   {col.label}
-                  {sortable && col.sortable !== false && sortKey === col.key && (
-                    <span className="text-teal-600 dark:text-teal-400">
-                      {sortDir === "asc" ? "↑" : "↓"}
-                    </span>
-                  )}
                 </span>
               </th>
             ))}

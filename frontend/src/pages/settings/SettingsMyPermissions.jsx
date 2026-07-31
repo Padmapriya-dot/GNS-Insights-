@@ -62,10 +62,10 @@ const PERMISSIONS_TREE = [
         full: true,
         critical: true,
         children: [
-          { id: "rfq", name: "RFQ", moderate: true, full: true, critical: true },
+          { id: "rfq", name: "Request for Quotation (RFQ)", moderate: true, full: true, critical: true },
           { id: "po", name: "Purchase Order", moderate: true, full: true, critical: true },
           { id: "inward", name: "Inward", moderate: true, full: true, critical: true },
-          { id: "qir", name: "QIR", moderate: true, full: true, critical: true },
+          { id: "qir", name: "Quality Inspection Report (QIR)", moderate: true, full: true, critical: true },
           { id: "pchallan", name: "Challan", moderate: true, full: true, critical: true },
           { id: "pinvoice", name: "Invoice", moderate: true, full: true, critical: true },
         ],
@@ -88,7 +88,7 @@ const PERMISSIONS_TREE = [
         children: [
           { id: "indent-reports", name: "Indent Reports", moderate: true, full: true, critical: true },
           { id: "financial", name: "Financial Reporting", moderate: true, full: true, critical: true },
-          { id: "gst", name: "GST Reporting", moderate: true, full: true, critical: true },
+          { id: "gst", name: "Goods & Services Tax (GST) Reporting", moderate: true, full: true, critical: true },
         ],
       },
       {
@@ -121,7 +121,7 @@ const PERMISSIONS_TREE = [
         full: true,
         critical: true,
         children: [
-          { id: "bom", name: "BOM", moderate: true, full: true, critical: true },
+          { id: "bom", name: "Bill of Materials (BOM)", moderate: true, full: true, critical: true },
           { id: "process", name: "Process", moderate: true, full: true, critical: true },
           { id: "testing", name: "Testing", moderate: true, full: true, critical: true },
           { id: "work-order", name: "Work Order", moderate: true, full: true, critical: true },

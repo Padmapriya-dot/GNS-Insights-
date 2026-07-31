@@ -22,7 +22,27 @@ def is_valid_permission(code: str) -> bool:
 
 
 def get_role_names(user: User) -> list[str]:
-    return [r.name for r in user.roles]
+    if not user:
+        return []
+    names = []
+    roles = getattr(user, "roles", []) or []
+    for r in roles:
+        if hasattr(r, "name") and r.name:
+            names.append(r.name)
+        elif isinstance(r, str):
+            names.append(r)
+    if hasattr(user, "role") and getattr(user, "role"):
+        names.append(str(getattr(user, "role")))
+    if hasattr(user, "role_name") and getattr(user, "role_name"):
+        names.append(str(getattr(user, "role_name")))
+    if isinstance(user, dict):
+        if "role" in user and user["role"]:
+            names.append(str(user["role"]))
+        if "role_name" in user and user["role_name"]:
+            names.append(str(user["role_name"]))
+        if "roles" in user and isinstance(user["roles"], list):
+            names.extend([str(r) for r in user["roles"]])
+    return names
 
 
 def _normalize_permissions(raw_permissions) -> list[str]:
@@ -50,12 +70,21 @@ def _permissions_for_role_name(name: str) -> list[str]:
 
 def get_user_permissions(user: User) -> set[str]:
     perms: set[str] = set()
+<<<<<<< HEAD
+    if not user:
+        return perms
+    roles = getattr(user, "roles", []) or []
+    for role in roles:
+        for p in getattr(role, "permissions", []) or []:
+            perms.add(p)
+=======
     for role in user.roles:
         normalized = _normalize_permissions(getattr(role, "permissions", None))
         if normalized:
             perms.update(normalized)
         elif role.name in PERMISSION_MATRIX:
             perms.update(_permissions_for_role_name(role.name))
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
     return perms
 
 

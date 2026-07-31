@@ -24,6 +24,36 @@ export const GST_REGISTRATION_TYPES = ["Regular", "Composition", "Unregistered"]
 
 export const PAYMENT_TERMS = ["Advance", "COD", "Net 15", "Net 30", "Net 45"];
 
+export const INDIAN_STATES = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+  "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
+  "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
+  "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
+  "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal",
+  "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry",
+];
+
+export const MATERIAL_TYPES = [
+  "Raw Material",
+  "Packing Material",
+  "Chemicals",
+  "Spare Parts",
+  "Consumables",
+  "Machinery & Equipment",
+  "Office Supplies",
+  "Services",
+  "Other",
+];
+
+export const VENDOR_CATEGORIES = [
+  "Preferred",
+  "Approved",
+  "Under Review",
+  "Blacklisted",
+  "Trial",
+];
+
 export const VENDOR_DOC_TYPES = [
   "GST Certificate",
   "PAN Card",
@@ -37,10 +67,10 @@ export const VENDOR_DOC_TYPES = [
 export const WORKFLOW_STEPS = [
   "Create Vendor",
   "Purchase Request",
-  "RFQ",
+  "Request for Quotation (RFQ)",
   "Quotation",
   "Purchase Order",
-  "GRN",
+  "Goods Receipt Note (GRN)",
   "Vendor Bill",
   "Payment",
   "Ledger Update",

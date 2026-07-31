@@ -67,7 +67,7 @@ const DEPARTMENT_BY_TYPE = {
   production: "Production",
   quality: "Quality",
   report: "Finance",
-  hr: "HR",
+  hr: "Human Resources (HR)",
   general: "General",
 };
 

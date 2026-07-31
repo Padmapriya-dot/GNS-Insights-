@@ -16,6 +16,7 @@ class ProductionOrder(Base, TimestampMixin):
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     order_number: Mapped[str] = mapped_column(String(64), nullable=False)
     planned_quantity: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    actual_quantity: Mapped[float | None] = mapped_column(Numeric(12, 2))
     start_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(32), default="planned", nullable=False)

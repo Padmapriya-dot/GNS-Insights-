@@ -30,38 +30,14 @@ class MastersService:
 
     # ── Products ───────────────────────────────────────────────────────────
 
-    def list_products(self) -> list[dict]:
-        return [
-            {
-                "id": p.id,
-                "sku": p.sku,
-                "name": p.name,
-                "description": p.description,
-                "unit": getattr(p, "unit", None) or "Pcs",
-                "unit_cost": float(p.unit_cost) if p.unit_cost else None,
-                "unit_price": float(p.unit_price) if p.unit_price else None,
-                "purchase_price": float(p.unit_cost) if p.unit_cost else 0,
-                "selling_price": float(p.unit_price) if p.unit_price else 0,
-                "wholesale_price": float(p.wholesale_price) if getattr(p, "wholesale_price", None) else 0,
-                "hsn_code": getattr(p, "hsn_code", None) or "",
-                "category": getattr(p, "category", None) or "No Category",
-                "gst_percent": float(p.gst_percent) if getattr(p, "gst_percent", None) is not None else 0,
-                "cess_percent": float(p.cess_percent) if getattr(p, "cess_percent", None) is not None else 0,
-                "min_stock": int(p.min_stock) if p.min_stock is not None else None,
-                "max_stock": int(p.max_stock) if p.max_stock is not None else None,
-                "current_stock": float(p.current_stock) if p.current_stock is not None else 0,
-                "stock_value": float(p.current_stock or 0) * float(p.unit_price or 0),
-            }
-            for p in list_products(self.db, self.tenant_id)
-        ]
-
-    def get_product(self, product_id: int) -> dict | None:
-        p = get_product(self.db, self.tenant_id, product_id)
-        if not p:
-            return None
+    @staticmethod
+    def _serialize_product(p) -> dict:
+        """Serialize all stored product fields to a dict, incl. Inventory V2 fields."""
+        code = p.sku or (f"PRD{str(p.id).zfill(3)}" if p.id else "")
         return {
             "id": p.id,
-            "sku": p.sku,
+            "sku": p.sku or code,
+            "product_code": code,
             "name": p.name,
             "description": p.description,
             "unit": getattr(p, "unit", None) or "Pcs",
@@ -78,19 +54,33 @@ class MastersService:
             "max_stock": int(p.max_stock) if p.max_stock is not None else None,
             "current_stock": float(p.current_stock) if p.current_stock is not None else 0,
             "stock_value": float(p.current_stock or 0) * float(p.unit_price or 0),
-            "bom": [self.bom.enrich_item(b) for b in list_bom(self.db, self.tenant_id, p.id)],
+            "created_at": p.created_at.isoformat() if getattr(p, "created_at", None) else None,
         }
+
+    def list_products(self) -> list[dict]:
+        return [
+            self._serialize_product(p)
+            for p in list_products(self.db, self.tenant_id)
+        ]
+
+    def get_product(self, product_id: int) -> dict | None:
+        p = get_product(self.db, self.tenant_id, product_id)
+        if not p:
+            return None
+        result = self._serialize_product(p)
+        result["bom"] = [self.bom.enrich_item(b) for b in list_bom(self.db, self.tenant_id, p.id)]
+        return result
 
     def create_product(self, payload: ProductCreate) -> dict:
         payload.tenant_id = self.tenant_id
         p = create_product(self.db, payload)
-        return {"id": p.id, "sku": p.sku, "name": p.name, "unit": getattr(p, "unit", None) or "Pcs"}
+        return self._serialize_product(p)
 
     def update_product(self, product_id: int, payload: ProductUpdate) -> dict | None:
         p = update_product(self.db, self.tenant_id, product_id, payload)
         if not p:
             return None
-        return {"id": p.id, "sku": p.sku, "name": p.name, "unit": getattr(p, "unit", None) or "Pcs"}
+        return self._serialize_product(p)
 
     def delete_product(self, product_id: int) -> bool:
         return delete_product(self.db, self.tenant_id, product_id)

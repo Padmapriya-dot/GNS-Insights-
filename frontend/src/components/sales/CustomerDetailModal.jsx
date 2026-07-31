@@ -9,8 +9,7 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import { CUSTOMER_TYPES, SALES_EXECUTIVES } from "../../data/customersMasterData";
-
+import CITIES_MAP from "../../data/indiaCitiesToStates.json";
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "orders", label: "Sales Orders" },
@@ -232,13 +231,27 @@ export function CustomerFormModal({ customer, onClose, onSave }) {
     city: customer?.city || "",
     state: customer?.state || "",
     customer_type: customer?.customer_type || "Corporate",
-    sales_executive: customer?.sales_executive || SALES_EXECUTIVES[0] || "Ravi Kumar",
-    credit_limit: customer?.credit_limit ?? 500000,
-    outstanding: customer?.outstanding ?? 0,
-    status: customer?.status || "active",
+    credit_limit: customer?.credit_limit ?? "",
+    outstanding: customer?.outstanding ?? "",    status: customer?.status || "active",
     billing_address: customer?.billing_address || customer?.address_line1 || "",
   });
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const getStateForCity = (city) => {
+    if (!city) return null;
+    const key = String(city).trim().toLowerCase();
+    return CITIES_MAP[key] || null;
+  };
+
+  const set = (k, v) => setForm((f) => {
+    const next = { ...f, [k]: v };
+    if (k === "city") {
+      const mapped = getStateForCity(v);
+      const prevMapped = getStateForCity(f.city);
+      if (mapped && (!f.state || f.state === "" || f.state === prevMapped)) {
+        next.state = mapped;
+      }
+    }
+    return next;
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -268,33 +281,49 @@ export function CustomerFormModal({ customer, onClose, onSave }) {
             <input value={form.contact_person} onChange={(e) => set("contact_person", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           </label>
           <label>
-            <span className="text-xs font-semibold text-slate-500">Customer Type</span>
-            <select value={form.customer_type} onChange={(e) => set("customer_type", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-              {CUSTOMER_TYPES.map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Sales Executive</span>
-            <select value={form.sales_executive} onChange={(e) => set("sales_executive", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-              {SALES_EXECUTIVES.map((exec) => (
-                <option key={exec} value={exec}>{exec}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="text-xs font-semibold text-slate-500">Phone</span>
-            <input value={form.phone} onChange={(e) => set("phone", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          </label>
-          <label>
+  <span className="text-xs font-semibold text-slate-500">Phone</span>
+  <input
+    type="tel"
+    value={form.phone}
+    maxLength={10}
+    pattern="[6-9]{1}[0-9]{9}"
+    onChange={(e) => {
+      const value = e.target.value.replace(/\D/g, ""); // allow only digits
+      if (value.length <= 10) {
+        set("phone", value);
+      }
+    }}
+    onInvalid={(e) =>
+      e.target.setCustomValidity("Please enter a valid 10-digit mobile number.")
+    }
+    onInput={(e) => e.target.setCustomValidity("")}
+    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+  />
+</label>          <label>
             <span className="text-xs font-semibold text-slate-500">Email</span>
             <input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           </label>
           <label>
-            <span className="text-xs font-semibold text-slate-500">GSTIN</span>
-            <input value={form.gstin} onChange={(e) => set("gstin", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          </label>
+  <span className="text-xs font-semibold text-slate-500">GSTIN</span>
+  <input
+    value={form.gstin}
+    maxLength={15}
+    onChange={(e) => {
+      const value = e.target.value
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, ""); // Allow only letters and numbers
+      if (value.length <= 15) {
+        set("gstin", value);
+      }
+    }}
+    pattern="^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$"
+    onInvalid={(e) =>
+      e.target.setCustomValidity("Please enter a valid GSTIN.")
+    }
+    onInput={(e) => e.target.setCustomValidity("")}
+    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+  />
+</label>
           <label>
             <span className="text-xs font-semibold text-slate-500">City</span>
             <input value={form.city} onChange={(e) => set("city", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
@@ -305,11 +334,11 @@ export function CustomerFormModal({ customer, onClose, onSave }) {
           </label>
           <label>
             <span className="text-xs font-semibold text-slate-500">Credit Limit (₹)</span>
-            <input type="number" min="0" value={form.credit_limit} onChange={(e) => set("credit_limit", e.target.value)} placeholder="500000" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <input type="text" inputMode="numeric" value={form.credit_limit} onChange={(e) => set("credit_limit", e.target.value)} placeholder="e.g. 500000" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           </label>
           <label>
             <span className="text-xs font-semibold text-slate-500">Outstanding (₹)</span>
-            <input type="number" min="0" value={form.outstanding} onChange={(e) => set("outstanding", e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <input type="text" inputMode="numeric" value={form.outstanding} onChange={(e) => set("outstanding", e.target.value)} placeholder="e.g. 25000" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
           </label>
           <label className="sm:col-span-2">
             <span className="text-xs font-semibold text-slate-500">Billing Address</span>

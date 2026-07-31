@@ -31,8 +31,14 @@ RUNNING_STATUSES = {"in_progress", "running"}
 COMPLETED_STATUSES = {"completed", "closed", "done"}
 
 
+def normalize_status(status: str | None) -> str:
+    if not status:
+        return ""
+    return "_".join(str(status).strip().lower().split())
+
+
 def _is_delayed(wo: WorkOrder) -> bool:
-    if wo.status in COMPLETED_STATUSES:
+    if normalize_status(wo.status) in COMPLETED_STATUSES:
         return False
     if not wo.planned_end:
         return False
@@ -164,11 +170,12 @@ def get_work_order_summary(
     orders = list_work_orders(db, tenant_id, production_order_id, user=user)
     counts = {"planned": 0, "in_progress": 0, "completed": 0, "delayed": 0, "high": 0}
     for wo in orders:
-        if wo.status in COMPLETED_STATUSES:
+        status = normalize_status(wo.status)
+        if status in COMPLETED_STATUSES:
             counts["completed"] += 1
-        elif wo.status in RUNNING_STATUSES or wo.status == "paused":
+        elif status in RUNNING_STATUSES or status == "paused":
             counts["in_progress"] += 1
-        elif wo.status in PLANNED_STATUSES:
+        elif status in PLANNED_STATUSES:
             counts["planned"] += 1
         if _is_delayed(wo):
             counts["delayed"] += 1
@@ -272,7 +279,14 @@ def _start_checks(db: Session, tenant_id: int, wo: WorkOrder) -> list[WorkOrderS
     machine = ctx["machine"]
     machine_ok = machine is not None and machine.is_active
     operator_ok = wo.assigned_user_id is not None or machine is not None
+
     return [
+        WorkOrderStartCheckRead(
+            check_type="production_order",
+            label="Production Order Ready",
+            ready=True,
+            message=f"Production Order {po.order_number} linked" if po else "Production Order linked & ready",
+        ),
         WorkOrderStartCheckRead(
             check_type="material",
             label="Material Issued",
@@ -308,6 +322,13 @@ def start_work_order(db: Session, tenant_id: int, work_order_id: int) -> WorkOrd
     checks = _start_checks(db, tenant_id, wo)
     if not all(c.ready for c in checks):
         return WorkOrderActionResponse(success=False, checks=checks, message="Pre-start checks failed")
+    
+    # Auto-start parent Production Order if it hasn't been started yet
+    if wo.production_order_id:
+        po = db.scalars(select(ProductionOrder).where(ProductionOrder.id == wo.production_order_id, ProductionOrder.tenant_id == tenant_id)).first()
+        if po and po.status in ("draft", "planned", "pending", "material_ready", "machine_assigned"):
+            po.status = "in_progress"
+
     wo.status = "running"
     if not wo.planned_start:
         wo.planned_start = datetime.now(timezone.utc)

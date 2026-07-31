@@ -238,8 +238,12 @@ export function userCanAccessPath(user, pathname) {
 
 export function isOperator(user) {
   if (!user) return false;
-  const roles = Array.isArray(user.roles) ? user.roles : [];
-  return user.role === "Operator" || user.role_name === "Operator" || roles.includes("Operator");
+  const roles = Array.isArray(user.roles)
+    ? user.roles.map((r) => (typeof r === "object" ? r?.name || "" : String(r)).toLowerCase())
+    : [];
+  const roleStr = String(user.role || user.role_name || (typeof user.roles === "string" ? user.roles : "")).toLowerCase();
+  const allRoles = [...roles, roleStr];
+  return allRoles.some((r) => r === "operator" || r.includes("operator"));
 }
 
 /** Human-readable label for a module code or granular permission (e.g. production:read). */

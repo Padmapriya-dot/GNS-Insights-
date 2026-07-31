@@ -63,9 +63,9 @@ function SummaryCard({ label, value, sub, icon: Icon, color }) {
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className="mt-1 truncate text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{value}</p>
-          {sub && <p className="mt-0.5 text-[10px] text-slate-400">{sub}</p>}
+          <div className="text-xs font-medium text-slate-500">{label}</div>
+          <div className="mt-1 truncate text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{value}</div>
+          {sub && <div className="mt-0.5 text-[10px] text-slate-400">{sub}</div>}
         </div>
         {Icon && (
           <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${color}`}>
@@ -334,26 +334,28 @@ function NewScheduleModal({ onClose, onSuccess }) {
     }
     setSaving(true);
     try {
-      // Find the production order details
       const po = productionOrders.find((o) => String(o.id) === String(form.production_order_id));
+      const woNum = `WO-${po?.order_number || Date.now()}`;
       const res = await createWorkOrder({
         production_order_id: Number(form.production_order_id),
+        work_order_number: woNum,
         machine_id: form.machine_id ? Number(form.machine_id) : null,
-        planned_start: form.planned_start || null,
-        planned_end: form.planned_end || null,
+        planned_start: form.planned_start ? new Date(form.planned_start).toISOString() : null,
+        planned_end: form.planned_end ? new Date(form.planned_end).toISOString() : null,
         shift: form.shift || null,
         priority: form.priority,
         planned_quantity: po?.planned_quantity || 1,
         status: "planned",
         tenant_id: tenantId,
       });
-      if (res?.data) {
+      if (res?.data || res?.status === 200 || res?.status === 201) {
         addToast("Schedule created successfully!", "success");
-        onSuccess();
+        if (typeof onSuccess === "function") onSuccess();
         onClose();
       }
     } catch (err) {
-      addToast(err?.response?.data?.detail || "Failed to create schedule", "error");
+      const detail = err?.response?.data?.detail;
+      addToast(typeof detail === "string" ? detail : "Failed to create schedule", "error");
     } finally {
       setSaving(false);
     }

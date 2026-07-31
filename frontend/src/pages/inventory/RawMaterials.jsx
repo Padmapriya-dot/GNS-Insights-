@@ -5,7 +5,6 @@ import { AlertTriangle, Box, Download, Package, Plus, RefreshCw, Search, Trash2 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import MaterialDetailModal from "../../components/inventory/MaterialDetailModal";
-import EditInventoryItemModal from "../../components/inventory/EditInventoryItemModal";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { useToast } from "../../context/ToastContext";
 import { getItemByBarcode, getRawMaterialDetail, getRawMaterials, getRawMaterialsSummary } from "../../api/inventoryApi";
@@ -50,7 +49,6 @@ export default function RawMaterials() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
   const [selected, setSelected] = useState(null);
-  const [editing, setEditing] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -134,11 +132,12 @@ export default function RawMaterials() {
   };
 
   const columns = [
+    { key: "sku", label: "Stock Keeping Unit (SKU)" },
     { key: "name", label: "Material" },
     { key: "category", label: "Category" },
     { key: "warehouse_name", label: "Warehouse" },
     { key: "batch_number", label: "Batch" },
-    { key: "quantity", label: "Qty" },
+    { key: "quantity", label: "Quantity" },
     { key: "reserved", label: "Reserved" },
     { key: "available", label: "Available" },
     { key: "unit", label: "Unit" },
@@ -149,7 +148,7 @@ export default function RawMaterials() {
     { key: "actions", label: "Actions", render: (r) => (
       <div className="flex gap-2">
         <button type="button" onClick={() => openDetail(r)} className="text-xs font-semibold text-[#2563EB] hover:underline">View</button>
-        <button type="button" onClick={() => setEditing(r)} className="text-xs text-slate-600 hover:underline">Edit</button>
+        <Link to={`/inventory/items/create?type=raw_material&edit=${r.id}`} className="text-xs text-slate-600 hover:underline">Edit</Link>
       </div>
     )},
   ];
@@ -159,7 +158,7 @@ export default function RawMaterials() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-900">Raw Materials</h1><p className="mt-1 text-sm text-slate-500">Multi-warehouse raw material inventory with batch, barcode, and vendor tracking.</p></div>
+        <div><h1 className="text-2xl font-bold text-slate-900">Raw Materials</h1><p className="mt-1 text-sm text-slate-500">Monitor raw material stock levels to prevent line stoppages.</p></div>
         <div className="flex flex-wrap gap-2">
           <Link to="/inventory/items/create?type=raw_material" className="ui-btn-primary"><Plus className="h-4 w-4" /> New Material</Link>
           <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "raw-materials")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
@@ -189,22 +188,15 @@ export default function RawMaterials() {
         </div>
         {showAdvanced && (
           <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <input placeholder="SKU" value={filters.sku} onChange={(e) => setFilters((f) => ({ ...f, sku: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
             <select value={filters.category} onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm"><option value="">Category</option>{MATERIAL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select>
             <select value={filters.warehouse} onChange={(e) => setFilters((f) => ({ ...f, warehouse: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm"><option value="">Warehouse</option>{WAREHOUSES.map((w) => <option key={w} value={w}>{w}</option>)}</select>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={filters.low_stock} onChange={(e) => setFilters((f) => ({ ...f, low_stock: e.target.checked }))} /> Low Stock</label>
           </div>
         )}
-        <DataTable columns={columns} data={filtered} searchKeys={["name", "batch_number", "category"]} showSearch={false} />
+        <DataTable columns={columns} data={filtered} searchKeys={["sku", "name", "batch_number"]} showSearch={false} />
       </div>
       {selected && <MaterialDetailModal material={selected} onClose={() => setSelected(null)} />}
-      {editing ? (
-        <EditInventoryItemModal
-          item={editing}
-          addToast={addToast}
-          onClose={() => setEditing(null)}
-          onSaved={() => load()}
-        />
-      ) : null}
     </div>
   );
 }

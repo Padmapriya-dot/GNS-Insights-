@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { useToast } from "../../context/ToastContext";
@@ -8,29 +8,43 @@ import {
   getMachines,
   quickCreateWorkOrder,
 } from "../../api/productionApi";
-import { getEmployees } from "../../api/hrApi";
+import { getShifts } from "../../api/hrApi";
 import useTenantId from "../../hooks/useTenantId";
-import { PRIORITIES } from "../../data/productionPlanningMasterData";
+import { PRIORITIES, SHIFTS } from "../../data/productionPlanningMasterData";
 
 export default function QuickCreateWorkOrder() {
   const tenantId = useTenantId();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const [searchParams] = useSearchParams();
+
+  const poId = searchParams.get("production_order_id") || "";
+  const prefilledProductId = searchParams.get("product_id") || "";
+  const prefilledQty = searchParams.get("planned_quantity") || searchParams.get("quantity") || "";
+  const prefilledOrderNumber = searchParams.get("order_number") || "";
+  const prefilledCustomer = searchParams.get("customer_name") || "";
+  const prefilledShift = searchParams.get("shift") || "";
+  const prefilledPriority = searchParams.get("priority") || "medium";
+  const prefilledStart = searchParams.get("start_date") || "";
+  const prefilledEnd = searchParams.get("due_date") || "";
+
   const [products, setProducts] = useState([]);
   const [machines, setMachines] = useState([]);
-  const [operators, setOperators] = useState([]);
+  const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
-    work_order_number: "",
-    product_id: "",
-    customer_name: "",
+    production_order_id: poId ? Number(poId) : null,
+    work_order_number: prefilledOrderNumber ? `WO-${prefilledOrderNumber}` : "",
+    product_id: prefilledProductId,
+    customer_name: prefilledCustomer,
     machine_id: "",
+    shift: prefilledShift,
     operator_name: "",
-    planned_quantity: "",
-    priority: "medium",
-    planned_start: "",
-    planned_end: "",
+    planned_quantity: prefilledQty,
+    priority: prefilledPriority,
+    planned_start: prefilledStart ? String(prefilledStart).slice(0, 16) : "",
+    planned_end: prefilledEnd ? String(prefilledEnd).slice(0, 16) : "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -39,16 +53,21 @@ export default function QuickCreateWorkOrder() {
     const load = async () => {
       setLoading(true);
       try {
-        const [pRes, mRes] = await Promise.all([
+        const [pRes, mRes, sRes] = await Promise.all([
           getProducts(tenantId).catch(() => ({ data: [] })),
           getMachines(tenantId).catch(() => ({ data: [] })),
+          getShifts(tenantId).catch(() => ({ data: [] })),
         ]);
-        setProducts(pRes?.data || []);
+        const rawProducts = pRes?.data || [];
+        const sortedProducts = [...rawProducts].sort((a, b) => (b.id || 0) - (a.id || 0));
+        setProducts(sortedProducts);
         setMachines(mRes?.data || []);
+        setShifts(sRes?.data || []);
       } catch (e) {
         console.error(e);
         setProducts([]);
         setMachines([]);
+        setShifts([]);
       } finally {
         setLoading(false);
       }
@@ -62,6 +81,10 @@ export default function QuickCreateWorkOrder() {
     setError("");
   };
 
+  const defaultShifts = SHIFTS || ["Shift A", "Shift B", "Shift C"];
+  const fetchedShiftNames = (shifts || []).map((s) => s.name || s.code).filter(Boolean);
+  const shiftOptions = Array.from(new Set([...defaultShifts, ...fetchedShiftNames]));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const qty = Number(form.planned_quantity);
@@ -74,18 +97,22 @@ export default function QuickCreateWorkOrder() {
     try {
       await quickCreateWorkOrder({
         tenant_id: tenantId,
+        production_order_id: form.production_order_id ? Number(form.production_order_id) : null,
         product_id: Number(form.product_id),
         planned_quantity: qty,
+        actual_quantity: null,
+        produced_quantity: null,
         work_order_number: form.work_order_number || null,
         customer_name: form.customer_name || null,
         machine_id: form.machine_id ? Number(form.machine_id) : null,
+        shift: form.shift || null,
         operator_name: form.operator_name || null,
         priority: form.priority || "medium",
         planned_start: form.planned_start || null,
         planned_end: form.planned_end || null,
       });
-      addToast("Work order created successfully", "success");
-      navigate("/production/work-orders");
+      addToast(form.production_order_id ? "Machine allocated to order successfully" : "Work order created successfully", "success");
+      navigate(form.production_order_id ? "/production/planning" : "/production/work-orders");
     } catch (err) {
       const detail = err.response?.data?.detail;
       const msg = Array.isArray(detail)
@@ -149,11 +176,14 @@ export default function QuickCreateWorkOrder() {
                   ? "No products available – please add products first"
                   : t("quickCreateWorkOrder.selectProduct", { defaultValue: "Select product" })}
               </option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.sku})
-                </option>
-              ))}
+              {products.map((p) => {
+                const code = p.product_code || p.sku || p.code || (p.id ? `PRD${String(p.id).padStart(3, "0")}` : "");
+                return (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{code ? ` (${code})` : ""}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -162,7 +192,7 @@ export default function QuickCreateWorkOrder() {
               htmlFor="work_order_number"
               className="block text-sm font-medium text-slate-700 dark:text-slate-300"
             >
-              WO Number
+              Work Order Number
             </label>
             <input
               id="work_order_number"
@@ -170,7 +200,7 @@ export default function QuickCreateWorkOrder() {
               name="work_order_number"
               value={form.work_order_number}
               onChange={handleChange}
-              placeholder="e.g. WO-2024-001 (auto-generated if empty)"
+              placeholder="e.g. Work Order 2024-001 (auto-generated if empty)"
               className="mt-1.5 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
           </div>
@@ -200,7 +230,7 @@ export default function QuickCreateWorkOrder() {
               htmlFor="planned_quantity"
               className="block text-sm font-medium text-slate-700 dark:text-slate-300"
             >
-              Planned Qty <span className="text-red-500">*</span>
+              Planned Quantity <span className="text-red-500">*</span>
             </label>
             <input
               id="planned_quantity"
@@ -217,7 +247,7 @@ export default function QuickCreateWorkOrder() {
           </div>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label
               htmlFor="machine_id"
@@ -236,6 +266,29 @@ export default function QuickCreateWorkOrder() {
               {machines.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name || m.code}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="shift"
+              className="block text-sm font-medium text-slate-700 dark:text-slate-300"
+            >
+              Shift
+            </label>
+            <select
+              id="shift"
+              name="shift"
+              value={form.shift}
+              onChange={handleChange}
+              className="mt-1.5 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            >
+              <option value="">Select Shift (Optional)</option>
+              {shiftOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
                 </option>
               ))}
             </select>

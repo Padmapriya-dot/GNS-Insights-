@@ -40,6 +40,7 @@ const ICON_BY_KEY = {
   sales: Wallet,
   hr: Users,
   finance: Landmark,
+  accountant: Landmark,
   quality: CheckCircle2,
   maintenance: Wrench,
   alerts: Bell,
@@ -127,15 +128,84 @@ function mapApiMenusToNav(menus) {
   });
 }
 
+const PROD_MANAGER_ALLOWED_SECTIONS = new Set([
+  "dashboard",
+  "masters",
+  "production",
+  "inventory",
+  "procurement",
+  "quality",
+  "maintenance",
+  "alerts",
+  "documents",
+  "analytics",
+]);
+
+const PROD_MANAGER_ALLOWED_CHILDREN = new Set([
+  "/masters/products",
+  "/masters/bom",
+  "/production/machines",
+  "/production/planning",
+  "/production/mrp",
+  "/production/work-orders",
+  "/production/schedule",
+  "/factory-monitor/live-production",
+  "/production/tasks",
+  "/production/assign-tasks",
+  "/production/batches",
+  "/production/reports",
+  "/inventory/raw-materials",
+  "/inventory/finished-goods",
+  "/inventory/stock-transfer",
+  "/procurement/material-requests",
+  "/quality/in-process",
+  "/quality/final",
+  "/quality/defects",
+  "/maintenance/preventive",
+  "/maintenance/breakdowns",
+  "/maintenance/machine-history",
+  "/alerts",
+  "/alerts/low-stock",
+  "/alerts/machine-failure",
+  "/alerts/production-delay",
+  "/alerts/maintenance",
+  "/alerts/quality",
+  "/alerts/safety",
+  "/alerts/general",
+  "/documents",
+  "/documents/production",
+  "/documents/quality",
+  "/documents/reports",
+  "/analytics/production",
+  "/analytics/inventory",
+  "/analytics/live",
+]);
+
+function isProductionManager(user) {
+  if (!user) return false;
+  const roles = Array.isArray(user.roles)
+    ? user.roles.map((r) => (typeof r === "object" ? r.name : String(r)))
+    : [];
+  const roleStr = String(user.role || user.role_name || (typeof user.roles === "string" ? user.roles : "")).toLowerCase();
+  const allRoles = [...roles.map((r) => String(r).toLowerCase()), roleStr];
+  if (allRoles.some((r) => r.includes("admin"))) return false;
+  return allRoles.some((r) => r.includes("production manager") || r.includes("production_manager"));
+}
+
 function filterStaticNav(user) {
   const storeMgr = isStoreManager(user);
+  const isPM = isProductionManager(user);
   return SIDEBAR_NAV.map((section) => {
+    if (isPM && !PROD_MANAGER_ALLOWED_SECTIONS.has(section.key)) return null;
     if (section.to) {
       if (!userCanAccess(user, section.module)) return null;
       if (storeMgr && !storeManagerPathAllowed(section.to)) return null;
       return section;
     }
-    let children = (section.children || []).filter((c) => userCanAccess(user, c.module));
+    let children = (section.children || []).filter((c) => {
+      if (isPM && !PROD_MANAGER_ALLOWED_CHILDREN.has(c.to)) return false;
+      return userCanAccess(user, c.module);
+    });
     if (storeMgr) {
       children = children.filter((c) => storeManagerPathAllowed(c.to));
     }
@@ -188,7 +258,19 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, onClose }
     }
     // Prefer local SIDEBAR_NAV so new pages (Inventory v2, Ledger) appear even if API catalog is stale.
     const staticNav = filterStaticNav(user);
-    return staticNav.length ? staticNav : apiNav && apiNav.length ? apiNav : [];
+    const raw = staticNav.length ? staticNav : apiNav && apiNav.length ? apiNav : [];
+    if (isProductionManager(user)) {
+      return raw
+        .map((section) => {
+          if (!PROD_MANAGER_ALLOWED_SECTIONS.has(section.key)) return null;
+          if (!section.children) return section;
+          const children = section.children.filter((c) => PROD_MANAGER_ALLOWED_CHILDREN.has(c.to));
+          if (children.length === 0) return null;
+          return { ...section, children };
+        })
+        .filter(Boolean);
+    }
+    return raw;
   }, [apiNav, user, storeMode]);
 
   const [expanded, setExpanded] = useState(() =>
