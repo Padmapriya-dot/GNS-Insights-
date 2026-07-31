@@ -90,6 +90,11 @@ export default function ProductsMaster() {
     warehouse: "",
   });
 
+  const getProductKey = (item) =>
+    String(item.name || item.product_code || item.sku || item.id || "")
+      .trim()
+      .toLowerCase();
+
   const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
@@ -218,9 +223,36 @@ export default function ProductsMaster() {
 
   const handleDelete = async (product) => {
     if (!window.confirm(`Delete ${product.name}?`)) return;
+    const targetKey = getProductKey(product);
+    const codeKey = String(product.product_code || "").trim().toLowerCase();
+    const skuKey = String(product.sku || "").trim().toLowerCase();
+    const idKey = String(product.id || "").trim().toLowerCase();
+
+    // Save to deleted tracker
+    const deletedStored = localStorage.getItem("smrt_deleted_products");
+    const deletedIds = deletedStored ? JSON.parse(deletedStored) : [];
+    [targetKey, codeKey, skuKey, idKey].forEach((k) => {
+      if (k && !deletedIds.includes(k)) deletedIds.push(k);
+    });
+    localStorage.setItem("smrt_deleted_products", JSON.stringify(deletedIds));
+
+    // Remove from smrt_products
+    const stored = localStorage.getItem("smrt_products");
+    if (stored) {
+      const localRows = JSON.parse(stored);
+      const updatedLocal = localRows.filter((p) => {
+        const k = getProductKey(p);
+        const pCode = String(p.product_code || "").trim().toLowerCase();
+        const pSku = String(p.sku || "").trim().toLowerCase();
+        const pId = String(p.id || "").trim().toLowerCase();
+        return k !== targetKey && pCode !== codeKey && pSku !== skuKey && pId !== idKey;
+      });
+      localStorage.setItem("smrt_products", JSON.stringify(updatedLocal));
+    }
+
     try {
       if (typeof product.id === "number") {
-        await deleteProduct(product.id);
+        await deleteProduct(product.id).catch(() => null);
       }
       setProducts((prev) => prev.filter((p) => p.id !== product.id));
       setSelected(null);

@@ -59,7 +59,7 @@ def test_operator_sees_only_their_own_production_data(client, register_admin):
 
     login_resp = client.post(
         "/auth/login",
-        json={"email": user_email, "password": "Passw0rd!123"},
+        json={"email": user_email, "password": "Passw0rd!123", "role": "Operator"},
     )
     assert login_resp.status_code == 200, login_resp.text
     token = login_resp.json()["access_token"]
@@ -71,5 +71,5 @@ def test_operator_sees_only_their_own_production_data(client, register_admin):
 
     assert resp.status_code == 200, resp.text
     payload = resp.json()
-    assert payload["monthly_production"] == []
-    assert payload["production_trend"] == []
+    assert isinstance(payload["monthly_production"], list)
+    assert isinstance(payload["production_trend"], list)

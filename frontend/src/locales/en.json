@@ -54,8 +54,15 @@
     "accountsReceivable": "Accounts Receivable",
     "paymentTracking": "Payment Tracking",
     "generalLedger": "General Ledger",
+<<<<<<< HEAD
     "gstReports": "Goods & Services Tax (GST) Reports",
     "profitLoss": "Profit & Loss (P&L)",
+=======
+    "vendors": "Vendors",
+    "suppliers": "Suppliers",
+    "gstReports": "GST Reports",
+    "profitLoss": "P&L",
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
     "balanceSheet": "Balance Sheet",
     "trialBalance": "Trial Balance",
     "journalEntries": "Journal Entries",
@@ -64,8 +71,7 @@
     "bankReconciliation": "Bank Reconciliation",
     "budgetActual": "Budget vs Actual",
     "costAllocation": "Cost Allocation",
-    "multiBranchLedger": "Multi-Branch Ledger",
-    "yearClosing": "Year Closing",
+    "suppliers": "Suppliers",
     "quality": "Quality",
     "qualityDashboard": "Quality Dashboard",
     "incomingInspection": "Incoming Inspection",

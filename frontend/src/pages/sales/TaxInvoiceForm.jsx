@@ -531,10 +531,17 @@ export default function TaxInvoiceForm() {
     setSaving(true);
     try {
       const customerId = await resolveCustomerId(form.customer_id, customers, tenantId);
+<<<<<<< HEAD
+=======
+      const invoiceNumber = form.invoice_number || String(Date.now()).slice(-6);
+      const selectedCustomer = customers.find((c) => String(c.id) === String(form.customer_id));
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
       const payload = {
         tenant_id: form.tenant_id,
         customer_id: customerId,
+        customer_name: selectedCustomer?.company || selectedCustomer?.name || "Customer",
         sales_order_id: form.sales_order_id || null,
+<<<<<<< HEAD
         document_type: invoiceType,
         invoice_prefix: form.invoice_prefix || null,
         invoice_number: form.invoice_number || String(Date.now()).slice(-6),
@@ -618,6 +625,50 @@ export default function TaxInvoiceForm() {
         });
         addToast("Invoice created");
       }
+=======
+        invoice_number: invoiceNumber,
+        issue_date: form.issue_date,
+        due_date: form.due_date || null,
+        subtotal: netAmount,
+        discount: form.discount,
+        sgst_pct: form.sgst_pct,
+        cgst_pct: form.cgst_pct,
+        igst_pct: form.igst_pct,
+        sgst_amount: sgst,
+        cgst_amount: cgst,
+        igst_amount: igst,
+        grand_total: grandTotal,
+        amount: grandTotal,
+        amount_paid: 0,
+        status: "issued",
+        items: (() => {
+          const list = items.filter((i) => i.item_description?.trim()).map((i) => ({
+            item_description: (i.item_description + (i.sizes ? " | " + i.sizes : "") + (i.grade ? " | " + i.grade : "")).trim() || "Item",
+            qty: Number(i.qty) || 0,
+            unit: i.unit || "pcs",
+            rate: Number(i.rate) || 0,
+            amount: Number(i.amount) || 0,
+          }));
+          const pf = Number(form.p_and_f) || 0;
+          if (pf > 0) list.push({ item_description: "Packing & Freight", qty: 1, unit: "pcs", rate: pf, amount: pf });
+          return list;
+        })(),
+      };
+
+      const res = await createInvoice(payload).catch(() => null);
+      if (res?.data?.id) payload.id = res.data.id;
+
+      // Always persist locally so the list shows it immediately
+      const storedInvoices = localStorage.getItem("smrt_invoices");
+      const existingInvoices = storedInvoices ? JSON.parse(storedInvoices) : [];
+      localStorage.setItem("smrt_invoices", JSON.stringify([payload, ...existingInvoices]));
+
+      notifyManufacturingSpine(MANUFACTURING_EVENTS.INVOICE_CREATED, {
+        invoice_id: payload.id,
+        sales_order_id: form.sales_order_id,
+      });
+      addToast("Invoice created — AR journal posted");
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
       navigate("/sales/invoices");
     } catch (err) {
       console.error(err);
@@ -868,6 +919,7 @@ export default function TaxInvoiceForm() {
           </div>
         </section>
 
+<<<<<<< HEAD
         {/* Items */}
         <section className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-white">
           <SectionHeader icon={Package} title="Item Details">
@@ -891,6 +943,32 @@ export default function TaxInvoiceForm() {
                       </th>
                     )
                   )}
+=======
+          <div style={{ background: "#e8dcc8", padding: "8px 16px", marginBottom: 12, textAlign: "center", fontWeight: 700 }}>Description of Goods</div>
+
+          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", marginBottom: 16 }}>
+            <thead>
+              <tr style={{ background: "#e5e7eb" }}>
+                <th style={{ padding: 8, border: "1px solid #d1d5db", textAlign: "left", minWidth: 180 }}>Description of Goods</th>
+                <th style={{ padding: 8, border: "1px solid #d1d5db", textAlign: "left" }}>Sizes</th>
+                <th style={{ padding: 8, border: "1px solid #d1d5db", textAlign: "left" }}>Grade</th>
+                <th style={{ padding: 8, border: "1px solid #d1d5db" }}>Qty</th>
+                <th style={{ padding: 8, border: "1px solid #d1d5db" }}>Unit</th>
+                <th style={{ padding: 8, border: "1px solid #d1d5db" }}>Rate</th>
+                <th style={{ padding: 8, border: "1px solid #d1d5db" }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((row, idx) => (
+                <tr key={idx} style={{ background: idx % 2 === 0 ? "#f0fdf4" : "#fff" }}>
+                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="text" value={row.item_description} onChange={(e) => updateItem(idx, "item_description", e.target.value)} style={{ ...inputStyle, width: "100%", minWidth: 160 }} /></td>
+                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="text" value={row.sizes} onChange={(e) => updateItem(idx, "sizes", e.target.value)} style={{ ...inputStyle, width: 80 }} /></td>
+                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="text" value={row.grade} onChange={(e) => updateItem(idx, "grade", e.target.value)} style={{ ...inputStyle, width: 80 }} /></td>
+                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="number" step="0.01" value={row.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} style={{ ...inputStyle, width: 70 }} /></td>
+                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><select value={row.unit} onChange={(e) => updateItem(idx, "unit", e.target.value)} style={{ ...inputStyle, width: 70 }}><option>KGS</option><option>PCS</option></select></td>
+                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="number" step="0.01" value={row.rate} onChange={(e) => updateItem(idx, "rate", e.target.value)} style={{ ...inputStyle, width: 80 }} /></td>
+                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}>{Number(row.amount).toFixed(2)}</td>
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
                 </tr>
               </thead>
               <tbody>

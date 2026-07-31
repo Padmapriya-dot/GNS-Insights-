@@ -79,6 +79,8 @@ export const updateVendorBillStatus = (billId, status) =>
 export const deleteVendorBill = (billId) => api.delete(`/procurement/vendor-bills/${billId}`);
 
 
+export const updateVendorBill = (billId, payload) => api.put(`/procurement/vendor-bills/${billId}`, payload);
+
 export const getSupplierPayments = () => api.get("/procurement/supplier-payments");
 export const getSupplierPayment = (paymentId) =>
   api.get(`/procurement/supplier-payments/${paymentId}`);

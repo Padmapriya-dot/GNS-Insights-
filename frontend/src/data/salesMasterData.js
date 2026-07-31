@@ -66,6 +66,6 @@ export const KANBAN_COLUMNS = [
   { id: "new", label: "New", color: "border-blue-200 bg-blue-50" },
   { id: "contacted", label: "Contacted", color: "border-indigo-200 bg-indigo-50" },
   { id: "qualified", label: "Qualified", color: "border-purple-200 bg-purple-50" },
-  { id: "converted", label: "Won", color: "border-green-200 bg-green-50" },
+  { id: "converted", label: "Converted", color: "border-green-200 bg-green-50" },
   { id: "lost", label: "Lost", color: "border-red-200 bg-red-50" },
 ];

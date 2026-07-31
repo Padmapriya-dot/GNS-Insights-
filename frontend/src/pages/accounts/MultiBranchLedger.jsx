@@ -64,7 +64,8 @@ export default function MultiBranchLedger() {
 
   if (loading) return <Loader label="Loading Multi-Branch Ledger..." />;
 
-  const consolidatedRev = summary.revenue || 1.0;
+  const hasBranchData = branchData.some((b) => b.revenue > 0 || b.expenses > 0);
+  const consolidatedRev = branchData.reduce((s, b) => s + b.revenue, 0) || 0;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -100,40 +101,53 @@ export default function MultiBranchLedger() {
         <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 font-semibold text-slate-900">Branch Performance Comparison</h2>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={branchData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis tickFormatter={(v) => formatInr(v)} />
-                <Tooltip formatter={(v) => formatInr(v)} />
-                <Legend />
-                <Bar dataKey="revenue" name="Revenue" fill="#2563EB" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" name="Expenses" fill="#EF4444" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="profit" name="Net Profit" fill="#10B981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {hasBranchData ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={branchData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis tickFormatter={(v) => formatInr(v)} />
+                  <Tooltip formatter={(v) => formatInr(v)} />
+                  <Legend />
+                  <Bar dataKey="revenue" name="Revenue" fill="#2563EB" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expenses" name="Expenses" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="profit" name="Net Profit" fill="#10B981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                <svg className="h-10 w-10 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <p className="text-sm text-slate-400">No branch data available — journal entries will populate this chart</p>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-between">
           <div>
             <h2 className="mb-4 font-semibold text-slate-900 border-b pb-2">Branch Contribution Share</h2>
-            <div className="space-y-4">
-              {branchData.map((b) => (
-                <div key={b.name} className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-semibold text-slate-700">{b.name}</span>
-                    <span className="font-bold text-blue-600">{((b.revenue / consolidatedRev) * 100).toFixed(0)}% contribution</span>
+            {hasBranchData && consolidatedRev > 0 ? (
+              <div className="space-y-4">
+                {branchData.map((b) => (
+                  <div key={b.name} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-semibold text-slate-700">{b.name}</span>
+                      <span className="font-bold text-blue-600">{((b.revenue / consolidatedRev) * 100).toFixed(0)}% contribution</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="bg-[#2563EB] h-full" style={{ width: `${(b.revenue / consolidatedRev) * 100}%` }} />
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div className="bg-[#2563EB] h-full" style={{ width: `${(b.revenue / consolidatedRev) * 100}%` }}></div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 mt-2">No branch revenue data to display</p>
+            )}
           </div>
           <div className="mt-6 border-t pt-4 text-xs text-slate-500">
-            * All figures are dynamically weighted and extracted from general ledger entries matching active filter periods.
+            * Figures are extracted from general ledger entries matching active filter periods.
           </div>
         </div>
       </div>

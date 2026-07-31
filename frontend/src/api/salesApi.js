@@ -41,7 +41,11 @@ export const getInvoiceSummary = (params = {}) =>
 export const getInvoiceDetail = (invoiceId) => api.get(`/sales/invoices/${invoiceId}`);
 export const createInvoice = (payload) => api.post("/sales/invoices", payload);
 export const updateInvoice = (invoiceId, payload) => api.put(`/sales/invoices/${invoiceId}`, payload);
+<<<<<<< HEAD
 export const cancelInvoice = (invoiceId) => api.delete(`/sales/invoices/${invoiceId}`);
+=======
+export const deleteInvoice = (invoiceId) => api.delete(`/sales/invoices/${invoiceId}`);
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
 
 export const getPayments = (_tenantId, invoiceId = null) =>
   api.get("/sales/payments", { params: { invoice_id: invoiceId } });
@@ -59,6 +63,10 @@ export const updateLeadStatus = (leadId, status) =>
   api.patch(`/sales/leads/${leadId}/status`, null, { params: { status } });
 export const convertLeadToQuotation = (leadId) =>
   api.post(`/sales/leads/${leadId}/convert-to-quotation`);
+export const getLeadActivities = (leadId) =>
+  api.get(`/sales/leads/${leadId}/activities`).catch(() => ({ data: [] }));
+export const createLeadActivity = (leadId, payload) =>
+  api.post(`/sales/leads/${leadId}/activities`, payload);
 
 export const getQuotations = (status = null) =>
   api.get("/sales/quotations", { params: { status } });

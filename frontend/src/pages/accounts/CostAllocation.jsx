@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Plus, RefreshCw, Layers, Award, ShieldAlert } from "lucide-react";
+import { Plus, RefreshCw, Layers, Award, ShieldAlert, X } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import FinanceFilters from "../../components/finance/FinanceFilters";
 import Loader from "../../components/common/Loader";
@@ -7,28 +7,49 @@ import { useToast } from "../../context/ToastContext";
 import { getExtendedReports } from "../../api/accountsApi";
 import { formatInr } from "../../data/financeMasterData";
 
+const inputClass =
+  "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
+const COST_ALLOCATION_STORAGE_KEY = "cost-allocation-local-entries";
+
+const readStoredAllocations = () => {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = window.localStorage.getItem(COST_ALLOCATION_STORAGE_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 export default function CostAllocation() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [financialYear, setFinancialYear] = useState("2026-27");
   const [month, setMonth] = useState("All Months");
-  const [branch, setBranch] = useState("");
   const [search, setSearch] = useState("");
   const [allocations, setAllocations] = useState([]);
+  const [localEntries, setLocalEntries] = useState(() => readStoredAllocations());
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getExtendedReports(financialYear, month, branch);
-      if (res.data && res.data.cost_allocations) {
-        setAllocations(res.data.cost_allocations);
-      }
-    } catch {
+      const res = await getExtendedReports(financialYear, month);
+      const backendList = res?.data?.cost_allocations || res?.data?.data?.cost_allocations || [];
+      const mergedList = [
+        ...(Array.isArray(localEntries) ? localEntries : []),
+        ...(Array.isArray(backendList) ? backendList : []),
+      ];
+      setAllocations(mergedList);
+    } catch (error) {
+      console.error("CostAllocation load failed", error);
+      setAllocations(Array.isArray(localEntries) ? localEntries : []);
       addToast("Failed to load Cost Center Allocation data", "error");
     } finally {
       setLoading(false);
     }
-  }, [financialYear, month, branch, addToast]);
+  }, [financialYear, month, addToast, localEntries]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -41,19 +62,26 @@ export default function CostAllocation() {
     date: new Date().toISOString().split("T")[0]
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setAllocations((prev) => [
-      ...prev,
-      {
-        id: prev.length + 1,
-        expense: newAlloc.expense,
-        ratio: Number(newAlloc.ratio),
-        dept: newAlloc.dept,
-        amount: Number(newAlloc.amount),
-        date: newAlloc.date
-      }
-    ]);
+
+    const amountValue = Number(newAlloc.amount);
+    const ratioValue = Number(newAlloc.ratio);
+    const entry = {
+      id: `local-${Date.now()}`,
+      date: newAlloc.date || new Date().toISOString().split("T")[0],
+      expense: newAlloc.expense.trim(),
+      dept: newAlloc.dept,
+      ratio: Number.isFinite(ratioValue) ? ratioValue : 0,
+      amount: Number.isFinite(amountValue) ? amountValue : 0,
+    };
+
+    const nextEntries = [entry, ...(Array.isArray(localEntries) ? localEntries : [])];
+    setLocalEntries(nextEntries);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(COST_ALLOCATION_STORAGE_KEY, JSON.stringify(nextEntries));
+    }
+    setAllocations((prev) => [entry, ...prev]);
     setModalOpen(false);
     setNewAlloc({
       expense: "",
@@ -62,6 +90,7 @@ export default function CostAllocation() {
       amount: "",
       date: new Date().toISOString().split("T")[0]
     });
+    addToast("Cost allocation added and saved for this browser", "success");
   };
 
   const filtered = allocations.filter((a) =>
@@ -119,8 +148,6 @@ export default function CostAllocation() {
         onFinancialYearChange={setFinancialYear}
         month={month}
         onMonthChange={setMonth}
-        branch={branch}
-        onBranchChange={setBranch}
         searchPlaceholder="Search overhead expenses..."
       />
 
@@ -191,28 +218,40 @@ export default function CostAllocation() {
 
       {/* New Allocation Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl space-y-4">
-            <h2 className="text-lg font-bold text-slate-900 border-b pb-2">Create Cost Allocation</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Create Cost Allocation</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Distribute overhead costs and expenses to operational cost centers.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Posting Date</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Posting Date *</label>
                   <input
                     type="date"
                     required
                     value={newAlloc.date}
                     onChange={(e) => setNewAlloc((prev) => ({ ...prev, date: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                    className={inputClass}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Allocated Center</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Allocated Center *</label>
                   <select
                     value={newAlloc.dept}
                     onChange={(e) => setNewAlloc((prev) => ({ ...prev, dept: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                    className={inputClass}
                   >
                     <option value="Production">Production</option>
                     <option value="R&D">R&D</option>
@@ -223,53 +262,53 @@ export default function CostAllocation() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Expense Description / Name</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Expense Description / Name *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Headquarters High-Speed Broadband Bill"
                   value={newAlloc.expense}
                   onChange={(e) => setNewAlloc((prev) => ({ ...prev, expense: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                  className={inputClass}
                 />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Overhead Amount (₹)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Overhead Amount (₹) *</label>
                   <input
                     type="number"
                     required
                     placeholder="50000"
                     value={newAlloc.amount}
                     onChange={(e) => setNewAlloc((prev) => ({ ...prev, amount: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm text-right"
+                    className={`${inputClass} text-right`}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Allocation Share (%)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Allocation Share (%) *</label>
                   <input
                     type="number"
                     required
                     placeholder="50"
                     value={newAlloc.ratio}
                     onChange={(e) => setNewAlloc((prev) => ({ ...prev, ratio: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm text-center"
+                    className={`${inputClass} text-center`}
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 border-t pt-3">
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#2563EB] hover:bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all"
                 >
                   Allocate Cost
                 </button>

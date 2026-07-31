@@ -679,8 +679,7 @@ export default function AppRoutes() {
       <Route path="/accounts/bank-reconciliation" element={<ProtectedRoute><P.BankReconciliation /></ProtectedRoute>} />
       <Route path="/accounts/budget-actual" element={<ProtectedRoute><P.BudgetActual /></ProtectedRoute>} />
       <Route path="/accounts/cost-allocation" element={<ProtectedRoute><P.CostAllocation /></ProtectedRoute>} />
-      <Route path="/accounts/multi-branch-ledger" element={<ProtectedRoute><P.MultiBranchLedger /></ProtectedRoute>} />
-      <Route path="/accounts/year-closing" element={<ProtectedRoute><P.YearClosing /></ProtectedRoute>} />
+      <Route path="/accounts/accounts-payable" element={<ProtectedRoute><P.AccountsPayable /></ProtectedRoute>} />
       <Route path="/procurement/purchase-orders" element={<ProtectedRoute><P.PurchaseOrders /></ProtectedRoute>} />
       <Route path="/procurement/purchase-orders/create" element={<ProtectedRoute><P.CreatePurchaseOrder /></ProtectedRoute>} />
       <Route path="/procurement/purchase-orders/:id/edit" element={<ProtectedRoute><P.CreatePurchaseOrder /></ProtectedRoute>} />
@@ -779,7 +778,7 @@ export default function AppRoutes() {
       <Route path="/masters/departments" element={<ProtectedRoute><P.DepartmentManagement /></ProtectedRoute>} />
       <Route path="/production/schedule" element={<ProtectedRoute><P.ProductionSchedule /></ProtectedRoute>} />
       <Route path="/procurement/rfq" element={<ProtectedRoute><P.RFQ /></ProtectedRoute>} />
-      <Route path="/finance/accounts-payable" element={<ProtectedRoute><P.AccountsPayable /></ProtectedRoute>} />
+      <Route path="/finance/accounts-payable" element={<ProtectedRoute><Navigate to="/accounts/accounts-payable" replace /></ProtectedRoute>} />
       <Route path="/finance/accounts-receivable" element={<ProtectedRoute><P.AccountsReceivable /></ProtectedRoute>} />
       <Route path="/finance/payment-tracking" element={<ProtectedRoute><P.PaymentTracking /></ProtectedRoute>} />
       <Route path="/finance/general-ledger" element={<ProtectedRoute><P.GeneralLedger /></ProtectedRoute>} />

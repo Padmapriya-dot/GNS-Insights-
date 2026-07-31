@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import Loader from "../../components/common/Loader";
-import TaxInvoiceCopy from "../../components/sales/TaxInvoiceCopy";
+import Invoice from "../../components/sales/Invoice";
 import { getInvoiceDetail } from "../../api/salesApi";
 import { useCompanySettings } from "../../hooks/useCompanySettings";
 import { SAMPLE_INVOICE_COPY, mapDetailToInvoiceCopy, mergeWithSampleIfEmpty } from "../../utils/invoiceCopyData";
@@ -15,6 +15,25 @@ export default function InvoiceCopyPage() {
 
   useEffect(() => {
     if (!id) return;
+
+    // Check localStorage first (covers locally-created invoices)
+    const allLocal = [
+      ...JSON.parse(localStorage.getItem("smrt_invoices") || "[]"),
+      ...JSON.parse(localStorage.getItem("smrt_sales_bills") || "[]"),
+    ];
+    const localMatch = allLocal.find(
+      (inv) => String(inv.id) === String(id) || String(inv.invoice_number) === String(id)
+    );
+    if (localMatch) {
+      setDetail({
+        invoice: localMatch,
+        items: localMatch.items || [],
+        customer: { name: localMatch.customer_name || "Customer" },
+      });
+      setLoading(false);
+      return;
+    }
+
     getInvoiceDetail(id)
       .then((r) => setDetail(r.data))
       .catch(console.error)
@@ -39,7 +58,7 @@ export default function InvoiceCopyPage() {
           <span className="text-sm text-slate-500">Sample GST Tax Invoice copy</span>
         )}
       </div>
-      <TaxInvoiceCopy data={copyData} />
+      <Invoice data={copyData} />
     </div>
   );
 }

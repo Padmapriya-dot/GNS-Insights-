@@ -70,8 +70,9 @@ def list_expenses(db: Session, tenant_id: int, year: int | None = None) -> list[
     return list(db.scalars(stmt).all())
 
 
-def get_profit_loss(db: Session, tenant_id: int, year: int, ytd_through_month: int = 12) -> dict:
+def get_profit_loss(db: Session, tenant_id: int, year: int, ytd_through_month: int = 12, start_date: date | None = None, end_date: date | None = None) -> dict:
     """P&L: Revenue (invoices + income) vs Cost/Expense by month."""
+    from datetime import date
     months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     rev_by_cat = {}
     exp_by_cat = {}
@@ -83,10 +84,14 @@ def get_profit_loss(db: Session, tenant_id: int, year: int, ytd_through_month: i
         select(Customer.name, func.extract("month", Invoice.issue_date).label("m"), func.sum(Invoice.grand_total))
         .join(Invoice, Invoice.customer_id == Customer.id)
         .where(Invoice.tenant_id == tenant_id)
-        .where(func.extract("year", Invoice.issue_date) == year)
         .where(Invoice.status != "draft")
-        .group_by(Customer.name, func.extract("month", Invoice.issue_date))
     )
+    if start_date and end_date:
+        inv_stmt = inv_stmt.where(Invoice.issue_date >= start_date, Invoice.issue_date <= end_date)
+    else:
+        inv_stmt = inv_stmt.where(func.extract("year", Invoice.issue_date) == year)
+    inv_stmt = inv_stmt.group_by(Customer.name, func.extract("month", Invoice.issue_date))
+    
     for row in db.execute(inv_stmt).all():
         cat = row[0] or "Other"
         m = int(row[1]) if row[1] else 0
@@ -99,9 +104,13 @@ def get_profit_loss(db: Session, tenant_id: int, year: int, ytd_through_month: i
     inc_stmt = (
         select(Income.category, Income.source, func.extract("month", Income.income_date).label("m"), func.sum(Income.amount))
         .where(Income.tenant_id == tenant_id)
-        .where(func.extract("year", Income.income_date) == year)
-        .group_by(Income.category, Income.source, func.extract("month", Income.income_date))
     )
+    if start_date and end_date:
+        inc_stmt = inc_stmt.where(Income.income_date >= start_date, Income.income_date <= end_date)
+    else:
+        inc_stmt = inc_stmt.where(func.extract("year", Income.income_date) == year)
+    inc_stmt = inc_stmt.group_by(Income.category, Income.source, func.extract("month", Income.income_date))
+    
     for row in db.execute(inc_stmt).all():
         cat = row[0] or "Other"
         src = row[1]
@@ -116,9 +125,12 @@ def get_profit_loss(db: Session, tenant_id: int, year: int, ytd_through_month: i
     exp_stmt = (
         select(Expense.category, Expense.vendor, func.extract("month", Expense.expense_date).label("m"), func.sum(Expense.amount))
         .where(Expense.tenant_id == tenant_id)
-        .where(func.extract("year", Expense.expense_date) == year)
-        .group_by(Expense.category, Expense.vendor, func.extract("month", Expense.expense_date))
     )
+    if start_date and end_date:
+        exp_stmt = exp_stmt.where(Expense.expense_date >= start_date, Expense.expense_date <= end_date)
+    else:
+        exp_stmt = exp_stmt.where(func.extract("year", Expense.expense_date) == year)
+    exp_stmt = exp_stmt.group_by(Expense.category, Expense.vendor, func.extract("month", Expense.expense_date))
     for row in db.execute(exp_stmt).all():
         cat = row[0] or "Other"
         vend = row[1]

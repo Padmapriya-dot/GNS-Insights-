@@ -4,9 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.auth_deps import get_current_user
 from app.api.deps import get_db
+<<<<<<< HEAD
 from app.core.permissions import require_permission, tenant_scope
 from app.models.accounts import FixedAsset, GLAccount, JournalEntry
+=======
+from app.core.permissions import require_permission, tenant_scope, user_has_permission
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
 from app.models.user import User
 from app.schemas.accounts import (
     ExpenseCreate,
@@ -165,63 +170,81 @@ def tax_report_endpoint(
 
 @router.get("/hub")
 def finance_hub_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    current_user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db)
 ):
-    return get_finance_hub(db, tenant_id)
+    return get_finance_hub(db, tenant_id, current_user)
 
 
 @router.get("/ap/summary")
 def ap_summary_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    current_user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db)
 ):
     return get_ap_summary(db, tenant_id)
 
 
 @router.get("/ap/enriched")
 def ap_enriched_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    current_user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db)
 ):
     return list_ap_enriched(db, tenant_id)
 
 
 @router.get("/ar/summary")
 def ar_summary_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    current_user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db)
 ):
     return get_ar_summary(db, tenant_id)
 
 
 @router.get("/ar/enriched")
 def ar_enriched_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    current_user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db)
 ):
     return list_ar_enriched(db, tenant_id)
 
 
 @router.get("/payments/summary")
 def payment_summary_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    current_user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db)
 ):
     return get_payment_summary(db, tenant_id)
 
 
 @router.get("/payments/enriched")
 def payments_enriched_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    current_user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db)
 ):
     return list_payments_enriched(db, tenant_id)
 
 
 @router.get("/gl/summary")
 def gl_summary_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    current_user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db)
 ):
     return get_gl_summary(db, tenant_id)
 
 
 @router.get("/gl/enriched")
 def gl_enriched_endpoint(
-    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    current_user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db)
 ):
     return list_gl_enriched(db, tenant_id)
 
@@ -230,27 +253,39 @@ def gl_enriched_endpoint(
 def gst_extended_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)),
     year: int = Query(...),
-    financial_year: str | None = Query(None),
     month: str | None = Query(None),
     branch: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    # Extra query params kept for SMRT API compatibility; service uses year.
-    _ = (financial_year, month, branch)
-    return get_gst_extended(db, tenant_id, year)
+    return get_gst_extended(db, tenant_id, year, month, branch)
 
 
 @router.get("/profit-loss/extended")
 def pl_extended_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)),
     year: int = Query(...),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
     financial_year: str | None = Query(None),
     month: str | None = Query(None),
     branch: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
     _ = (financial_year, month, branch)
-    return get_pl_extended(db, tenant_id, year)
+    from datetime import datetime
+    sd = None
+    ed = None
+    if start_date:
+        try:
+            sd = datetime.fromisoformat(start_date).date()
+        except:
+            pass
+    if end_date:
+        try:
+            ed = datetime.fromisoformat(end_date).date()
+        except:
+            pass
+    return get_pl_extended(db, tenant_id, year, start_date=sd, end_date=ed)
 
 
 @router.get("/extended-reports")
@@ -284,6 +319,7 @@ def create_journal_entry_endpoint(
     user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ):
+<<<<<<< HEAD
     entry_date = payload.date or date.today()
     try:
         entry = post_journal_entry(
@@ -307,6 +343,81 @@ def create_journal_entry_endpoint(
         .options(joinedload(JournalEntry.legs))
     )
     return entry
+=======
+    import datetime
+
+    from fastapi import HTTPException
+    from sqlalchemy import func, select
+
+    from app.models.accounts import JournalEntry, JournalLeg
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Journal entry payload must be a JSON object")
+
+    date_str = (
+        payload.get("date")
+        or payload.get("entry_date")
+        or payload.get("posting_date")
+        or datetime.date.today().isoformat()
+    )
+    try:
+        entry_date = datetime.datetime.strptime(str(date_str), "%Y-%m-%d").date()
+    except ValueError:
+        entry_date = datetime.date.today()
+
+    reference = payload.get("reference") or payload.get("ref")
+    description = payload.get("description") or payload.get("desc")
+    status = payload.get("status") or "Posted"
+    branch = payload.get("branch") or "Head Office"
+    legs_payload = payload.get("legs") or payload.get("lines") or []
+
+    if not isinstance(legs_payload, list):
+        raise HTTPException(status_code=400, detail="Journal entry legs must be a list")
+
+    count = db.scalar(
+        select(func.count(JournalEntry.id)).where(JournalEntry.tenant_id == user.tenant_id)
+    ) or 0
+    entry_number = f"JV-{entry_date.year}-{count + 1:04d}"
+
+    entry = JournalEntry(
+        tenant_id=user.tenant_id,
+        entry_number=entry_number,
+        entry_date=entry_date,
+        reference=reference,
+        description=description,
+        status=status,
+        branch=branch,
+    )
+    db.add(entry)
+    db.flush()
+
+    try:
+        for leg_data in legs_payload:
+            if not isinstance(leg_data, dict):
+                raise ValueError("Each leg must be an object")
+            account = str(leg_data.get("account") or "General").strip() or "General"
+            debit = float(leg_data.get("debit", 0.0) or 0.0)
+            credit = float(leg_data.get("credit", 0.0) or 0.0)
+            db.add(
+                JournalLeg(
+                    entry_id=entry.id,
+                    account=account,
+                    debit=debit,
+                    credit=credit,
+                )
+            )
+    except (TypeError, ValueError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Invalid journal legs: {exc}") from exc
+
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Unable to save journal entry: {exc}") from exc
+
+    return {"status": "success", "entry_number": entry_number}
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
 
 
 @router.get("/journal-entries/{entry_id}", response_model=JournalEntryRead)

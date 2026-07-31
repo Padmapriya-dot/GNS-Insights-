@@ -1,26 +1,29 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import Table from "../../components/common/Table";
 import { listExpenses } from "../../api/accountsApi";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import useTenantId from "../../hooks/useTenantId";
-
-
+import RecordExpense from "./RecordExpense";
 
 export default function ExpenseTracking() {
   const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [expenses, setExpenses] = useState([]);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [showCreate, setShowCreate] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
     listExpenses(tenantId, year)
       .then((r) => setExpenses(r.data || []))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [year]);
+  }, [tenantId, year]);
+
+  useEffect(() => { load(); }, [load]);
 
   const total = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
@@ -50,43 +53,73 @@ export default function ExpenseTracking() {
   if (loading) return <Loader label="Loading expenses..." />;
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <h2 style={{ margin: 0 }}>Expense Tracking</h2>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ padding: "8px 12px" }}>
-            {[2025, 2024, 2023].map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
+    <div className="space-y-6 p-4 sm:p-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Expense Tracking</h1>
+          <p className="mt-1 text-sm text-slate-500">All operational expenses posted to the ledger.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 items-center">
+          <select
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          >
+            {[2026, 2025, 2024, 2023].map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
-          <Link to="/accounts/expenses/record" style={{ padding: "10px 18px", background: "#dc2626", color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 600 }}>
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 shadow-sm"
+          >
             + Record Expense
-          </Link>
-          <button onClick={exportExcel} style={{ padding: "8px 16px", background: "#22c55e", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}>
-            Export Excel
           </button>
-          <button onClick={exportPdf} style={{ padding: "8px 16px", background: "#dc2626", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}>
-            Export PDF
-          </button>
+          <button onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+          <button onClick={exportExcel} className="rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Export Excel</button>
+          <button onClick={exportPdf} className="rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Export PDF</button>
         </div>
       </div>
-      <div style={{ background: "#fff", padding: 16, borderRadius: 10, border: "1px solid #e5e7eb" }}>
-        <div style={{ marginBottom: 12, fontWeight: 600 }}>Total: $ {total.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+
+      {/* Stat card */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-medium text-slate-500">Total Expenses ({year})</p>
+          <p className="mt-1 text-2xl font-bold text-rose-600">₹{total.toLocaleString("en-IN")}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-medium text-slate-500">Total Records</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900">{expenses.length}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-medium text-slate-500">Avg per Record</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900">
+            ₹{expenses.length ? Math.round(total / expenses.length).toLocaleString("en-IN") : 0}
+          </p>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <Table
           columns={[
             { key: "category", label: "Category" },
             { key: "vendor", label: "Vendor" },
             { key: "expense_date", label: "Date" },
-            {
-              key: "amount",
-              label: "Amount",
-              render: (r) => `$ ${Number(r.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
-            },
+            { key: "amount", label: "Amount", render: (r) => `₹${Number(r.amount).toLocaleString("en-IN")}` },
             { key: "description", label: "Description" },
           ]}
           data={expenses}
+          searchKeys={["category", "vendor", "description"]}
+          searchPlaceholder="Search expenses..."
         />
       </div>
+
+      {showCreate && (
+        <RecordExpense
+          onClose={() => { setShowCreate(false); load(); }}
+        />
+      )}
     </div>
   );
 }

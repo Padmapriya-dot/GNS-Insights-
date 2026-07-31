@@ -25,10 +25,7 @@ from app.schemas.sales import (
     QuotationCreate,
 )
 from app.schemas.sales_extended import DeliveryChallanRead, DispatchShipmentCreate
-from app.services.journal_service import (
-    post_sales_invoice_journal,
-    post_sales_payment_journal,
-)
+
 
 
 def create_customer(db: Session, payload: CustomerCreate) -> Customer:
@@ -348,14 +345,16 @@ def create_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
     db.flush()
     subtotal = 0.0
     for item_data in payload.items:
-        row = (
-            item_data.model_dump()
-            if hasattr(item_data, "model_dump")
-            else dict(item_data)
-        )
-        item = InvoiceItem(invoice_id=inv.id, **row)
+        if hasattr(item_data, "model_dump"):
+            item_payload = item_data.model_dump()
+        elif isinstance(item_data, dict):
+            item_payload = dict(item_data)
+        else:
+            item_payload = {"item_description": str(item_data), "qty": 0, "unit": "pcs", "rate": 0, "amount": 0}
+
+        item = InvoiceItem(invoice_id=inv.id, **item_payload)
         db.add(item)
-        subtotal += item.amount
+        subtotal += float(item.amount or 0)
     inv.subtotal = subtotal
     sgst, cgst, igst = _calc_gst(
         subtotal, inv.sgst_pct, inv.cgst_pct, inv.igst_pct
@@ -375,20 +374,6 @@ def create_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
             so.invoiced = True
             if so.status not in ("shipped", "delivered", "closed"):
                 so.status = so.status or "invoiced"
-
-    post_sales_invoice_journal(
-        db,
-        inv.tenant_id,
-        invoice_number=inv.invoice_number,
-        issue_date=inv.issue_date or date.today(),
-        subtotal=float(inv.subtotal or 0),
-        discount=float(inv.discount or 0),
-        sgst=float(inv.sgst_amount or 0),
-        cgst=float(inv.cgst_amount or 0),
-        igst=float(inv.igst_amount or 0),
-        round_off=float(inv.round_off or 0),
-        grand_total=float(inv.grand_total or 0),
-    )
 
     db.commit()
     db.refresh(inv)
@@ -429,7 +414,7 @@ def list_invoices(
 ) -> list[Invoice]:
     stmt = (
         select(Invoice)
-        .options(joinedload(Invoice.customer))
+        .options(joinedload(Invoice.customer), selectinload(Invoice.items))
         .where(Invoice.tenant_id == tenant_id)
     )
     if status:
@@ -465,14 +450,6 @@ def create_payment(db: Session, payload: PaymentCreate) -> Payment:
             db.add(income)
         except Exception:
             pass
-        post_sales_payment_journal(
-            db,
-            payload.tenant_id,
-            invoice_number=inv.invoice_number,
-            payment_date=payload.payment_date,
-            amount=float(payload.amount),
-            method=payload.method or "cash",
-        )
         # Close sales order when invoice fully paid (after ship/delivery)
         if inv.status == "paid" and inv.sales_order_id:
             so = db.get(SalesOrder, inv.sales_order_id)

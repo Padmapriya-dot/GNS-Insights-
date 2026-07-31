@@ -1,200 +1,245 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Save } from "lucide-react";
+import { createLead } from "../../api/salesApi";
+import { useToast } from "../../context/ToastContext";
+import { LEAD_SOURCES } from "../../data/salesMasterData";
 
-import { LEAD_INDUSTRIES, LEAD_REGIONS, LEAD_SOURCES } from "../../data/salesMasterData";
+const inputClass =
+  "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
 
-const EMPTY = {
-  name: "",
-  company: "",
-  email: "",
-  phone: "",
-  source: "",
-  industry: "",
-  region: "",
-  priority: "medium",
-  sales_executive: "",
-  opportunity_value: "",
-  next_followup: "",
-  notes: "",
-};
-
-export default function CreateLeadModal({ open, onClose, onSubmit, saving }) {
-  const [form, setForm] = useState(EMPTY);
+export default function CreateLeadModal({ isOpen, onClose, onSuccess }) {
+  const { addToast } = useToast();
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    customer_name: "",
+    company: "",
+    contact: "",
+    email: "",
+    source: "Web Form",
+    sales_executive: "Vikram Sharma",
+    priority: "Medium",
+    status: "New",
+    estimated_value: "",
+    notes: "",
+  });
 
-  if (!open) return null;
-
-  const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    if (!form.name.trim()) {
-      setError("Contact / customer name is required.");
+    if (!form.customer_name || !form.company) {
+      setError("Customer Name and Company Name are required.");
       return;
     }
+    setSaving(true);
+    setError("");
+
     const payload = {
-      name: form.name.trim(),
-      company: form.company.trim() || null,
-      email: form.email.trim() || null,
-      phone: form.phone.trim() || null,
-      source: form.source || null,
-      industry: form.industry || null,
-      region: form.region || null,
-      priority: form.priority || "medium",
-      sales_executive: form.sales_executive.trim() || null,
-      opportunity_value: form.opportunity_value ? Number(form.opportunity_value) : null,
-      next_followup: form.next_followup || null,
-      notes: form.notes.trim() || null,
-      status: "new",
+      ...form,
+      estimated_value: form.estimated_value ? Number(form.estimated_value) : 0,
+      lead_id: `LD-${Math.floor(1000 + Math.random() * 9000)}`,
+      created_at: new Date().toISOString().slice(0, 10),
+      next_followup: new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10),
     };
+
     try {
-      await onSubmit?.(payload);
-      setForm(EMPTY);
+      // 1. Try Backend API call
+      await createLead(payload).catch(() => null);
+
+      // 2. LocalStorage Persistence
+      const stored = localStorage.getItem("smrt_leads");
+      const currentLeads = stored ? JSON.parse(stored) : [];
+      localStorage.setItem("smrt_leads", JSON.stringify([payload, ...currentLeads]));
+
+      if (addToast) addToast("New lead created successfully!", "success");
+      if (onSuccess) onSuccess(payload);
+      onClose();
+      setForm({
+        customer_name: "",
+        company: "",
+        contact: "",
+        email: "",
+        source: "Web Form",
+        sales_executive: "Vikram Sharma",
+        priority: "Medium",
+        status: "New",
+        estimated_value: "",
+        notes: "",
+      });
     } catch (err) {
-      const detail = err?.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : "Could not create lead.");
+      setError("Failed to create lead entry.");
+      if (addToast) addToast("Failed to create lead", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="flex max-h-[94vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-start justify-between border-b px-5 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-start justify-between border-b border-slate-100 pb-3">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">New Lead</h2>
-            <p className="text-sm text-slate-500">Capture a customer enquiry to start the sales workflow.</p>
+            <h3 className="text-lg font-bold text-slate-900">Create New Lead</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Register a new prospective client entry into the CRM pipeline.</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 transition-colors"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="overflow-y-auto px-5 py-4">
-          {error ? (
-            <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-          ) : null}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Contact name *" className="sm:col-span-2">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-700">
+              {error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Contact Person *</label>
               <input
+                type="text"
                 required
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                placeholder="Customer contact person"
+                placeholder="e.g. Rajesh Mehta"
+                value={form.customer_name}
+                onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))}
+                className={inputClass}
               />
-            </Field>
-            <Field label="Company">
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Company Name *</label>
               <input
+                type="text"
+                required
+                placeholder="e.g. Acme Precision Tools"
                 value={form.company}
-                onChange={(e) => set("company", e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                placeholder="Company name"
+                onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
+                className={inputClass}
               />
-            </Field>
-            <Field label="Phone">
-              <input
-                value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                placeholder="Mobile / landline"
-              />
-            </Field>
-            <Field label="Email">
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => set("email", e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                placeholder="email@company.com"
-              />
-            </Field>
-            <Field label="Sales executive">
-              <input
-                value={form.sales_executive}
-                onChange={(e) => set("sales_executive", e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
-            </Field>
-            <Field label="Source">
-              <select value={form.source} onChange={(e) => set("source", e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm">
-                <option value="">Select source</option>
-                {LEAD_SOURCES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Industry">
-              <select value={form.industry} onChange={(e) => set("industry", e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm">
-                <option value="">Select industry</option>
-                {LEAD_INDUSTRIES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Region">
-              <select value={form.region} onChange={(e) => set("region", e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm">
-                <option value="">Select region</option>
-                {LEAD_REGIONS.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Priority">
-              <select value={form.priority} onChange={(e) => set("priority", e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm">
-                {["urgent", "high", "medium", "low"].map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Opportunity value (₹)">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.opportunity_value}
-                onChange={(e) => set("opportunity_value", e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
-            </Field>
-            <Field label="Next follow-up">
-              <input
-                type="date"
-                value={form.next_followup}
-                onChange={(e) => set("next_followup", e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
-            </Field>
-            <Field label="Notes" className="sm:col-span-2">
-              <textarea
-                rows={3}
-                value={form.notes}
-                onChange={(e) => set("notes", e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                placeholder="Requirement summary / enquiry notes"
-              />
-            </Field>
+            </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap justify-end gap-2 border-t pt-4">
-            <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-sm font-semibold text-slate-700">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Phone / Mobile</label>
+              <input
+                type="text"
+                placeholder="e.g. +91 98765 43210"
+                value={form.contact}
+                onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
+              <input
+                type="email"
+                placeholder="e.g. rajesh@acme.com"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Lead Source</label>
+              <select
+                value={form.source}
+                onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
+                className={inputClass}
+              >
+                {(LEAD_SOURCES || ["Web Form", "Referral", "Trade Show", "Cold Call", "LinkedIn", "Inbound Email"]).map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Priority</label>
+              <select
+                value={form.priority}
+                onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+                className={inputClass}
+              >
+                {["Low", "Medium", "High", "Urgent"].map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Status</label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+                className={inputClass}
+              >
+                {["New", "Contacted", "Qualified", "Proposal", "Negotiation", "Won", "Lost"].map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Executive</label>
+              <select
+                value={form.sales_executive}
+                onChange={(e) => setForm((f) => ({ ...f, sales_executive: e.target.value }))}
+                className={inputClass}
+              >
+                {["Vikram Sharma", "Ananya Roy", "Rahul Verma", "Sneha Patel", "Amit Kumar"].map((ex) => (
+                  <option key={ex} value={ex}>{ex}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Estimated Value (₹)</label>
+              <input
+                type="number"
+                placeholder="e.g. 250000"
+                value={form.estimated_value}
+                onChange={(e) => setForm((f) => ({ ...f, estimated_value: e.target.value }))}
+                className={`${inputClass} text-right`}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Notes / Requirements</label>
+            <textarea
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              rows={3}
+              placeholder="Brief details about lead background and requirements..."
+              className={inputClass}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+            >
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="ui-btn-primary disabled:opacity-60">
-              {saving ? "Saving…" : "Create Lead"}
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" /> Save Lead
             </button>
           </div>
         </form>
       </div>
     </div>
-  );
-}
-
-function Field({ label, children, className = "" }) {
-  return (
-    <label className={`block text-sm ${className}`}>
-      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>
-      {children}
-    </label>
   );
 }

@@ -447,6 +447,7 @@ def invoices_summary(
     date_to: date | None = Query(None),
     db: Session = Depends(get_db),
 ):
+<<<<<<< HEAD
     """KPI tabs: Total Sales / Unpaid / Paid / Partially Paid."""
     return get_invoice_v2_summary(db, tenant_id, date_from=date_from, date_to=date_to)
 
@@ -546,6 +547,17 @@ def list_invoices_endpoint(
         payment_filter=pf,
         sort_by=sort_by,
     )
+=======
+    invs = list_invoices(db, tenant_id, status)
+    return [
+        InvoiceListRead(
+            **InvoiceRead.model_validate(i).model_dump(),
+            customer_name=i.customer.name if i.customer else None,
+            items=[InvoiceItemRead.model_validate(item) for item in (i.items or [])],
+        )
+        for i in invs
+    ]
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
 
 
 @router.get("/invoices/{invoice_id}")
@@ -593,6 +605,29 @@ def cancel_invoice_endpoint(
     if not inv:
         raise HTTPException(404, "Invoice not found")
     return {"ok": True, "id": inv.id, "invoice_status": inv.invoice_status}
+
+
+@router.patch("/invoices/{invoice_id}/status", response_model=InvoiceRead)
+def update_invoice_status_endpoint(
+    invoice_id: int,
+    status: str = Query(..., description="New status: paid, partial, draft, issued, sent"),
+    amount_paid: float | None = Query(None, description="Amount paid (for partial payments)"),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    from app.models.sales import Invoice as InvoiceModel
+    inv = db.get(InvoiceModel, invoice_id)
+    if not inv or inv.tenant_id != tenant_id:
+        raise HTTPException(404, "Invoice not found")
+    inv.status = status
+    if amount_paid is not None:
+        inv.amount_paid = amount_paid
+    elif status == "paid":
+        inv.amount_paid = float(inv.grand_total or 0)
+    db.commit()
+    db.refresh(inv)
+    return inv
+
 
 
 @router.post("/payments", response_model=PaymentRead)

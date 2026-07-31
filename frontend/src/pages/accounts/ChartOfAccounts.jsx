@@ -1,14 +1,18 @@
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, Layers, Shield, RefreshCw } from "lucide-react";
+import { Plus, Search, Layers, Shield, RefreshCw, X } from "lucide-react";
 import FinanceFilters from "../../components/finance/FinanceFilters";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getExtendedReports, createGLAccount } from "../../api/accountsApi";
 import { formatInr } from "../../data/financeMasterData";
 
+const inputClass =
+  "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
+
 export default function ChartOfAccounts() {
   const { addToast } = useToast();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);      // initial page load
+  const [refreshing, setRefreshing] = useState(false); // button-only spinner
   const [financialYear, setFinancialYear] = useState("2026-27");
   const [month, setMonth] = useState("All Months");
   const [branch, setBranch] = useState("");
@@ -16,19 +20,23 @@ export default function ChartOfAccounts() {
   const [activeTab, setActiveTab] = useState("Assets");
   const [accounts, setAccounts] = useState([]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ isRefresh = false } = {}) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     try {
       const res = await getExtendedReports(financialYear, month, branch);
       if (res.data && res.data.trial_balance_accounts) {
-        // Map trial balance accounts back into COA listings
+        const typeMap = { Asset: "Assets", Liability: "Liabilities", Equity: "Equity", Revenue: "Revenue", Expense: "Expenses" };
+        const parentMap = { Asset: "Current Assets", Liability: "Current Liabilities", Equity: "Equity", Revenue: "Revenue", Expense: "Operating Cost" };
         const mapped = res.data.trial_balance_accounts.map((tb) => ({
           code: tb.code,
           name: tb.name,
-          parent: tb.category === "Asset" ? "Current Assets" : tb.category === "Liability" ? "Current Liabilities" : "Operating Cost",
-          type: tb.category === "Asset" ? "Assets" : tb.category === "Liability" ? "Liabilities" : tb.category === "Revenue" ? "Revenue" : "Expenses",
-          balance: tb.debit > 0 ? tb.debit : -tb.credit,
-          status: "Active"
+          parent: tb.parent || parentMap[tb.category] || tb.category,
+          type: typeMap[tb.category] || tb.category,
+          balance: ["Liability", "Equity", "Revenue"].includes(tb.category)
+            ? (tb.credit - tb.debit)
+            : (tb.debit - tb.credit),
+          status: tb.status || "Active"
         }));
         setAccounts(mapped);
       }
@@ -36,6 +44,7 @@ export default function ChartOfAccounts() {
       addToast("Failed to load Chart of Accounts data", "error");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [financialYear, month, branch, addToast]);
 
@@ -103,8 +112,14 @@ export default function ChartOfAccounts() {
             <Plus className="h-4 w-4" />
             Add Account
           </button>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <RefreshCw className="h-4 w-4" /> Refresh
+          <button
+            type="button"
+            onClick={() => load({ isRefresh: true })}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-all"
+          >
+            <RefreshCw className={`h-4 w-4 transition-transform duration-700 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
       </header>
@@ -159,10 +174,17 @@ export default function ChartOfAccounts() {
                   <td className="p-3 text-slate-500">{a.type}</td>
                   <td className="p-3 text-right text-slate-800 font-bold tabular-nums">{formatInr(a.balance)}</td>
                   <td className="p-3">
-                    <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700 border border-green-200">
-                      {a.status}
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
+                      a.status === "Active"
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : a.status === "Suspended"
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-slate-100 text-slate-500 border-slate-200"
+                    }`}>
+                      {a.status || "Active"}
                     </span>
                   </td>
+
                 </tr>
               ))}
               {filtered.length === 0 && (
@@ -179,29 +201,41 @@ export default function ChartOfAccounts() {
 
       {/* Add Account Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl space-y-4">
-            <h2 className="text-lg font-bold text-slate-900 border-b pb-2">Add New GL Account</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Add New GL Account</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Define a General Ledger account entry in the chart of accounts.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Account Code</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Account Code *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. 1005"
                     value={newAcc.code}
                     onChange={(e) => setNewAcc((prev) => ({ ...prev, code: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                    className={inputClass}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Account Class</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Class Type</label>
                   <select
                     value={newAcc.type}
                     onChange={(e) => setNewAcc((prev) => ({ ...prev, type: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                    className={inputClass}
                   >
                     {tabs.map((tab) => <option key={tab} value={tab}>{tab}</option>)}
                   </select>
@@ -209,52 +243,65 @@ export default function ChartOfAccounts() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Account Title</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Account Name *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Petty Cash Account"
                   value={newAcc.name}
                   onChange={(e) => setNewAcc((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                  className={inputClass}
                 />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Parent Group</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Parent Group *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Current Assets"
                     value={newAcc.parent}
                     onChange={(e) => setNewAcc((prev) => ({ ...prev, parent: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                    className={inputClass}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Opening Balance</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Current Balance (₹)</label>
                   <input
                     type="number"
                     placeholder="0"
                     value={newAcc.balance || ""}
                     onChange={(e) => setNewAcc((prev) => ({ ...prev, balance: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm text-right"
+                    className={`${inputClass} text-right`}
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Status</label>
+                  <select
+                    value={newAcc.status}
+                    onChange={(e) => setNewAcc((prev) => ({ ...prev, status: e.target.value }))}
+                    className={inputClass}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Suspended">Suspended</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 border-t pt-3">
+
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#2563EB] hover:bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all"
                 >
                   Save Account
                 </button>

@@ -99,7 +99,7 @@ export const Customers = lazy(() => import("../pages/sales/Customers"));
 export const CreateCustomer = lazy(() => import("../pages/sales/CreateCustomer"));
 export const BulkImportBuyer = lazy(() => import("../pages/sales/BulkImportBuyer"));
 export const PaymentTracking = lazy(() => import("../pages/finance/PaymentTracking"));
-export const AccountsPayable = lazy(() => import("../pages/finance/AccountsPayable"));
+export const AccountsPayable = lazy(() => import("../pages/accounts/AccountsPayable"));
 export const AccountsReceivable = lazy(() => import("../pages/finance/AccountsReceivable"));
 export const GeneralLedger = lazy(() => import("../pages/finance/GeneralLedger"));
 export const CreatePayment = lazy(() => import("../pages/sales/CreatePayment"));

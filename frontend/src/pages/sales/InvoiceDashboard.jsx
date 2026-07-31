@@ -5,7 +5,8 @@ import { FileText, IndianRupee, Plus, RefreshCw } from "lucide-react";
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
-import TaxInvoiceCopy from "../../components/sales/TaxInvoiceCopy";
+import Invoice from "../../components/sales/Invoice";
+import RecordPaymentModal from "../../components/finance/RecordPaymentModal";
 import { useToast } from "../../context/ToastContext";
 import { getInvoiceDetail, getInvoiceSummary, getInvoicesEnriched } from "../../api/salesApi";
 import { useCompanySettings } from "../../hooks/useCompanySettings";
@@ -35,21 +36,21 @@ const emptySummary = {
   total_invoices: 0,
   draft: 0,
   paid: 0,
-  pending: 0,
-  overdue: 0,
-  revenue: 0,
+  issued: 0,
 };
 
 export default function InvoiceDashboard() {
   const { settings } = useCompanySettings();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState(emptySummary);
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [view, setView] = useState("table");
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,17 +59,50 @@ export default function InvoiceDashboard() {
         getInvoiceSummary(),
         getInvoicesEnriched(),
       ]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) {
-        setSummary({ ...emptySummary, ...sumRes.value.data });
-      } else setSummary(emptySummary);
-      if (listRes.status === "fulfilled") setRows(listRes.value?.data || []);
-      else setRows([]);
+      const storedBills = localStorage.getItem("smrt_sales_bills");
+      const localBills = storedBills ? JSON.parse(storedBills) : [];
+      const storedInvoices = localStorage.getItem("smrt_invoices");
+      const localInvoices = storedInvoices ? JSON.parse(storedInvoices) : [];
+
+      const invMap = new Map();
+
+      // API rows first (lowest priority)
+      if (listRes.status === "fulfilled" && listRes.value?.data) {
+        listRes.value.data.forEach((item, idx) => {
+          const key = String(item.invoice_number || item.id || `api-${idx}`);
+          invMap.set(key, { ...item, id: item.id || item.invoice_number || `inv-api-${idx}` });
+        });
+      }
+
+      // Local records overwrite API (local is always most up-to-date)
+      [...localBills, ...localInvoices].forEach((item, idx) => {
+        const key = String(item.invoice_number || item.bill_number || item.id || `local-${idx}`);
+        invMap.set(key, { ...item, id: item.id || item.invoice_number || `bill-local-${idx}` });
+      });
+
+      const mergedRows = Array.from(invMap.values());
+      setRows(mergedRows);
+
+      const total_invoices = mergedRows.length;
+      const draft   = mergedRows.filter((r) => String(r.status || "").toLowerCase() === "draft").length;
+      const paid    = mergedRows.filter((r) => String(r.status || "").toLowerCase() === "paid").length;
+      const issued  = mergedRows.filter((r) => ["issued", "sent", "approved"].includes(String(r.status || "").toLowerCase())).length;
+      const revenue = mergedRows.reduce((acc, r) => acc + (Number(r.grand_total ?? r.amount ?? r.total_amount) || 0), 0);
+
+      setSummary({ total_invoices, draft, paid, issued, overdue: 0, revenue });
     } catch {
-      addToast("Failed to load invoices", "error");
+      const storedBills = localStorage.getItem("smrt_sales_bills");
+      const localBills = storedBills ? JSON.parse(storedBills) : [];
+      setRows(
+        localBills.map((item, idx) => ({
+          ...item,
+          id: item.id || item.invoice_number || `bill-local-${idx}`,
+        }))
+      );
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -76,14 +110,63 @@ export default function InvoiceDashboard() {
   useManufacturingRefresh(load);
 
   useEffect(() => {
-    if (selected && typeof selected === "number") {
+    if (!selected) {
+      setDetail(null);
+      return;
+    }
+
+    const match = rows.find(
+      (r) => String(r.id) === String(selected) || String(r.invoice_number) === String(selected) || String(r.bill_number) === String(selected)
+    );
+
+    if (match) {
+      const itemsList = match.items?.length
+        ? match.items
+        : [
+            {
+              item_description: match.item_description || "Standard Components & Services",
+              qty: match.qty || 1,
+              unit: match.unit || "pcs",
+              rate: match.rate || match.grand_total || match.amount || 0,
+              amount: match.grand_total || match.amount || 0,
+            },
+          ];
+
+      setDetail({
+        invoice: {
+          ...match,
+          invoice_number: match.invoice_number || match.bill_number || `INV-${String(match.id).slice(0, 6)}`,
+          issue_date: match.issue_date || new Date().toISOString().slice(0, 10),
+          due_date: match.due_date || match.issue_date || new Date().toISOString().slice(0, 10),
+          grand_total: Number(match.grand_total ?? match.amount ?? match.total_amount) || 0,
+          igst_pct: Number(match.igst_pct) || (match.igst_amount ? 18 : 0),
+          cgst_pct: Number(match.cgst_pct) || (match.cgst_amount ? 9 : 0),
+          sgst_pct: Number(match.sgst_pct) || (match.sgst_amount ? 9 : 0),
+          igst_amount: Number(match.igst_amount) || 0,
+          cgst_amount: Number(match.cgst_amount) || 0,
+          sgst_amount: Number(match.sgst_amount) || 0,
+          round_off: Number(match.round_off) || 0,
+        },
+        items: itemsList,
+        customer: {
+          name: match.customer_name || "Customer",
+          address_line1: match.billing_address || match.address || "Hyderabad, Telangana",
+          address_line2: match.shipping_address || "",
+          gstin: match.gstin || "36AABCG1234H1Z5",
+          state: match.state || "Telangana",
+          state_code: "36",
+          phone: match.phone || "",
+        },
+      });
+      return;
+    }
+
+    if (typeof selected === "number" || !isNaN(Number(selected))) {
       getInvoiceDetail(selected)
         .then((r) => setDetail(r.data))
         .catch(() => setDetail(null));
-    } else {
-      setDetail(null);
     }
-  }, [selected]);
+  }, [selected, rows]);
 
   const filtered = useMemo(() => {
     if (!statusFilter) return rows;
@@ -98,27 +181,48 @@ export default function InvoiceDashboard() {
   const columns = [
     {
       key: "invoice_number",
-      label: "Invoice No",
+      label: "Invoice / Bill No",
       render: (r) => (
-        <span className="font-medium text-[#2563EB]">{r.invoice_number}</span>
+        <span className="font-medium text-[#2563EB]">
+          {r.invoice_number || r.bill_number || "—"}
+        </span>
       ),
     },
     { key: "customer_name", label: "Customer" },
+<<<<<<< HEAD
     { key: "sales_order_number", label: "Sales Order" },
     { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
     { key: "gst_amount", label: "Goods & Services Tax (GST)", render: (r) => formatInr(r.gst_amount) },
+=======
+    {
+      key: "issue_date",
+      label: "Issue Date",
+      render: (r) => String(r.issue_date || "").slice(0, 10) || "—",
+    },
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
     {
       key: "due_date",
       label: "Due Date",
       render: (r) => String(r.due_date || "").slice(0, 10) || "—",
     },
     {
+      key: "items",
+      label: "Description",
+      render: (r) => {
+        const first = r.items?.[0]?.item_description;
+        return first ? (r.items.length > 1 ? `${first} +${r.items.length - 1} more` : first) : "—";
+      },
+    },
+    {
+      key: "grand_total",
+      label: "Amount",
+      render: (r) => formatInr(r.grand_total ?? r.amount ?? r.total_amount),
+    },
+    {
       key: "status",
       label: "Status",
       render: (r) => (
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}
-        >
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>
           {r.status}
         </span>
       ),
@@ -127,35 +231,14 @@ export default function InvoiceDashboard() {
       key: "actions",
       label: "Actions",
       render: (r) => (
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => {
-              setSelected(r.id);
-              setView("copy");
-            }}
-            className="text-xs font-semibold text-[#2563EB] hover:underline"
+            onClick={() => { setSelected(r.id); setView("copy"); }}
+            className="rounded bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#2563EB] hover:bg-blue-100 transition-colors"
           >
-            View
+            Generate Invoice
           </button>
-          {typeof r.id === "number" && (
-            <>
-              <Link
-                to={`/sales/invoices/${r.id}/copy`}
-                className="text-xs text-slate-600 hover:underline"
-              >
-                Print
-              </Link>
-              {r.status !== "paid" && (
-                <Link
-                  to={`/sales/payments/create?invoice_id=${r.id}`}
-                  className="text-xs font-semibold text-teal-700 hover:underline"
-                >
-                  Pay
-                </Link>
-              )}
-            </>
-          )}
         </div>
       ),
     },
@@ -173,27 +256,24 @@ export default function InvoiceDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/sales/invoices/create" className="ui-btn-primary">
-            <Plus className="h-4 w-4" /> New Invoice
-          </Link>
           <button
             type="button"
-            onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            onClick={async () => { setRefreshing(true); await load(); setRefreshing(false); }}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
           >
-            <RefreshCw className="h-4 w-4" /> Refresh
+            <RefreshCw className={`h-4 w-4 transition-transform ${refreshing ? "animate-spin" : ""}`} /> Refresh
           </button>
         </div>
       </header>
 
       <ManufacturingWorkflowBar currentStepId="invoice" />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard label="Total Invoices" value={summary.total_invoices} icon={FileText} color="bg-blue-600" />
         <KpiCard label="Draft" value={summary.draft} icon={FileText} color="bg-slate-500" />
         <KpiCard label="Paid" value={summary.paid} icon={FileText} color="bg-green-600" />
-        <KpiCard label="Pending" value={summary.pending} icon={FileText} color="bg-amber-500" />
-        <KpiCard label="Overdue" value={summary.overdue} icon={FileText} color="bg-red-500" />
+        <KpiCard label="Issued" value={summary.issued} icon={FileText} color="bg-indigo-500" />
         <KpiCard label="Revenue" value={formatInr(summary.revenue)} icon={IndianRupee} color="bg-emerald-600" />
       </div>
 
@@ -223,7 +303,7 @@ export default function InvoiceDashboard() {
               className="rounded-lg border px-3 py-2 text-sm"
             >
               <option value="">All Status</option>
-              {["draft", "issued", "sent", "paid", "partial", "overdue"].map((s) => (
+              {["draft", "paid", "issued"].map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
@@ -241,18 +321,18 @@ export default function InvoiceDashboard() {
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[340px_1fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="max-h-[calc(100vh-320px)] space-y-2 overflow-y-auto">
-              {filtered.map((inv) => (
+              {filtered.map((inv, idx) => (
                 <button
-                  key={inv.id}
+                  key={inv.id || `inv-${idx}`}
                   type="button"
                   onClick={() => setSelected(inv.id)}
-                  className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${selected === inv.id ? "border-[#2563EB] bg-blue-50" : "border-slate-200 hover:bg-slate-50"}`}
+                  className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${selected && selected === inv.id ? "border-[#2563EB] bg-blue-50" : "border-slate-200 hover:bg-slate-50"}`}
                 >
                   <p className="font-semibold text-slate-800">{inv.customer_name}</p>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    <span className="font-medium text-[#2563EB]">{inv.invoice_number}</span>
+                    <span className="font-medium text-[#2563EB]">{inv.invoice_number || inv.bill_number}</span>
                   </p>
-                  <p className="mt-1 text-sm font-bold">{formatInr(inv.amount)}</p>
+                  <p className="mt-1 text-sm font-bold">{formatInr(inv.grand_total ?? inv.amount)}</p>
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${statusColor(inv.status)}`}
                   >
@@ -272,15 +352,16 @@ export default function InvoiceDashboard() {
                   >
                     Print
                   </Link>
-                  <Link
-                    to={`/sales/payments/create?invoice_id=${selected}`}
-                    className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white"
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentModal(true)}
+                    className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
                   >
                     Record Payment
-                  </Link>
+                  </button>
                 </div>
                 {copyData ? (
-                  <TaxInvoiceCopy data={copyData} />
+                  <Invoice data={copyData} />
                 ) : (
                   <p className="py-8 text-center text-slate-400">Loading invoice…</p>
                 )}
@@ -291,6 +372,18 @@ export default function InvoiceDashboard() {
           </div>
         </div>
       )}
+
+      {/* ── Record Payment popup modal ── */}
+      <RecordPaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onSuccess={() => {
+          setShowPaymentModal(false);
+          load();
+        }}
+        initialInvoice={selected ? String(selected) : ""}
+        initialPartyType="customer"
+      />
     </div>
   );
 }

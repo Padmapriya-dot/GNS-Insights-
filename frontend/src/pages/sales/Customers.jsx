@@ -85,9 +85,15 @@ export default function Customers() {
   const [formCustomer, setFormCustomer] = useState(null);
   const [filters, setFilters] = useState(defaultFilters);
 
+  const getCustomerKey = (item) =>
+    String(item.company || item.name || item.customer_name || item.customer_code || item.id || "")
+      .trim()
+      .toLowerCase();
+
   const loadCustomers = useCallback(async () => {
     setLoading(true);
     try {
+<<<<<<< HEAD
       const res = await getCustomers();
       const apiRows = res.data || [];
       const enriched = apiRows.map((row, i) => enrichApiCustomer(row, i));
@@ -121,6 +127,59 @@ export default function Customers() {
       setCustomers(enriched);
     } catch {
       setCustomers([]);
+=======
+      const res = await getCustomers().catch(() => null);
+      const apiRows = res?.data || [];
+      const stored = localStorage.getItem("smrt_customers");
+      const localRows = stored ? JSON.parse(stored) : [];
+      const deletedStored = localStorage.getItem("smrt_deleted_customers");
+      const deletedIds = (deletedStored ? JSON.parse(deletedStored) : []).map((d) => String(d).trim().toLowerCase());
+
+      const map = new Map();
+      // 1. API customer rows
+      apiRows.forEach((row, i) => {
+        const enriched = enrichApiCustomer(row, i);
+        const key = getCustomerKey(enriched);
+        if (key) map.set(key, enriched);
+      });
+
+      // 2. Persistent local customer rows (overwrites API row if same company/code to avoid duplicates)
+      localRows.forEach((row, i) => {
+        const enriched = enrichApiCustomer(row, i);
+        const key = getCustomerKey(enriched);
+        if (key) map.set(key, enriched);
+      });
+
+      // 3. Filter out deleted customer IDs / company names
+      const finalCustomers = Array.from(map.values()).filter((c) => {
+        const key = getCustomerKey(c);
+        const codeKey = String(c.customer_code || "").trim().toLowerCase();
+        const idKey = String(c.id || "").trim().toLowerCase();
+        return !deletedIds.includes(key) && !deletedIds.includes(codeKey) && !deletedIds.includes(idKey);
+      });
+
+      setCustomers(finalCustomers);
+    } catch {
+      const stored = localStorage.getItem("smrt_customers");
+      const localRows = stored ? JSON.parse(stored) : [];
+      const deletedStored = localStorage.getItem("smrt_deleted_customers");
+      const deletedIds = (deletedStored ? JSON.parse(deletedStored) : []).map((d) => String(d).trim().toLowerCase());
+      
+      const map = new Map();
+      localRows.forEach((row, i) => {
+        const enriched = enrichApiCustomer(row, i);
+        const key = getCustomerKey(enriched);
+        if (key) map.set(key, enriched);
+      });
+
+      const finalCustomers = Array.from(map.values()).filter((c) => {
+        const key = getCustomerKey(c);
+        const codeKey = String(c.customer_code || "").trim().toLowerCase();
+        const idKey = String(c.id || "").trim().toLowerCase();
+        return !deletedIds.includes(key) && !deletedIds.includes(codeKey) && !deletedIds.includes(idKey);
+      });
+      setCustomers(finalCustomers);
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
     } finally {
       setLoading(false);
     }
@@ -156,6 +215,8 @@ export default function Customers() {
     { key: "customer_code", label: "Customer Code" },
     { key: "company", label: "Company" },
     { key: "contact_person", label: "Contact Person" },
+    { key: "customer_type", label: "Customer Type" },
+    { key: "sales_executive", label: "Sales Executive" },
     { key: "phone", label: "Phone" },
     { key: "email", label: "Email" },
     { key: "gstin", label: "GSTIN" },
@@ -213,6 +274,7 @@ export default function Customers() {
       status: form.status || "active",
     };
     try {
+<<<<<<< HEAD
       if (formCustomer?.id && typeof formCustomer.id === "number") {
         addToast("Update API not available — saved locally");
       } else {
@@ -238,10 +300,15 @@ export default function Customers() {
         setFormCustomer(null);
         setTimeout(() => loadCustomers(), 2000);
         return;
+=======
+      if (!formCustomer?.id || typeof formCustomer.id !== "number") {
+        await createCustomer(payload).catch(() => null);
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
       }
     } catch {
       /* fall through to local */
     }
+<<<<<<< HEAD
     if (formCustomer?.id) {
       setCustomers((prev) => prev.map((c) => (c.id === formCustomer.id ? { ...c, ...form, company: form.company, name: form.company } : c)));
       addToast("Customer updated");
@@ -262,12 +329,95 @@ export default function Customers() {
       setCustomers((prev) => [newC, ...prev]);
       addToast("Customer added");
     }
+=======
+
+    const cusCode = form.customer_code?.trim() || `CUS${String(customers.length + 1).padStart(3, "0")}`;
+    const targetId = formCustomer?.id || `cus-${Date.now()}`;
+    const newCustomer = enrichApiCustomer({
+      ...formCustomer,
+      ...form,
+      id: targetId,
+      customer_code: cusCode,
+      company: form.company,
+      name: form.company,
+      contact_person: form.contact_person,
+      customer_type: form.customer_type,
+      sales_executive: form.sales_executive,
+      phone: form.phone,
+      email: form.email,
+      gstin: form.gstin,
+      city: form.city,
+      state: form.state,
+      billing_address: form.billing_address,
+      credit_limit: form.credit_limit != null && form.credit_limit !== "" ? Number(form.credit_limit) : 500000,
+      outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
+      status: form.status || "active",
+      created_at: formCustomer?.created_at || new Date().toISOString().slice(0, 10),
+    });
+
+    const stored = localStorage.getItem("smrt_customers");
+    const localRows = stored ? JSON.parse(stored) : [];
+    const map = new Map();
+    localRows.forEach((item) => {
+      const k = getCustomerKey(item);
+      if (k) map.set(k, item);
+    });
+    map.set(getCustomerKey(newCustomer), newCustomer);
+    const updatedLocal = Array.from(map.values());
+    localStorage.setItem("smrt_customers", JSON.stringify(updatedLocal));
+
+    setCustomers((prev) => {
+      const pMap = new Map();
+      prev.forEach((item) => {
+        const k = getCustomerKey(item);
+        if (k) pMap.set(k, item);
+      });
+      pMap.set(getCustomerKey(newCustomer), newCustomer);
+      return Array.from(pMap.values());
+    });
+
+    addToast(formCustomer?.id ? "Customer updated successfully" : "Customer created successfully");
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
     setFormCustomer(null);
   };
 
   const handleDelete = (customer) => {
     if (!window.confirm(`Delete ${customer.company}?`)) return;
-    setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
+    const targetKey = getCustomerKey(customer);
+    const codeKey = String(customer.customer_code || "").trim().toLowerCase();
+    const idKey = String(customer.id || "").trim().toLowerCase();
+
+    // Save to persistent deleted tracker
+    const deletedStored = localStorage.getItem("smrt_deleted_customers");
+    const deletedIds = deletedStored ? JSON.parse(deletedStored) : [];
+    [targetKey, codeKey, idKey].forEach((keyStr) => {
+      if (keyStr && !deletedIds.includes(keyStr)) {
+        deletedIds.push(keyStr);
+      }
+    });
+    localStorage.setItem("smrt_deleted_customers", JSON.stringify(deletedIds));
+
+    // Remove from smrt_customers
+    const stored = localStorage.getItem("smrt_customers");
+    if (stored) {
+      const localRows = JSON.parse(stored);
+      const updatedLocal = localRows.filter((c) => {
+        const k = getCustomerKey(c);
+        const cCode = String(c.customer_code || "").trim().toLowerCase();
+        const cId = String(c.id || "").trim().toLowerCase();
+        return k !== targetKey && cCode !== codeKey && cId !== idKey;
+      });
+      localStorage.setItem("smrt_customers", JSON.stringify(updatedLocal));
+    }
+
+    setCustomers((prev) =>
+      prev.filter((c) => {
+        const k = getCustomerKey(c);
+        const cCode = String(c.customer_code || "").trim().toLowerCase();
+        const cId = String(c.id || "").trim().toLowerCase();
+        return k !== targetKey && cCode !== codeKey && cId !== idKey;
+      })
+    );
     setSelected(null);
     addToast("Customer deleted");
   };
@@ -276,6 +426,8 @@ export default function Customers() {
     { key: "customer_code", label: "Customer Code" },
     { key: "company", label: "Company" },
     { key: "contact_person", label: "Contact Person" },
+    { key: "customer_type", label: "Customer Type" },
+    { key: "sales_executive", label: "Sales Executive" },
     { key: "phone", label: "Phone" },
     { key: "email", label: "Email" },
     { key: "gstin", label: "GSTIN" },
@@ -320,6 +472,56 @@ export default function Customers() {
       ),
     },
   ];
+
+  const handleGenerateReport = (reportType, format = "pdf") => {
+    let reportData = [...filteredCustomers];
+    let cols = exportColumns;
+
+    if (reportType === "Customer Ledger" || reportType === "Payment Report") {
+      cols = [
+        { key: "customer_code", label: "Customer Code" },
+        { key: "company", label: "Company" },
+        { key: "contact_person", label: "Contact Person" },
+        { key: "sales_executive", label: "Sales Executive" },
+        { key: "credit_limit", label: "Credit Limit" },
+        { key: "outstanding", label: "Outstanding Balance" },
+        { key: "last_payment", label: "Last Payment Date" },
+        { key: "status", label: "Status" },
+      ];
+    } else if (reportType === "Customer Aging Report" || reportType === "Outstanding Report") {
+      reportData = filteredCustomers.filter((c) => (c.outstanding || 0) > 0);
+      if (reportData.length === 0) reportData = filteredCustomers;
+      cols = [
+        { key: "customer_code", label: "Customer Code" },
+        { key: "company", label: "Company" },
+        { key: "contact_person", label: "Contact Person" },
+        { key: "phone", label: "Phone" },
+        { key: "gstin", label: "GSTIN" },
+        { key: "credit_limit", label: "Credit Limit" },
+        { key: "outstanding", label: "Outstanding Amount" },
+        { key: "sales_executive", label: "Sales Executive" },
+      ];
+    } else if (reportType === "Sales Report") {
+      cols = [
+        { key: "customer_code", label: "Customer Code" },
+        { key: "company", label: "Company" },
+        { key: "customer_type", label: "Customer Type" },
+        { key: "total_orders", label: "Total Orders" },
+        { key: "total_sales", label: "Total Sales Value" },
+        { key: "last_order", label: "Last Order Date" },
+        { key: "sales_executive", label: "Sales Executive" },
+      ];
+    }
+
+    const filename = reportType.toLowerCase().replace(/\s+/g, "_");
+    if (format === "excel") {
+      exportToExcel(reportData, cols, filename);
+      addToast(`Downloaded Excel ${reportType}`);
+    } else {
+      exportToPdf(reportData, cols, reportType, filename);
+      addToast(`Generated & Downloaded PDF ${reportType}`);
+    }
+  };
 
   if (loading) return <Loader label="Loading customers..." />;
 
@@ -408,11 +610,16 @@ export default function Customers() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="mb-3 text-sm font-bold text-slate-800">Reports</h3>
-          <ul className="space-y-2">
+          <ul className="divide-y divide-slate-100">
             {REPORT_TYPES.map((r) => (
-              <li key={r}>
-                <button type="button" onClick={() => addToast(`${r} — coming soon`, "info")} className="text-sm font-medium text-[#2563EB] hover:underline">
-                  {r}
+              <li key={r} className="py-2.5">
+                <button
+                  type="button"
+                  onClick={() => handleGenerateReport(r)}
+                  className="flex items-center gap-2 text-sm font-semibold text-[#2563EB] hover:underline"
+                >
+                  <FileText className="h-4 w-4 text-[#2563EB]" />
+                  <span>{r}</span>
                 </button>
               </li>
             ))}

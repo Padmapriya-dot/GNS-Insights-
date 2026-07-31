@@ -339,10 +339,22 @@ export default function MaterialRequests() {
       } else {
         setSummary(emptySummary);
       }
-      if (listRes.status === "fulfilled") setRows(listRes.value?.data || []);
-      else setRows([]);
+      const apiRows = listRes.status === "fulfilled" ? (listRes.value?.data || []) : [];
+      const stored = localStorage.getItem("smrt_material_requests");
+      const localRows = stored ? JSON.parse(stored) : [];
+
+      const mrMap = new Map();
+      [...localRows, ...apiRows].forEach((r) => {
+        const key = String(r.mr_number || r.id).trim().toLowerCase();
+        if (key && !mrMap.has(key)) {
+          mrMap.set(key, r);
+        }
+      });
+      setRows(Array.from(mrMap.values()));
     } catch {
-      addToast("Failed to load material requests", "error");
+      const stored = localStorage.getItem("smrt_material_requests");
+      const localRows = stored ? JSON.parse(stored) : [];
+      setRows(localRows);
     } finally {
       setLoading(false);
     }

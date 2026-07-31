@@ -140,7 +140,9 @@ export const SIDEBAR_NAV = [
     label: "Accounting",
     labelKey: "erpNav.finance",
     icon: Landmark,
+    module: "accounts",
     children: [
+<<<<<<< HEAD
       { label: "Ledger", to: "/accounts/ledger", module: "accounts" },
       { label: "Expense", to: "/accounts/expenses", module: "accounts" },
       { label: "Expense Settings", to: "/accounts/expenses/settings", module: "accounts" },
@@ -150,6 +152,23 @@ export const SIDEBAR_NAV = [
       { label: "Profit & Loss Report", to: "/accounts/profit-loss", module: "accounts" },
       { label: "Accounting Reports", to: "/accounts/reports", module: "accounts" },
       { label: "Restore Deleted Doc.", to: "/accounts/restore-deleted", module: "accounts" },
+=======
+      { labelKey: "erpNav.financeDashboard", to: "/accounts", module: "accounts" },
+      { labelKey: "erpNav.accountsPayable", to: "/finance/accounts-payable", module: "accounts" },
+      { labelKey: "erpNav.accountsReceivable", to: "/finance/accounts-receivable", module: "accounts" },
+      { labelKey: "erpNav.paymentTracking", to: "/finance/payment-tracking", module: "accounts" },
+      { labelKey: "erpNav.generalLedger", to: "/finance/general-ledger", module: "accounts" },
+      { labelKey: "erpNav.gstReports", to: "/accounts/tax-reports", module: "accounts" },
+      { labelKey: "erpNav.profitLoss", to: "/accounts/profit-loss", module: "accounts" },
+      { labelKey: "erpNav.balanceSheet", to: "/accounts/balance-sheet", module: "accounts" },
+      { labelKey: "erpNav.trialBalance", to: "/accounts/trial-balance", module: "accounts" },
+      { labelKey: "erpNav.journalEntries", to: "/accounts/journal-entries", module: "accounts" },
+      { labelKey: "erpNav.chartOfAccounts", to: "/accounts/chart-of-accounts", module: "accounts" },
+      { labelKey: "erpNav.fixedAssets", to: "/accounts/fixed-assets", module: "accounts" },
+      { labelKey: "erpNav.bankReconciliation", to: "/accounts/bank-reconciliation", module: "accounts" },
+      { labelKey: "erpNav.budgetActual", to: "/accounts/budget-actual", module: "accounts" },
+      { labelKey: "erpNav.costAllocation", to: "/accounts/cost-allocation", module: "accounts" },
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
     ],
   },
   {

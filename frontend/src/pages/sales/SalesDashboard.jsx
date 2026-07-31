@@ -42,21 +42,33 @@ export default function SalesDashboard() {
     try {
       const res = await getSalesHub();
       if (res.data) setHub({ ...emptyHub, ...res.data });
-      else setHub(emptyHub);
+      else throw new Error("empty");
     } catch {
-      addToast("Failed to load sales hub", "error");
-      setHub(emptyHub);
+      // Build KPIs from localStorage so dashboard isn't all zeros
+      const orders = JSON.parse(localStorage.getItem("smrt_sales_orders") || "[]");
+      const customers = JSON.parse(localStorage.getItem("smrt_customers") || "[]");
+      const invoices = [
+        ...JSON.parse(localStorage.getItem("smrt_invoices") || "[]"),
+        ...JSON.parse(localStorage.getItem("smrt_sales_bills") || "[]"),
+      ];
+      const revenue = invoices.reduce((s, i) => s + (Number(i.grand_total ?? i.amount) || 0), 0);
+      const pending = orders.filter((o) => ["pending", "draft"].includes(String(o.status || "").toLowerCase())).length;
+      setHub({
+        ...emptyHub,
+        total_orders: orders.length,
+        pending_orders: pending,
+        new_customers: customers.length,
+        monthly_revenue: revenue,
+      });
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
   useManufacturingRefresh(load);
 
   if (loading) return <Loader label="Loading sales dashboard..." />;
-
-  return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>

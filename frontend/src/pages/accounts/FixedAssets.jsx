@@ -1,34 +1,41 @@
 import { useEffect, useState, useCallback } from "react";
-import { Plus, RefreshCw, Layers, Calculator, ShieldAlert, Award, FileText } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Plus, RefreshCw, Layers, Calculator, ShieldAlert, Award, FileText, X } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import FinanceFilters from "../../components/finance/FinanceFilters";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getExtendedReports, createFixedAsset } from "../../api/accountsApi";
 import { formatInr } from "../../data/financeMasterData";
 
+const inputClass =
+  "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
+
 export default function FixedAssets() {
   const { addToast } = useToast();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);       // initial page load
+  const [refreshing, setRefreshing] = useState(false); // button-only spinner
   const [financialYear, setFinancialYear] = useState("2026-27");
   const [month, setMonth] = useState("All Months");
-  const [branch, setBranch] = useState("");
   const [search, setSearch] = useState("");
   const [assets, setAssets] = useState([]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ isRefresh = false } = {}) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     try {
-      const res = await getExtendedReports(financialYear, month, branch);
-      if (res.data && res.data.fixed_assets) {
-        setAssets(res.data.fixed_assets);
-      }
+      const res = await getExtendedReports(
+        financialYear,
+        month === "All Months" ? undefined : month,
+        undefined
+      );
+      if (res.data?.fixed_assets) setAssets(res.data.fixed_assets);
     } catch {
       addToast("Failed to load Fixed Assets data", "error");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [financialYear, month, branch, addToast]);
+  }, [financialYear, month, addToast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -38,6 +45,7 @@ export default function FixedAssets() {
     name: "",
     purchaseDate: new Date().toISOString().split("T")[0],
     cost: "",
+    accumDep: "",
     salvage: "",
     life: "",
     method: "Straight Line"
@@ -60,6 +68,7 @@ export default function FixedAssets() {
         name: "",
         purchaseDate: new Date().toISOString().split("T")[0],
         cost: "",
+        accumDep: "",
         salvage: "",
         life: "",
         method: "Straight Line"
@@ -80,13 +89,35 @@ export default function FixedAssets() {
   const totalDep = filtered.reduce((s, a) => s + a.accumDep, 0);
   const netValue = totalCost - totalDep;
 
-  const forecastData = [
-    { year: "2026-27", value: netValue },
-    { year: "2027-28", value: netValue * 0.88 },
-    { year: "2028-29", value: netValue * 0.77 },
-    { year: "2029-30", value: netValue * 0.68 },
-    { year: "2030-31", value: netValue * 0.60 },
-  ];
+  const currentMonthDep = filtered.reduce((s, a) => {
+    const cost = a.cost || 0;
+    const salvage = a.salvage || 0;
+    const life = a.life || 10;
+    const accumDep = a.accumDep || 0;
+    const nbv = cost - accumDep;
+    if (nbv <= 0) return s;
+    if (a.method === "WDV (15%)") return s + (nbv * 0.15) / 12;
+    if (a.method === "Double Declining") return s + (nbv * (2 / life)) / 12;
+    const remaining = (cost - salvage) - accumDep;
+    return s + (remaining > 0 ? (cost - salvage) / life / 12 : 0);
+  }, 0);
+
+  const baseYear = (() => {
+    const parts = financialYear?.split("-");
+    return parts?.length === 2 ? parseInt(parts[0], 10) : new Date().getFullYear();
+  })();
+
+  // Per-asset bar chart: Cost vs Accumulated Depreciation vs Net Book Value
+  const chartData = filtered.length > 0
+    ? filtered.map((a) => ({
+        name: a.name.length > 14 ? a.name.slice(0, 13) + "…" : a.name,
+        Cost: a.cost,
+        AccumDep: a.accumDep,
+        NetValue: a.cost - a.accumDep,
+      }))
+    : [
+        { name: "No Assets", Cost: 0, AccumDep: 0, NetValue: 0 },
+      ];
 
   if (loading) return <Loader label="Loading Fixed Assets..." />;
 
@@ -105,8 +136,14 @@ export default function FixedAssets() {
             <Plus className="h-4 w-4" />
             Register Asset
           </button>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <RefreshCw className="h-4 w-4" /> Refresh
+          <button
+            type="button"
+            onClick={() => load({ isRefresh: true })}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-all"
+          >
+            <RefreshCw className={`h-4 w-4 transition-transform duration-700 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
       </header>
@@ -115,7 +152,7 @@ export default function FixedAssets() {
         <KpiCard label="Gross Block" value={formatInr(totalCost)} icon={Layers} color="bg-blue-600" />
         <KpiCard label="Accumulated Depreciation" value={formatInr(totalDep)} icon={Calculator} color="bg-red-500" />
         <KpiCard label="Net Book Value" value={formatInr(netValue)} icon={Award} color="bg-green-600" />
-        <KpiCard label="Current Month Depreciation" value={formatInr(totalCost * 0.008)} icon={ShieldAlert} color="bg-indigo-600" />
+        <KpiCard label="Current Month Depreciation" value={formatInr(currentMonthDep)} icon={ShieldAlert} color="bg-indigo-600" />
       </div>
 
       <FinanceFilters
@@ -125,8 +162,6 @@ export default function FixedAssets() {
         onFinancialYearChange={setFinancialYear}
         month={month}
         onMonthChange={setMonth}
-        branch={branch}
-        onBranchChange={setBranch}
         searchPlaceholder="Search fixed assets..."
       />
 
@@ -176,16 +211,20 @@ export default function FixedAssets() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 font-semibold text-slate-900">Depreciation Net Value Projection</h2>
+          <h2 className="mb-1 font-semibold text-slate-900">Cost vs Depreciation vs Net Value</h2>
+          <p className="mb-4 text-xs text-slate-400">Per asset breakdown</p>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={forecastData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="year" />
-                <YAxis tickFormatter={(v) => formatInr(v)} />
-                <Tooltip formatter={(v) => formatInr(v)} />
-                <Area type="monotone" dataKey="value" stroke="#4F46E5" fill="#EEF2F6" strokeWidth={2} />
-              </AreaChart>
+              <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 24 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
+                <YAxis tickFormatter={(v) => v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : v >= 1000 ? `₹${(v / 1000).toFixed(0)}K` : `₹${v}`} tick={{ fontSize: 10 }} width={55} />
+                <Tooltip formatter={(v, name) => [formatInr(v), name]} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                <Bar dataKey="Cost" fill="#6366f1" radius={[3, 3, 0, 0]} maxBarSize={32} />
+                <Bar dataKey="AccumDep" name="Accum Dep" fill="#f87171" radius={[3, 3, 0, 0]} maxBarSize={32} />
+                <Bar dataKey="NetValue" name="Net Value" fill="#34d399" radius={[3, 3, 0, 0]} maxBarSize={32} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -193,89 +232,111 @@ export default function FixedAssets() {
 
       {/* Register Asset Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl space-y-4">
-            <h2 className="text-lg font-bold text-slate-900 border-b pb-2">Register Fixed Asset</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Register Fixed Asset</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Capitalize capital assets, plant machinery, and office property.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Asset Code</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Asset Code *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. FA-004"
                     value={newAsset.code}
                     onChange={(e) => setNewAsset((prev) => ({ ...prev, code: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                    className={inputClass}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Purchase Date</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Purchase Date *</label>
                   <input
                     type="date"
                     required
                     value={newAsset.purchaseDate}
                     onChange={(e) => setNewAsset((prev) => ({ ...prev, purchaseDate: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                    className={inputClass}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Asset Description / Name</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Asset Description / Name *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Laser engraving machine"
                   value={newAsset.name}
                   onChange={(e) => setNewAsset((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                  className={inputClass}
                 />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Capital Cost (₹)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Cost (₹) *</label>
                   <input
                     type="number"
                     required
                     placeholder="450000"
                     value={newAsset.cost}
                     onChange={(e) => setNewAsset((prev) => ({ ...prev, cost: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm text-right"
+                    className={`${inputClass} text-right`}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Salvage Value (₹)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Accum Dep (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={newAsset.accumDep}
+                    onChange={(e) => setNewAsset((prev) => ({ ...prev, accumDep: e.target.value }))}
+                    className={`${inputClass} text-right`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Salvage Value (₹) *</label>
                   <input
                     type="number"
                     required
                     placeholder="50000"
                     value={newAsset.salvage}
                     onChange={(e) => setNewAsset((prev) => ({ ...prev, salvage: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm text-right"
+                    className={`${inputClass} text-right`}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Useful Life (Yrs)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Useful Life (Yrs) *</label>
                   <input
                     type="number"
                     required
                     placeholder="10"
                     value={newAsset.life}
                     onChange={(e) => setNewAsset((prev) => ({ ...prev, life: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-sm text-center"
+                    className={`${inputClass} text-center`}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Depreciation Method</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Depreciation Method</label>
                 <select
                   value={newAsset.method}
                   onChange={(e) => setNewAsset((prev) => ({ ...prev, method: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                  className={inputClass}
                 >
                   <option value="Straight Line">Straight Line</option>
                   <option value="WDV (15%)">WDV (15%)</option>
@@ -283,17 +344,17 @@ export default function FixedAssets() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2 border-t pt-3">
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#2563EB] hover:bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all"
                 >
                   Capitalize Asset
                 </button>

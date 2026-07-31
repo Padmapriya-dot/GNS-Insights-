@@ -98,6 +98,7 @@ PERMISSION_MATRIX = {
             "alerts",
             "documents",
             "analytics",
+            "sales",
         ],
         "description": (
             "Store operations: inventory, warehouses, GRN, finished goods, and dispatch."
@@ -137,6 +138,8 @@ PERMISSION_MATRIX = {
         "modules": [
             "dashboard",
             "accounts",
+            "procurement",
+            "inventory",
             "sales",
             "documents",
             "analytics",

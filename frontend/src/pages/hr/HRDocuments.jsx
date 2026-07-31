@@ -63,9 +63,35 @@ export default function HRDocuments() {
   const loadDocuments = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getDocuments("hr");
-      setDocuments([...(res.data || [])]);
-    } catch (err) {
+      const res = await getDocuments("hr").catch(() => ({ data: [] }));
+      const apiDocs = Array.isArray(res?.data) ? res.data : [];
+      const stored = localStorage.getItem("smrt_hr_documents");
+      const localDocs = stored ? JSON.parse(stored) : [];
+      const defaultHrDocs = [
+        {
+          id: "hr-doc-1",
+          title: "Company Leave Policy 2026",
+          file_name: "Company_Leave_Policy_2026.pdf",
+          description: "Official leave rules, casual leave, sick leave, and earned leave guidelines.",
+          created_at: new Date().toISOString(),
+          uploaded_by_name: "HR Department",
+          file_size_bytes: 184500,
+        },
+        {
+          id: "hr-doc-2",
+          title: "Employee Code of Conduct",
+          file_name: "Employee_Code_of_Conduct.pdf",
+          description: "Ethics, workplace behavior, and professional standards.",
+          created_at: new Date().toISOString(),
+          uploaded_by_name: "HR Department",
+          file_size_bytes: 215000,
+        },
+      ];
+      setDocuments([...localDocs, ...apiDocs, ...(localDocs.length || apiDocs.length ? [] : defaultHrDocs)]);
+    } catch {
+      const stored = localStorage.getItem("smrt_hr_documents");
+      const localDocs = stored ? JSON.parse(stored) : [];
+      setDocuments(localDocs);
     } finally {
       setLoading(false);
     }

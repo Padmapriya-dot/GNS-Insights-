@@ -16,7 +16,7 @@ FORBIDDEN_MODULES = frozenset()
 
 MODULE_MAP = {
     "dashboard": "dashboard",
-    "products": "production",
+    "products": "sales",
     "bom": "production",
     "machines": "production",
     "production": "production",

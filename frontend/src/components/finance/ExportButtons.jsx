@@ -11,14 +11,16 @@ export default function ExportButtons({ onExcel, onPdf, label = "Export" }) {
         <FileSpreadsheet className="h-4 w-4" />
         {label} Excel
       </button>
-      <button
-        type="button"
-        onClick={onPdf}
-        className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100"
-      >
-        <FileText className="h-4 w-4" />
-        {label} PDF
-      </button>
+      {onPdf && (
+        <button
+          type="button"
+          onClick={onPdf}
+          className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+        >
+          <FileText className="h-4 w-4" />
+          {label} PDF
+        </button>
+      )}
     </div>
   );
 }

@@ -19,13 +19,13 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-
+ 
 import BrandLogo from "../common/BrandLogo";
 import useAuth from "../../hooks/useAuth";
 import { getSidebarMenus } from "../../api/authApi";
 import { userCanAccess } from "../../config/permissions";
 import { SIDEBAR_NAV, sectionHasActiveChild } from "../../config/sidebarNav";
-
+ 
 const ICON_BY_KEY = {
   dashboard: LayoutDashboard,
   masters: Layers,
@@ -35,6 +35,7 @@ const ICON_BY_KEY = {
   sales: Wallet,
   hr: Users,
   finance: Landmark,
+  accountant: Landmark,
   quality: CheckCircle2,
   maintenance: Wrench,
   alerts: Bell,
@@ -43,7 +44,7 @@ const ICON_BY_KEY = {
   settings: Settings,
   admin: Settings,
 };
-
+ 
 function FactorySkyline() {
   return (
     <svg viewBox="0 0 200 60" className="w-full h-14 opacity-40" aria-hidden>
@@ -58,7 +59,7 @@ function FactorySkyline() {
     </svg>
   );
 }
-
+ 
 function mapApiMenusToNav(menus) {
   return (menus || []).map((section) => {
     const Icon = ICON_BY_KEY[section.key] || LayoutDashboard;
@@ -85,6 +86,7 @@ function mapApiMenusToNav(menus) {
     };
   });
 }
+<<<<<<< HEAD
 
 const PROD_MANAGER_ALLOWED_SECTIONS = new Set([
   "dashboard",
@@ -150,6 +152,9 @@ function isProductionManager(user) {
   return allRoles.some((r) => r.includes("production manager") || r.includes("production_manager"));
 }
 
+=======
+ 
+>>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
 function filterStaticNav(user) {
   const isPM = isProductionManager(user);
   return SIDEBAR_NAV.map((section) => {
@@ -165,7 +170,7 @@ function filterStaticNav(user) {
     return { ...section, children };
   }).filter(Boolean);
 }
-
+ 
 function buildInitialExpanded(pathname, nav) {
   const state = {};
   nav.forEach((section) => {
@@ -175,13 +180,13 @@ function buildInitialExpanded(pathname, nav) {
   });
   return state;
 }
-
+ 
 export default function Sidebar({ collapsed, onClose }) {
   const { t } = useTranslation();
   const { user, isAuthenticated } = useAuth();
   const location = useLocation();
   const [apiNav, setApiNav] = useState(null);
-
+ 
   useEffect(() => {
     if (!isAuthenticated) {
       setApiNav(null);
@@ -199,7 +204,7 @@ export default function Sidebar({ collapsed, onClose }) {
       cancelled = true;
     };
   }, [isAuthenticated, user?.id, user?.role, user?.role_id]);
-
+ 
   const visibleNav = useMemo(() => {
     const raw = apiNav && apiNav.length ? apiNav : filterStaticNav(user);
     if (isProductionManager(user)) {
@@ -215,11 +220,11 @@ export default function Sidebar({ collapsed, onClose }) {
     }
     return raw;
   }, [apiNav, user]);
-
+ 
   const [expanded, setExpanded] = useState(() =>
     buildInitialExpanded(location.pathname, visibleNav)
   );
-
+ 
   useEffect(() => {
     setExpanded((prev) => {
       const next = { ...prev };
@@ -231,35 +236,35 @@ export default function Sidebar({ collapsed, onClose }) {
       return next;
     });
   }, [location.pathname, visibleNav]);
-
+ 
   const toggleSection = (key) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
-
+ 
   const topLinkClass = ({ isActive }) =>
     `flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-all ${
       isActive
         ? "bg-[#2563EB] text-white font-medium shadow-md shadow-blue-900/30"
         : "text-slate-300 hover:bg-white/10 hover:text-white"
     }`;
-
+ 
   const childLinkClass = ({ isActive }) =>
     `block rounded-lg py-2 pl-9 pr-3 text-[13px] transition-colors ${
       isActive
         ? "bg-[#2563EB]/90 text-white font-medium"
         : "text-slate-400 hover:bg-white/10 hover:text-slate-200"
     }`;
-
+ 
   const sectionButtonClass = (_isOpen, hasActive) =>
     `flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
       hasActive
         ? "bg-white/10 text-white"
         : "text-slate-300 hover:bg-white/10 hover:text-white"
     }`;
-
+ 
   const sectionLabel = (section) => section.label || (section.labelKey ? t(section.labelKey) : section.key);
   const childLabel = (child) => child.label || (child.labelKey ? t(child.labelKey) : child.to);
-
+ 
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col bg-[#001B3D] text-white">
       <div className={`shrink-0 border-b border-white/10 ${collapsed ? "p-3" : "px-4 py-5"}`}>
@@ -273,7 +278,7 @@ export default function Sidebar({ collapsed, onClose }) {
           )}
         </Link>
       </div>
-
+ 
       <nav className="sidebar-scroll flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         {visibleNav.map((section) => {
           if (section.to) {
@@ -293,12 +298,12 @@ export default function Sidebar({ collapsed, onClose }) {
               </NavLink>
             );
           }
-
+ 
           const Icon = section.icon || LayoutDashboard;
           const isOpen = expanded[section.key];
           const hasActive = sectionHasActiveChild(location.pathname, section);
           const label = sectionLabel(section);
-
+ 
           return (
             <div key={section.key} className="space-y-0.5">
               <button
@@ -334,7 +339,7 @@ export default function Sidebar({ collapsed, onClose }) {
           );
         })}
       </nav>
-
+ 
       {!collapsed && (
         <div className="shrink-0 border-t border-white/10 px-3 py-3 space-y-2.5">
           <FactorySkyline />
@@ -346,3 +351,5 @@ export default function Sidebar({ collapsed, onClose }) {
     </aside>
   );
 }
+ 
+ 

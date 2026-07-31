@@ -26,7 +26,17 @@ TOOL_DEFINITIONS: list[dict] = [
         "type": "function",
         "function": {
             "name": "get_todays_work_orders",
-            "description": "Get work orders scheduled or active for today.",
+            "description": (
+            "Get today's work orders. Use this tool for ANY natural-language question "
+            "about work orders for today, including: 'today work orders', "
+            "'today's work orders', 'work orders today', 'work orders for today', "
+            "'what are today's work orders?', 'show today's work orders', "
+            "'list today's work orders', 'how many work orders today?', "
+            "'how many work orders are there today?', 'today work order count', "
+            "and 'today work orders count'. Return the actual current work orders "
+            "and count from the ERP system. Do not use a generic total-order tool "
+            "when the user explicitly says today."
+            ),
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
@@ -191,6 +201,277 @@ TOOL_DEFINITIONS: list[dict] = [
             },
         },
     },
+    # ── Deep Intelligence Tools ──────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "get_machine_deep_status",
+            "description": (
+                "Get comprehensive deep status of machines — including active work order, "
+                "product being manufactured, manpower (operator, supervisor, shift), "
+                "production progress, time to complete, days remaining, scrap, yield, "
+                "OEE, efficiency, temperature, RPM, maintenance info. "
+                "Use when user asks about running machines, active machines, machine for a product, "
+                "manpower on machines, how long a machine will run, machine efficiency, or machine health."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Optional filter: machine code, product name, department, or status.",
+                    }
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_work_order_deep",
+            "description": (
+                "Get comprehensive deep information about work orders — product, machine, operator, "
+                "supervisor, shift, planned vs actual quantity, progress %, scrap, good yield, "
+                "hours remaining, days to complete, delay status, materials issued, downtime. "
+                "Use when user asks about work order details, progress, how long to finish, "
+                "pending work orders in depth, high priority work orders, delayed work orders."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Optional filter: work order number, product, status, operator, customer.",
+                    }
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_batch_deep",
+            "description": (
+                "Get comprehensive deep batch information — product, quantity, good qty, scrap qty, "
+                "yield %, QC status, dispatch status, traceability steps, machine, operator, shift, "
+                "supervisor, customer, production order, material lot. "
+                "Use when user asks about batch details, batch quality, batch traceability, "
+                "batch yield, which batches are completed or running."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Optional filter: batch code, product, status, operator.",
+                    }
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_production_plan_deep",
+            "description": (
+                "Get comprehensive deep production plan information — product, customer, planned vs actual, "
+                "progress %, days remaining, work order breakdown (total/running/completed/pending), "
+                "machine assigned, shift, department, sales order, BOM version, delay status. "
+                "Use when user asks about production plans, order progress, delivery timeline, "
+                "customer order status, production order details."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Optional filter: order number, product, customer, status.",
+                    }
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_shopfloor_deep",
+            "description": (
+                "Get complete shop floor live snapshot — total/running/idle/breakdown machines, "
+                "operators working count, today's production output, scrap, downtime, OEE, "
+                "per-job detail (product, machine, operator, shift, progress %). "
+                "Use when user asks about overall shop floor status, today's floor summary, "
+                "how many operators are working, shop floor performance."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_attendance_deep",
+            "description": (
+                "Get comprehensive attendance information for the current operator — "
+                "today's clock in/out, hours worked, status (present/absent/late), "
+                "last 30 days: present days, absent days, late days, total hours, attendance %. "
+                "Use when user asks about their attendance, how many days present, hours worked."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_production_overview_deep",
+            "description": (
+                "Get a full production overview with total orders, planned orders, in-progress orders, "
+                "completed orders, pending orders, delayed orders, cancelled orders, and today's production output. "
+                "Use when user asks: total orders, how many orders, completed orders, planned orders, "
+                "pending orders, delayed orders, overall production status, todays production, today output."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_schedule_deep",
+            "description": (
+                "Get the complete production schedule with work orders, machine assignments, operator, shift, "
+                "planned start/end times, days remaining, progress %, delay status. "
+                "Use when user asks: production schedule, today schedule, machine schedule, who is on which machine, "
+                "shift schedule, upcoming work orders, schedule overview, what is planned."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Optional filter: machine, product, operator, shift, status."}
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_mrp_deep",
+            "description": (
+                "Get MRP (Material Requirements Planning) status — per production order: product, BOM components, "
+                "required qty, available qty, shortage qty, purchase request raised, materials issued status. "
+                "Use when user asks: MRP status, material requirements, material shortage, BOM materials, "
+                "what materials are needed, which materials are short, purchase request for materials."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Optional filter: order number, product, status."}
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_assigned_tasks_deep",
+            "description": (
+                "Get all assigned tasks/work orders for operators — operator name, machine, product, shift, "
+                "planned qty, progress, time remaining, delay status. "
+                "Use when user asks: assigned tasks, who is assigned to what, my tasks, operator tasks, "
+                "task assignment, who is doing what work, assign task status."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Optional filter: operator name, machine, product, status."}
+                },
+                "required": [],
+            },
+        },
+    },    {
+        "type": "function",
+        "function": {
+            "name": "get_product_overview_deep",
+            "description": (
+                "Get full product overview: total products, today's products, per-product order status "
+                "(planned, in-progress, completed, delayed, cancelled), today's production units. "
+                "Use when user asks: total products, how many products, product status, today products, "
+                "product wise orders, production by product."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_work_order_stats_deep",
+            "description": (
+                "Get complete work order statistics: total, today, planned, in-progress, completed, "
+                "delayed, high-priority, paused, cancelled work orders with breakdown. "
+                "Use when user asks: total work orders, work order stats, planned work orders, "
+                "delayed work orders, high priority work orders, work order summary."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_production_schedule_stats_deep",
+            "description": (
+                "Get production schedule statistics: completed/pending/in-progress counts, "
+                "machine utilization %, operator presence %, delayed orders, material shortage orders, "
+                "production target vs actual, schedule list with machine/operator/shift/progress. "
+                "Use when user asks: schedule stats, machine utilization, operator presence, "
+                "production target, material shortage in schedule, schedule overview."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_machine_allocation_deep",
+            "description": (
+                "Get machine allocation: per-machine details with work order, product, machine, operator, "
+                "shift, supervisor, capacity %, status. Summary: total machines, allocated, free, "
+                "under maintenance, offline, utilization %. "
+                "Use when user asks: machine allocation, which machine allocated, free machines, "
+                "machine utilization, machine assignment, machine capacity."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_batch_summary_deep",
+            "description": (
+                "Get batch summary: total batches, running, completed, hold, rejected, expired counts "
+                "with recent batch details including product, quantity, good qty, scrap, yield %. "
+                "Use when user asks: total batches, batch summary, running batches, completed batches, "
+                "batch status overview, how many batches, hold batches, rejected batches."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_machine_status_deep",
+            "description": (
+                "Get machine status overview: total machines, running, idle, maintenance, breakdown, offline "
+                "counts and per-machine details with OEE, health score, today output, downtime, work order. "
+                "Use when user asks: machine status, total machines, running machines count, idle machines, "
+                "machines in maintenance, breakdown machines, offline machines, machine overview, machine health."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+
 ]
 
 # Maps tool name → equivalent REST endpoint (for documentation / tracing)
@@ -211,6 +492,17 @@ API_ENDPOINT_MAP = {
     "work_order_action": "POST /api/workorders/{action}",
     "update_production_progress": "POST /api/workorders/progress",
     "report_machine_breakdown": "POST /api/shopfloor/breakdown",
+    # Deep intelligence tools
+    "get_machine_deep_status": "GET /api/machines/deep",
+    "get_work_order_deep": "GET /api/workorders/deep",
+    "get_batch_deep": "GET /api/batches/deep",
+    "get_production_plan_deep": "GET /api/production/plans/deep",
+    "get_shopfloor_deep": "GET /api/shopfloor/deep",
+    "get_attendance_deep": "GET /api/operator/attendance/deep",
+    "get_production_overview_deep": "GET /api/production/overview/deep",
+    "get_schedule_deep": "GET /api/production/schedule/deep",
+    "get_mrp_deep": "GET /api/production/mrp/deep",
+    "get_assigned_tasks_deep": "GET /api/production/tasks/deep",
 }
 
 
@@ -230,13 +522,33 @@ def execute_tool(db: Session, user: User, tool_name: str, arguments: dict) -> di
     svc = OperatorService(db, user.tenant_id)
     endpoint = API_ENDPOINT_MAP.get(tool_name)
     args = arguments or {}
-
+    
     if tool_name == "get_todays_work_orders":
         data = svc.list_today_work_orders(user)
-        if not data:
+        orders = data or []
+        if not orders:
             fallback = svc.list_work_orders(user)
-            orders = [w for w in fallback if isinstance(w, dict) and (w.get("status") in ("planned", "in_progress", "running", "paused") or w.get("planned_start"))]
-        return {"success": True, "count": len(orders), "work_orders": orders, "endpoint": endpoint}
+            orders = [
+                w for w in fallback
+                if isinstance(w, dict)
+                and (
+                    w.get("status") in (
+                    "planned",
+                    "pending",
+                    "released",
+                    "in_progress",
+                    "running",
+                    "paused",
+                    )
+                    or w.get("planned_start")
+                    )
+                    ]
+            return {
+                "success": True,
+                "count": len(orders),
+                "work_orders": orders,
+                "endpoint": endpoint,
+            }
 
     if tool_name == "get_pending_work_orders":
         data = svc.list_work_orders(user)
@@ -350,6 +662,73 @@ def execute_tool(db: Session, user: User, tool_name: str, arguments: dict) -> di
         )
         return _safe_call(svc.report_breakdown, user, payload) | {"endpoint": endpoint}
 
+    # ── Deep Intelligence Tools ──────────────────────────────────────────────
+
+    if tool_name == "get_machine_deep_status":
+        query = args.get("query", "")
+        machines = svc.get_machine_deep_status(query)
+        return {"success": True, "machines": machines, "count": len(machines), "endpoint": endpoint}
+
+    if tool_name == "get_work_order_deep":
+        query = args.get("query", "")
+        wos = svc.get_work_order_deep(query)
+        return {"success": True, "work_orders": wos, "count": len(wos), "endpoint": endpoint}
+
+    if tool_name == "get_batch_deep":
+        query = args.get("query", "")
+        batches = svc.get_batch_deep(query)
+        return {"success": True, "batches": batches, "count": len(batches), "endpoint": endpoint}
+
+    if tool_name == "get_production_plan_deep":
+        query = args.get("query", "")
+        plans = svc.get_production_plan_deep(query)
+        return {"success": True, "plans": plans, "count": len(plans), "endpoint": endpoint}
+
+    if tool_name == "get_shopfloor_deep":
+        data = svc.get_shopfloor_deep()
+        return {"success": True, **data, "endpoint": endpoint}
+
+    if tool_name == "get_attendance_deep":
+        data = svc.get_attendance_deep(user)
+        return {"success": True, **data, "endpoint": endpoint}
+
+    if tool_name == "get_production_overview_deep":
+        data = svc.get_production_overview_deep()
+        return {"success": True, **data, "endpoint": endpoint}
+
+    if tool_name == "get_schedule_deep":
+        query = args.get("query", "")
+        schedule = svc.get_schedule_deep(query)
+        return {"success": True, "schedule": schedule, "count": len(schedule), "endpoint": endpoint}
+
+    if tool_name == "get_mrp_deep":
+        query = args.get("query", "")
+        mrp = svc.get_mrp_deep(query)
+        return {"success": True, "mrp": mrp, "count": len(mrp), "endpoint": endpoint}
+
+    if tool_name == "get_assigned_tasks_deep":
+        query = args.get("query", "")
+        tasks = svc.get_assigned_tasks_deep(query, user)
+        return {"success": True, "tasks": tasks, "count": len(tasks), "endpoint": endpoint}
+
+    if tool_name == "get_product_overview_deep":
+        return {"success": True, **svc.get_product_overview_deep(), "endpoint": endpoint}
+
+    if tool_name == "get_work_order_stats_deep":
+        return {"success": True, **svc.get_work_order_stats_deep(), "endpoint": endpoint}
+
+    if tool_name == "get_production_schedule_stats_deep":
+        return {"success": True, **svc.get_production_schedule_stats_deep(), "endpoint": endpoint}
+
+    if tool_name == "get_machine_allocation_deep":
+        return {"success": True, **svc.get_machine_allocation_deep(), "endpoint": endpoint}
+
+    if tool_name == "get_batch_summary_deep":
+        return {"success": True, **svc.get_batch_summary_deep(), "endpoint": endpoint}
+
+    if tool_name == "get_machine_status_deep":
+        return {"success": True, **svc.get_machine_status_deep(), "endpoint": endpoint}
+
     return {"success": False, "error": f"Unknown tool: {tool_name}"}
 
 
@@ -358,50 +737,110 @@ def format_tool_result(tool_name: str, result: dict) -> str:
         return str(result["error"])
     if tool_name == "get_todays_work_orders":
         orders = result.get("work_orders") or []
-        if not orders:
-            return "**Today's Work Orders**\n- Total: **0**\n- Planned: **0**\n- In Progress: **0**\n- Completed: **0**\n- Delayed: **0**"
+        total = result.get("count", len(orders))
         planned = sum(1 for wo in orders if (wo.get("status") or "").lower() in {"planned", "pending", "released"})
-        in_progress = sum(1 for wo in orders if (wo.get("status") or "").lower() in {"in_progress", "running", "active"})
+        in_prog  = sum(1 for wo in orders if (wo.get("status") or "").lower() in {"in_progress", "running", "active"})
         completed = sum(1 for wo in orders if (wo.get("status") or "").lower() in {"completed", "done"})
-        delayed = sum(1 for wo in orders if (wo.get("status") or "").lower() in {"delayed", "hold", "on_hold"})
-        lines = [f"**Today's Work Orders ({result.get('count', len(orders))})**"]
-        lines.append(f"- Total: **{result.get('count', len(orders))}**")
-        lines.append(f"- Planned: **{planned}**")
-        lines.append(f"- In Progress: **{in_progress}**")
-        lines.append(f"- Completed: **{completed}**")
-        lines.append(f"- Delayed: **{delayed}**")
+        delayed  = sum(1 for wo in orders if (wo.get("status") or "").lower() in {"delayed", "hold", "on_hold"})
+        lines = [
+            f"### 📋 Today's Work Orders — {total} Total",
+            "",
+            "**📊 Summary**",
+            f"- 📦 Total Work Orders: **{total}**",
+            f"- 🔵 Planned:     **{planned}**",
+            f"- 🟢 In Progress: **{in_prog}**",
+            f"- ✅ Completed:  **{completed}**",
+            f"- 🔴 Delayed:    **{delayed}**",
+        ]
+        if orders:
+            lines += ["", "**📋 Work Order Details**"]
+            for wo in orders[:15]:
+                s = (wo.get("status") or "unknown").lower()
+                icon = {
+                    "in_progress": "🟢", "running": "🟢", "active": "🟢",
+                    "planned": "🔵", "pending": "🔵", "released": "🔵",
+                    "completed": "✅", "done": "✅",
+                    "delayed": "🔴", "hold": "⏸️",
+                }.get(s, "⚪")
+                wo_no    = wo.get("work_order_number") or wo.get("number") or "?"
+                product  = wo.get("product_name") or wo.get("product") or "—"
+                machine  = wo.get("machine_code") or wo.get("machine") or "—"
+                operator = wo.get("operator_name") or wo.get("operator") or "—"
+                shift    = wo.get("shift") or "—"
+                priority = (wo.get("priority") or "medium").upper()
+                planned_q = float(wo.get("planned_quantity") or 0)
+                actual_q  = float(wo.get("actual_quantity") or wo.get("produced_quantity") or 0)
+                prog = round(actual_q / planned_q * 100, 1) if planned_q else 0
+                bar  = "█" * int(prog // 20) + "░" * (5 - int(prog // 20))
+                lines.append(
+                    f"\n  {icon} **{wo_no}** — {product}"
+                    f"\n  - **Machine:** {machine}  |  **Operator:** {operator}  |  **Shift:** {shift}  |  **Priority:** {priority}"
+                    f"\n  - **Progress:** **{prog}%** {bar} ({actual_q:,.0f}/{planned_q:,.0f} units)"
+                    f"\n  - **Status:** {s.upper()}"
+                )
+        if delayed > 0:
+            lines += ["", f"⚠️ **Alert:** {delayed} work order(s) are delayed — immediate attention required!"]
+        else:
+            lines += ["", "💡 **Insight:** All work orders are on track today. ✅"]
         return "\n".join(lines)
     if tool_name == "get_todays_production":
-        target = result.get("todays_target", 0)
-        completed = result.get("todays_production", 0)
+        target    = result.get("todays_target", 0)
+        produced  = result.get("todays_production", 0)
+        remaining = max(target - produced, 0)
+        prog      = round(produced / target * 100, 1) if target else 0
+        bar       = "█" * int(prog // 20) + "░" * (5 - int(prog // 20))
+        status    = "✅ On Track" if prog >= 80 else ("⚠️ Behind Schedule" if prog >= 50 else "🔴 Critical")
         return (
-            "**Today's Production**\n"
-            f"- Total: **{target:,}**\n"
-            f"- Completed: **{completed:,}**\n"
-            f"- Remaining: **{max(target - completed, 0):,}**\n"
-            f"- Progress: **{round((completed / target * 100) if target else 0, 1)}%**"
+            "### 🏭 Today's Production Summary\n"
+            "\n**📊 Production Metrics**\n"
+            f"- 🎯 **Target:**    **{target:,} units**\n"
+            f"- 🟢 **Produced:**  **{produced:,} units**\n"
+            f"- ⏳ **Remaining:** **{remaining:,} units**\n"
+            f"- 📊 **Progress:**  **{prog}%** {bar}\n"
+            f"- 📍 **Status:**    {status}\n"
+            f"\n💡 **Insight:** {'Great progress! Keep up the pace.' if prog >= 80 else 'Production is behind — consider overtime or additional resources.'}"
         )
     if tool_name == "get_machine_status":
         machines = result.get("machines") or []
-        if not machines:
-            return "**Machine Status**\n- Total: **0**\n- Running/Working: **0**\n- Idle: **0**\n- Breakdown/Down: **0**\n- Maintenance: **0**"
-        status_counts = {"running": 0, "working": 0, "idle": 0, "breakdown": 0, "down": 0, "maintenance": 0}
-        for m in machines:
-            status = (m.get("status") or "idle").lower()
-            if status in {"running", "working", "active"}:
-                status_counts["running"] += 1
-            elif status in {"idle", "available"}:
-                status_counts["idle"] += 1
-            elif status in {"breakdown", "down", "stopped"}:
-                status_counts["breakdown"] += 1
-            elif status in {"maintenance", "maint"}:
-                status_counts["maintenance"] += 1
-        lines = ["**Machine Status**"]
-        lines.append(f"- Total: **{len(machines)}**")
-        lines.append(f"- Running/Working: **{status_counts['running']}**")
-        lines.append(f"- Idle: **{status_counts['idle']}**")
-        lines.append(f"- Breakdown/Down: **{status_counts['breakdown']}**")
-        lines.append(f"- Maintenance: **{status_counts['maintenance']}**")
+        total = len(machines)
+        running = sum(1 for m in machines if (m.get("status") or "").lower() in {"running", "active", "working"})
+        idle = sum(1 for m in machines if (m.get("status") or "").lower() in {"idle", "available"})
+        breakdown = sum(1 for m in machines if (m.get("status") or "").lower() in {"breakdown", "down", "stopped"})
+        maint = sum(1 for m in machines if (m.get("status") or "").lower() in {"maintenance", "maint"})
+        offline = sum(1 for m in machines if (m.get("status") or "").lower() in {"offline", "inactive"})
+        lines = [
+            f"### 🏭 Machine Status Report — {total} Machines",
+            "",
+            "**📊 Fleet Summary**",
+            f"- 🏭 Total Machines: **{total}**",
+            f"- 🟢 Running:      **{running}**",
+            f"- 🟡 Idle:          **{idle}**",
+            f"- 🔧 Maintenance:  **{maint}**",
+            f"- 🔴 Breakdown:    **{breakdown}**",
+            f"- ⚫ Offline:      **{offline}**",
+        ]
+        if machines:
+            lines += ["", "**🔧 Machine Details**"]
+            for m in machines[:20]:
+                s = (m.get("status") or "unknown").lower()
+                icon = {
+                    "running": "🟢", "active": "🟢", "working": "🟢",
+                    "idle": "🟡", "available": "🟡",
+                    "maintenance": "🔧", "maint": "🔧",
+                    "breakdown": "🔴", "down": "🔴",
+                    "offline": "⚫", "inactive": "⚫",
+                }.get(s, "⚪")
+                code = m.get("code") or m.get("machine_code") or "?"
+                name = m.get("name") or m.get("machine_name") or ""
+                mtype = m.get("machine_type") or m.get("type") or "—"
+                loc   = m.get("location") or "—"
+                lines.append(f"  {icon} **{code}** {name}  |  Type: {mtype}  |  Location: {loc}  |  Status: **{s.upper()}**")
+        if breakdown > 0:
+            lines += ["", f"🔴 **Alert:** {breakdown} machine(s) in breakdown — raise maintenance request immediately!"]
+        elif maint > 0:
+            lines += ["", f"🔧 **Note:** {maint} machine(s) under scheduled maintenance."]
+        else:
+            lines += ["", f"💡 **Insight:** All machines operational. Utilization: **{round(running/total*100,1) if total else 0}%**"]
         return "\n".join(lines)
     if tool_name == "get_running_machines":
         machines = result.get("machines") or []
@@ -456,6 +895,513 @@ def format_tool_result(tool_name: str, result: dict) -> str:
         return "**HR Attendance**\n- Present: **0**\n- Absent: **0**\n- On Duty: **0**\n- Late/OT: **0**"
     if tool_name in ("clock_in", "clock_out"):
         return f"**{tool_name.replace('_', ' ').title()}** recorded successfully."
+
+    # ── Deep Intelligence Formatters ─────────────────────────────────────────
+
+    if tool_name == "get_machine_deep_status":
+        machines = result.get("machines") or []
+        if not machines:
+            return "No machines found matching your query. All machines may be idle or no data available."
+        lines = [f"### 🏭 Machine Deep Status Report  ({len(machines)} machine{'s' if len(machines) != 1 else ''})", ""]
+        for m in machines:
+            wo = m.get("current_work_order") or {}
+            prod = m.get("product") or {}
+            mp = m.get("manpower") or {}
+            status_icon = {"running": "🟢", "idle": "🟡", "breakdown": "🔴", "maintenance": "🔧"}.get((m.get("status") or "").lower(), "⚪")
+            lines += [
+                f"---",
+                f"**{status_icon} {m.get('machine_code','?')} — {m.get('machine_name','?')}**",
+                f"- **Status:** {(m.get('status') or 'unknown').upper()}  |  **Type:** {m.get('machine_type') or '—'}  |  **Location:** {m.get('location') or '—'}  |  **Dept:** {m.get('department') or '—'}",
+            ]
+            if prod.get("name"):
+                lines += [
+                    "",
+                    f"**📦 Product Being Made**",
+                    f"- **Product:** {prod.get('name','—')}  |  **SKU:** {prod.get('sku','—')}",
+                    f"- **Work Order:** {wo.get('work_order_number','—')}  |  **Production Order:** {prod.get('production_order','—')}",
+                    f"- **Customer:** {prod.get('customer','—')}  |  **Sales Order:** {prod.get('sales_order','—')}  |  **BOM:** {prod.get('bom_version','—')}",
+                    f"- **Priority:** {(wo.get('priority') or 'medium').upper()}  |  **Shift:** {wo.get('shift') or '—'}  |  **Dept:** {wo.get('department') or '—'}",
+                ]
+                lines += [
+                    "",
+                    f"**👷 Manpower**",
+                    f"- **Operator:** {mp.get('operator_name') or m.get('assigned_operator') or '—'}",
+                    f"- **Supervisor:** {mp.get('supervisor') or '—'}",
+                    f"- **Current Shift:** {mp.get('shift') or m.get('current_shift') or '—'}",
+                ]
+                planned = wo.get('planned_quantity', 0)
+                produced = wo.get('produced_quantity', 0)
+                remaining = wo.get('remaining_quantity', 0)
+                progress = wo.get('progress_pct', 0)
+                scrap = wo.get('scrap_quantity', 0)
+                good = wo.get('good_quantity', 0)
+                scrap_pct = wo.get('scrap_pct', 0)
+                yield_pct = wo.get('yield_pct', 0)
+                lines += [
+                    "",
+                    f"**📊 Production Progress**",
+                    f"- **Planned Qty:** {planned:,.0f} units",
+                    f"- **Produced:**    {produced:,.0f} units  ({progress}%)",
+                    f"- **Remaining:**   {remaining:,.0f} units",
+                    f"- **Good Qty:**    {good:,.1f} units  |  **Yield:** {yield_pct}%",
+                    f"- **Scrap:**       {scrap:,.1f} units  ({scrap_pct}%)",
+                    f"- **Materials Issued:** {'✅ Yes' if wo.get('materials_issued') else '❌ No'}",
+                ]
+                hrs = wo.get('hours_remaining')
+                days = wo.get('days_remaining')
+                delayed = wo.get('is_delayed', False)
+                lines += [
+                    "",
+                    f"**⏱ Time Analysis**",
+                    f"- **Started:**      {(wo.get('planned_start') or '—')[:16]}",
+                    f"- **Planned End:**  {(wo.get('planned_end') or '—')[:16]}",
+                    f"- **Time Left:**    {f'{hrs} hrs  (~{days} days)' if hrs is not None else 'Not scheduled'}",
+                    f"- **Status:**       {'🔴 DELAYED' if delayed else '✅ On Track'}",
+                    f"- **Downtime:**     {wo.get('downtime_minutes', 0)} min",
+                ]
+            lines += [
+                "",
+                f"**⚙️ Machine Performance**",
+                f"- **OEE:** {m.get('oee_pct') or '—'}%  |  **Efficiency:** {m.get('efficiency_pct') or '—'}%",
+                f"- **Health Score:** {m.get('health_score') or '—'}/100",
+                f"- **Temperature:** {m.get('temperature_c') or '—'}°C  |  **RPM:** {m.get('rpm') or '—'}",
+                f"- **Last Maintenance:** {m.get('last_maintenance') or '—'}",
+                f"- **Next Maintenance:** {m.get('next_maintenance') or '—'}",
+            ]
+        return "\n".join(lines)
+
+    if tool_name == "get_work_order_deep":
+        wos = result.get("work_orders") or []
+        if not wos:
+            return "No work orders found matching your query."
+        lines = [f"### 📋 Work Order Deep Report  ({len(wos)} order{'s' if len(wos) != 1 else ''})", ""]
+        for wo in wos[:8]:
+            prod = wo.get("product") or {}
+            mac = wo.get("machine") or {}
+            status_icon = {"running": "🟢", "in_progress": "🟢", "planned": "🔵", "completed": "✅", "paused": "⏸️", "delayed": "🔴"}.get((wo.get("status") or "").lower(), "⚪")
+            lines += [
+                "---",
+                f"**{status_icon} {wo.get('work_order_number','?')}**  |  Status: **{(wo.get('status') or '').upper()}**  |  Priority: **{(wo.get('priority') or 'medium').upper()}**",
+                f"- **Product:** {prod.get('name','—')}  |  **Customer:** {prod.get('customer','—')}  |  **Production Order:** {prod.get('production_order','—')}",
+                f"- **Machine:** {mac.get('code','—')} {mac.get('name','—')}  |  **OEE:** {mac.get('oee_pct') or '—'}%",
+                f"- **Operator:** {wo.get('operator_name') or '—'}  |  **Supervisor:** {wo.get('supervisor') or '—'}  |  **Shift:** {wo.get('shift') or '—'}  |  **Dept:** {wo.get('department') or '—'}",
+                "",
+                f"**📊 Progress**",
+                f"- Planned: {wo.get('planned_quantity',0):,.0f}  |  Produced: {wo.get('produced_quantity',0):,.0f}  |  Remaining: {wo.get('remaining_quantity',0):,.0f}  ({wo.get('progress_pct',0)}%)",
+                f"- Good: {wo.get('good_quantity',0):,.1f}  |  Scrap: {wo.get('scrap_quantity',0):,.1f} ({wo.get('scrap_pct',0)}%)  |  Downtime: {wo.get('downtime_minutes',0)} min",
+                f"- Materials Issued: {'✅ Yes' if wo.get('materials_issued') else '❌ No'}",
+                "",
+                f"**⏱ Timeline**",
+                f"- Start: {(wo.get('planned_start') or '—')[:16]}  →  End: {(wo.get('planned_end') or '—')[:16]}",
+                f"- Time Remaining: {f"{wo.get('hours_remaining')} hrs (~{wo.get('days_remaining')} days)" if wo.get('hours_remaining') is not None else 'Not scheduled'}",
+                f"- Delay: {'🔴 YES — OVERDUE' if wo.get('is_delayed') else '✅ On Track'}",
+                "",
+            ]
+        return "\n".join(lines)
+
+    if tool_name == "get_batch_deep":
+        batches = result.get("batches") or []
+        if not batches:
+            return "No batches found matching your query."
+        lines = [f"### 📦 Batch Deep Report  ({len(batches)} batch{'es' if len(batches) != 1 else ''})", ""]
+        for b in batches[:8]:
+            prod = b.get("product") or {}
+            status_icon = {"completed": "✅", "in_process": "🔄", "running": "🟢", "hold": "⏸️", "rejected": "❌"}.get((b.get("status") or "").lower(), "⚪")
+            lines += [
+                "---",
+                f"**{status_icon} Batch: {b.get('batch_code','?')}**  |  Status: **{(b.get('status') or '').upper()}**",
+                f"- **Product:** {prod.get('name','—')}  |  **SKU:** {prod.get('sku','—')}  |  **Customer:** {prod.get('customer','—')}",
+                f"- **Production Order:** {prod.get('production_order','—')}  |  **Work Order:** {b.get('work_order','—')}",
+                f"- **Machine:** {b.get('machine_code','—')} {b.get('machine','—')}",
+                f"- **Operator:** {b.get('operator','—')}  |  **Supervisor:** {b.get('supervisor','—')}  |  **Shift:** {b.get('shift','—')}",
+                "",
+                f"**📊 Quality & Quantity**",
+                f"- Total Qty: **{b.get('quantity',0):,.1f}**  |  Good: **{b.get('good_quantity',0):,.1f}**  |  Scrap: **{b.get('scrap_quantity',0):,.1f}**",
+                f"- Yield: **{b.get('yield_pct',0)}%**  |  QC Status: **{b.get('qc_status','pending').upper()}**  |  Dispatch: **{b.get('dispatch_status','pending').upper()}**",
+                f"- Material Lot: **{b.get('material_lot','—')}**  |  Produced At: {b.get('produced_at','—')}",
+                "",
+                f"**🔍 Traceability**",
+            ] + [f"  {i+1}. {step}" for i, step in enumerate(b.get("traceability") or [])] + [""]
+        return "\n".join(lines)
+
+    if tool_name == "get_production_plan_deep":
+        plans = result.get("plans") or []
+        if not plans:
+            return "No production plans found matching your query."
+        lines = [f"### 🏗️ Production Plan Deep Report  ({len(plans)} order{'s' if len(plans) != 1 else ''})", ""]
+        for p in plans[:6]:
+            prod = p.get("product") or {}
+            mac = p.get("machine") or {}
+            wo_info = p.get("work_orders") or {}
+            status_icon = {"completed": "✅", "in_progress": "🟢", "running": "🟢", "planned": "🔵", "delayed": "🔴"}.get((p.get("status") or "").lower(), "⚪")
+            lines += [
+                "---",
+                f"**{status_icon} {p.get('order_number','?')}**  |  Status: **{(p.get('status') or '').upper()}**  |  Priority: **{(p.get('priority') or 'medium').upper()}**",
+                f"- **Product:** {prod.get('name','—')}  |  **SKU:** {prod.get('sku','—')}",
+                f"- **Customer:** {p.get('customer','—')}  |  **Sales Order:** {p.get('sales_order','—')}",
+                f"- **Machine:** {mac.get('code','—')} {mac.get('name','—')}  |  **Status:** {mac.get('status','—')}",
+                f"- **Dept:** {p.get('department','—')}  |  **Shift:** {p.get('shift','—')}  |  **BOM:** {p.get('bom_version','—')}",
+                "",
+                f"**📊 Progress**",
+                f"- Planned: {p.get('planned_quantity',0):,.0f}  |  Produced: {p.get('produced_quantity',0):,.0f}  |  Remaining: {p.get('remaining_quantity',0):,.0f}  ({p.get('progress_pct',0)}%)",
+                f"- Work Orders — Total: {wo_info.get('total',0)}  |  Running: {wo_info.get('running',0)}  |  Completed: {wo_info.get('completed',0)}  |  Pending: {wo_info.get('pending',0)}",
+                "",
+                f"**⏱ Timeline**",
+                f"- Start: {(p.get('start_date') or '—')[:16]}  →  Due: {(p.get('due_date') or '—')[:16]}",
+                f"- Time Left: {f"{p.get('hours_remaining')} hrs (~{p.get('days_remaining')} days)" if p.get('hours_remaining') is not None else 'No due date set'}",
+                f"- Delay: {'🔴 OVERDUE' if p.get('is_delayed') else '✅ On Track'}",
+                "",
+            ]
+        return "\n".join(lines)
+
+    if tool_name == "get_shopfloor_deep":
+        mach = result.get("machines") or {}
+        prod = result.get("production") or {}
+        jobs = result.get("running_jobs_detail") or []
+        alerts = result.get("alerts") or []
+        lines = [
+            f"### 🏭 Shop Floor Live Snapshot  —  {result.get('date','Today')}",
+            "",
+            f"**🔧 Machines**",
+            f"- Total: **{mach.get('total',0)}**  |  🟢 Running: **{mach.get('running',0)}**  |  🟡 Idle: **{mach.get('idle',0)}**  |  🔴 Breakdown: **{mach.get('breakdown',0)}**",
+            f"- Machine Utilization: **{mach.get('utilization_pct',0)}%**",
+            "",
+            f"**📊 Today's Production**",
+            f"- Output: **{prod.get('todays_output',0):,} units**  |  Scrap: **{prod.get('todays_scrap',0)} units**  |  Downtime: **{prod.get('todays_downtime_minutes',0)} min**",
+            f"- Running Jobs: **{prod.get('running_jobs',0)}**  |  Operators Working: **{prod.get('operators_working',0)}**",
+        ]
+        if jobs:
+            lines += ["", f"**👷 Active Jobs**"]
+            for j in jobs:
+                lines.append(
+                    f"- {j.get('work_order','?')} | {j.get('product','—')} | Machine: {j.get('machine','—')} "
+                    f"| Op: {j.get('operator','—')} | Shift: {j.get('shift','—')} "
+                    f"| Progress: {j.get('progress_pct',0)}% ({j.get('produced',0):,.0f}/{j.get('planned',0):,.0f})"
+                )
+        if alerts:
+            lines += ["", f"**🚨 Active Alerts**"]
+            for a in alerts:
+                lines.append(f"- ⚠️ {a}")
+        return "\n".join(lines)
+
+    if tool_name == "get_attendance_deep":
+        today = result.get("today") or {}
+        last30 = result.get("last_30_days") or {}
+        return "\n".join([
+            f"### 👤 Attendance Report — {result.get('operator_name','You')}",
+            "",
+            f"**📅 Today**",
+            f"- Status: **{today.get('status','Not clocked in').upper()}**",
+            f"- Clock In:  {today.get('clock_in') or '—'}",
+            f"- Clock Out: {today.get('clock_out') or '—'}",
+            f"- Hours Worked: **{today.get('hours_worked', 0)} hrs**",
+            "",
+            f"**📆 Last 30 Days**",
+            f"- ✅ Present:  **{last30.get('present',0)} days**",
+            f"- ❌ Absent:   **{last30.get('absent',0)} days**",
+            f"- ⏰ Late:     **{last30.get('late',0)} days**",
+            f"- ⌚ Total Hours Worked: **{last30.get('total_hours_worked',0)} hrs**",
+            f"- 📊 Attendance Rate: **{last30.get('attendance_pct',0)}%**",
+            "",
+            f"- Assigned Machine ID: {result.get('assigned_machine') or '—'}",
+            f"- Plant Code: {result.get('plant_code') or '—'}",
+        ])
+
+    if tool_name == "get_production_overview_deep":
+        s = result.get("summary") or {}
+        today = result.get("today") or {}
+        active = result.get("active_orders") or []
+        lines = [
+            "### 🏭 Production Overview",
+            "",
+            "**📊 Order Summary**",
+            f"- 📦 Total Orders:     **{s.get('total_orders', 0)}**",
+            f"- 🔵 Planned:          **{s.get('planned', 0)}**",
+            f"- 🟢 In Progress:      **{s.get('in_progress', 0)}**",
+            f"- ✅ Completed:        **{s.get('completed', 0)}**",
+            f"- ⏳ Pending:          **{s.get('pending', 0)}**",
+            f"- 🔴 Delayed:          **{s.get('delayed', 0)}**",
+            f"- ❌ Cancelled:        **{s.get('cancelled', 0)}**",
+            "",
+            f"**📅 Today's Production  ({today.get('date', 'Today')})**",
+            f"- Output: **{today.get('output', 0):,.0f} units**  |  Scrap: **{today.get('scrap', 0):,.1f} units**",
+        ]
+        if active:
+            lines += ["", "**🔄 Active Orders**"]
+            for o in active:
+                delayed_icon = " 🔴 DELAYED" if o.get("is_delayed") else ""
+                lines.append(
+                    f"- **{o.get('order_number','?')}** | {o.get('product','—')} | Customer: {o.get('customer','—')} "
+                    f"| Priority: {(o.get('priority','medium')).upper()} | Progress: {o.get('progress_pct',0)}% "
+                    f"({o.get('produced_qty',0):,.0f}/{o.get('planned_qty',0):,.0f}) | Due: {o.get('due_date','—')}{delayed_icon}"
+                )
+        return "\n".join(lines)
+
+    if tool_name == "get_schedule_deep":
+        sched = result.get("schedule") or []
+        if not sched:
+            return "No production schedule found. No work orders are currently scheduled."
+        lines = [f"### 📅 Production Schedule  ({len(sched)} work order{'s' if len(sched) != 1 else ''})", ""]
+        for s in sched:
+            status_icon = {"running": "🟢", "in_progress": "🟢", "planned": "🔵",
+                           "completed": "✅", "paused": "⏸️", "delayed": "🔴"}.get((s.get("status") or "").lower(), "⚪")
+            lines += [
+                "---",
+                f"**{status_icon} {s.get('work_order_number','?')}**  |  Status: **{(s.get('status') or '').upper()}**  |  Priority: **{(s.get('priority','medium')).upper()}**",
+                f"- **Product:** {s.get('product','—')}  |  **Customer:** {s.get('customer','—')}  |  **Production Order:** {s.get('production_order','—')}",
+                f"- **Machine:** {s.get('machine_code','—')} {s.get('machine_name','')}  |  **Operator:** {s.get('operator','—')}",
+                f"- **Shift:** {s.get('shift','—')}  |  **Dept:** {s.get('department','—')}",
+                f"- **Start:** {s.get('planned_start','—')}  →  **End:** {s.get('planned_end','—')}",
+                f"- **Time Left:** {f"{s.get('hours_remaining')} hrs (~{s.get('days_remaining')} days)" if s.get('hours_remaining') is not None else 'Not scheduled'}",
+                f"- **Progress:** {s.get('produced_quantity',0):,.0f} / {s.get('planned_quantity',0):,.0f} units  ({s.get('progress_pct',0)}%)",
+                f"- **Delay:** {'🔴 OVERDUE' if s.get('is_delayed') else '✅ On Track'}",
+                "",
+            ]
+        return "\n".join(lines)
+
+    if tool_name == "get_mrp_deep":
+        mrp_list = result.get("mrp") or []
+        if not mrp_list:
+            return "No active production orders found for MRP analysis."
+        lines = [f"### 🔩 MRP Material Requirements  ({len(mrp_list)} order{'s' if len(mrp_list) != 1 else ''})", ""]
+        for m in mrp_list:
+            all_ok = m.get("all_ok", True)
+            lines += [
+                "---",
+                f"**📋 {m.get('order_number','?')}**  |  {m.get('product','—')}  |  Customer: {m.get('customer','—')}",
+                f"- Status: **{(m.get('status') or '').upper()}**  |  Priority: **{(m.get('priority','medium')).upper()}**  |  Planned Qty: **{m.get('planned_quantity',0):,.0f}**  |  Due: **{m.get('due_date','—')}**",
+                f"- Materials Issued: **{'✅ Yes' if m.get('materials_issued') else '❌ No'}**  |  Material Status: **{m.get('material_status','—')}**",
+                "",
+                f"**🧩 BOM Components ({m.get('total_components',0)} total)**",
+            ]
+            for c in (m.get("components") or []):
+                ok_icon = "✅" if c.get("ok") else "❌"
+                lines.append(
+                    f"  {ok_icon} **{c.get('name','?')}** ({c.get('sku','—')}) | "
+                    f"Required: {c.get('required',0):,.2f} {c.get('unit','')} | "
+                    f"Available: {c.get('available',0):,.2f} | "
+                    f"Shortage: {c.get('shortage',0):,.2f}"
+                )
+            lines.append("")
+        return "\n".join(lines)
+
+    if tool_name == "get_assigned_tasks_deep":
+        tasks = result.get("tasks") or []
+        if not tasks:
+            return "No assigned tasks found."
+        lines = [f"### 👷 Assigned Tasks  ({len(tasks)} work order{'s' if len(tasks) != 1 else ''})", ""]
+        for t in tasks:
+            status_icon = {"running": "🟢", "in_progress": "🟢", "planned": "🔵",
+                           "completed": "✅", "paused": "⏸️"}.get((t.get("status") or "").lower(), "⚪")
+            lines += [
+                "---",
+                f"**{status_icon} {t.get('work_order_number','?')}**  |  Status: **{(t.get('status') or '').upper()}**  |  Priority: **{(t.get('priority','medium')).upper()}**",
+                f"- **Product:** {t.get('product','—')}  |  **Customer:** {t.get('customer','—')}  |  **Prod Order:** {t.get('production_order','—')}",
+                f"- **Assigned To:** {t.get('assigned_operator','Unassigned')}  |  **Machine:** {t.get('machine_code','—')} {t.get('machine_name','')}",
+                f"- **Shift:** {t.get('shift','—')}  |  **Dept:** {t.get('department','—')}",
+                "",
+                f"**📊 Progress**",
+                f"- Planned: {t.get('planned_quantity',0):,.0f}  |  Done: {t.get('produced_quantity',0):,.0f}  |  Left: {t.get('remaining_quantity',0):,.0f}  ({t.get('progress_pct',0)}%)",
+                f"- Materials Issued: {'✅ Yes' if t.get('materials_issued') else '❌ No'}",
+                "",
+                f"**⏱ Timeline**",
+                f"- Start: {t.get('planned_start','—')}  →  End: {t.get('planned_end','—')}",
+                f"- Time Left: {f"{t.get('hours_remaining')} hrs (~{t.get('days_remaining')} days)" if t.get('hours_remaining') is not None else 'Not scheduled'}",
+                f"- Delay: {'🔴 OVERDUE' if t.get('is_delayed') else '✅ On Track'}",
+                "",
+            ]
+        return "\n".join(lines)
+
+    if tool_name == "get_product_overview_deep":
+        s = result.get("summary") or {}
+        products = result.get("products") or []
+        lines = [
+            "### 🏷️ Product Overview",
+            "",
+            "**📊 Summary**",
+            f"- 📦 Total Products:        **{s.get('total_products', 0)}**",
+            f"- 🏭 Products Produced Today: **{s.get('products_produced_today', 0)}**",
+            f"- 📈 Today's Output:         **{s.get('today_output_units', 0):,.0f} units**",
+            f"- 🔵 Total Planned Orders:   **{s.get('total_planned_orders', 0)}**",
+            f"- 🟢 In Progress:            **{s.get('total_in_progress', 0)}**",
+            f"- ✅ Completed:              **{s.get('total_completed', 0)}**",
+            f"- 🔴 Delayed:               **{s.get('total_delayed', 0)}**",
+            f"- ❌ Cancelled:              **{s.get('total_cancelled', 0)}**",
+        ]
+        if products:
+            lines += ["", "**📋 Per-Product Breakdown**"]
+            for p in products[:10]:
+                icon = "🟢" if p.get("in_progress") else ("✅" if p.get("completed") else "🔵")
+                lines.append(
+                    f"- {icon} **{p.get('product_name','?')}** (SKU: {p.get('sku','—')}) | "
+                    f"Orders: {p.get('total_orders',0)} | Planned: {p.get('planned',0)} | "
+                    f"Running: {p.get('in_progress',0)} | Done: {p.get('completed',0)} | "
+                    f"Delayed: {p.get('delayed',0)} | Total Produced: {p.get('total_produced_qty',0):,.0f}"
+                )
+        return "\n".join(lines)
+
+    if tool_name == "get_work_order_stats_deep":
+        s = result.get("summary") or {}
+        active = result.get("active_work_orders") or []
+        lines = [
+            "### 📋 Work Order Statistics",
+            "",
+            "**📊 Summary**",
+            f"- 📦 Total Work Orders:  **{s.get('total_work_orders', 0)}**",
+            f"- 📅 Today's WOs:        **{s.get('today_work_orders', 0)}**",
+            f"- 🔵 Planned:            **{s.get('planned', 0)}**",
+            f"- 🟢 In Progress:        **{s.get('in_progress', 0)}**",
+            f"- ✅ Completed:          **{s.get('completed', 0)}**",
+            f"- 🔴 Delayed:            **{s.get('delayed', 0)}**",
+            f"- ⚡ High Priority:      **{s.get('high_priority', 0)}**",
+            f"- ⏸️ Paused:             **{s.get('paused', 0)}**",
+            f"- ❌ Cancelled:          **{s.get('cancelled', 0)}**",
+        ]
+        if active:
+            lines += ["", "**🔄 Active Work Orders**"]
+            for w in active:
+                delay_tag = " 🔴 DELAYED" if w.get("is_delayed") else ""
+                lines.append(
+                    f"- **{w.get('work_order_number','?')}** | {w.get('product','—')} | "
+                    f"Machine: {w.get('machine','—')} | Op: {w.get('operator','—')} | "
+                    f"Shift: {w.get('shift','—')} | Priority: {(w.get('priority','medium')).upper()} | "
+                    f"Progress: {w.get('progress_pct',0)}%{delay_tag}"
+                )
+        return "\n".join(lines)
+
+    if tool_name == "get_production_schedule_stats_deep":
+        s = result.get("summary") or {}
+        mu = result.get("machine_utilization") or {}
+        op = result.get("operator_presence") or {}
+        ms = result.get("material_shortage") or {}
+        pt = result.get("production_target") or {}
+        schedule = result.get("schedule") or []
+        lines = [
+            "### 📅 Production Schedule Statistics",
+            "",
+            "**📊 Schedule Summary**",
+            f"- 📋 Total Scheduled: **{s.get('total_scheduled',0)}**  | ✅ Completed: **{s.get('completed',0)}** | ⏳ Pending: **{s.get('pending',0)}** | 🟢 In Progress: **{s.get('in_progress',0)}** | 🔴 Delayed: **{s.get('delayed',0)}**",
+            "",
+            "**⚙️ Machine Utilization**",
+            f"- Total Machines: **{mu.get('total_machines',0)}** | Active: **{mu.get('active_machines',0)}** | Utilization: **{mu.get('utilization_pct',0)}%**",
+            "",
+            "**👷 Operator Presence**",
+            f"- Total Operators: **{op.get('total_operators',0)}** | On Floor: **{op.get('operators_on_floor',0)}** | Presence: **{op.get('presence_pct',0)}%**",
+            "",
+            "**🔩 Material Shortage**",
+            f"- Orders with Shortage: **{ms.get('orders_with_shortage',0)}**",
+        ]
+        for d in (ms.get("details") or []):
+            lines.append(f"  - {d.get('order','?')}: {d.get('shortage_items',0)} component(s) short")
+        lines += [
+            "",
+            "**🎯 Production Target (Today)**",
+            f"- Date: **{pt.get('today_date','—')}** | Target: **{pt.get('today_target',0):,.0f}** | Output: **{pt.get('today_output',0):,.0f}** | Scrap: **{pt.get('today_scrap',0):,.1f}** | Achievement: **{pt.get('achievement_pct',0)}%**",
+        ]
+        if schedule:
+            lines += ["", "**📋 Schedule Breakdown**"]
+            for row in schedule[:10]:
+                delay_tag = " 🔴" if row.get("is_delayed") else " ✅"
+                lines.append(
+                    f"- **{row.get('work_order','?')}** | {row.get('product','—')} | Machine: {row.get('machine','—')} | "
+                    f"Op: {row.get('operator','—')} | Shift: {row.get('shift','—')} | "
+                    f"Status: {(row.get('status') or '').upper()} | {row.get('progress_pct',0)}%{delay_tag}"
+                )
+        return "\n".join(lines)
+
+    if tool_name == "get_machine_allocation_deep":
+        s = result.get("summary") or {}
+        machines = result.get("machines") or []
+        lines = [
+            "### 🔧 Machine Allocation",
+            "",
+            "**📊 Fleet Summary**",
+            f"- 🏭 Total Machines:      **{s.get('total_machines',0)}**",
+            f"- 🟢 Allocated:           **{s.get('allocated',0)}**",
+            f"- 🔵 Free / Available:    **{s.get('free_machines',0)}**",
+            f"- 🔧 Under Maintenance:   **{s.get('under_maintenance',0)}**",
+            f"- ⚫ Offline:             **{s.get('offline',0)}**",
+            f"- 📈 Utilization:         **{s.get('utilization_pct',0)}%**",
+            "",
+            "**🔩 Per-Machine Allocation**",
+        ]
+        for m in machines:
+            status_icon = {"running": "🟢", "active": "🟢", "idle": "🔵",
+                           "maintenance": "🔧", "breakdown": "🔴", "offline": "⚫"}.get((m.get("machine_status") or "").lower(), "⚪")
+            if m.get("is_allocated") and m.get("work_order"):
+                lines.append(
+                    f"- {status_icon} **{m.get('machine_code','?')}** {m.get('machine_name','')} | "
+                    f"WO: {m.get('work_order','—')} | Product: {m.get('product','—')} | "
+                    f"Operator: {m.get('operator','—')} | Shift: {m.get('shift','—')} | "
+                    f"Supervisor: {m.get('supervisor','—')} | Capacity: {m.get('capacity_pct',0)}% | "
+                    f"Status: {(m.get('machine_status') or '').upper()}"
+                )
+            else:
+                lines.append(
+                    f"- {status_icon} **{m.get('machine_code','?')}** {m.get('machine_name','')} | "
+                    f"Status: {(m.get('machine_status') or '').upper()} | {'FREE' if not m.get('is_allocated') else 'UNASSIGNED'}"
+                )
+        return "\n".join(lines)
+
+    if tool_name == "get_batch_summary_deep":
+        s = result.get("summary") or {}
+        batches = result.get("recent_batches") or []
+        lines = [
+            "### 📦 Batch Summary",
+            "",
+            "**📊 Batch Counts**",
+            f"- 📦 Total Batches:  **{s.get('total_batches',0)}**",
+            f"- 🟢 Running:        **{s.get('running',0)}**",
+            f"- ✅ Completed:      **{s.get('completed',0)}**",
+            f"- ⏸️ Hold:           **{s.get('hold',0)}**",
+            f"- ❌ Rejected:       **{s.get('rejected',0)}**",
+            f"- ⏰ Expired:        **{s.get('expired',0)}**",
+            f"- 📏 Total Quantity: **{s.get('total_quantity',0):,.0f} units**",
+        ]
+        if batches:
+            lines += ["", "**🕐 Recent Batches**"]
+            for b in batches[:8]:
+                status_icon = {"running": "🟢", "in_process": "🟢", "completed": "✅",
+                               "hold": "⏸️", "rejected": "❌", "expired": "⏰"}.get((b.get("status") or "").lower(), "⚪")
+                lines.append(
+                    f"- {status_icon} **{b.get('batch_code','?')}** | {b.get('product','—')} | "
+                    f"WO: {b.get('work_order','—')} | Qty: {b.get('quantity',0):,.0f} | "
+                    f"Good: {b.get('good_qty',0):,.0f} | Scrap: {b.get('scrap_qty',0):,.1f} | "
+                    f"Yield: {b.get('yield_pct',0)}% | Date: {b.get('produced_at','—')}"
+                )
+        return "\n".join(lines)
+
+    if tool_name == "get_machine_status_deep":
+        s = result.get("summary") or {}
+        machines = result.get("machines") or []
+        lines = [
+            "### 🏭 Machine Status Overview",
+            "",
+            "**📊 Fleet Status**",
+            f"- 🏭 Total Machines: **{s.get('total_machines',0)}**",
+            f"- 🟢 Running:        **{s.get('running',0)}**",
+            f"- 🔵 Idle:           **{s.get('idle',0)}**",
+            f"- 🔧 Maintenance:    **{s.get('maintenance',0)}**",
+            f"- 🔴 Breakdown:      **{s.get('breakdown',0)}**",
+            f"- ⚫ Offline:         **{s.get('offline',0)}**",
+            f"- 📈 Utilization:    **{s.get('utilization_pct',0)}%**",
+            "",
+            "**🔩 Per-Machine Details**",
+        ]
+        for m in machines:
+            status_icon = {"running": "🟢", "active": "🟢", "idle": "🔵",
+                           "maintenance": "🔧", "breakdown": "🔴", "offline": "⚫"}.get((m.get("status") or "").lower(), "⚪")
+            oee = f"OEE: {m.get('oee')}%" if m.get("oee") else ""
+            health = f"Health: {m.get('health_score')}/100" if m.get("health_score") else ""
+            wo = f"WO: {m.get('active_work_order')}" if m.get("active_work_order") else "No active WO"
+            lines.append(
+                f"- {status_icon} **{m.get('machine_code','?')}** {m.get('machine_name','')} | "
+                f"Status: {(m.get('status') or '').upper()} | {wo} | "
+                f"Today Output: {m.get('today_output',0):,.0f} | Downtime: {m.get('today_downtime_min',0)} min"
+                + (f" | {oee}" if oee else "") + (f" | {health}" if health else "")
+            )
+        return "\n".join(lines)
+
     if result.get("data"):
         return f"**{tool_name.replace('_', ' ').title()}** completed successfully."
     return f"Action **{tool_name}** completed."

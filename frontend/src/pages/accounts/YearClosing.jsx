@@ -8,6 +8,7 @@ import { formatInr } from "../../data/financeMasterData";
 export default function YearClosing() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [financialYear, setFinancialYear] = useState("2026-27");
   const [currentStep, setCurrentStep] = useState(1);
@@ -23,8 +24,9 @@ export default function YearClosing() {
     { id: 4, label: "Accrued liabilities and taxes verified", checked: false, detail: "Pending tax calculations check" }
   ]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ isRefresh = false } = {}) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     try {
       const res = await getExtendedReports(financialYear, "All Months", "");
       if (res.data) {
@@ -34,6 +36,7 @@ export default function YearClosing() {
       addToast("Failed to load Year End Closing parameters", "error");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [financialYear, addToast]);
 
@@ -75,6 +78,15 @@ export default function YearClosing() {
           <h1 className="text-2xl font-bold text-slate-900 border-b-0 pb-0">Financial Year Closing</h1>
           <p className="mt-1 text-sm text-slate-500 font-medium">Perform fiscal period closure, transfer net earnings, and seal books for audit.</p>
         </div>
+        <button
+          type="button"
+          onClick={() => load({ isRefresh: true })}
+          disabled={refreshing}
+          className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-all"
+        >
+          <RefreshCw className={`h-4 w-4 transition-transform duration-700 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Refreshing..." : "Refresh"}
+        </button>
       </header>
 
       {/* Stepper Wizard Progress */}
