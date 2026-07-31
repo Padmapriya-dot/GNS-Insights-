@@ -30,6 +30,12 @@ export const ROLE_PERMISSIONS = {
   "Store Manager": [
     "dashboard", "inventory", "procurement", "masters", "alerts", "documents", "settings",
   ],
+  "Purchase Manager": [
+    "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "analytics",
+  ],
+  "Procurement Manager": [
+    "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "analytics",
+  ],
   "HR Manager": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents", "masters"],
   Accountant: ["dashboard", "accounts", "sales", "documents", "analytics", "alerts", "masters"],
   Operator: ["dashboard", "production", "factoryMonitor", "attendance", "documents", "alerts", "masters"],
@@ -113,6 +119,7 @@ export function getModuleForPath(pathname) {
 
 export function isAdmin(user) {
   if (!user) return false;
+  if (Array.isArray(user.permissions) && user.permissions.includes("*")) return true;
   const roles = Array.isArray(user.roles) && user.roles.length
     ? user.roles
     : [user.role, user.role_name].filter(Boolean);
@@ -181,6 +188,7 @@ export const STORE_MANAGER_ALLOWED_PATHS = new Set([
   "/inventory/stock-return",
   "/inventory/history",
   "/inventory/warehouses",
+  "/inventory/items",
   "/accounts/ledger",
   "/accounts/expenses",
   "/ledger",

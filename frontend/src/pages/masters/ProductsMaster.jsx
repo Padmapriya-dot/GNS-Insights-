@@ -45,36 +45,42 @@ function blankOr(value) {
   return s;
 }
 
-function DeleteConfirmModal({ open, onClose, onConfirm }) {
+function DeleteConfirmModal({ open, onClose, onConfirm, busy = false }) {
   if (!open) return null;
   return createPortal(
     <div
       className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
+      onMouseDown={(e) => {
+        if (!busy && e.target === e.currentTarget) onClose?.();
+      }}
     >
-      <div className="w-full max-w-[420px] rounded-2xl bg-white px-8 py-8 text-center shadow-2xl">
+      <div
+        className="w-full max-w-[420px] rounded-2xl bg-white px-8 py-8 text-center shadow-2xl"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="mx-auto mb-5 grid h-[72px] w-[72px] place-items-center rounded-full bg-[#fee2e2]">
           <Trash2 className="h-9 w-9 text-[#ef4444]" strokeWidth={1.75} />
         </div>
         <h3 className="text-[28px] font-bold leading-tight text-[#1a1a1f]">Delete Product?</h3>
         <p className="mt-3 text-[14px] leading-relaxed text-[#5a5a66]">
-          Are you sure you want to delete this product from your Inventory? This action is not
-          reversible.
+          Are you sure you want to delete this Product?
         </p>
         <div className="mt-7 grid grid-cols-2 gap-4">
           <button
             type="button"
+            disabled={busy}
             onClick={onClose}
-            className="rounded-xl bg-[#eceef4] py-3 text-[15px] font-semibold text-[#1a1a1f]"
+            className="rounded-xl bg-[#eceef4] py-3 text-[15px] font-semibold text-[#1a1a1f] disabled:opacity-60"
           >
             No
           </button>
           <button
             type="button"
-            onClick={onConfirm}
-            className="rounded-xl bg-[#ef5350] py-3 text-[15px] font-semibold text-white"
+            disabled={busy}
+            onClick={() => onConfirm?.()}
+            className="rounded-xl bg-[#ef5350] py-3 text-[15px] font-semibold text-white disabled:opacity-60"
           >
-            Delete
+            {busy ? "Deleting…" : "Delete"}
           </button>
         </div>
       </div>
@@ -96,6 +102,7 @@ export default function ProductsMaster() {
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -158,14 +165,27 @@ export default function ProductsMaster() {
   };
 
   const confirmDelete = async () => {
-    if (!deleting) return;
+    if (!deleting || deleteBusy) return;
+    const rawId = deleting.id;
+    const numericId = typeof rawId === "number" ? rawId : Number(rawId);
+    const canCallApi = Number.isFinite(numericId) && String(rawId) !== "demo-product";
+    setDeleteBusy(true);
     try {
-      if (typeof deleting.id === "number") await deleteProduct(deleting.id);
-      setProducts((prev) => prev.filter((p) => p.id !== deleting.id));
+      if (canCallApi) {
+        if (pathname.startsWith("/inventory")) {
+          const { deleteInventoryV2Item } = await import("../../api/inventoryV2Api");
+          await deleteInventoryV2Item(numericId);
+        } else {
+          await deleteProduct(numericId);
+        }
+      }
+      setProducts((prev) => prev.filter((p) => String(p.id) !== String(rawId)));
       setDeleting(null);
       addToast("Product deleted", "success");
     } catch (err) {
-      addToast(apiErrorMessage(err, "Could not delete product."), "error");
+      addToast(apiErrorMessage(err, "Could not delete product. It may be linked to other records."), "error");
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -190,7 +210,11 @@ export default function ProductsMaster() {
               />
             </div>
             <Link
-              to="/masters/products/bulk-import"
+              to={
+                pathname.startsWith("/inventory")
+                  ? "/inventory/products/bulk-import"
+                  : "/masters/products/bulk-import"
+              }
               className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
             >
               <Upload className="h-4 w-4" />
@@ -361,7 +385,8 @@ export default function ProductsMaster() {
       />
       <DeleteConfirmModal
         open={Boolean(deleting)}
-        onClose={() => setDeleting(null)}
+        busy={deleteBusy}
+        onClose={() => !deleteBusy && setDeleting(null)}
         onConfirm={confirmDelete}
       />
     </div>

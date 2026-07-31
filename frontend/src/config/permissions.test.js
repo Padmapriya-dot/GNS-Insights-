@@ -71,9 +71,15 @@ describe("getEffectivePermissions / userCanAccess", () => {
   it("falls back to the static role map when there are no live permissions", () => {
     const user = { role: "Accountant", permissions: [] };
     expect(getEffectivePermissions(user)).toContain("accounts");
-    expect(getEffectivePermissions(user)).toContain("procurement");
-    expect(userCanAccess(user, "inventory")).toBe(true);
+    expect(getEffectivePermissions(user)).toContain("sales");
+    expect(userCanAccess(user, "accounts")).toBe(true);
     expect(userCanAccess(user, "analytics")).toBe(true);
+    expect(userCanAccess(user, "inventory")).toBe(false);
     expect(userCanAccess(user, "quality")).toBe(false);
+  });
+
+  it("grants Purchase/Procurement Manager inventory access from the static map", () => {
+    expect(userCanAccess({ role: "Purchase Manager" }, "inventory")).toBe(true);
+    expect(userCanAccess({ role: "Procurement Manager" }, "inventory")).toBe(true);
   });
 });

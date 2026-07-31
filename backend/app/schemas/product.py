@@ -8,10 +8,15 @@ class ProductBase(BaseModel):
     description: str | None = None
     unit_cost: float | None = None
     unit_price: float | None = None
-    min_stock: int | None = Field(None, ge=1)
-    max_stock: int | None = Field(None, ge=1)
-    current_stock: int | None = Field(None, ge=1)
+    wholesale_price: float | None = None
+    min_stock: int | None = Field(None, ge=0)
+    max_stock: int | None = Field(None, ge=0)
+    current_stock: float | None = Field(None, ge=0)
     unit: str | None = Field("Pcs", max_length=32)
+    hsn_code: str | None = Field(None, max_length=32)
+    category: str | None = Field(None, max_length=128)
+    gst_percent: float | None = Field(None, ge=0)
+    cess_percent: float | None = Field(None, ge=0)
 
 
 class ProductCreate(ProductBase):
@@ -24,10 +29,15 @@ class ProductUpdate(BaseModel):
     description: str | None = None
     unit_cost: float | None = None
     unit_price: float | None = None
-    min_stock: int | None = Field(None, ge=1)
-    max_stock: int | None = Field(None, ge=1)
-    current_stock: int | None = Field(None, ge=1)
+    wholesale_price: float | None = None
+    min_stock: int | None = Field(None, ge=0)
+    max_stock: int | None = Field(None, ge=0)
+    current_stock: float | None = Field(None, ge=0)
     unit: str | None = Field(None, max_length=32)
+    hsn_code: str | None = Field(None, max_length=32)
+    category: str | None = Field(None, max_length=128)
+    gst_percent: float | None = Field(None, ge=0)
+    cess_percent: float | None = Field(None, ge=0)
 
 
 class ProductDetailRead(ProductBase):

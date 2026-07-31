@@ -1,0 +1,3 @@
+Place inventory screenshots here named 1.png, 2.png, 3.png, ...
+The Inventory page "Screenshots" tab will load these images from /inventory-screenshots/.
+Recommended sizes: 1280x720 or similar for best fit.

@@ -64,9 +64,11 @@ export const SIDEBAR_NAV = [
   {
     key: "inventory",
     labelKey: "erpNav.inventory",
+    label: "Inventory",
     icon: Boxes,
+    module: "inventory",
     children: [
-      { label: "Inventory", to: "/inventory", module: "inventory" },
+      { label: "Inventory", to: "/inventory", module: "inventory", end: true },
       { label: "Store Dashboard", to: "/inventory/dashboard", module: "inventory" },
       { labelKey: "erpNav.rawMaterials", to: "/inventory/raw-materials", module: "inventory" },
       { labelKey: "erpNav.finishedGoods", to: "/inventory/finished-goods", module: "inventory" },

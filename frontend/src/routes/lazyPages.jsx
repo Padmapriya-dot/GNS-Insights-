@@ -26,6 +26,7 @@ export const QuickCreateWorkOrder = lazy(() => import("../pages/production/Quick
 export const TaskManagement = lazy(() => import("../pages/production/TaskManagement"));
 export const InventoryDashboard = lazy(() => import("../pages/inventory/InventoryDashboard"));
 export const InventoryV2 = lazy(() => import("../pages/inventory/InventoryV2"));
+export const InventoryItemDetailV2 = lazy(() => import("../pages/inventory/InventoryItemDetailV2"));
 export const InventorySettingsV2 = lazy(() => import("../pages/inventory/InventorySettingsV2"));
 export const InventoryList = lazy(() => import("../pages/inventory/InventoryList"));
 export const RawMaterials = lazy(() => import("../pages/inventory/RawMaterials"));

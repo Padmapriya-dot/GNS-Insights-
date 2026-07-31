@@ -36,6 +36,7 @@ from app.api.forecasting import router as forecasting_router
 from app.api.hr import router as hr_router
 from app.api.integration import router as integration_router
 from app.api.inventory import router as inventory_router
+from app.api.inventory_v2 import router as inventory_v2_router
 from app.api.iot import router as iot_router
 from app.api.maintenance import router as maintenance_router
 from app.api.procurement import router as procurement_router
@@ -118,6 +119,7 @@ app.add_middleware(AuditMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -425,6 +427,11 @@ def on_startup():
         "ALTER TABLE products ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE products ADD COLUMN max_stock INTEGER NOT NULL DEFAULT 100",
         "ALTER TABLE products ADD COLUMN current_stock INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE products ADD COLUMN wholesale_price NUMERIC(12, 2)",
+        "ALTER TABLE products ADD COLUMN hsn_code VARCHAR(32)",
+        "ALTER TABLE products ADD COLUMN category VARCHAR(128)",
+        "ALTER TABLE products ADD COLUMN gst_percent NUMERIC(5, 2) DEFAULT 0",
+        "ALTER TABLE products ADD COLUMN cess_percent NUMERIC(5, 2) DEFAULT 0",
     ]
     for ddl in _product_columns:
         try:
@@ -708,6 +715,7 @@ app.include_router(maintenance_router)
 app.include_router(analytics_router)
 app.include_router(hr_router)
 app.include_router(inventory_router)
+app.include_router(inventory_v2_router)
 app.include_router(alerts_router)
 app.include_router(alerts_router, prefix="/api")
 app.include_router(admin_router)

@@ -167,6 +167,22 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/inventory/items/create"
+        element={
+          <ProtectedRoute>
+            <P.CreateItem />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/items/:id"
+        element={
+          <ProtectedRoute>
+            <P.InventoryItemDetailV2 />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/inventory/items"
         element={<Navigate to="/inventory/raw-materials" replace />}
       />
@@ -207,14 +223,6 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <P.StockLedger />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/inventory/items/create"
-        element={
-          <ProtectedRoute>
-            <P.CreateItem />
           </ProtectedRoute>
         }
       />

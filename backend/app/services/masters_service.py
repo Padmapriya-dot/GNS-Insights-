@@ -40,9 +40,17 @@ class MastersService:
                 "unit": getattr(p, "unit", None) or "Pcs",
                 "unit_cost": float(p.unit_cost) if p.unit_cost else None,
                 "unit_price": float(p.unit_price) if p.unit_price else None,
+                "purchase_price": float(p.unit_cost) if p.unit_cost else 0,
+                "selling_price": float(p.unit_price) if p.unit_price else 0,
+                "wholesale_price": float(p.wholesale_price) if getattr(p, "wholesale_price", None) else 0,
+                "hsn_code": getattr(p, "hsn_code", None) or "",
+                "category": getattr(p, "category", None) or "No Category",
+                "gst_percent": float(p.gst_percent) if getattr(p, "gst_percent", None) is not None else 0,
+                "cess_percent": float(p.cess_percent) if getattr(p, "cess_percent", None) is not None else 0,
                 "min_stock": int(p.min_stock) if p.min_stock is not None else None,
                 "max_stock": int(p.max_stock) if p.max_stock is not None else None,
-                "current_stock": int(p.current_stock) if p.current_stock is not None else 0,
+                "current_stock": float(p.current_stock) if p.current_stock is not None else 0,
+                "stock_value": float(p.current_stock or 0) * float(p.unit_price or 0),
             }
             for p in list_products(self.db, self.tenant_id)
         ]
@@ -59,9 +67,17 @@ class MastersService:
             "unit": getattr(p, "unit", None) or "Pcs",
             "unit_cost": float(p.unit_cost) if p.unit_cost else None,
             "unit_price": float(p.unit_price) if p.unit_price else None,
+            "purchase_price": float(p.unit_cost) if p.unit_cost else 0,
+            "selling_price": float(p.unit_price) if p.unit_price else 0,
+            "wholesale_price": float(p.wholesale_price) if getattr(p, "wholesale_price", None) else 0,
+            "hsn_code": getattr(p, "hsn_code", None) or "",
+            "category": getattr(p, "category", None) or "No Category",
+            "gst_percent": float(p.gst_percent) if getattr(p, "gst_percent", None) is not None else 0,
+            "cess_percent": float(p.cess_percent) if getattr(p, "cess_percent", None) is not None else 0,
             "min_stock": int(p.min_stock) if p.min_stock is not None else None,
             "max_stock": int(p.max_stock) if p.max_stock is not None else None,
-            "current_stock": int(p.current_stock) if p.current_stock is not None else 0,
+            "current_stock": float(p.current_stock) if p.current_stock is not None else 0,
+            "stock_value": float(p.current_stock or 0) * float(p.unit_price or 0),
             "bom": [self.bom.enrich_item(b) for b in list_bom(self.db, self.tenant_id, p.id)],
         }
 

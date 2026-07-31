@@ -89,8 +89,11 @@ def delete_product(
     db: Session = Depends(get_db),
 ):
     _, tenant_id = user_tenant
-    if not _svc(db, tenant_id).delete_product(product_id):
-        raise HTTPException(404, "Product not found")
+    try:
+        if not _svc(db, tenant_id).delete_product(product_id):
+            raise HTTPException(404, "Product not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return success_response("Product deleted", {"id": product_id})
 
 

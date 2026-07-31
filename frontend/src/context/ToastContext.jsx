@@ -16,14 +16,6 @@ export function ToastProvider({ children }) {
   const lastErrorRef = useRef({ message: null, at: 0 });
 
   const addToast = useCallback((message, type = "success") => {
-    if (
-      typeof message === "string" &&
-      (message.toLowerCase().includes("permission") ||
-        message.toLowerCase().includes("access to") ||
-        message.toLowerCase().includes("not allowed"))
-    ) {
-      return;
-    }
     const id = Date.now() + Math.random();
     const text = normalizeToastMessage(message);
     setToasts((prev) => [...prev, { id, message: text, type }]);
@@ -36,6 +28,16 @@ export function ToastProvider({ children }) {
   useEffect(() => {
     setApiErrorHandler((message) => {
       // Debounce identical errors fired within 4s to avoid toast spam.
+      // Soft-suppress noisy RBAC redirects from the global interceptor only —
+      // explicit addToast calls (e.g. Delete failures) must still surface.
+      const lower = String(message || "").toLowerCase();
+      if (
+        lower.includes("permission") ||
+        lower.includes("access to") ||
+        lower.includes("not allowed")
+      ) {
+        return;
+      }
       const now = Date.now();
       if (
         lastErrorRef.current.message === message &&

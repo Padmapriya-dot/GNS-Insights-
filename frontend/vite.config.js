@@ -5,7 +5,12 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    host: "127.0.0.1",
     port: 5173,
+    strictPort: false,
+    watch: {
+      ignored: ["**/node_modules_bak_push/**", "**/dist/**", "**/.git/**"],
+    },
     proxy: {
       // Proxy API requests while bypassing static public assets (.png, .jpg, etc.)
       "/auth": {

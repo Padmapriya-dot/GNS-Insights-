@@ -131,6 +131,7 @@ export default function App() {
     location.pathname === "/purchases/debit-notes" ||
     location.pathname === "/procurement/purchase-orders" ||
     location.pathname === "/inventory" ||
+    location.pathname.startsWith("/inventory/items/") ||
     location.pathname === "/inventory/settings" ||
     location.pathname === "/settings/change-template" ||
     location.pathname === "/settings/template-settings" ||
