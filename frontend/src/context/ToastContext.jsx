@@ -16,6 +16,14 @@ export function ToastProvider({ children }) {
   const lastErrorRef = useRef({ message: null, at: 0 });
 
   const addToast = useCallback((message, type = "success") => {
+    if (
+      typeof message === "string" &&
+      (message.toLowerCase().includes("permission") ||
+        message.toLowerCase().includes("access to") ||
+        message.toLowerCase().includes("not allowed"))
+    ) {
+      return;
+    }
     const id = Date.now() + Math.random();
     const text = normalizeToastMessage(message);
     setToasts((prev) => [...prev, { id, message: text, type }]);

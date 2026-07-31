@@ -107,7 +107,7 @@ export default function Navbar({ onMenuClick }) {
   });
 
   return (
-    <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200/80 bg-white shadow-sm">
+    <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200/80 bg-white shadow-sm print:hidden">
       <div className="flex flex-wrap items-center gap-4 px-4 py-3 lg:px-6 lg:py-3.5">
         <div className="flex min-w-0 flex-1 items-start gap-3 lg:max-w-[340px]">
           <button

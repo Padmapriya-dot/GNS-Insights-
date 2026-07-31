@@ -275,6 +275,9 @@ def seed_dashboard_data(db: Session, tenant_id: int = 1):
             )
             db.add(report)
 
+    from app.core.seed_finance import seed_finance_data
+    seed_finance_data(db, tenant_id)
+
     db.commit()
     print("Database seeding completed successfully.")
 

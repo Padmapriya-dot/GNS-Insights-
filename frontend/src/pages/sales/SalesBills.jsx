@@ -1,16 +1,12 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { CheckCircle, FileText, Plus, TrendingUp, Download, RefreshCw, Search } from "lucide-react";
-import Loader from "../../components/common/Loader";
+import DataTable from "../../components/common/DataTable";
 import BillFormModal from "../../components/sales/BillFormModal";
-import { getInvoices } from "../../api/salesApi";
 import { exportToExcel } from "../../utils/exportUtils";
-
-const isBillRecord = (row) => {
-  const invoiceNumber = String(row?.invoice_number || row?.bill_number || "").trim().toUpperCase();
-  const docType = String(row?.document_type || row?.type || "").trim().toLowerCase();
-  return invoiceNumber.startsWith("BILL-") || docType === "bill";
-};
+import api from "../../api/axiosConfig";
+import { getInvoices } from "../../api/salesApi";
+import { useToast } from "../../context/ToastContext";
 
 const fmt = (v) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(v) || 0);
@@ -18,242 +14,311 @@ const fmt = (v) =>
 const STATUS_STYLES = {
   paid: "bg-emerald-100 text-emerald-700",
   draft: "bg-slate-100 text-slate-600",
-  pending_approval: "bg-amber-100 text-amber-700",
-  approved: "bg-blue-100 text-blue-700",
-  sent: "bg-blue-100 text-blue-700",
   partial: "bg-orange-100 text-orange-700",
+  sent: "bg-blue-100 text-blue-700",
+  approved: "bg-blue-100 text-blue-700",
 };
 
 const STATUS_LABEL = {
-  paid: "Paid", draft: "Draft", pending_approval: "Pending",
-  approved: "Approved", sent: "Sent", partial: "Partial",
+  paid: "Paid", draft: "Draft", partial: "Partial", sent: "Sent", approved: "Approved",
 };
 
+function readBillsFromStorage() {
+  try {
+    const stored = JSON.parse(localStorage.getItem("smrt_sales_bills") || "[]");
+    const map = new Map();
+    stored.forEach((item) => {
+      const key = String(item.invoice_number || item.bill_number || item.id || "");
+      if (key) map.set(key, { ...item, id: item.id || key });
+    });
+    return Array.from(map.values());
+  } catch {
+    return [];
+  }
+}
+
 export default function SalesBills() {
+  const location = useLocation();
+  const { addToast } = useToast();
   const [bills, setBills] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingBills, setLoadingBills] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
-  const [selectedBills, setSelectedBills] = useState([]);
 
-  const toggleSelectBill = (id) => {
-    setSelectedBills((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
+  const fetchBills = useCallback(async () => {
+    setLoadingBills(true);
+    try {
+      const res = await getInvoices();
+      const data = res?.data ?? res ?? [];
+      const apiList = Array.isArray(data) ? data : [];
+      const normalized = apiList.map((b) => ({
+        ...b,
+        bill_number: b.invoice_number,
+        grand_total: b.grand_total ?? b.amount ?? 0,
+        amount_paid: b.amount_paid ?? 0,
+        items: Array.isArray(b.items) ? b.items : [],
+      }));
+      setBills(normalized);
+      try { localStorage.setItem("smrt_sales_bills", JSON.stringify(normalized)); } catch { /* ignore */ }
+    } catch {
+      setBills(readBillsFromStorage());
+      addToast("Could not refresh bills from server — showing cached data.", "warning");
+    } finally {
+      setLoadingBills(false);
+    }
+  }, [addToast]);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    getInvoices()
-      .then((r) => {
-        const all = Array.isArray(r.data) ? r.data : [];
-        setBills(all.filter(isBillRecord));
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  // Reload every time user navigates to this page
+  useEffect(() => {
+    fetchBills();
+  }, [fetchBills, location.key]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    const newBill = location.state?.newBill;
+    if (!newBill) return;
+
+    setBills((prev) => {
+      const key = String(newBill.invoice_number || newBill.bill_number || newBill.id || "");
+      if (!key) return prev;
+      const exists = prev.some((b) => String(b.invoice_number || b.bill_number || b.id || "") === key);
+      return exists ? prev : [newBill, ...prev];
+    });
+  }, [location.state?.newBill]);
+
+  const handleUpdateBillStatus = useCallback(async (billId, newStatus) => {
+    const bill = bills.find((b) => String(b.id) === String(billId));
+    if (!bill) return;
+    const grandTotal = Number(bill.grand_total) || 0;
+    const amountPaid = newStatus === "paid" ? grandTotal : Number(bill.amount_paid) || 0;
+    // Optimistic update
+    setBills((prev) => prev.map((b) =>
+      String(b.id) === String(billId) ? { ...b, status: newStatus, amount_paid: amountPaid } : b
+    ));
+    try {
+      await api.patch(`/sales/invoices/${billId}/status`, null, {
+        params: { status: newStatus, amount_paid: amountPaid },
+      });
+      addToast("Bill marked as paid.", "success");
+    } catch {
+      setBills((prev) => prev.map((b) =>
+        String(b.id) === String(billId) ? { ...b, status: bill.status, amount_paid: bill.amount_paid } : b
+      ));
+      addToast("Failed to update bill status.", "error");
+    }
+  }, [bills, addToast]);
 
   const filteredBills = useMemo(() => {
-    return bills.filter(b => 
-      String(b.invoice_number || "").toLowerCase().includes(search.toLowerCase()) ||
-      String(b.customer_name || "").toLowerCase().includes(search.toLowerCase())
+    if (!search.trim()) return bills;
+    const q = search.toLowerCase();
+    return bills.filter((b) =>
+      [b.invoice_number, b.bill_number, b.customer_name].some((v) => String(v || "").toLowerCase().includes(q))
     );
   }, [bills, search]);
 
-  const handleExport = () => {
-    const exportColumns = [
-      { key: "invoice_number", label: "Bill No." },
-      { key: "customer_name", label: "Customer" },
-      { key: "issue_date", label: "Issue Date" },
-      { key: "due_date", label: "Due Date" },
-      { key: "grand_total", label: "Total Amount" },
-      { key: "status", label: "Status" },
-    ];
-    exportToExcel(filteredBills, exportColumns, "sales-bills");
-  };
-
-  if (loading) return <Loader label="Loading bills…" />;
+  const columns = useMemo(() => [
+    {
+      key: "invoice_number",
+      label: "Bill No.",
+      render: (r) => <span className="font-semibold text-[#2563EB]">{r.invoice_number || r.bill_number}</span>,
+    },
+    { key: "customer_name", label: "Customer" },
+    {
+      key: "issue_date",
+      label: "Issue Date",
+      render: (r) => String(r.issue_date || "—").slice(0, 10),
+    },
+    {
+      key: "due_date",
+      label: "Due Date",
+      render: (r) => String(r.due_date || "—").slice(0, 10),
+    },
+    {
+      key: "items",
+      label: "Description",
+      render: (r) => {
+        const firstItem = r.items?.[0] || {};
+        const productName = firstItem.item_description || firstItem.description || r.item_description || "";
+        if (!productName.trim()) return <span className="text-slate-400">—</span>;
+        return (
+          <span className="font-medium text-slate-800">
+            {productName}
+            {Array.isArray(r.items) && r.items.length > 1 && (
+              <span className="ml-1.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
+                +{r.items.length - 1} more
+              </span>
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      key: "qty",
+      label: "Quantity",
+      render: (r) => {
+        const firstItem = r.items?.[0] || {};
+        const qty = Number(firstItem.qty ?? firstItem.quantity ?? r.qty ?? r.quantity ?? 0);
+        const unit = firstItem.unit || r.unit || "pcs";
+        if (!qty) return <span className="text-slate-400">—</span>;
+        return (
+          <span className="font-medium text-slate-700">
+            {qty % 1 === 0 ? qty : qty.toFixed(2)}
+            <span className="ml-1 text-xs text-slate-400">{unit}</span>
+          </span>
+        );
+      },
+    },
+    {
+      key: "rate",
+      label: "Unit Price",
+      render: (r) => {
+        const firstItem = r.items?.[0] || {};
+        const rate = Number(firstItem.rate ?? firstItem.unit_price ?? r.rate ?? r.unit_price ?? 0);
+        if (!rate) return <span className="text-slate-400">—</span>;
+        return (
+          <span className="font-semibold text-slate-800">
+            {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(rate)}
+          </span>
+        );
+      },
+    },
+    {
+      key: "grand_total",
+      label: "Amount",
+      render: (r) => fmt(r.grand_total),
+    },
+    {
+      key: "amount_paid",
+      label: "Paid",
+      render: (r) => fmt(r.amount_paid),
+    },
+    {
+      key: "balance",
+      label: "Balance",
+      render: (r) => fmt((Number(r.grand_total) || 0) - (Number(r.amount_paid) || 0)),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (r) => {
+        const k = String(r.status || "draft").toLowerCase();
+        return (
+          <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold capitalize ${STATUS_STYLES[k] || "bg-slate-100 text-slate-600"}`}>
+            {STATUS_LABEL[k] || r.status || "Draft"}
+          </span>
+        );
+      },
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (r) => (
+        <div className="flex gap-2">
+          <Link to={`/sales/bills/${r.id}`} className="text-xs font-semibold text-[#2563EB] hover:underline">View</Link>
+          {String(r.status || "").toLowerCase() !== "paid" && (
+            <button type="button" onClick={() => handleUpdateBillStatus(r.id, "paid")}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100">
+              Mark Paid
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ], [handleUpdateBillStatus]);
 
   const totalAmount = bills.reduce((s, b) => s + (Number(b.grand_total) || 0), 0);
-  const paidCount = bills.filter((b) => b.status === "paid").length;
-  const pendingCount = bills.filter((b) => b.status !== "paid").length;
+  const paidCount = bills.filter((b) => String(b.status) === "paid").length;
+  const pendingCount = bills.length - paidCount;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Bills</h1>
-          <p className="mt-1 text-sm text-slate-500">Review billing records and manage your bills.</p>
+          <p className="mt-1 text-sm text-slate-500">Manage your billing records.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm"
-          >
+          <Link to="/sales/bills/create"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm">
             <Plus className="h-4 w-4" /> Create Bill
-          </button>
-          <button
-            type="button"
-            onClick={handleExport}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
+          </Link>
+          <button type="button" onClick={() => exportToExcel(
+            filteredBills.map((b) => ({
+              ...b,
+              product: b.items?.[0]?.item_description || "—",
+              quantity: b.items?.[0]?.qty ?? b.items?.[0]?.quantity ?? "—",
+              unit: b.items?.[0]?.unit || "—",
+              unit_price: b.items?.[0]?.rate || 0,
+            })),
+            [
+              { key: "invoice_number", label: "Bill No." },
+              { key: "customer_name", label: "Customer" },
+              { key: "issue_date", label: "Issue Date" },
+              { key: "product", label: "Product" },
+              { key: "quantity", label: "Quantity" },
+              { key: "unit", label: "Unit" },
+              { key: "unit_price", label: "Unit Price (₹)" },
+              { key: "grand_total", label: "Amount" },
+              { key: "status", label: "Status" },
+            ],
+            "sales-bills"
+          )}
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <Download className="h-4 w-4" /> Export
           </button>
-          <button
-            type="button"
-            onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Refresh
+          <button type="button" onClick={async () => { setRefreshing(true); await fetchBills(); setRefreshing(false); }} disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+            <RefreshCw className={`h-4 w-4 transition-transform ${refreshing ? "animate-spin" : ""}`} /> Refresh
           </button>
         </div>
       </header>
 
+      {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-slate-500">Total Bills</p>
-              <p className="mt-1 text-xl font-bold text-slate-900">{bills.length}</p>
-            </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
-              <FileText className="h-5 w-5 text-white" />
-            </div>
-          </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between">
+          <div><p className="text-xs font-medium text-slate-500">Total Bills</p><p className="mt-1 text-xl font-bold text-slate-900">{bills.length}</p></div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600"><FileText className="h-5 w-5 text-white" /></div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-slate-500">Paid / Pending</p>
-              <p className="mt-1 text-xl font-bold text-slate-900">
-                {paidCount} <span className="text-base font-normal text-slate-400">/ {pendingCount}</span>
-              </p>
-            </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600">
-              <CheckCircle className="h-5 w-5 text-white" />
-            </div>
-          </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between">
+          <div><p className="text-xs font-medium text-slate-500">Paid / Pending</p><p className="mt-1 text-xl font-bold text-slate-900">{paidCount} <span className="text-base font-normal text-slate-400">/ {pendingCount}</span></p></div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600"><CheckCircle className="h-5 w-5 text-white" /></div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-slate-500">Combined Total</p>
-              <p className="mt-1 text-xl font-bold text-[#2563EB]">{fmt(totalAmount)}</p>
-            </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600">
-              <TrendingUp className="h-5 w-5 text-white" />
-            </div>
-          </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between">
+          <div><p className="text-xs font-medium text-slate-500">Combined Total</p><p className="mt-1 text-xl font-bold text-[#2563EB]">{fmt(totalAmount)}</p></div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600"><TrendingUp className="h-5 w-5 text-white" /></div>
         </div>
       </div>
 
+      {/* Search + Table */}
       <div className="space-y-4">
-        {/* Search bar */}
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="relative w-full sm:max-w-md">
             <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by Bill No. or Customer..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 py-2 text-sm text-slate-800 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
+            <input type="text" placeholder="Search by Bill No. or Customer..."
+              value={search} onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 py-2 text-sm focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100" />
           </div>
-          <span className="text-xs text-slate-400 font-medium">
-            Showing {filteredBills.length} of {bills.length} bills
-          </span>
+          <span className="text-xs text-slate-400 font-medium">Showing {filteredBills.length} of {bills.length} bills</span>
         </div>
 
-        {filteredBills.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        {bills.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 rounded-2xl border border-slate-200 bg-white shadow-sm text-center">
             <FileText className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-            <p className="text-lg font-semibold text-slate-700">No bills found</p>
-            <p className="mt-1 text-sm text-slate-500">Create a bill or adjust your search query.</p>
-            {bills.length === 0 && (
-              <button
-                type="button"
-                onClick={() => setShowCreate(true)}
-                className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm"
-              >
-                <Plus className="h-4 w-4" /> Create Bill
-              </button>
-            )}
+            <p className="text-lg font-semibold text-slate-700">No bills yet</p>
+            <p className="mt-1 text-sm text-slate-500">Create your first bill to get started.</p>
+            <Link to="/sales/bills/create"
+              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+              <Plus className="h-4 w-4" /> Create Bill
+            </Link>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredBills.map((b) => {
-              const k = (b.status || "draft").toLowerCase();
-              const billNo = b.invoice_number || `BILL-${String(b.id).padStart(4, "0")}`;
-              return (
-                <div
-                  key={b.id}
-                  className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedBills.includes(b.id)}
-                          onChange={() => toggleSelectBill(b.id)}
-                          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                        />
-                        <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
-                          {billNo}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className="block text-xs font-semibold text-slate-500">
-                          Due: {fmt(Number(b.grand_total || 0) - Number(b.amount_paid || 0))}
-                        </span>
-                        <span className="block text-base font-extrabold text-slate-900 leading-tight mt-1">
-                          Total: {fmt(b.grand_total)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Customer & Status */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="text-base font-bold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors">
-                          {b.customer_name || "Unknown Customer"}
-                        </h3>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize shrink-0 ${STATUS_STYLES[k] || "bg-slate-100 text-slate-600"}`}>
-                          {STATUS_LABEL[k] || b.status}
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2 pt-2 text-xs text-slate-500">
-                        <div>
-                          <span className="block text-[10px] font-semibold text-slate-400 uppercase">Issued</span>
-                          <span className="font-medium text-slate-700">{b.issue_date || "—"}</span>
-                        </div>
-                        <div>
-                          <span className="block text-[10px] font-semibold text-slate-400 uppercase">Due Date</span>
-                          <span className="font-medium text-slate-700">{b.due_date || "—"}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Footer Button: Continue to Bill */}
-                  <div className="mt-5 border-t pt-4">
-                    <Link
-                      to={`/sales/bills/${b.id}`}
-                      className="block w-full text-center rounded-lg bg-blue-600 hover:bg-blue-700 py-2 text-xs font-bold text-white shadow-sm transition-colors"
-                    >
-                      Continue to Bill
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
+          <div>
+            <DataTable
+              columns={columns}
+              data={filteredBills}
+              showSearch={false}
+              searchPlaceholder="Search bills..."
+            />
           </div>
         )}
       </div>
@@ -261,9 +326,12 @@ export default function SalesBills() {
       {showCreate && (
         <BillFormModal
           onClose={() => setShowCreate(false)}
-          onSave={() => {
+          onSave={(newBill) => {
             setShowCreate(false);
-            load();
+            if (newBill) {
+              setBills((prev) => [newBill, ...prev]);
+            }
+            fetchBills();
           }}
         />
       )}

@@ -109,7 +109,7 @@ export default function Breadcrumbs({ items: customItems }) {
   if (items.length <= 1) return null;
 
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400">
+    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 print:hidden">
       {items.map((item, i) => (
         <span key={item.path + i} className="flex items-center gap-1.5 min-w-0">
           {i > 0 && <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />}

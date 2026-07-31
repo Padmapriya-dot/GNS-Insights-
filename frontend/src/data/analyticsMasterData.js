@@ -1,6 +1,6 @@
 /** Analytics demo data and helpers. */
 
-export const FISCAL_YEARS = ["2025-26", "2024-25", "2023-24"];
+export const FISCAL_YEARS = ["2027-28", "2026-27", "2025-26", "2024-25", "2023-24"];
 export const QUARTERS = ["All Quarters", "Q1 (Apr-Jun)", "Q2 (Jul-Sep)", "Q3 (Oct-Dec)", "Q4 (Jan-Mar)"];
 export const MONTHS = ["All Months", "April", "May", "June", "July", "August", "September", "October", "November", "December", "January", "February", "March"];
 export const PLANTS = ["All Plants"];

@@ -140,6 +140,7 @@ class InvoiceRead(InvoiceBase):
 
 class InvoiceListRead(InvoiceRead):
     customer_name: str | None = None
+    items: list[InvoiceItemRead] = []
 
 
 class PaymentBase(BaseModel):

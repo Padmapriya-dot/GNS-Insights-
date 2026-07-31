@@ -10,6 +10,7 @@ import {
 } from "recharts";
 
 import Loader from "../../components/common/Loader";
+import SkeletonCard, { SkeletonChart } from "../../components/common/SkeletonCard";
 import AnalyticsAlertsBanner from "../../components/analytics/AnalyticsAlertsBanner";
 import AnalyticsChartCard from "../../components/analytics/AnalyticsChartCard";
 import AnalyticsDashboardHeader from "../../components/analytics/AnalyticsDashboardHeader";
@@ -26,6 +27,32 @@ const KPI_ICONS = {
 };
 
 const emptyData = { kpis: [], alerts: [], benchmarks: [], revenue_trend: [], production_trend: [], inventory_value_trend: [], machine_health: [], ai_insights: [] };
+
+const toNumeric = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeChartData = (rows = []) => {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => {
+      const entry = typeof row === "object" && row !== null ? row : {};
+      const label = entry.label ?? entry.month ?? entry.date ?? entry.period ?? entry.name ?? entry.item ?? entry.category ?? "";
+      const normalized = {
+        ...entry,
+        label: label || "N/A",
+      };
+      const value = toNumeric(entry.value ?? entry.amount ?? entry.total ?? entry.qty ?? entry.units ?? entry.score ?? entry.revenue ?? entry.profit ?? entry.inflow ?? entry.outflow);
+      const value2 = toNumeric(entry.value2 ?? entry.expense ?? entry.target ?? entry.planned ?? entry.outflow ?? entry.stock_out);
+      if (value !== null) normalized.value = value;
+      if (value2 !== null) normalized.value2 = value2;
+      return normalized;
+    })
+    .filter((entry) => entry && (entry.value !== undefined || entry.value2 !== undefined));
+};
 
 export default function ExecutiveDashboard() {
   const { addToast } = useToast();
@@ -55,7 +82,24 @@ export default function ExecutiveDashboard() {
     return () => clearInterval(t);
   }, [autoRefresh, load]);
 
-  if (loading && !data.kpis) return <Loader label="Loading executive dashboard..." />;
+  if (loading && !data.kpis?.length) {
+    return (
+      <div className="space-y-6 bg-gradient-to-b from-slate-900 to-slate-800 p-4 text-slate-100 sm:p-6">
+        <div className="h-16 animate-pulse rounded-2xl border border-slate-700 bg-slate-800/80" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, index) => (<SkeletonCard key={index} />))}
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, index) => (<SkeletonChart key={index} />))}
+        </div>
+      </div>
+    );
+  }
+
+  const revenueTrend = normalizeChartData(data.revenue_trend);
+  const productionTrend = normalizeChartData(data.production_trend);
+  const inventoryValueTrend = normalizeChartData(data.inventory_value_trend);
+  const machineHealth = normalizeChartData(data.machine_health);
 
   return (
     <div className="space-y-6 bg-gradient-to-b from-slate-900 to-slate-800 p-4 text-slate-100 sm:p-6">
@@ -106,7 +150,7 @@ export default function ExecutiveDashboard() {
         <div className="rounded-2xl border border-slate-600 bg-slate-800/80 p-5">
           <h3 className="mb-4 text-sm font-semibold">Revenue Trend</h3>
           <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={data.revenue_trend}>
+            <AreaChart data={revenueTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} />
               <YAxis stroke="#94a3b8" tickFormatter={(v) => formatInr(v)} fontSize={11} />
@@ -119,7 +163,7 @@ export default function ExecutiveDashboard() {
         <div className="rounded-2xl border border-slate-600 bg-slate-800/80 p-5">
           <h3 className="mb-4 text-sm font-semibold">Production Trend</h3>
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={data.production_trend}>
+            <LineChart data={productionTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} />
               <YAxis stroke="#94a3b8" fontSize={11} />
@@ -132,7 +176,7 @@ export default function ExecutiveDashboard() {
         <div className="rounded-2xl border border-slate-600 bg-slate-800/80 p-5">
           <h3 className="mb-4 text-sm font-semibold">Inventory Value</h3>
           <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={data.inventory_value_trend}>
+            <AreaChart data={inventoryValueTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} />
               <YAxis stroke="#94a3b8" tickFormatter={(v) => formatInr(v)} fontSize={11} />
@@ -145,7 +189,7 @@ export default function ExecutiveDashboard() {
         <div className="rounded-2xl border border-slate-600 bg-slate-800/80 p-5">
           <h3 className="mb-4 text-sm font-semibold">Machine Health</h3>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={data.machine_health}>
+            <BarChart data={machineHealth}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="label" stroke="#94a3b8" fontSize={10} />
               <YAxis stroke="#94a3b8" domain={[0, 100]} fontSize={11} />

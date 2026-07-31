@@ -7,8 +7,9 @@ import EmptyState from "../../components/common/EmptyState";
 import SkeletonTable from "../../components/common/SkeletonTable";
 import { ErrorState, NoResultsState, OfflineState } from "../../components/common/states";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
-import { useNetworkStatus } from "../../context/NetworkStatusContext";
+import SODetailModal from "../../components/sales/SODetailModal";
 import { useToast } from "../../context/ToastContext";
+import { useNetworkStatus } from "../../context/NetworkStatusContext";
 import { getSOSummary, getSalesOrdersEnriched } from "../../api/salesApi";
 import { formatInr, statusColor } from "../../data/salesMasterData";
 import { exportToExcel } from "../../utils/exportUtils";
@@ -35,60 +36,66 @@ const defaultFilters = { customer: "", status: "", sales_person: "" };
 
 export default function SalesOrders() {
   const { addToast } = useToast();
-  const { online, markRequestStart, markRequestEnd, registerRetry } = useNetworkStatus();
+  const { online, markRequestStart, markRequestEnd } = useNetworkStatus();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState("");
-  const [summary, setSummary] = useState({});
   const [rows, setRows] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selected, setSelected] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError("");
-    markRequestStart();
+    if (typeof markRequestStart === "function") markRequestStart();
     try {
-      const [sumRes, listRes] = await Promise.allSettled([
-        getSOSummary(),
-        getSalesOrdersEnriched(),
-      ]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary(sumRes.value.data);
-      else setSummary({});
-      if (listRes.status === "fulfilled") setRows(listRes.value?.data || []);
-      else {
-        setRows([]);
-        if (listRes.status === "rejected") {
-          setLoadError("Failed to load sales orders.");
-        }
-      }
+      const res = await getSalesOrdersEnriched().catch(() => ({ data: [] }));
+      const apiOrders = Array.isArray(res?.data) ? res.data : [];
+      const stored = localStorage.getItem("smrt_sales_orders");
+      const localOrders = stored ? JSON.parse(stored) : [];
+
+      const soMap = new Map();
+      [...apiOrders, ...localOrders].forEach((o) => {
+        const key = String(o.order_number || o.so_number || o.id || "").trim().toLowerCase();
+        if (key) soMap.set(key, o);
+      });
+      setRows(Array.from(soMap.values()));
     } catch {
-      setRows([]);
-      setLoadError("Failed to load sales orders.");
+      const stored = localStorage.getItem("smrt_sales_orders");
+      const localOrders = stored ? JSON.parse(stored) : [];
+      const soMap = new Map();
+      localOrders.forEach((o) => {
+        const key = String(o.order_number || o.so_number || o.id || "").trim().toLowerCase();
+        if (key) soMap.set(key, o);
+      });
+      setRows(Array.from(soMap.values()));
     } finally {
-      markRequestEnd();
+      if (typeof markRequestEnd === "function") markRequestEnd();
       setLoading(false);
     }
   }, [markRequestStart, markRequestEnd]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => registerRetry(load), [registerRetry, load]);
+  const summary = useMemo(() => {
+    const total_orders = rows.length;
+    const pending = rows.filter((r) => String(r.status || "").toLowerCase() === "pending").length;
+    const confirmed = rows.filter((r) => String(r.status || "").toLowerCase() === "confirmed").length;
+    const packed = rows.filter((r) => String(r.status || "").toLowerCase() === "packed" || r.packed).length;
+    const shipped = rows.filter((r) => String(r.status || "").toLowerCase() === "shipped" || r.shipped).length;
+    const delivered = rows.filter((r) => String(r.status || "").toLowerCase() === "delivered").length;
+    const cancelled = rows.filter((r) => String(r.status || "").toLowerCase() === "cancelled").length;
+    const revenue = rows.reduce((acc, r) => acc + (Number(r.amount || r.total_amount) || 0), 0);
+
+    return { total_orders, pending, confirmed, packed, shipped, delivered, cancelled, revenue };
+  }, [rows]);
 
   const filtered = useMemo(() => {
     let list = rows;
-    if (filters.customer) {
-      list = list.filter((r) =>
-        r.customer_name?.toLowerCase().includes(filters.customer.toLowerCase())
-      );
-    }
-    if (filters.status) list = list.filter((r) => r.status === filters.status);
-    if (filters.sales_person) {
-      list = list.filter((r) =>
-        r.sales_person?.toLowerCase().includes(filters.sales_person.toLowerCase())
-      );
-    }
+    if (filters.customer) list = list.filter((r) => r.customer_name?.toLowerCase().includes(filters.customer.toLowerCase()));
+    if (filters.status) list = list.filter((r) => String(r.status || "").toLowerCase() === filters.status.toLowerCase());
+    if (filters.sales_person) list = list.filter((r) => r.sales_person?.toLowerCase().includes(filters.sales_person.toLowerCase()));
     return list;
   }, [rows, filters]);
 
@@ -100,39 +107,58 @@ export default function SalesOrders() {
     {
       key: "order_number",
       label: "SO No",
-      render: (r) =>
-        typeof r.id === "number" ? (
-          <Link to={`/sales/orders/${r.id}`} className="font-medium text-[#2563EB] hover:underline">
-            {r.order_number}
-          </Link>
-        ) : (
-          <span className="font-medium text-[#2563EB]">{r.order_number}</span>
-        ),
+      render: (r) => (
+        <button
+          type="button"
+          onClick={() => setSelected(r)}
+          className="font-semibold text-[#2563EB] hover:underline text-left"
+        >
+          {r.order_number || r.so_number}
+        </button>
+      ),
     },
     { key: "customer_name", label: "Customer" },
+    { key: "order_date", label: "Order Date", render: (r) => String(r.order_date || r.so_date || "").slice(0, 10) || "—" },
+    { key: "due_date", label: "Due Date", render: (r) => String(r.due_date || "").slice(0, 10) || "—" },
     {
-      key: "order_date",
-      label: "Date",
-      render: (r) => String(r.order_date || "").slice(0, 10),
+      key: "item_description",
+      label: "Product",
+      render: (r) => {
+        const lines = r.line_items || [];
+        if (!lines.length) return "—";
+        const first = lines[0].item_description || "—";
+        return lines.length > 1 ? `${first} +${lines.length - 1} more` : first;
+      },
     },
     {
-      key: "delivery_date",
-      label: "Delivery Date",
-      render: (r) => r.delivery_date || "—",
+      key: "quantity",
+      label: "Qty",
+      render: (r) => {
+        const lines = r.line_items || [];
+        if (!lines.length) return "—";
+        return lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+      },
     },
-    { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
     {
-      key: "payment_terms",
-      label: "Payment",
-      render: (r) => r.payment_terms || "—",
+      key: "unit",
+      label: "Unit",
+      render: (r) => r.line_items?.[0]?.unit || "—",
     },
+    {
+      key: "unit_price",
+      label: "Unit Price",
+      render: (r) => {
+        const lines = r.line_items || [];
+        if (!lines.length) return "—";
+        return formatInr(lines[0].unit_price);
+      },
+    },
+    { key: "total_amount", label: "Total Amount", render: (r) => formatInr(r.total_amount || r.amount) },
     {
       key: "status",
       label: "Status",
       render: (r) => (
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}
-        >
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>
           {r.status}
         </span>
       ),
@@ -140,12 +166,23 @@ export default function SalesOrders() {
     {
       key: "actions",
       label: "Actions",
-      render: (r) =>
-        typeof r.id === "number" ? (
-          <Link to={`/sales/orders/${r.id}`} className="text-xs font-semibold text-[#2563EB] hover:underline">
-            Open
+      render: (r) => (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSelected(r)}
+            className="text-xs font-semibold text-[#2563EB] hover:underline"
+          >
+            View
+          </button>
+          <Link
+            to={`/sales/orders/create?edit=${r.order_number || r.so_number}`}
+            className="text-xs font-semibold text-slate-600 hover:underline"
+          >
+            Edit
           </Link>
-        ) : null,
+        </div>
+      ),
     },
   ];
 
@@ -177,11 +214,11 @@ export default function SalesOrders() {
           </button>
           <button
             type="button"
-            onClick={load}
-            disabled={loading}
+            onClick={async () => { setRefreshing(true); await load(); setRefreshing(false); }}
+            disabled={loading || refreshing}
             className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+            <RefreshCw className={`h-4 w-4 transition-transform ${refreshing ? "animate-spin" : ""}`} /> Refresh
           </button>
         </div>
       </header>
@@ -276,6 +313,13 @@ export default function SalesOrders() {
           />
         )}
       </div>
+
+      {selected && (
+        <SODetailModal
+          order={selected}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }

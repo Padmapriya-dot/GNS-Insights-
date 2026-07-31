@@ -9,6 +9,7 @@ import {
 } from "recharts";
 
 import Loader from "../../components/common/Loader";
+import SkeletonCard, { SkeletonChart } from "../../components/common/SkeletonCard";
 import AnalyticsAlertsBanner from "../../components/analytics/AnalyticsAlertsBanner";
 import AnalyticsChartCard from "../../components/analytics/AnalyticsChartCard";
 import AnalyticsDashboardHeader from "../../components/analytics/AnalyticsDashboardHeader";
@@ -27,6 +28,32 @@ const KPI_ICONS = {
 
 const fmtTooltip = (v, name) => [Number(v).toLocaleString("en-IN"), name];
 const emptyData = { kpis: [], alerts: [], monthly_production: [], production_trend: [], daily_output: [], shift_wise: [], machine_wise: [], product_wise: [], operator_performance: [], downtime_analysis: [], benchmarks: [] };
+
+const toNumeric = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeChartData = (rows = []) => {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => {
+      const entry = typeof row === "object" && row !== null ? row : {};
+      const label = entry.label ?? entry.month ?? entry.date ?? entry.period ?? entry.name ?? entry.item ?? entry.category ?? "";
+      const normalized = {
+        ...entry,
+        label: label || "N/A",
+      };
+      const value = toNumeric(entry.value ?? entry.amount ?? entry.total ?? entry.qty ?? entry.units ?? entry.output ?? entry.efficiency);
+      const value2 = toNumeric(entry.value2 ?? entry.planned ?? entry.target ?? entry.expense ?? entry.outflow);
+      if (value !== null) normalized.value = value;
+      if (value2 !== null) normalized.value2 = value2;
+      return normalized;
+    })
+    .filter((entry) => entry && (entry.value !== undefined || entry.value2 !== undefined));
+};
 
 export default function ProductionAnalytics() {
   const { addToast } = useToast();
@@ -63,9 +90,30 @@ export default function ProductionAnalytics() {
     return () => clearInterval(t);
   }, [autoRefresh, load]);
 
-  if (loading && !data.kpis) return <Loader label="Loading production analytics..." />;
+  if (loading && !data.kpis?.length) {
+    return (
+      <div className="space-y-6 bg-slate-50 p-4 dark:bg-slate-900 sm:p-6">
+        <div className="h-16 animate-pulse rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (<SkeletonCard key={index} />))}
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {Array.from({ length: 8 }).map((_, index) => (<SkeletonChart key={index} />))}
+        </div>
+      </div>
+    );
+  }
 
   const setF = (k) => (v) => setFilters((f) => ({ ...f, [k]: v }));
+
+  const monthlyProduction = normalizeChartData(data.monthly_production);
+  const productionTrend = normalizeChartData(data.production_trend);
+  const dailyOutput = normalizeChartData(data.daily_output);
+  const shiftWise = normalizeChartData(data.shift_wise);
+  const machineWise = normalizeChartData(data.machine_wise);
+  const productWise = normalizeChartData(data.product_wise);
+  const operatorPerformance = normalizeChartData(data.operator_performance);
+  const downtimeAnalysis = normalizeChartData(data.downtime_analysis);
 
   return (
     <div className="space-y-6 bg-slate-50 p-4 dark:bg-slate-900 sm:p-6">
@@ -125,7 +173,7 @@ export default function ProductionAnalytics() {
       <div className="grid gap-6 lg:grid-cols-2">
         <AnalyticsChartCard id="chart-monthly-prod" title="Monthly Production" subtitle="Planned vs Actual" data={data.monthly_production} dataKeys={["label", "value", "value2"]} sourceLink={SOURCE_LINKS.production} sourceLabel="Production">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.monthly_production}>
+            <BarChart data={monthlyProduction}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="label" fontSize={11} />
               <YAxis fontSize={11} />
@@ -139,7 +187,7 @@ export default function ProductionAnalytics() {
 
         <AnalyticsChartCard id="chart-prod-trend" title="Production Trend" data={data.production_trend} sourceLink={SOURCE_LINKS.production} sourceLabel="Production">
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={data.production_trend}>
+            <AreaChart data={productionTrend}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} />
               <YAxis fontSize={11} />
@@ -151,7 +199,7 @@ export default function ProductionAnalytics() {
 
         <AnalyticsChartCard id="chart-daily" title="Daily Output" data={data.daily_output} sourceLink={SOURCE_LINKS.production} sourceLabel="Production">
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data.daily_output}>
+            <LineChart data={dailyOutput}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={10} interval={4} />
               <YAxis fontSize={11} />
@@ -163,7 +211,7 @@ export default function ProductionAnalytics() {
 
         <AnalyticsChartCard id="chart-shift" title="Shift Wise Production" data={data.shift_wise} sourceLink={SOURCE_LINKS.production} sourceLabel="Production">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.shift_wise}>
+            <BarChart data={shiftWise}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} />
               <YAxis fontSize={11} />
@@ -177,7 +225,7 @@ export default function ProductionAnalytics() {
 
         <AnalyticsChartCard id="chart-machine" title="Machine Wise Production" data={data.machine_wise} sourceLink={SOURCE_LINKS.production} sourceLabel="Production">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.machine_wise} layout="vertical">
+            <BarChart data={machineWise} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis type="number" fontSize={11} />
               <YAxis dataKey="label" type="category" width={80} fontSize={11} />
@@ -190,8 +238,8 @@ export default function ProductionAnalytics() {
         <AnalyticsChartCard id="chart-product" title="Product Wise Production" data={data.product_wise} sourceLink={SOURCE_LINKS.production} sourceLabel="Production">
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={data.product_wise} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={100} label>
-                {data.product_wise.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              <Pie data={productWise} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={100} label>
+                {productWise.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
               </Pie>
               <Tooltip formatter={fmtTooltip} />
               <Legend />
@@ -201,7 +249,7 @@ export default function ProductionAnalytics() {
 
         <AnalyticsChartCard id="chart-operator" title="Operator Performance" data={data.operator_performance} sourceLink={SOURCE_LINKS.production} sourceLabel="Production">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.operator_performance}>
+            <BarChart data={operatorPerformance}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={10} />
               <YAxis fontSize={11} domain={[0, 100]} />
@@ -213,7 +261,7 @@ export default function ProductionAnalytics() {
 
         <AnalyticsChartCard id="chart-downtime" title="Downtime Analysis" data={data.downtime_analysis} sourceLink="/maintenance" sourceLabel="Maintenance">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.downtime_analysis}>
+            <BarChart data={downtimeAnalysis}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={10} />
               <YAxis fontSize={11} />

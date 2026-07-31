@@ -106,26 +106,64 @@ export function mapDetailToInvoiceCopy(detail, companySettings = {}) {
 
   const inv = detail.invoice;
   const cust = detail.customer || {};
+  const taxValue = (obj, camelKey, snakeKey) => Number(obj?.[camelKey] ?? obj?.[snakeKey]) || 0;
+
+  const invoiceIgstPct = taxValue(inv, "igstPct", "igst_pct");
+  const invoiceCgstPct = taxValue(inv, "cgstPct", "cgst_pct");
+  const invoiceSgstPct = taxValue(inv, "sgstPct", "sgst_pct");
+
+  const invoiceIgstAmt = Number(inv.igstAmount) || Number(inv.igst_amount) || 0;
+  const invoiceCgstAmt = Number(inv.cgstAmount) || Number(inv.cgst_amount) || 0;
+  const invoiceSgstAmt = Number(inv.sgstAmount) || Number(inv.sgst_amount) || 0;
+
+  const itemHasCgstSgst = (detail.items || []).some((item) =>
+    taxValue(item, "cgstPct", "cgst_pct") > 0 ||
+    taxValue(item, "sgstPct", "sgst_pct") > 0 ||
+    Number(item.cgstAmount) > 0 ||
+    Number(item.cgst_amount) > 0 ||
+    Number(item.sgstAmount) > 0 ||
+    Number(item.sgst_amount) > 0
+  );
+
+  const hasCgstSgst = Boolean(
+    invoiceCgstPct ||
+    invoiceSgstPct ||
+    invoiceCgstAmt ||
+    invoiceSgstAmt ||
+    itemHasCgstSgst
+  );
+
   const items = (detail.items || []).map((item, i) => {
     const taxable = Number(item.amount) || 0;
-    const igstPct = Number(inv.igst_pct) || 0;
-    const igstAmount = igstPct ? Math.round(taxable * igstPct) / 100 : 0;
+    const igstPct = taxValue(item, "igstPct", "igst_pct") || invoiceIgstPct;
+    const cgstPct = taxValue(item, "cgstPct", "cgst_pct") || invoiceCgstPct;
+    const sgstPct = taxValue(item, "sgstPct", "sgst_pct") || invoiceSgstPct;
+    const igstAmount = Number(item.igstAmount) || Number(item.igst_amount) || (igstPct ? Math.round(taxable * igstPct) / 100 : 0);
+    const cgstAmount = Number(item.cgstAmount) || Number(item.cgst_amount) || (cgstPct ? Math.round(taxable * cgstPct) / 100 : 0);
+    const sgstAmount = Number(item.sgstAmount) || Number(item.sgst_amount) || (sgstPct ? Math.round(taxable * sgstPct) / 100 : 0);
     return {
       si: i + 1,
       description: item.item_description,
-      hsn: "48114100",
+      hsn: item.hsn || "48114100",
       qty: Number(item.qty).toFixed(2),
       unit: (item.unit || "pcs").toUpperCase(),
       rate: Number(item.rate).toFixed(3),
       amount: taxable,
       igstPct,
       igstAmount,
+      cgstPct: hasCgstSgst ? cgstPct : 0,
+      cgstAmount: hasCgstSgst ? cgstAmount : 0,
+      sgstPct: hasCgstSgst ? sgstPct : 0,
+      sgstAmount: hasCgstSgst ? sgstAmount : 0,
     };
   });
 
   const taxableTotal = items.reduce((s, it) => s + it.amount, 0);
   const igstTotal = Number(inv.igst_amount) || items.reduce((s, it) => s + it.igstAmount, 0);
-  const grandTotal = Number(inv.grand_total) || taxableTotal + igstTotal + Number(inv.round_off || 0);
+  const cgstTotal = Number(inv.cgst_amount) || items.reduce((s, it) => s + it.cgstAmount, 0);
+  const sgstTotal = Number(inv.sgst_amount) || items.reduce((s, it) => s + it.sgstAmount, 0);
+  const roundOff = Number(inv.round_off) || 0;
+  const grandTotal = Number(inv.grand_total) || taxableTotal + igstTotal + cgstTotal + sgstTotal + roundOff;
 
   const formatDate = (d) => {
     if (!d) return "";

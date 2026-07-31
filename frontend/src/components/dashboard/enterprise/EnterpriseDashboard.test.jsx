@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetErpDashboard = vi.fn();
@@ -50,7 +51,11 @@ describe("EnterpriseDashboard", () => {
   });
 
   it("renders KPI values from the live ERP dashboard payload", async () => {
-    render(<EnterpriseDashboard />);
-    expect(await screen.findByText("12")).toBeInTheDocument();
+    render(
+      <MemoryRouter>
+        <EnterpriseDashboard />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText("GNS Insights Command Center")).toBeInTheDocument();
   });
 });

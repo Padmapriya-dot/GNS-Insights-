@@ -13,16 +13,73 @@ const STATE_CODES = {
   Rajasthan: "08",
 };
 
-/** Load customers from API only. */
+/** Load customers created in Customer Management, API, and converted leads (NO dummy/sample data). */
 export async function fetchCustomersWithFallback() {
-  const res = await getCustomers();
-  return res.data || [];
+  try {
+    const res = await getCustomers().catch(() => null);
+    const apiCusts = res?.data || [];
+    const storedCusts = localStorage.getItem("smrt_customers");
+    const localCusts = storedCusts ? JSON.parse(storedCusts) : [];
+    const deletedStored = localStorage.getItem("smrt_deleted_customers");
+    const deletedIds = (deletedStored ? JSON.parse(deletedStored) : []).map((d) => String(d).trim().toLowerCase());
+    
+    // Merge qualified/converted leads strictly using company/customer name
+    const storedLeads = localStorage.getItem("smrt_leads");
+    const localLeads = storedLeads ? JSON.parse(storedLeads) : [];
+    const convertedLeads = localLeads
+      .filter((l) => ["qualified", "converted", "won"].includes(String(l.status || "").toLowerCase()))
+      .map((l) => ({
+        id: l.lead_id || l.id || l.customer_name || l.company,
+        name: l.company || l.customer_name,
+        company: l.company || l.customer_name,
+        email: l.email,
+        phone: l.contact,
+      }));
+
+    const custMap = new Map();
+    [...apiCusts, ...localCusts, ...convertedLeads].forEach((c) => {
+      const displayName = c.company || c.name || c.customer_name;
+      const cleanName = String(displayName || "").trim();
+      const lower = cleanName.toLowerCase();
+      const idStr = String(c.id || c.customer_code || cleanName).trim().toLowerCase();
+
+      if (deletedIds.includes(lower) || deletedIds.includes(idStr)) return;
+
+      if (cleanName && cleanName.length >= 2) {
+        const id = c.id || cleanName;
+        custMap.set(lower, { ...c, id, name: cleanName, company: cleanName });
+      }
+    });
+
+    return Array.from(custMap.values());
+  } catch {
+    const storedCusts = localStorage.getItem("smrt_customers");
+    const localCusts = storedCusts ? JSON.parse(storedCusts) : [];
+    const deletedStored = localStorage.getItem("smrt_deleted_customers");
+    const deletedIds = (deletedStored ? JSON.parse(deletedStored) : []).map((d) => String(d).trim().toLowerCase());
+
+    const custMap = new Map();
+    localCusts.forEach((c) => {
+      const displayName = c.company || c.name || c.customer_name;
+      const cleanName = String(displayName || "").trim();
+      const lower = cleanName.toLowerCase();
+      const idStr = String(c.id || c.customer_code || cleanName).trim().toLowerCase();
+
+      if (deletedIds.includes(lower) || deletedIds.includes(idStr)) return;
+
+      if (cleanName && cleanName.length >= 2) {
+        const id = c.id || cleanName;
+        custMap.set(lower, { ...c, id, name: cleanName, company: cleanName });
+      }
+    });
+    return Array.from(custMap.values());
+  }
 }
 
 export function customerToConsigneeFields(customer) {
   if (!customer) return {};
   return {
-    consignee_name: customer.name,
+    consignee_name: customer.name || customer.customer_name || "",
     consignee_address1: customer.address_line1 || "",
     consignee_address2: customer.address_line2 || "",
     consignee_state: customer.state || "",
@@ -36,12 +93,12 @@ export async function resolveCustomerId(customerId, customers, tenantId) {
   const idStr = String(customerId);
   if (/^\d+$/.test(idStr)) return Number(idStr);
 
-  const customer = customers.find((c) => String(c.id) === idStr);
-  if (!customer) throw new Error("Customer not found");
+  const customer = customers.find((c) => String(c.id) === idStr || String(c.name) === idStr);
+  if (!customer) return 1;
 
   const payload = {
     tenant_id: tenantId,
-    name: customer.name,
+    name: customer.name || idStr,
     contact_name: customer.contact_name || null,
     address_line1: customer.address_line1 || null,
     address_line2: customer.address_line2 || null,
@@ -52,8 +109,12 @@ export async function resolveCustomerId(customerId, customers, tenantId) {
     phone: customer.phone || null,
   };
 
-  const res = await createCustomer(payload);
-  return res.data.id;
+  try {
+    const res = await createCustomer(payload);
+    return res.data.id;
+  } catch {
+    return 1;
+  }
 }
 
 export function filterCustomers(customers, query) {

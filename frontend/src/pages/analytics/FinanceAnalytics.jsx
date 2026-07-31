@@ -8,6 +8,7 @@ import {
 } from "recharts";
 
 import Loader from "../../components/common/Loader";
+import SkeletonCard, { SkeletonChart } from "../../components/common/SkeletonCard";
 import AnalyticsAlertsBanner from "../../components/analytics/AnalyticsAlertsBanner";
 import AnalyticsChartCard from "../../components/analytics/AnalyticsChartCard";
 import AnalyticsDashboardHeader from "../../components/analytics/AnalyticsDashboardHeader";
@@ -29,6 +30,32 @@ const emptyData = {
   kpis: [], alerts: [], revenue_vs_expense: [], cash_flow: [],
   profit_trend: [], expense_category: [], receivable_aging: [],
   monthly_margin: [], drill_revenue: [], last_updated: null,
+};
+
+const toNumeric = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeChartData = (rows = []) => {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => {
+      const entry = typeof row === "object" && row !== null ? row : {};
+      const label = entry.label ?? entry.month ?? entry.date ?? entry.period ?? entry.name ?? entry.item ?? entry.category ?? "";
+      const normalized = {
+        ...entry,
+        label: label || "N/A",
+      };
+      const value = toNumeric(entry.value ?? entry.amount ?? entry.revenue ?? entry.total ?? entry.inflow ?? entry.profit ?? entry.margin);
+      const value2 = toNumeric(entry.value2 ?? entry.expense ?? entry.outflow ?? entry.target ?? entry.planned);
+      if (value !== null) normalized.value = value;
+      if (value2 !== null) normalized.value2 = value2;
+      return normalized;
+    })
+    .filter((entry) => entry && (entry.value !== undefined || entry.value2 !== undefined));
 };
 
 export default function FinanceAnalytics() {
@@ -70,8 +97,27 @@ export default function FinanceAnalytics() {
     return () => clearInterval(t);
   }, [autoRefresh, load]);
 
-  if (loading && !data.kpis?.length) return <Loader label="Loading finance analytics..." />;
+  if (loading && !data.kpis?.length) {
+    return (
+      <div className="space-y-6 bg-slate-50 p-4 dark:bg-slate-900 sm:p-6">
+        <div className="h-16 animate-pulse rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (<SkeletonCard key={index} />))}
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, index) => (<SkeletonChart key={index} />))}
+        </div>
+      </div>
+    );
+  }
   const setF = (k) => (v) => setFilters((f) => ({ ...f, [k]: v }));
+
+  const revenueVsExpense = normalizeChartData(data.revenue_vs_expense);
+  const cashFlow = normalizeChartData(data.cash_flow);
+  const profitTrend = normalizeChartData(data.profit_trend);
+  const expenseCategory = normalizeChartData(data.expense_category);
+  const receivableAging = normalizeChartData(data.receivable_aging);
+  const monthlyMargin = normalizeChartData(data.monthly_margin);
 
   return (
     <div className="space-y-6 bg-slate-50 p-4 dark:bg-slate-900 sm:p-6">
@@ -112,7 +158,7 @@ export default function FinanceAnalytics() {
       <div className="grid gap-6 lg:grid-cols-2">
         <AnalyticsChartCard id="chart-rev-exp" title="Revenue vs Expense" data={data.revenue_vs_expense} dataKeys={["label", "value", "value2"]} sourceLink={SOURCE_LINKS.finance} sourceLabel="Finance">
           <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={data.revenue_vs_expense}>
+            <ComposedChart data={revenueVsExpense}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} />
               <YAxis fontSize={11} tickFormatter={(v) => formatInr(v)} />
@@ -126,7 +172,7 @@ export default function FinanceAnalytics() {
 
         <AnalyticsChartCard id="chart-cashflow" title="Cash Flow" data={data.cash_flow} dataKeys={["label", "value", "value2"]} sourceLink={SOURCE_LINKS.finance} sourceLabel="Finance">
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={data.cash_flow}>
+            <AreaChart data={cashFlow}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} />
               <YAxis tickFormatter={(v) => formatInr(v)} fontSize={11} />
@@ -140,7 +186,7 @@ export default function FinanceAnalytics() {
 
         <AnalyticsChartCard id="chart-profit" title="Profit Trend" data={data.profit_trend} sourceLink="/accounts/profit-loss" sourceLabel="P&L">
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data.profit_trend}>
+            <LineChart data={profitTrend}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} />
               <YAxis tickFormatter={(v) => formatInr(v)} fontSize={11} />
@@ -153,8 +199,8 @@ export default function FinanceAnalytics() {
         <AnalyticsChartCard id="chart-expense-cat" title="Expense Category" data={data.expense_category} sourceLink={SOURCE_LINKS.finance} sourceLabel="Finance">
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={data.expense_category || []} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={100} label>
-                {(data.expense_category || []).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              <Pie data={expenseCategory || []} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={100} label>
+                {(expenseCategory || []).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
               </Pie>
               <Tooltip formatter={(v) => [`${v}%`, "Share"]} />
               <Legend />
@@ -164,7 +210,7 @@ export default function FinanceAnalytics() {
 
         <AnalyticsChartCard id="chart-recv-aging" title="Receivable Aging" data={data.receivable_aging} sourceLink="/finance/accounts-receivable" sourceLabel="AR">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.receivable_aging}>
+            <BarChart data={receivableAging}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={10} />
               <YAxis tickFormatter={(v) => formatInr(v)} fontSize={11} />
@@ -176,7 +222,7 @@ export default function FinanceAnalytics() {
 
         <AnalyticsChartCard id="chart-margin" title="Monthly Margin" data={data.monthly_margin} sourceLink="/accounts/profit-loss" sourceLabel="P&L">
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data.monthly_margin}>
+            <LineChart data={monthlyMargin}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} />
               <YAxis fontSize={11} tickFormatter={(v) => `${v}%`} />

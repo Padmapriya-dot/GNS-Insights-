@@ -59,6 +59,10 @@ export const updateLeadStatus = (leadId, status) =>
   api.patch(`/sales/leads/${leadId}/status`, null, { params: { status } });
 export const convertLeadToQuotation = (leadId) =>
   api.post(`/sales/leads/${leadId}/convert-to-quotation`);
+export const getLeadActivities = (leadId) =>
+  api.get(`/sales/leads/${leadId}/activities`).catch(() => ({ data: [] }));
+export const createLeadActivity = (leadId, payload) =>
+  api.post(`/sales/leads/${leadId}/activities`, payload);
 
 export const getQuotations = (status = null) =>
   api.get("/sales/quotations", { params: { status } });
