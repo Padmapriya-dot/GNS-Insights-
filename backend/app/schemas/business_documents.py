@@ -18,6 +18,17 @@ class BusinessDocumentCreate(BaseModel):
     meta: dict[str, Any] | None = None
 
 
+class BusinessDocumentUpdate(BaseModel):
+    party_name: str | None = None
+    document_number: str | None = None
+    document_date: date | None = None
+    due_date: date | None = None
+    amount: float | None = None
+    status: str | None = None
+    notes: str | None = None
+    meta: dict[str, Any] | None = None
+
+
 class BusinessDocumentRead(BaseModel):
     id: int
     tenant_id: int

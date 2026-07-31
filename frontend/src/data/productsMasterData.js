@@ -2,49 +2,64 @@
 
 export const PRODUCT_CATEGORIES = [
   "Raw Material",
-  "Work in Progress (WIP)",
+  "WIP",
   "Finished Goods",
   "Consumables",
   "Spare Parts",
+  "Packaging Material",
+  "Utility / Raw Material",
 ];
 
 export const PRODUCT_TYPES = ["Raw Material", "Semi-Finished", "Finished Goods", "Service"];
 
 export const PRODUCT_STATUSES = ["active", "inactive"];
 
-export const WAREHOUSES = ["Main Store", "Production Store", "Finished Goods (FG) Store", "Quality Control (QC) Store"];
+export const WAREHOUSES = [
+  "Main Store",
+  "Production Store",
+  "FG Store",
+  "QC Store",
+  "Packing Material Warehouse",
+  "Water Storage Tank",
+];
 
 export const BRANDS = ["Tata Steel", "Bosch", "Siemens", "Local", "Generic"];
 
 export const PRODUCT_UNITS = [
-  "PCS",
-  "NOS",
-  "KGS",
-  "GMS",
-  "MTR",
-  "SQMTR",
-  "LTR",
-  "BOX",
-  "PACK",
-  "SET",
-  "TON",
-  "CBM",
-  "FT",
-  "SQFT",
-  "INCH",
-  "MM",
-  "CM",
-  "PAIR",
-  "ROLL",
-  "BAG",
-  "CAN",
-  "DRUM",
-  "PKT",
-  "BUNDLE",
-  "COIL",
-  "SHEET",
-  "KG",
-  "ML",
+  "Nos",
+  "Pcs",
+  "Kgs",
+  "Gms",
+  "Mtr",
+  "Ltr",
+  "Litre",
+  "Box",
+  "Pack",
+  "Set",
+  "Pair",
+  "Doz",
+  "Ton",
+  "Mg",
+  "Lbs",
+  "Ml",
+  "Gal",
+  "Barrel",
+  "Mm",
+  "Cm",
+  "In",
+  "Ft",
+  "Yd",
+  "Sq Mtr",
+  "Sq Ft",
+  "Bag",
+  "Roll",
+  "Bundle",
+  "Drum",
+  "Carton",
+  "Pallet",
+  "Can",
+  "Bottle",
+  "Sheet",
 ];
 
 export const DEMO_PRODUCTS = [
@@ -131,25 +146,8 @@ export function enrichApiProduct(apiRow) {
   const minStock = apiRow.min_stock != null ? Number(apiRow.min_stock) : 0;
   const maxStock = apiRow.max_stock != null ? Number(apiRow.max_stock) : 0;
   const unit = apiRow.unit || apiRow.unit_of_measure || apiRow.uom || "Pcs";
-
-  // price_per_unit comes from unit_cost in backend
-  const pricePerUnit = apiRow.price_per_unit != null
-    ? Number(apiRow.price_per_unit)
-    : apiRow.unit_cost != null
-    ? Number(apiRow.unit_cost)
-    : 0;
-
-  // quantity comes from current_stock in backend
-  const quantity = apiRow.quantity != null
-    ? Number(apiRow.quantity)
-    : stock;
-
-  // total_cost = quantity * price_per_unit
-  const totalCost = apiRow.total_cost != null
-    ? Number(apiRow.total_cost)
-    : apiRow.unit_price != null
-    ? Number(apiRow.unit_price)
-    : quantity * pricePerUnit;
+  const purchasePrice = apiRow.purchase_price != null ? Number(apiRow.purchase_price) : (apiRow.unit_cost != null ? Number(apiRow.unit_cost) : 0);
+  const sellingPrice = apiRow.selling_price != null ? Number(apiRow.selling_price) : (apiRow.unit_price != null ? Number(apiRow.unit_price) : 0);
 
   return {
     id: apiRow.id,
@@ -163,11 +161,8 @@ export function enrichApiProduct(apiRow) {
     unit,
     hsn_code: apiRow.hsn_code || "—",
     gst_percent: apiRow.gst_percent ?? 0,
-    quantity,
-    price_per_unit: pricePerUnit,
-    purchase_price: pricePerUnit,
-    selling_price: totalCost,
-    total_cost: totalCost,
+    purchase_price: purchasePrice,
+    selling_price: sellingPrice,
     min_stock: minStock,
     max_stock: maxStock,
     current_stock: stock,
@@ -182,7 +177,7 @@ export function enrichApiProduct(apiRow) {
     serial_number: Boolean(apiRow.serial_number),
     expiry_date: apiRow.expiry_date || null,
     units_sold: apiRow.units_sold ?? 0,
-    stock_value: stock * pricePerUnit,
+    stock_value: stock * sellingPrice,
     created_at: apiRow.created_at || new Date().toISOString().slice(0, 10),
   };
 }
@@ -227,19 +222,18 @@ export function computeQuickStats(products) {
 export const categoryChartData = [
   { name: "Raw Material", value: 35, color: "#3B82F6" },
   { name: "Finished Goods", value: 28, color: "#22C55E" },
-  { name: "Work in Progress (WIP)", value: 12, color: "#F97316" },
+  { name: "WIP", value: 12, color: "#F97316" },
   { name: "Consumables", value: 15, color: "#A855F7" },
   { name: "Spare Parts", value: 10, color: "#64748B" },
+  { name: "Packaging Material", value: 8, color: "#0EA5E9" },
+  { name: "Utility / Raw Material", value: 6, color: "#14B8A6" },
 ];
 
 export const IMPORT_TEMPLATE_HEADERS = [
   "product_code",
   "name",
   "category",
-  "sku",
   "unit",
-  "purchase_price",
-  "selling_price",
   "min_stock",
   "max_stock",
   "warehouse",

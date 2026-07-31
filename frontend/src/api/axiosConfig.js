@@ -100,9 +100,14 @@ api.interceptors.response.use(
       }
     } else if (typeof onApiError === "function" && !error.config?.skipGlobalError) {
       if (!status || status >= 500) {
+        const raw = error.response?.data?.detail;
         const message = !status
           ? "Network error - please check your connection."
-          : error.response?.data?.detail || "Something went wrong. Please try again.";
+          : typeof raw === "string"
+            ? raw
+            : Array.isArray(raw)
+              ? raw.map((e) => e?.msg || String(e)).join("; ") || "Something went wrong. Please try again."
+              : "Something went wrong. Please try again.";
         onApiError(message);
       }
     }

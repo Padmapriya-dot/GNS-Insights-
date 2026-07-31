@@ -3,7 +3,11 @@ import api from "./axiosConfig";
 export const getPurchaseOrders = () => api.get("/procurement/purchase-orders");
 export const getPurchaseOrdersEnriched = () => api.get("/procurement/purchase-orders/enriched");
 export const getPOSummary = () => api.get("/procurement/purchase-orders/summary");
+export const getPurchaseOrder = (poId) => api.get(`/procurement/purchase-orders/${poId}`);
 export const createPurchaseOrder = (payload) => api.post("/procurement/purchase-orders", payload);
+export const updatePurchaseOrder = (poId, payload) =>
+  api.put(`/procurement/purchase-orders/${poId}`, payload);
+export const deletePurchaseOrder = (poId) => api.delete(`/procurement/purchase-orders/${poId}`);
 export const updatePurchaseOrderStatus = (poId, status) =>
   api.patch(`/procurement/purchase-orders/${poId}/status`, null, { params: { status } });
 
@@ -37,6 +41,10 @@ export const getMaterialRequest = (mrId) => api.get(`/procurement/material-reque
 export const getMRSummary = () => api.get("/procurement/material-requests/summary");
 export const getMREnriched = () => api.get("/procurement/material-requests/enriched");
 export const createMaterialRequest = (payload) => api.post("/procurement/material-requests", payload);
+export const updateMaterialRequest = (mrId, payload) =>
+  api.put(`/procurement/material-requests/${mrId}`, payload);
+export const deleteMaterialRequest = (mrId) =>
+  api.delete(`/procurement/material-requests/${mrId}`);
 export const convertMaterialRequestToPO = (mrId, payload) =>
   api.post(`/procurement/material-requests/${mrId}/convert-to-po`, payload);
 export const approveMaterialRequest = (mrId, { approved = true, notes } = {}) =>
@@ -51,23 +59,33 @@ export const getRFQComparison = (rfqId) => api.get(`/procurement/rfq/${rfqId}/co
 export const createRFQ = (payload) => api.post("/procurement/rfq", payload);
 export const addVendorQuotation = (rfqId, payload) => api.post(`/procurement/rfq/${rfqId}/quotation`, payload);
 export const awardRFQ = (rfqId, payload) => api.patch(`/procurement/rfq/${rfqId}/award`, payload);
+export const deleteRFQ = (rfqId) => api.delete(`/procurement/rfq/${rfqId}`);
 
 
 export const getGoodsReceipts = () => api.get("/procurement/goods-receipt");
+export const getGoodsReceipt = (grnId) => api.get(`/procurement/goods-receipt/${grnId}`);
 export const getGRNSummary = () => api.get("/procurement/goods-receipt/summary");
 export const getGRNEnriched = () => api.get("/procurement/goods-receipt/enriched");
 export const createGoodsReceipt = (payload) => api.post("/procurement/goods-receipt", payload);
 export const approveGoodsReceiptQC = (grnId, payload) =>
   api.post(`/procurement/goods-receipt/${grnId}/qc`, payload);
+export const deleteGoodsReceipt = (grnId) => api.delete(`/procurement/goods-receipt/${grnId}`);
 
 export const getVendorBills = () => api.get("/procurement/vendor-bills");
 export const getVendorBillSummary = () => api.get("/procurement/vendor-bills/summary");
 export const createVendorBill = (payload) => api.post("/procurement/vendor-bills", payload);
 export const updateVendorBillStatus = (billId, status) =>
   api.patch(`/procurement/vendor-bills/${billId}/status`, { status });
+export const deleteVendorBill = (billId) => api.delete(`/procurement/vendor-bills/${billId}`);
 
 
 export const getSupplierPayments = () => api.get("/procurement/supplier-payments");
+export const getSupplierPayment = (paymentId) =>
+  api.get(`/procurement/supplier-payments/${paymentId}`);
 export const createSupplierPayment = (payload) => api.post("/procurement/supplier-payments", payload);
+export const updateSupplierPayment = (paymentId, payload) =>
+  api.put(`/procurement/supplier-payments/${paymentId}`, payload);
+export const deleteSupplierPayment = (paymentId) =>
+  api.delete(`/procurement/supplier-payments/${paymentId}`);
 
 export const getProcurementHub = () => api.get("/procurement/hub");

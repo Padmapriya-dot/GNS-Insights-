@@ -33,6 +33,35 @@ def create_expense(db: Session, payload: ExpenseCreate) -> Expense:
     return obj
 
 
+def get_expense(db: Session, tenant_id: int, expense_id: int) -> Expense | None:
+    return db.scalars(
+        select(Expense).where(Expense.id == expense_id, Expense.tenant_id == tenant_id)
+    ).first()
+
+
+def update_expense(
+    db: Session, tenant_id: int, expense_id: int, data: dict
+) -> Expense | None:
+    obj = get_expense(db, tenant_id, expense_id)
+    if not obj:
+        return None
+    for key, value in data.items():
+        if value is not None:
+            setattr(obj, key, value)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def delete_expense(db: Session, tenant_id: int, expense_id: int) -> bool:
+    obj = get_expense(db, tenant_id, expense_id)
+    if not obj:
+        return False
+    db.delete(obj)
+    db.commit()
+    return True
+
+
 def list_expenses(db: Session, tenant_id: int, year: int | None = None) -> list[Expense]:
     stmt = select(Expense).where(Expense.tenant_id == tenant_id)
     if year:

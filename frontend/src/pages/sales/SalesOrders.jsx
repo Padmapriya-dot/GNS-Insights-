@@ -99,7 +99,7 @@ export default function SalesOrders() {
   const columns = [
     {
       key: "order_number",
-      label: "Sales Order Number",
+      label: "SO No",
       render: (r) =>
         typeof r.id === "number" ? (
           <Link to={`/sales/orders/${r.id}`} className="font-medium text-[#2563EB] hover:underline">

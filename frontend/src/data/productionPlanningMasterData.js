@@ -71,99 +71,40 @@ export function calculateProgressPct(row) {
   if (row.status === "completed" || row.status === "closed" || row.status === "done") {
     return 100;
   }
+  const now = Date.now();
+  const startRaw = row.start_date || row.planned_start;
+  const dueRaw = row.due_date || row.planned_end;
+
+  const start = startRaw ? new Date(startRaw).getTime() : null;
+  const due = dueRaw ? new Date(dueRaw).getTime() : null;
+
+  if (due && !isNaN(due) && now >= due) {
+    return 100;
+  }
+
+  let timePct = 0;
+  if (start && due && !isNaN(start) && !isNaN(due) && due > start && now > start) {
+    timePct = ((now - start) / (due - start)) * 100;
+  }
 
   const planned = Number(row.planned_quantity || 0);
-  let produced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
-
-  if (Array.isArray(row.work_orders) && row.work_orders.length > 0) {
-    const woProduced = row.work_orders.reduce((sum, wo) => sum + Number(wo.actual_quantity ?? wo.produced_quantity ?? 0), 0);
-    if (woProduced > 0) {
-      produced = woProduced;
-    }
-  }
-
-  const isStarted = ["in_progress", "running", "quality_check"].includes(row.status);
-  if (!isStarted && produced <= 0) {
-    return 0;
-  }
-
+  const produced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
   const qtyPct = planned > 0 ? (produced / planned) * 100 : 0;
 
-  if (row.progress_pct != null && Number(row.progress_pct) > 0 && isStarted) {
-    return Math.min(100, Math.max(0, Math.round(Math.max(Number(row.progress_pct), qtyPct))));
+  const calcPct = Math.max(qtyPct, timePct);
+
+  if (row.progress_pct != null && row.progress_pct > 0) {
+    return Math.min(100, Math.max(0, Math.round(Math.max(Number(row.progress_pct), calcPct))));
   }
 
-  if (isStarted) {
-    const now = Date.now();
-    const startRaw = row.start_date || row.planned_start;
-    const dueRaw = row.due_date || row.planned_end;
-
-    const start = startRaw ? new Date(startRaw).getTime() : null;
-    const due = dueRaw ? new Date(dueRaw).getTime() : null;
-
-    let timePct = 0;
-    if (start && due && !isNaN(start) && !isNaN(due) && due > start && now > start) {
-      timePct = ((now - start) / (due - start)) * 100;
-    }
-    const calcPct = Math.max(qtyPct, timePct);
-    return Math.min(100, Math.max(0, Math.round(calcPct)));
-  }
-
-  return Math.min(100, Math.max(0, Math.round(qtyPct)));
+  return Math.min(100, Math.max(0, Math.round(calcPct)));
 }
 
 export function enrichApiOrder(row, index = 0) {
   const planned = Number(row.planned_quantity || 0);
-
-  const good = Number(row.good_qty ?? row.good_quantity ?? row.accepted_quantity ?? 0);
-  const reject = Number(row.reject_qty ?? row.rejected_quantity ?? row.scrap_quantity ?? row.scrap ?? 0);
-  let rawProduced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
-  if (rawProduced <= 0 && (good > 0 || reject > 0)) {
-    rawProduced = good + reject;
-  }
-
-  let woGoodTotal = 0;
-  let woRejectTotal = 0;
-
-  if (Array.isArray(row.work_orders) && row.work_orders.length > 0) {
-    let woProduced = 0;
-    row.work_orders.forEach((wo) => {
-      const woGood = Number(wo.good_qty ?? wo.good_quantity ?? wo.accepted_quantity ?? 0);
-      const woReject = Number(wo.reject_qty ?? wo.rejected_quantity ?? wo.scrap_quantity ?? wo.scrap ?? 0);
-      const woAct = Number(wo.actual_quantity ?? wo.produced_quantity ?? 0);
-      const woTotal = woAct > 0 ? woAct : (woGood + woReject);
-      woProduced += woTotal;
-      woGoodTotal += woGood;
-      woRejectTotal += woReject;
-    });
-    if (woProduced > 0) {
-      rawProduced = woProduced;
-    }
-  }
-
-  // Use aggregated work order good/reject if PO-level values are 0
-  const finalGood = woGoodTotal > 0 ? woGoodTotal : (good > 0 ? good : 0);
-  const finalReject = woRejectTotal > 0 ? woRejectTotal : (reject > 0 ? reject : 0);
-
-  // If produced is still 0 but we have good+reject from work orders, use that
-  if (rawProduced <= 0 && (finalGood > 0 || finalReject > 0)) {
-    rawProduced = finalGood + finalReject;
-  }
-
-  let status = row.status || "planned";
-  const progress = calculateProgressPct({ ...row, produced_quantity: rawProduced, status });
-
-  let produced = rawProduced;
-  if (status === "completed" || status === "closed" || status === "done" || progress >= 100 || (planned > 0 && produced >= planned)) {
-    status = "completed";
-    produced = Math.max(rawProduced, planned);
-  } else if (rawProduced <= 0 && progress > 0 && planned > 0) {
-    produced = Math.round((planned * progress) / 100);
-  }
-
-  const finalProgress = status === "completed" ? 100 : progress;
-  const balance = Math.max(planned - produced, 0);
-
+  const produced = Number(row.produced_quantity ?? 0);
+  const balance = Number(row.balance_quantity ?? Math.max(planned - produced, 0));
+  const progress = calculateProgressPct(row);
   return {
     ...row,
     order_number: row.order_number || `PO-${row.id || index + 1}`,
@@ -175,13 +116,10 @@ export function enrichApiOrder(row, index = 0) {
     machine_name: row.machine_name || "—",
     department: row.department || "Production",
     shift: row.shift || "Shift A",
-    status: status,
     planned_quantity: planned,
     produced_quantity: produced,
     balance_quantity: balance,
-    progress_pct: finalProgress,
-    good_qty: finalGood,
-    reject_qty: finalReject,
+    progress_pct: progress,
     is_delayed: row.is_delayed ?? false,
     materials: row.materials || [],
     work_orders: row.work_orders || [],

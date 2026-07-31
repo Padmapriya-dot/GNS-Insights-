@@ -101,6 +101,10 @@ class InvoiceV2Create(BaseModel):
     items: list[InvoiceV2ItemCreate] = []
 
 
+class InvoiceV2Update(InvoiceV2Create):
+    """Same shape as create; used for full invoice replace on update."""
+
+
 class InvoiceV2ItemRead(InvoiceV2ItemCreate):
     id: int
     invoice_id: int

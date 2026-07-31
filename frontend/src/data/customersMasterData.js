@@ -1,11 +1,11 @@
 /** Customer master demo data and helpers. */
 
+import { INDIAN_STATES as INDIA_STATES_FULL } from "./indiaLocations";
+
 export const CUSTOMER_STATUSES = ["active", "inactive"];
 export const CUSTOMER_TYPES = ["Corporate", "Retail", "Distributor", "OEM", "Government"];
-export const INDIAN_STATES = [
-  "Andhra Pradesh", "Telangana", "Karnataka", "Maharashtra", "Tamil Nadu",
-  "Gujarat", "Delhi", "Uttar Pradesh", "West Bengal", "Rajasthan",
-];
+/** All 28 States + 8 Union Territories (official names, A–Z). */
+export const INDIAN_STATES = INDIA_STATES_FULL;
 export const SALES_EXECUTIVES = ["Ravi Kumar", "Anita Sharma", "Suresh Reddy", "Priya Nair"];
 
 export const DEMO_CUSTOMERS = [
@@ -103,23 +103,21 @@ export const DEMO_CUSTOMERS = [
 
 
 export function enrichApiCustomer(row, index = 0) {
-  const code = row.customer_code || `CUS${String(row.id).padStart(3, "0")}`;
-  const city = row.city ?? undefined;
-  const state = row.state ?? undefined;
+  const code = `CUS${String(row.id).padStart(3, "0")}`;
+  const city = ["Hyderabad", "Pune", "Chennai", "Mumbai", "Bengaluru"][index % 5];
   return {
     id: row.id,
     customer_code: code,
-    company: row.name || row.company || "",
-    name: row.name || row.company || "",
-    contact_person: row.contact_person || row.contact_name || "—",
+    company: row.name,
+    name: row.name,
+    contact_person: row.contact_name || "—",
     phone: row.phone || "—",
     email: row.email || "—",
     gstin: row.gstin || "—",
     city,
-    state,
-    state_code: row.state_code ?? undefined,
-    district: row.district || row.city || "",
-    pincode: row.pincode || "",
+    state: row.state || INDIAN_STATES[index % INDIAN_STATES.length],
+    district: city,
+    pincode: "500001",
     country: "India",
     status: "active",
     customer_type: CUSTOMER_TYPES[index % CUSTOMER_TYPES.length],
@@ -128,12 +126,12 @@ export function enrichApiCustomer(row, index = 0) {
     website: null,
     alternate_phone: null,
     designation: "Contact",
-    billing_address: row.address_line1 || "",
-    shipping_address: row.address_line1 || "",
-    credit_limit: row.credit_limit != null ? row.credit_limit : undefined,
-    payment_terms: row.payment_terms || "",
-    outstanding: row.outstanding != null ? row.outstanding : undefined,
-    opening_balance: row.opening_balance != null ? row.opening_balance : undefined,
+    billing_address: row.address_line1 || "—",
+    shipping_address: row.address_line1 || "—",
+    credit_limit: 1000000 + index * 200000,
+    payment_terms: "Net 30",
+    outstanding: 50000 + index * 35000,
+    opening_balance: 0,
     currency: "INR",
     tan: null,
     msme: null,

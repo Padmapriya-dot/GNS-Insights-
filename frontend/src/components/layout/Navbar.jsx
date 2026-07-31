@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Calendar,
@@ -12,6 +12,7 @@ import {
 import useAuth from "../../hooks/useAuth";
 import GlobalSearch from "../common/GlobalSearch";
 import ClientProfilePanel from "../common/ClientProfilePanel";
+import LogoutConfirmModal from "../common/LogoutConfirmModal";
 import NotificationBell from "../notifications/NotificationBell";
 
 function getPageMeta(pathname, t) {
@@ -26,9 +27,12 @@ function getPageMeta(pathname, t) {
 export default function Navbar({ onMenuClick }) {
   const { t } = useTranslation();
   const location = useLocation();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [now, setNow] = useState(() => new Date());
   const [showProfile, setShowProfile] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const profileRef = useRef(null);
 
@@ -52,15 +56,16 @@ export default function Navbar({ onMenuClick }) {
   }, []);
 
   useEffect(() => {
-    if (!showProfile) return undefined;
+    if (!showProfile || logoutOpen) return undefined;
     const onPointerDown = (e) => {
+      if (e.target?.closest?.("[data-logout-modal]")) return;
       if (profileRef.current && !profileRef.current.contains(e.target)) {
         setShowProfile(false);
       }
     };
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [showProfile]);
+  }, [showProfile, logoutOpen]);
 
   const toggleFullscreen = async () => {
     try {
@@ -71,6 +76,22 @@ export default function Navbar({ onMenuClick }) {
       }
     } catch {
       // Browser may block fullscreen without a direct user gesture.
+    }
+  };
+
+  const openLogout = () => {
+    setShowProfile(false);
+    setLogoutOpen(true);
+  };
+
+  const handleConfirmLogout = async ({ allDevices }) => {
+    setLoggingOut(true);
+    try {
+      await logout({ allDevices });
+      navigate("/login", { replace: true });
+    } finally {
+      setLoggingOut(false);
+      setLogoutOpen(false);
     }
   };
 
@@ -147,11 +168,23 @@ export default function Navbar({ onMenuClick }) {
               <ChevronDown className="hidden h-4 w-4 text-slate-400 sm:block" />
             </button>
             {showProfile && (
-              <ClientProfilePanel onClose={() => setShowProfile(false)} />
+              <ClientProfilePanel
+                onClose={() => setShowProfile(false)}
+                onRequestLogout={openLogout}
+              />
             )}
           </div>
         </div>
       </div>
+
+      <LogoutConfirmModal
+        open={logoutOpen}
+        busy={loggingOut}
+        onCancel={() => {
+          if (!loggingOut) setLogoutOpen(false);
+        }}
+        onConfirm={handleConfirmLogout}
+      />
     </header>
   );
 }

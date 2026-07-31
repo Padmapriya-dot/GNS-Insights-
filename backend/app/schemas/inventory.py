@@ -66,6 +66,30 @@ class InventoryItemCreate(InventoryItemBase):
     pass
 
 
+class InventoryItemUpdate(BaseModel):
+    supplier_id: int | None = None
+    sku: str | None = None
+    barcode: str | None = None
+    name: str | None = None
+    description: str | None = None
+    unit: str | None = None
+    unit_cost: float | None = None
+    reorder_level: int | None = None
+    item_type: str | None = None
+    category: str | None = None
+    warehouse_name: str | None = None
+    batch_number: str | None = None
+    quantity: int | None = None
+    reserved: int | None = None
+    status: str | None = None
+    customer_name: str | None = None
+    serial_number: str | None = None
+    expiry_date: str | None = None
+    production_date: str | None = None
+    warranty: str | None = None
+    is_active: bool | None = None
+
+
 class InventoryItemRead(InventoryItemBase):
     id: int
     model_config = ConfigDict(from_attributes=True)

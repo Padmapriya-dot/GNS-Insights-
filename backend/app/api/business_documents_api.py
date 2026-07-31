@@ -22,6 +22,7 @@ from app.schemas.business_documents import (
     BusinessDocumentCreate,
     BusinessDocumentListResponse,
     BusinessDocumentRead,
+    BusinessDocumentUpdate,
     DigitalSignatureSetupRequest,
     DigitalSignatureStatusRead,
     EwaybillLoginRequest,
@@ -139,6 +140,27 @@ def get_document(
     row = db.get(BusinessDocument, doc_id)
     if not row or row.tenant_id != user.tenant_id:
         raise HTTPException(404, "Document not found")
+    return BusinessDocumentRead.model_validate(row)
+
+
+@router.put("/documents/{doc_id}", response_model=BusinessDocumentRead)
+def update_document(
+    doc_id: int,
+    payload: BusinessDocumentUpdate,
+    user: User = Depends(require_any_permission("sales", "procurement")),
+    db: Session = Depends(get_db),
+):
+    row = db.get(BusinessDocument, doc_id)
+    if not row or row.tenant_id != user.tenant_id:
+        raise HTTPException(404, "Document not found")
+    data = payload.model_dump(exclude_unset=True)
+    if "meta" in data:
+        meta = data.pop("meta")
+        row.meta_json = json.dumps(meta) if meta is not None else None
+    for key, value in data.items():
+        setattr(row, key, value)
+    db.commit()
+    db.refresh(row)
     return BusinessDocumentRead.model_validate(row)
 
 

@@ -1,8 +1,15 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 
 import { setApiErrorHandler } from "../api/axiosConfig";
+import { formatApiError } from "../utils/apiError";
 
 const ToastContext = createContext(null);
+
+function normalizeToastMessage(message) {
+  if (message == null || message === "") return "Something went wrong.";
+  if (typeof message === "string" || typeof message === "number") return String(message);
+  return formatApiError(message);
+}
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
@@ -10,7 +17,8 @@ export function ToastProvider({ children }) {
 
   const addToast = useCallback((message, type = "success") => {
     const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev, { id, message, type }]);
+    const text = normalizeToastMessage(message);
+    setToasts((prev) => [...prev, { id, message: text, type }]);
     const ttl = type === "error" ? 5000 : 3200;
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -36,8 +44,25 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ addToast }}>
       {children}
+      <div className="fixed inset-x-0 top-4 z-[9999] flex flex-col items-center gap-1.5 pointer-events-none px-4">
+        {toasts.filter((t) => t.type === "alert").map((t) => (
+          <div
+            key={t.id}
+            className="pointer-events-auto flex min-w-[280px] max-w-md items-center justify-between gap-6 rounded-full bg-[#FF4500] px-5 py-2.5 text-[13px] font-medium text-white shadow-lg"
+          >
+            <span>{t.message}</span>
+            <button
+              type="button"
+              className="shrink-0 font-bold"
+              onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
+            >
+              Close
+            </button>
+          </div>
+        ))}
+      </div>
       <div className="fixed bottom-4 right-4 z-[9999] flex max-w-sm flex-col gap-1.5 pointer-events-none">
-        {toasts.map((t) => (
+        {toasts.filter((t) => t.type !== "alert").map((t) => (
           <div
             key={t.id}
             className="pointer-events-auto max-w-xs rounded-lg border px-3 py-2 text-xs font-medium shadow-md animate-in slide-in-from-right-2"

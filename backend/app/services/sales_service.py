@@ -16,6 +16,7 @@ from app.models.sales import (
 )
 from app.schemas.sales import (
     CustomerCreate,
+    CustomerUpdate,
     InvoiceCreate,
     InvoiceItemCreate,
     PaymentCreate,
@@ -39,8 +40,33 @@ def create_customer(db: Session, payload: CustomerCreate) -> Customer:
 
 
 def list_customers(db: Session, tenant_id: int) -> list[Customer]:
-    stmt = select(Customer).where(Customer.tenant_id == tenant_id)
+    from sqlalchemy import or_
+
+    stmt = select(Customer).where(
+        Customer.tenant_id == tenant_id,
+        or_(Customer.status.is_(None), Customer.status != "inactive"),
+    )
     return list(db.scalars(stmt).all())
+
+
+def get_customer(db: Session, tenant_id: int, customer_id: int) -> Customer | None:
+    stmt = select(Customer).where(
+        Customer.tenant_id == tenant_id, Customer.id == customer_id
+    )
+    return db.scalars(stmt).first()
+
+
+def update_customer(
+    db: Session, tenant_id: int, customer_id: int, payload: CustomerUpdate
+) -> Customer | None:
+    c = get_customer(db, tenant_id, customer_id)
+    if not c:
+        return None
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(c, key, value)
+    db.commit()
+    db.refresh(c)
+    return c
 
 
 def create_sales_order(db: Session, payload: SalesOrderCreate) -> SalesOrder:
@@ -504,6 +530,74 @@ def list_payments(db: Session, tenant_id: int, invoice_id: int | None = None) ->
     return list(db.scalars(stmt).all())
 
 
+def get_payment(db: Session, tenant_id: int, payment_id: int) -> Payment | None:
+    return db.scalars(
+        select(Payment).where(
+            Payment.id == payment_id, Payment.tenant_id == tenant_id
+        )
+    ).first()
+
+
+def _resync_invoice_payment(db: Session, inv: Invoice | None) -> None:
+    if not inv:
+        return
+    try:
+        from app.services.invoice_v2_service import sync_payment_status
+
+        sync_payment_status(inv)
+    except Exception:
+        paid = float(inv.amount_paid or 0)
+        total = float(inv.grand_total or 0)
+        if paid <= 0:
+            inv.status = "issued"
+            inv.payment_status = "unpaid"
+        elif paid >= total:
+            inv.status = "paid"
+            inv.payment_status = "paid"
+        else:
+            inv.status = "partial"
+            inv.payment_status = "partial"
+
+
+def update_payment(
+    db: Session, tenant_id: int, payment_id: int, data: dict
+) -> Payment | None:
+    payment = get_payment(db, tenant_id, payment_id)
+    if not payment:
+        return None
+    old_inv = db.get(Invoice, payment.invoice_id)
+    old_amount = float(payment.amount or 0)
+    if old_inv:
+        old_inv.amount_paid = max(0.0, float(old_inv.amount_paid or 0) - old_amount)
+
+    for key in ("invoice_id", "amount", "payment_date", "method", "notes"):
+        if key in data and data[key] is not None:
+            setattr(payment, key, data[key])
+
+    new_inv = db.get(Invoice, payment.invoice_id)
+    if new_inv:
+        new_inv.amount_paid = float(new_inv.amount_paid or 0) + float(payment.amount or 0)
+    if old_inv and (not new_inv or old_inv.id != new_inv.id):
+        _resync_invoice_payment(db, old_inv)
+    _resync_invoice_payment(db, new_inv)
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+def delete_payment(db: Session, tenant_id: int, payment_id: int) -> bool:
+    payment = get_payment(db, tenant_id, payment_id)
+    if not payment:
+        return False
+    inv = db.get(Invoice, payment.invoice_id)
+    if inv:
+        inv.amount_paid = max(0.0, float(inv.amount_paid or 0) - float(payment.amount or 0))
+        _resync_invoice_payment(db, inv)
+    db.delete(payment)
+    db.commit()
+    return True
+
+
 def ensure_dispatch_shipment(
     db: Session,
     tenant_id: int,
@@ -771,17 +865,55 @@ def list_quotations(
     return list(db.scalars(stmt).all())
 
 
+def get_quotation(db: Session, tenant_id: int, quote_id: int) -> Quotation | None:
+    return db.scalars(
+        select(Quotation)
+        .options(joinedload(Quotation.customer), joinedload(Quotation.lead))
+        .where(Quotation.id == quote_id, Quotation.tenant_id == tenant_id)
+    ).first()
+
+
+def update_quotation(
+    db: Session, tenant_id: int, quote_id: int, data: dict
+) -> Quotation | None:
+    quote = get_quotation(db, tenant_id, quote_id)
+    if not quote:
+        return None
+    for key in (
+        "customer_id",
+        "customer_name",
+        "quote_date",
+        "valid_until",
+        "status",
+        "total_amount",
+        "notes",
+        "sales_person",
+        "discount",
+    ):
+        if key in data and data[key] is not None:
+            setattr(quote, key, data[key])
+    db.commit()
+    db.refresh(quote)
+    return quote
+
+
+def delete_quotation(db: Session, tenant_id: int, quote_id: int) -> bool:
+    """Soft-delete by marking cancelled."""
+    quote = get_quotation(db, tenant_id, quote_id)
+    if not quote:
+        return False
+    quote.status = "cancelled"
+    db.commit()
+    return True
+
+
 def update_quotation_status(
     db: Session, tenant_id: int, quote_id: int, status: str
 ) -> Quotation | None:
     """Enforce manufacturing sales quotation approval chain."""
     from fastapi import HTTPException
 
-    quote = db.scalars(
-        select(Quotation).where(
-            Quotation.id == quote_id, Quotation.tenant_id == tenant_id
-        )
-    ).first()
+    quote = get_quotation(db, tenant_id, quote_id)
     if not quote:
         return None
 

@@ -463,6 +463,25 @@ def update_vendor_bill_status(db: Session, tenant_id: int, bill_id: int, new_sta
     return bill
 
 
+def delete_rfq(db: Session, tenant_id: int, rfq_id: int) -> bool:
+    rfq = db.scalars(select(RFQ).where(RFQ.id == rfq_id, RFQ.tenant_id == tenant_id)).first()
+    if not rfq:
+        return False
+    db.delete(rfq)
+    db.commit()
+    return True
+
+
+def delete_vendor_bill(db: Session, tenant_id: int, bill_id: int) -> bool:
+    bill = db.scalars(
+        select(VendorBill).where(VendorBill.id == bill_id, VendorBill.tenant_id == tenant_id)
+    ).first()
+    if not bill:
+        return False
+    db.delete(bill)
+    db.commit()
+    return True
+
 
 def get_procurement_hub(db: Session, tenant_id: int) -> ProcurementHubRead:
     po_sum = get_po_summary(db, tenant_id)

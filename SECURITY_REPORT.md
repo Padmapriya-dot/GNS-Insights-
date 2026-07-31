@@ -5,8 +5,9 @@ Generated after production-ready security hardening across the React + FastAPI G
 
 ## Executive Summary
 
-Security features were implemented across authentication, session management, input validation, multi-tenant isolation, API protection, logging, and frontend auth flows. **All 19 backend tests pass.** Development mode preserves auto-verified registration for local testing. Production mode (`ENVIRONMENT=production`) enforces email verification before login.
-Security features were implemented across authentication, session management, input validation, multi-tenant isolation, API protection, logging, and frontend auth flows. **All 19 backend tests pass.** Development mode preserves backward compatibility (auto-verified registration, demo logins work). Production mode (`ENVIRONMENT=production`) enforces email verification before login.
+Security features were implemented across authentication, session management, input validation, multi-tenant isolation, API protection, logging, and frontend auth flows. Backend suites covering auth, RBAC, tenant isolation, and CRUD smoke tests are in `backend/tests/`. Development mode preserves auto-verified registration for local testing. Production mode (`ENVIRONMENT=production`) enforces email verification before login.
+
+For product setup and module overview, see [README.md](./README.md).
 
 ## Completed Security Features
 
@@ -45,7 +46,7 @@ Security features were implemented across authentication, session management, in
 - Frontend axios interceptor auto-refreshes on 401.
 
 ### 7. Backend Validation
-- Pydantic schemas validate auth request bodies (email format, password length ≥ 8, field length limits).
+- Pydantic schemas validate auth request bodies (email format, registration/reset password length ≥ 12, field length limits).
 - FastAPI `RequestValidationError` handler returns structured 422 without stack traces.
 - Existing module endpoints retain Pydantic validation.
 
@@ -118,14 +119,14 @@ Security features were implemented across authentication, session management, in
 
 | Area | Status |
 |------|--------|
-| Backend tests (19) | ✅ Pass |
-| Auth: login, register, lockout, refresh | ✅ Tested |
-| RBAC | ✅ `test_rbac.py` pass |
-| Tenant isolation | ✅ `test_tenant_isolation.py` pass |
-| CRUD smoke tests | ✅ `test_crud.py` pass |
-| Generic login error message | ✅ Tested |
-| Frontend auth pages | ✅ Routes added |
-| Demo seed accounts | ✅ `email_verified=True` on seed |
+| Backend tests (`backend/tests/`) | Auth, RBAC, tenant isolation, CRUD, admin, notifications, and related suites |
+| Auth: login, register, lockout, refresh | Covered in `test_auth.py` |
+| RBAC | `test_rbac.py` / `test_rbac_roles.py` |
+| Tenant isolation | `test_tenant_isolation.py` |
+| CRUD smoke tests | `test_crud.py` |
+| Generic login error message | Covered in auth tests |
+| Frontend auth pages | `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email` |
+| Demo seed accounts | Registration-based; no production default passwords |
 
 ---
 
@@ -188,7 +189,7 @@ Security features were implemented across authentication, session management, in
 | `frontend/src/api/axiosConfig.js` | Auto refresh on 401 |
 | `frontend/src/context/AuthContext.jsx` | Refresh token storage, logout revokes |
 | `frontend/src/pages/auth/Login.jsx` | Forgot password link, refresh token |
-| `frontend/src/pages/auth/Register.jsx` | Verification pending UX, min 8 chars |
+| `frontend/src/pages/auth/Register.jsx` | Verification pending UX, min 12 chars |
 | `frontend/src/routes/AppRoutes.jsx` | New auth routes |
 | `frontend/src/routes/lazyPages.jsx` | Lazy imports for new pages |
 

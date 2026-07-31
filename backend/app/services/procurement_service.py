@@ -92,6 +92,78 @@ def create_purchase_order(db: Session, payload: PurchaseOrderCreate) -> Purchase
     return po
 
 
+def get_purchase_order(
+    db: Session, tenant_id: int, po_id: int
+) -> PurchaseOrder | None:
+    return db.scalars(
+        select(PurchaseOrder)
+        .options(
+            joinedload(PurchaseOrder.supplier),
+            joinedload(PurchaseOrder.line_items),
+        )
+        .where(PurchaseOrder.id == po_id, PurchaseOrder.tenant_id == tenant_id)
+    ).first()
+
+
+def update_purchase_order(
+    db: Session, tenant_id: int, po_id: int, data: dict
+) -> PurchaseOrder | None:
+    po = get_purchase_order(db, tenant_id, po_id)
+    if not po:
+        return None
+    for key in (
+        "supplier_id",
+        "po_number",
+        "order_date",
+        "expected_date",
+        "status",
+        "total_amount",
+        "notes",
+    ):
+        if key in data and data[key] is not None:
+            setattr(po, key, data[key])
+    line_items = data.get("line_items")
+    if line_items is not None:
+        for existing in list(po.line_items or []):
+            db.delete(existing)
+        db.flush()
+        total = 0.0
+        for line in line_items:
+            qty = float(getattr(line, "quantity", None) or line.get("quantity") or 0)
+            price = getattr(line, "unit_price", None)
+            if price is None and isinstance(line, dict):
+                price = line.get("unit_price")
+            price = float(price or 0)
+            item_id = getattr(line, "item_id", None)
+            if item_id is None and isinstance(line, dict):
+                item_id = line.get("item_id")
+            lt = price * qty
+            db.add(
+                PurchaseOrderLine(
+                    purchase_order_id=po.id,
+                    item_id=int(item_id),
+                    quantity=qty,
+                    unit_price=price,
+                    line_total=lt,
+                )
+            )
+            total += lt
+        if total:
+            po.total_amount = total
+    db.commit()
+    db.refresh(po)
+    return po
+
+
+def delete_purchase_order(db: Session, tenant_id: int, po_id: int) -> bool:
+    po = get_purchase_order(db, tenant_id, po_id)
+    if not po:
+        return False
+    po.status = "cancelled"
+    db.commit()
+    return True
+
+
 def list_purchase_orders(db: Session, tenant_id: int) -> list[PurchaseOrder]:
     stmt = (
         select(PurchaseOrder)
@@ -481,3 +553,107 @@ def create_supplier_payment(db: Session, payload: SupplierPaymentCreate) -> Supp
 def list_supplier_payments(db: Session, tenant_id: int) -> list[SupplierPayment]:
     stmt = select(SupplierPayment).where(SupplierPayment.tenant_id == tenant_id)
     return list(db.scalars(stmt).all())
+
+
+def delete_material_request(db: Session, tenant_id: int, mr_id: int) -> bool:
+    mr = get_material_request(db, tenant_id, mr_id)
+    if not mr:
+        return False
+    db.delete(mr)
+    db.commit()
+    return True
+
+
+def update_material_request(
+    db: Session, tenant_id: int, mr_id: int, data: dict
+) -> MaterialRequest | None:
+    mr = get_material_request(db, tenant_id, mr_id)
+    if not mr:
+        return None
+    for key in ("mr_number", "request_date", "required_date", "requested_by", "status", "notes"):
+        if key in data and data[key] is not None:
+            setattr(mr, key, data[key])
+    line_items = data.get("line_items")
+    if line_items is not None:
+        for existing in list(mr.line_items or []):
+            db.delete(existing)
+        db.flush()
+        for line in line_items:
+            item_id = getattr(line, "item_id", None)
+            if item_id is None and isinstance(line, dict):
+                item_id = line.get("item_id")
+            qty = getattr(line, "quantity", None)
+            if qty is None and isinstance(line, dict):
+                qty = line.get("quantity")
+            notes = getattr(line, "notes", None)
+            if notes is None and isinstance(line, dict):
+                notes = line.get("notes")
+            db.add(
+                MaterialRequestLine(
+                    material_request_id=mr.id,
+                    item_id=int(item_id),
+                    quantity=float(qty or 0),
+                    notes=notes,
+                )
+            )
+    db.commit()
+    db.refresh(mr)
+    return mr
+
+
+def get_goods_receipt(db: Session, tenant_id: int, grn_id: int) -> GoodsReceipt | None:
+    return db.scalars(
+        select(GoodsReceipt)
+        .options(joinedload(GoodsReceipt.line_items))
+        .where(GoodsReceipt.id == grn_id, GoodsReceipt.tenant_id == tenant_id)
+    ).first()
+
+
+def delete_goods_receipt(db: Session, tenant_id: int, grn_id: int) -> bool:
+    gr = get_goods_receipt(db, tenant_id, grn_id)
+    if not gr:
+        return False
+    db.delete(gr)
+    db.commit()
+    return True
+
+
+def get_supplier_payment(
+    db: Session, tenant_id: int, payment_id: int
+) -> SupplierPayment | None:
+    return db.scalars(
+        select(SupplierPayment).where(
+            SupplierPayment.id == payment_id,
+            SupplierPayment.tenant_id == tenant_id,
+        )
+    ).first()
+
+
+def update_supplier_payment(
+    db: Session, tenant_id: int, payment_id: int, data: dict
+) -> SupplierPayment | None:
+    sp = get_supplier_payment(db, tenant_id, payment_id)
+    if not sp:
+        return None
+    for key in (
+        "supplier_id",
+        "payment_date",
+        "amount",
+        "payment_method",
+        "reference",
+        "notes",
+    ):
+        if key in data and data[key] is not None:
+            setattr(sp, key, data[key])
+    db.commit()
+    db.refresh(sp)
+    return sp
+
+
+def delete_supplier_payment(db: Session, tenant_id: int, payment_id: int) -> bool:
+    sp = get_supplier_payment(db, tenant_id, payment_id)
+    if not sp:
+        return False
+    db.delete(sp)
+    db.commit()
+    return True

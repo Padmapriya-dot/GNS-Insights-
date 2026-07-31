@@ -526,6 +526,173 @@ def create_invoice_v2(db: Session, payload: InvoiceV2Create) -> Invoice:
     return inv
 
 
+def update_invoice_v2(db: Session, tenant_id: int, invoice_id: int, payload: InvoiceV2Create) -> Invoice | None:
+    stmt = (
+        select(Invoice)
+        .options(selectinload(Invoice.items))
+        .where(Invoice.id == invoice_id, Invoice.tenant_id == tenant_id)
+    )
+    inv = db.scalars(stmt).first()
+    if not inv:
+        return None
+    if (getattr(inv, "invoice_status", None) or "active") == "cancelled":
+        raise ValueError("Cannot update a cancelled invoice")
+
+    doc = (payload.document_type or inv.document_type or "bill_of_supply").lower()
+    if doc in ("tax", "sale", "sale_invoice"):
+        doc = "tax_invoice"
+    elif doc in ("bos", "bill_of_supply"):
+        doc = "bill_of_supply"
+    elif doc in ("export", "export_invoice"):
+        doc = "export_invoice"
+    elif doc in ("proforma", "proforma_invoice"):
+        doc = "proforma"
+    elif doc in ("export_proforma", "export_proforma_invoice"):
+        doc = "export_proforma"
+    elif doc in ("delivery_challan", "challan", "dc"):
+        doc = "delivery_challan"
+    elif doc in ("credit_note", "creditnote", "cn"):
+        doc = "credit_note"
+    elif doc in ("sales_return", "salesreturn", "return"):
+        doc = "sales_return"
+    elif doc in ("debit_note", "debitnote", "dn", "sales_debit_note"):
+        doc = "debit_note"
+
+    full_number = f"{payload.invoice_prefix or ''}{payload.invoice_number}".strip()
+    if not full_number:
+        full_number = payload.invoice_number or inv.invoice_number
+
+    inv.customer_id = payload.customer_id
+    inv.sales_order_id = payload.sales_order_id
+    inv.invoice_number = full_number
+    inv.invoice_prefix = payload.invoice_prefix
+    inv.issue_date = payload.issue_date
+    inv.due_date = payload.due_date
+    inv.document_type = doc
+    inv.discount = _money(payload.discount)
+    inv.other_charge = _money(payload.other_charge)
+    inv.round_off = _money(payload.round_off)
+    inv.sgst_pct = float(payload.sgst_pct or 0)
+    inv.cgst_pct = float(payload.cgst_pct or 0)
+    inv.igst_pct = float(payload.igst_pct or 0)
+    inv.status = payload.status or inv.status or "issued"
+    inv.transport_mode = payload.transport_mode
+    inv.lr_number = payload.lr_number
+    inv.lr_date = payload.lr_date
+    inv.vehicle_no = payload.vehicle_no
+    inv.distance_km = payload.distance_km
+    inv.transporter_name = payload.transporter_name
+    inv.place_of_supply = payload.place_of_supply
+    inv.date_of_supply = payload.date_of_supply
+    inv.supply_type = payload.supply_type
+    inv.po_number = payload.po_number
+    inv.po_date = payload.po_date
+    inv.challan_number = payload.challan_number
+    inv.ewaybill_number = payload.ewaybill_number
+    inv.sales_person = payload.sales_person
+    inv.reverse_charge = bool(payload.reverse_charge)
+    inv.terms_and_conditions = payload.terms_and_conditions
+    inv.show_signature = bool(payload.show_signature)
+    inv.bank_details_json = json.dumps(payload.bank_details) if payload.bank_details else inv.bank_details_json
+    inv.custom_fields_json = json.dumps(payload.custom_fields) if payload.custom_fields else inv.custom_fields_json
+    inv.notes = payload.notes
+    inv.e_waybill_status = "active" if payload.ewaybill_number else getattr(inv, "e_waybill_status", None) or "all"
+
+    for old in list(inv.items):
+        db.delete(old)
+    db.flush()
+
+    taxable_sum = 0.0
+    gst_sum = 0.0
+    for raw in payload.items:
+        if not (raw.item_description or "").strip():
+            continue
+        if (raw.item_description or "").strip().lower() == "other charge":
+            continue
+        taxable, gst_amt, total = _line_totals(raw)
+        if raw.taxable_value is not None:
+            taxable = _money(raw.taxable_value)
+        if raw.gst_amount is not None:
+            gst_amt = _money(raw.gst_amount)
+        if raw.amount is not None:
+            total = _money(raw.amount)
+        db.add(
+            InvoiceItem(
+                invoice_id=inv.id,
+                item_description=raw.item_description.strip(),
+                hsn=raw.hsn,
+                qty=float(raw.qty or 0),
+                unit=raw.unit or "pcs",
+                rate=float(raw.rate or 0),
+                tax_type=raw.tax_type or "Exclusive",
+                discount=float(raw.discount or 0),
+                discount_type=raw.discount_type or "₹",
+                taxable_value=taxable,
+                gst_pct=float(raw.gst_pct or 0),
+                gst_amount=gst_amt,
+                amount=total,
+            )
+        )
+        taxable_sum += taxable
+        gst_sum += gst_amt
+
+    if payload.other_charge and float(payload.other_charge) > 0:
+        oc = _money(payload.other_charge)
+        db.add(
+            InvoiceItem(
+                invoice_id=inv.id,
+                item_description="Other Charge",
+                qty=1,
+                unit="pcs",
+                rate=oc,
+                tax_type="Exclusive",
+                discount=0,
+                discount_type="₹",
+                taxable_value=oc,
+                gst_pct=0,
+                gst_amount=0,
+                amount=oc,
+            )
+        )
+        taxable_sum += oc
+
+    inv.subtotal = _money(taxable_sum)
+    use_igst = doc == "export_invoice" or float(payload.igst_pct or 0) > 0
+    if use_igst:
+        inv.igst_amount = _money(gst_sum)
+        inv.sgst_amount = 0
+        inv.cgst_amount = 0
+        if not inv.igst_pct:
+            inv.igst_pct = 18
+    else:
+        inv.sgst_amount = _money(gst_sum / 2)
+        inv.cgst_amount = _money(gst_sum / 2)
+        inv.igst_amount = 0
+        if not inv.sgst_pct:
+            inv.sgst_pct = 9
+        if not inv.cgst_pct:
+            inv.cgst_pct = 9
+
+    inv.grand_total = _money(
+        taxable_sum + gst_sum - float(inv.discount or 0) + float(inv.round_off or 0)
+    )
+    sync_payment_status(inv)
+    db.commit()
+    db.refresh(inv)
+    return inv
+
+
+def cancel_invoice_v2(db: Session, tenant_id: int, invoice_id: int) -> Invoice | None:
+    inv = db.get(Invoice, invoice_id)
+    if not inv or inv.tenant_id != tenant_id:
+        return None
+    inv.invoice_status = "cancelled"
+    inv.status = "cancelled"
+    db.commit()
+    db.refresh(inv)
+    return inv
+
+
 def get_invoice_v2(db: Session, tenant_id: int, invoice_id: int) -> InvoiceV2Read | None:
     stmt = (
         select(Invoice)

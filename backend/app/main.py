@@ -304,6 +304,11 @@ def on_startup():
         pass  # Column may already exist
     try:
         with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE gl_accounts ADD COLUMN meta TEXT"))
+    except Exception:
+        pass
+    try:
+        with engine.begin() as conn:
             conn.execute(text("ALTER TABLE products ADD COLUMN unit VARCHAR(32) DEFAULT 'Pcs'"))
     except Exception:
         pass  # Column may already exist
@@ -720,5 +725,6 @@ app.include_router(task_management_router)
 app.include_router(task_management_router, prefix="/api")
 app.include_router(audit_logs_router)
 app.include_router(warehouse_router)
+app.include_router(supply_chain_router)
 from app.api.system_data import router as system_data_router
 app.include_router(system_data_router, prefix="/api")

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import Loader from "../../components/common/Loader";
@@ -6,7 +6,12 @@ import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
 import { useToast } from "../../context/ToastContext";
-import { getSupplierPayments, getVendors } from "../../api/procurementApi";
+import {
+  deleteSupplierPayment,
+  getSupplierPayments,
+  getVendors,
+} from "../../api/procurementApi";
+import { apiErrorMessage } from "../../utils/apiError";
 
 export default function SupplierPayments() {
   const { addToast } = useToast();
@@ -14,25 +19,22 @@ export default function SupplierPayments() {
   const [payments, setPayments] = useState([]);
   const [vendors, setVendors] = useState([]);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const [p, v] = await Promise.all([getSupplierPayments(), getVendors()]);
-        if (!active) return;
-        setPayments(p.data || []);
-        setVendors(v.data || []);
-      } catch (err) {
-        if (active) addToast(err.response?.data?.detail || "Failed to load payments", "error");
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [p, v] = await Promise.all([getSupplierPayments(), getVendors()]);
+      setPayments(p.data || []);
+      setVendors(v.data || []);
+    } catch (err) {
+      addToast(apiErrorMessage(err, "Failed to load payments"), "error");
+    } finally {
+      setLoading(false);
+    }
   }, [addToast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const vendorName = useMemo(() => {
     const map = {};
@@ -41,6 +43,18 @@ export default function SupplierPayments() {
     });
     return map;
   }, [vendors]);
+
+  const handleDelete = async (row) => {
+    if (!row?.id) return;
+    if (!window.confirm("Delete this supplier payment?")) return;
+    try {
+      await deleteSupplierPayment(row.id);
+      addToast("Payment deleted", "success");
+      await load();
+    } catch (err) {
+      addToast(apiErrorMessage(err, "Failed to delete payment"), "error");
+    }
+  };
 
   if (loading) return <Loader label="Loading supplier payments..." />;
 
@@ -60,6 +74,19 @@ export default function SupplierPayments() {
     },
     { key: "payment_method", label: "Method" },
     { key: "reference", label: "Reference" },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (r) => (
+        <button
+          type="button"
+          onClick={() => handleDelete(r)}
+          className="text-xs font-semibold text-red-600 hover:underline"
+        >
+          Delete
+        </button>
+      ),
+    },
   ];
 
   return (
@@ -88,8 +115,6 @@ export default function SupplierPayments() {
               icon="clipboard"
               title="No supplier payments"
               description="Record payments to your vendors."
-              actionLabel="Record Payment"
-              actionHref="/procurement/supplier-payments/create"
             />
           }
         />

@@ -1,18 +1,39 @@
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_db
 from app.core.permissions import require_permission, tenant_scope
+from app.models.accounts import FixedAsset, GLAccount, JournalEntry
 from app.models.user import User
-from app.schemas.accounts import ExpenseCreate, ExpenseRead, IncomeCreate, IncomeRead
+from app.schemas.accounts import (
+    ExpenseCreate,
+    ExpenseRead,
+    ExpenseUpdate,
+    FixedAssetCreate,
+    FixedAssetRead,
+    GLAccountCreate,
+    GLAccountRead,
+    GLAccountUpdate,
+    IncomeCreate,
+    IncomeRead,
+    JournalEntryCreate,
+    JournalEntryRead,
+    JournalEntryUpdate,
+)
 from app.services.accounts_service import (
     create_expense,
     create_income,
+    delete_expense,
     get_accounts_dashboard,
+    get_expense,
     get_profit_loss,
     get_tax_report,
     list_expenses,
     list_incomes,
+    update_expense,
 )
 from app.services.finance_extended_service import (
     get_ap_summary,
@@ -27,6 +48,12 @@ from app.services.finance_extended_service import (
     list_ar_enriched,
     list_gl_enriched,
     list_payments_enriched,
+)
+from app.services.journal_service import (
+    delete_journal_entry,
+    get_journal_entry,
+    post_journal_entry,
+    update_journal_entry,
 )
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
@@ -70,6 +97,44 @@ def list_expense_endpoint(
     db: Session = Depends(get_db),
 ):
     return list_expenses(db, tenant_id, year)
+
+
+@router.get("/expenses/{expense_id}", response_model=ExpenseRead)
+def get_expense_endpoint(
+    expense_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    row = get_expense(db, tenant_id, expense_id)
+    if not row:
+        raise HTTPException(404, "Expense not found")
+    return row
+
+
+@router.put("/expenses/{expense_id}", response_model=ExpenseRead)
+def update_expense_endpoint(
+    expense_id: int,
+    payload: ExpenseUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    row = update_expense(
+        db, tenant_id, expense_id, payload.model_dump(exclude_unset=True)
+    )
+    if not row:
+        raise HTTPException(404, "Expense not found")
+    return row
+
+
+@router.delete("/expenses/{expense_id}")
+def delete_expense_endpoint(
+    expense_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_expense(db, tenant_id, expense_id):
+        raise HTTPException(404, "Expense not found")
+    return {"ok": True, "id": expense_id}
 
 
 @router.get("/dashboard")
@@ -199,126 +264,379 @@ def extended_reports_endpoint(
     return get_extended_reports(db, tenant_id, financial_year, month, branch)
 
 
-@router.post("/journal-entries")
+@router.get("/journal-entries", response_model=list[JournalEntryRead])
+def list_journal_entries_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    rows = db.scalars(
+        select(JournalEntry)
+        .where(JournalEntry.tenant_id == tenant_id)
+        .options(joinedload(JournalEntry.legs))
+        .order_by(JournalEntry.entry_date.desc(), JournalEntry.id.desc())
+    ).unique().all()
+    return list(rows)
+
+
+@router.post("/journal-entries", response_model=JournalEntryRead, status_code=status.HTTP_201_CREATED)
 def create_journal_entry_endpoint(
-    payload: dict,
+    payload: JournalEntryCreate,
     user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ):
-    import datetime
-
-    from sqlalchemy import func, select
-
-    from app.models.accounts import JournalEntry, JournalLeg
-
-    date_str = payload.get("date") or datetime.date.today().isoformat()
+    entry_date = payload.date or date.today()
     try:
-        entry_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
-    except ValueError:
-        entry_date = datetime.date.today()
-
-    count = db.scalar(
-        select(func.count(JournalEntry.id)).where(JournalEntry.tenant_id == user.tenant_id)
-    ) or 0
-    entry_number = f"JV-{entry_date.year}-{count + 1:04d}"
-
-    entry = JournalEntry(
-        tenant_id=user.tenant_id,
-        entry_number=entry_number,
-        entry_date=entry_date,
-        reference=payload.get("ref"),
-        description=payload.get("desc"),
-        status=payload.get("status", "Posted"),
-        branch=payload.get("branch", "Head Office"),
-    )
-    db.add(entry)
-    db.flush()
-
-    for leg_data in payload.get("legs", []):
-        db.add(
-            JournalLeg(
-                entry_id=entry.id,
-                account=leg_data.get("account"),
-                debit=float(leg_data.get("debit", 0.0)),
-                credit=float(leg_data.get("credit", 0.0)),
-            )
+        entry = post_journal_entry(
+            db,
+            user.tenant_id,
+            entry_date=entry_date,
+            reference=payload.ref,
+            description=payload.desc,
+            legs=[leg.model_dump() for leg in payload.legs],
+            status=payload.status or "Posted",
+            branch=payload.branch or "Head Office",
+            commit=True,
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    db.commit()
-    return {"status": "success", "entry_number": entry_number}
+    # Reload with legs for response
+    entry = db.scalar(
+        select(JournalEntry)
+        .where(JournalEntry.id == entry.id)
+        .options(joinedload(JournalEntry.legs))
+    )
+    return entry
 
 
-@router.post("/gl-accounts")
+@router.get("/journal-entries/{entry_id}", response_model=JournalEntryRead)
+def get_journal_entry_endpoint(
+    entry_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    entry = get_journal_entry(db, tenant_id, entry_id)
+    if not entry:
+        raise HTTPException(404, "Journal entry not found")
+    return entry
+
+
+@router.put("/journal-entries/{entry_id}", response_model=JournalEntryRead)
+def update_journal_entry_endpoint(
+    entry_id: int,
+    payload: JournalEntryUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    data = payload.model_dump(exclude_unset=True)
+    legs = data.pop("legs", None)
+    try:
+        entry = update_journal_entry(
+            db,
+            tenant_id,
+            entry_id,
+            entry_date=data.get("date"),
+            reference=data.get("ref"),
+            description=data.get("desc"),
+            status=data.get("status"),
+            branch=data.get("branch"),
+            legs=legs,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    if not entry:
+        raise HTTPException(404, "Journal entry not found")
+    return get_journal_entry(db, tenant_id, entry.id)
+
+
+@router.delete("/journal-entries/{entry_id}")
+def delete_journal_entry_endpoint(
+    entry_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_journal_entry(db, tenant_id, entry_id):
+        raise HTTPException(404, "Journal entry not found")
+    return {"ok": True, "id": entry_id}
+
+
+@router.get("/gl-accounts", response_model=list[GLAccountRead])
+def list_gl_accounts_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return list(
+        db.scalars(
+            select(GLAccount)
+            .where(GLAccount.tenant_id == tenant_id)
+            .order_by(GLAccount.code.asc())
+        ).all()
+    )
+
+
+@router.post("/gl-accounts", response_model=GLAccountRead, status_code=status.HTTP_201_CREATED)
 def create_gl_account_endpoint(
-    payload: dict,
+    payload: GLAccountCreate,
     user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ):
-    from sqlalchemy import select
-
-    from app.models.accounts import GLAccount
-
     existing = db.scalar(
         select(GLAccount).where(
-            GLAccount.tenant_id == user.tenant_id, GLAccount.code == payload.get("code")
+            GLAccount.tenant_id == user.tenant_id, GLAccount.code == payload.code
         )
     )
     if existing:
-        return {"status": "error", "message": "Account code already exists"}
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Account code already exists",
+        )
 
-    db.add(
-        GLAccount(
+    row = GLAccount(
+        tenant_id=user.tenant_id,
+        code=payload.code,
+        name=payload.name,
+        parent=payload.parent,
+        type=payload.type,
+        balance=float(payload.balance or 0.0),
+        status=payload.status or "Active",
+        meta=payload.meta,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.get("/gl-accounts/{account_id}", response_model=GLAccountRead)
+def get_gl_account_endpoint(
+    account_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    row = db.scalars(
+        select(GLAccount).where(
+            GLAccount.id == account_id, GLAccount.tenant_id == tenant_id
+        )
+    ).first()
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    return row
+
+
+@router.put("/gl-accounts/{account_id}", response_model=GLAccountRead)
+def update_gl_account_endpoint(
+    account_id: int,
+    payload: GLAccountUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    row = db.scalars(
+        select(GLAccount).where(
+            GLAccount.id == account_id, GLAccount.tenant_id == tenant_id
+        )
+    ).first()
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    data = payload.model_dump(exclude_unset=True)
+    if "code" in data and data["code"] != row.code:
+        clash = db.scalar(
+            select(GLAccount).where(
+                GLAccount.tenant_id == tenant_id,
+                GLAccount.code == data["code"],
+                GLAccount.id != account_id,
+            )
+        )
+        if clash:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Account code already exists",
+            )
+    for key, value in data.items():
+        if value is not None:
+            setattr(row, key, value)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.delete("/gl-accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_gl_account_endpoint(
+    account_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    row = db.scalars(
+        select(GLAccount).where(
+            GLAccount.id == account_id, GLAccount.tenant_id == tenant_id
+        )
+    ).first()
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    # Also remove child sub-accounts keyed by parent code prefix
+    children = list(
+        db.scalars(
+            select(GLAccount).where(
+                GLAccount.tenant_id == tenant_id,
+                GLAccount.parent == f"sub:{row.code}",
+            )
+        ).all()
+    )
+    for child in children:
+        db.delete(child)
+    db.delete(row)
+    db.commit()
+    return None
+
+
+@router.post("/gl-accounts/seed", response_model=list[GLAccountRead])
+def seed_gl_accounts_endpoint(
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    """Seed standard chart of accounts when the tenant has none."""
+    existing = list(
+        db.scalars(
+            select(GLAccount).where(GLAccount.tenant_id == user.tenant_id)
+        ).all()
+    )
+    if existing:
+        return existing
+
+    # Minimal India-style seed — codes match frontend chartOfAccounts ids
+    seed = [
+        ("ar", "Accounts Receivable (Sundry Debtors)", "Current Asset", "Asset", 0.0, "Active|DR"),
+        ("bank", "Bank Accounts", "Current Asset", "Asset", 0.0, "Active|DR"),
+        ("cash", "Cash In Hand", "Current Asset", "Asset", 0.0, "Active|DR"),
+        ("oca", "Other Current Asset", "Current Asset", "Asset", 0.0, "Active|DR"),
+        ("stock", "Stock in Hand", "Current Asset", "Asset", 0.0, "Active|DR"),
+        ("plant", "Plant and Equipment", "Fixed Asset", "Asset", 0.0, "Active|DR"),
+        ("ap", "Accounts Payable (Sundry Creditors)", "Current Liability", "Liability", 0.0, "Active|CR"),
+        ("advances", "Advances", "Current Liability", "Liability", 0.0, "Active|CR"),
+        ("duties", "Duties And Taxes", "Current Liability", "Liability", 0.0, "Active|CR"),
+        ("sales", "Sales Accounts", "Direct Income", "Income", 0.0, "Active|CR"),
+        ("purchase", "Purchase Accounts", "Direct Expense", "Expense", 0.0, "Active|DR"),
+        ("wages", "Wages", "Direct Expense", "Expense", 0.0, "Active|DR"),
+        ("salary", "Salary", "Indirect Expense", "Expense", 0.0, "Active|DR"),
+        ("prop-cap", "Proprietor's Capital", "Capital Account", "Equity", 0.0, "Active|CR"),
+        ("reserves", "Reserves and Surplus", "Capital Account", "Equity", 0.0, "Active|CR"),
+    ]
+    rows = []
+    for code, name, parent, typ, bal, status_val in seed:
+        row = GLAccount(
             tenant_id=user.tenant_id,
-            code=payload.get("code"),
-            name=payload.get("name"),
-            parent=payload.get("parent", "Current Assets"),
-            type=payload.get("type", "Assets"),
-            balance=float(payload.get("balance", 0.0) or 0.0),
-            status=payload.get("status", "Active"),
+            code=code,
+            name=name,
+            parent=parent,
+            type=typ,
+            balance=bal,
+            status=status_val,
+        )
+        db.add(row)
+        rows.append(row)
+    db.commit()
+    for row in rows:
+        db.refresh(row)
+    return rows
+
+
+@router.get("/fixed-assets", response_model=list[FixedAssetRead])
+def list_fixed_assets_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return list(
+        db.scalars(
+            select(FixedAsset)
+            .where(FixedAsset.tenant_id == tenant_id)
+            .order_by(FixedAsset.code.asc())
+        ).all()
+    )
+
+
+@router.post("/fixed-assets", response_model=FixedAssetRead, status_code=status.HTTP_201_CREATED)
+def create_fixed_asset_endpoint(
+    payload: FixedAssetCreate,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    existing = db.scalar(
+        select(FixedAsset).where(
+            FixedAsset.tenant_id == user.tenant_id, FixedAsset.code == payload.code
         )
     )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Asset code already exists",
+        )
+
+    row = FixedAsset(
+        tenant_id=user.tenant_id,
+        code=payload.code,
+        name=payload.name,
+        purchase_date=payload.purchaseDate or date.today(),
+        cost=float(payload.cost or 0.0),
+        salvage=float(payload.salvage or 0.0),
+        life=int(payload.life or 1),
+        method=payload.method or "Straight Line",
+        accum_dep=float(payload.accumDep or 0.0),
+    )
+    db.add(row)
     db.commit()
-    return {"status": "success"}
+    db.refresh(row)
+    return row
 
 
-@router.post("/fixed-assets")
-def create_fixed_asset_endpoint(
+@router.get("/tenant-prefs/{key}")
+def get_tenant_pref(
+    key: str,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    import json
+
+    from app.models.business_documents import AppFeatureSetting
+
+    row = db.scalars(
+        select(AppFeatureSetting).where(
+            AppFeatureSetting.tenant_id == tenant_id,
+            AppFeatureSetting.setting_key == key,
+        )
+    ).first()
+    value = None
+    if row and row.setting_value:
+        try:
+            value = json.loads(row.setting_value)
+        except Exception:
+            value = row.setting_value
+    return {"key": key, "value": value}
+
+
+@router.put("/tenant-prefs/{key}")
+def put_tenant_pref(
+    key: str,
     payload: dict,
     user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ):
-    import datetime
+    import json
 
-    from sqlalchemy import select
+    from app.models.business_documents import AppFeatureSetting
 
-    from app.models.accounts import FixedAsset
-
-    existing = db.scalar(
-        select(FixedAsset).where(
-            FixedAsset.tenant_id == user.tenant_id, FixedAsset.code == payload.get("code")
+    value = payload.get("value") if isinstance(payload, dict) else payload
+    raw = json.dumps(value) if value is not None else None
+    row = db.scalars(
+        select(AppFeatureSetting).where(
+            AppFeatureSetting.tenant_id == user.tenant_id,
+            AppFeatureSetting.setting_key == key,
         )
-    )
-    if existing:
-        return {"status": "error", "message": "Asset code already exists"}
-
-    date_str = payload.get("purchaseDate")
-    try:
-        purchase_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
-    except (ValueError, TypeError):
-        purchase_date = datetime.date.today()
-
-    db.add(
-        FixedAsset(
-            tenant_id=user.tenant_id,
-            code=payload.get("code"),
-            name=payload.get("name"),
-            purchase_date=purchase_date,
-            cost=float(payload.get("cost", 0.0) or 0.0),
-            salvage=float(payload.get("salvage", 0.0) or 0.0),
-            life=int(payload.get("life", 1) or 1),
-            method=payload.get("method", "Straight Line"),
-            accum_dep=float(payload.get("accumDep", 0.0) or 0.0),
+    ).first()
+    if not row:
+        row = AppFeatureSetting(
+            tenant_id=user.tenant_id, setting_key=key, setting_value=raw
         )
-    )
+        db.add(row)
+    else:
+        row.setting_value = raw
     db.commit()
-    return {"status": "success"}
+    return {"key": key, "value": value}

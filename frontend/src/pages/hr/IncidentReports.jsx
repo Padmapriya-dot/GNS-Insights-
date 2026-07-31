@@ -5,7 +5,8 @@ import { Plus, RefreshCw, AlertTriangle, ShieldCheck, HeartPulse, ShieldAlert, X
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
-import { getEmployees } from "../../api/hrApi";
+import { createSafetyIncident, getEmployees, getSafetyIncidents } from "../../api/hrApi";
+import { apiErrorMessage } from "../../utils/apiError";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
@@ -79,25 +80,23 @@ export default function IncidentReports({ autoOpenCreate }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // Load employees for reporter selection
-      const empRes = await getEmployees();
+      const [empRes, incRes] = await Promise.all([getEmployees(), getSafetyIncidents()]);
       setEmployees(empRes.data || []);
-
-      const stored = localStorage.getItem("smrt_incidents");
-      if (stored) {
-        setIncidents([...JSON.parse(stored)]);
-      } else {
-        setIncidents([]);
-      }
+      setIncidents(
+        (incRes.data || []).map((row) => ({
+          ...row,
+          date: row.incident_date || row.date,
+        }))
+      );
     } catch (err) {
+      setIncidents([]);
+      addToast(apiErrorMessage(err, "Failed to load incidents"), "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [addToast]);
 
   const handleRefresh = async () => {
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 350));
     await loadData();
   };
 
@@ -129,7 +128,7 @@ export default function IncidentReports({ autoOpenCreate }) {
     return { total, openCount, critical, resolved };
   }, [incidents]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title || !form.reporter || !form.description) {
       setError("Please fill in all required fields (Title, Reporter, Description).");
@@ -139,21 +138,22 @@ export default function IncidentReports({ autoOpenCreate }) {
     setError("");
 
     try {
-      const stored = localStorage.getItem("smrt_incidents");
-      const currentIncidents = stored ? JSON.parse(stored) : [];
-      const newIncident = {
-        id: Date.now(),
-        ...form,
-      };
-      const updatedIncidents = [newIncident, ...currentIncidents];
-      localStorage.setItem("smrt_incidents", JSON.stringify(updatedIncidents));
-
+      await createSafetyIncident({
+        incident_code: form.incident_code,
+        title: form.title,
+        type: form.type,
+        reporter: form.reporter,
+        incident_date: form.date,
+        severity: form.severity,
+        status: form.status,
+        description: form.description,
+      });
       addToast("Safety incident reported successfully", "success");
       setShowCreateModal(false);
-      loadData();
+      await loadData();
     } catch (err) {
-      setError("Failed to save incident report.");
-      addToast("Failed to save report", "error");
+      setError(apiErrorMessage(err, "Failed to save incident report."));
+      addToast(apiErrorMessage(err, "Failed to save report"), "error");
     } finally {
       setSaving(false);
     }

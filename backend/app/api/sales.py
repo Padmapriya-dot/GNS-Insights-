@@ -9,13 +9,16 @@ from app.models.user import User
 from app.schemas.sales import (
     CustomerCreate,
     CustomerRead,
+    CustomerUpdate,
     LeadCreate,
     LeadRead,
     PaymentCreate,
     PaymentRead,
+    PaymentUpdate,
     QuotationConvertRequest,
     QuotationCreate,
     QuotationRead,
+    QuotationUpdate,
     SalesOrderCreate,
     SalesOrderListRead,
     SalesOrderRead,
@@ -32,12 +35,19 @@ from app.services.sales_service import (
     create_payment,
     create_quotation,
     create_sales_order,
+    delete_payment,
+    delete_quotation,
+    get_payment,
+    get_quotation,
     list_customers,
     list_leads,
     list_payments,
     list_quotations,
     list_sales_orders,
+    update_customer,
     update_lead_status,
+    update_payment,
+    update_quotation,
     update_quotation_status,
     update_sales_order_dispatch,
 )
@@ -64,10 +74,12 @@ from app.services.sales_extended_service import (
     list_so_enriched,
 )
 from app.services.invoice_v2_service import (
+    cancel_invoice_v2,
     create_invoice_v2,
     get_invoice_v2,
     get_invoice_v2_summary,
     list_invoices_v2,
+    update_invoice_v2,
 )
 
 router = APIRouter(prefix="/sales", tags=["sales"])
@@ -90,6 +102,31 @@ def list_customers_endpoint(
     tenant_id: int = Depends(tenant_scope_any(MODULE, "masters")), db: Session = Depends(get_db)
 ):
     return list_customers(db, tenant_id)
+
+
+@router.put("/customers/{customer_id}", response_model=CustomerRead)
+def update_customer_endpoint(
+    customer_id: int,
+    payload: CustomerUpdate,
+    user: User = Depends(require_any_permission(MODULE, "masters")),
+    db: Session = Depends(get_db),
+):
+    customer = update_customer(db, user.tenant_id, customer_id, payload)
+    if not customer:
+        raise HTTPException(404, "Customer not found")
+    return customer
+
+
+@router.delete("/customers/{customer_id}")
+def delete_customer_endpoint(
+    customer_id: int,
+    user: User = Depends(require_any_permission(MODULE, "masters")),
+    db: Session = Depends(get_db),
+):
+    customer = update_customer(db, user.tenant_id, customer_id, CustomerUpdate(status="inactive"))
+    if not customer:
+        raise HTTPException(404, "Customer not found")
+    return {"ok": True, "id": customer.id, "status": customer.status}
 
 
 @router.post("/leads", response_model=LeadRead)
@@ -529,6 +566,35 @@ def get_invoice_detail_endpoint(
     }
 
 
+@router.put("/invoices/{invoice_id}", response_model=InvoiceV2Read)
+def update_invoice_endpoint(
+    invoice_id: int,
+    payload: InvoiceV2Create,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    payload.tenant_id = user.tenant_id
+    try:
+        inv = update_invoice_v2(db, user.tenant_id, invoice_id, payload)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    return get_invoice_v2(db, user.tenant_id, inv.id)
+
+
+@router.delete("/invoices/{invoice_id}")
+def cancel_invoice_endpoint(
+    invoice_id: int,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    inv = cancel_invoice_v2(db, user.tenant_id, invoice_id)
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    return {"ok": True, "id": inv.id, "invoice_status": inv.invoice_status}
+
+
 @router.post("/payments", response_model=PaymentRead)
 def create_payment_endpoint(
     payload: PaymentCreate,
@@ -546,6 +612,44 @@ def list_payments_endpoint(
     db: Session = Depends(get_db),
 ):
     return list_payments(db, tenant_id, invoice_id)
+
+
+@router.get("/payments/{payment_id}", response_model=PaymentRead)
+def get_payment_endpoint(
+    payment_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    payment = get_payment(db, tenant_id, payment_id)
+    if not payment:
+        raise HTTPException(404, "Payment not found")
+    return payment
+
+
+@router.put("/payments/{payment_id}", response_model=PaymentRead)
+def update_payment_endpoint(
+    payment_id: int,
+    payload: PaymentUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    payment = update_payment(
+        db, tenant_id, payment_id, payload.model_dump(exclude_unset=True)
+    )
+    if not payment:
+        raise HTTPException(404, "Payment not found")
+    return payment
+
+
+@router.delete("/payments/{payment_id}")
+def delete_payment_endpoint(
+    payment_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_payment(db, tenant_id, payment_id):
+        raise HTTPException(404, "Payment not found")
+    return {"ok": True, "id": payment_id}
 
 
 @router.get("/leads/summary", response_model=LeadSummaryRead)
@@ -566,6 +670,44 @@ def quotations_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Sessi
 @router.get("/quotations/enriched", response_model=list[QuotationListRead])
 def quotations_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
     return list_quotations_enriched(db, tenant_id)
+
+
+@router.get("/quotations/{quote_id}", response_model=QuotationRead)
+def get_quotation_endpoint(
+    quote_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    quote = get_quotation(db, tenant_id, quote_id)
+    if not quote:
+        raise HTTPException(404, "Quotation not found")
+    return quote
+
+
+@router.put("/quotations/{quote_id}", response_model=QuotationRead)
+def update_quotation_endpoint(
+    quote_id: int,
+    payload: QuotationUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    quote = update_quotation(
+        db, tenant_id, quote_id, payload.model_dump(exclude_unset=True)
+    )
+    if not quote:
+        raise HTTPException(404, "Quotation not found")
+    return quote
+
+
+@router.delete("/quotations/{quote_id}")
+def delete_quotation_endpoint(
+    quote_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_quotation(db, tenant_id, quote_id):
+        raise HTTPException(404, "Quotation not found")
+    return {"ok": True, "id": quote_id}
 
 
 @router.get("/sales-orders/summary", response_model=SOSummaryRead)

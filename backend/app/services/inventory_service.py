@@ -119,6 +119,41 @@ def list_inventory_items(
     return items
 
 
+def get_inventory_item(
+    db: Session, tenant_id: int, item_id: int
+) -> InventoryItem | None:
+    return db.scalars(
+        select(InventoryItem).where(
+            InventoryItem.id == item_id,
+            InventoryItem.tenant_id == tenant_id,
+        )
+    ).first()
+
+
+def update_inventory_item(
+    db: Session, tenant_id: int, item_id: int, data: dict
+) -> InventoryItem | None:
+    item = get_inventory_item(db, tenant_id, item_id)
+    if not item:
+        return None
+    valid_keys = {c.name for c in InventoryItem.__table__.columns} - {"id", "tenant_id"}
+    for key, value in data.items():
+        if key in valid_keys and value is not None:
+            setattr(item, key, value)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_inventory_item(db: Session, tenant_id: int, item_id: int) -> bool:
+    item = get_inventory_item(db, tenant_id, item_id)
+    if not item:
+        return False
+    item.is_active = False
+    db.commit()
+    return True
+
+
 def get_item_by_barcode(db: Session, tenant_id: int, barcode: str) -> InventoryItem | None:
     stmt = select(InventoryItem).where(
         InventoryItem.tenant_id == tenant_id,

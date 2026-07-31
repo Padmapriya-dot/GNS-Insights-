@@ -1,6 +1,10 @@
 # GNS Insights
 
-**GNS Insights** is a full-stack business intelligence platform for manufacturing, combining analytics, AI, and operational reporting. It covers **Production Management**, **Inventory & Raw Material Management**, **Sales & Billing**, and **Accounts & Reports**.
+**GNS Insights** is a full-stack manufacturing ERP and business intelligence platform. It unifies production, inventory, procurement, sales, finance/accounting, HR, quality, maintenance, alerts, documents, and analytics in a multi-tenant SaaS application.
+
+**Tagline:** Business Intelligence • Analytics • AI
+
+Security hardening (auth lockout, email verification, refresh tokens, RBAC, tenant isolation, headers) is documented in [SECURITY_REPORT.md](./SECURITY_REPORT.md).
 
 ## Branding & Assets
 
@@ -61,23 +65,27 @@ To add or replace slides, drop PNG/JPG files into `frontend/public/auth/` using 
 - Daily production reports
 
 ### Inventory & Raw Material Management
-- Raw material tracking
-- **Materials Master** (`/masters/products`) — categories (including Packaging Material, Utility / Raw Material), units (incl. Litre), warehouses, stock levels
-- **Warehouse Management** (`/inventory`, `/inventory/warehouses`) — enterprise dashboard (KPIs, charts, activity timeline, quick actions), searchable warehouse list with filters/export/bulk actions, detail modal with stock status colors (Healthy / Low / Out), location cards (zone → bin), GRN / issue / transfer / pick-pack workflow strips
-- Low stock alerts
-- Barcode support (scan or manual lookup)
-- Warehouse management
-- Supplier tracking
-- Stock movements (in/out/adjustment)
+- Store dashboard (`/inventory/dashboard`)
+- Raw materials & finished goods (`/inventory/raw-materials`, `/inventory/finished-goods`)
+- Stock transfer, adjustment, ledger, warehouses (`/inventory/warehouses`)
+- Inventory settings (`/inventory/settings`)
+- Low stock alerts; barcode scan/manual lookup; stock movements
+- Sidebar **Inventory** (`/inventory`) opens the products/items list UI (same component as Masters → Products, titled Inventory)
+
+### Masters (Customers / Vendors / Products)
+- **Customers** (`/sales/customers`) — list, create/edit modal, export; bulk import at `/sales/customers/bulk-import`
+- **Vendors** (`/procurement/vendors`) — list, create/edit modal, export; full form at `/procurement/vendors/create`; bulk import at `/procurement/vendors/bulk-import`
+- **Products** (`/masters/products`) — list, create/edit modal; create form at `/masters/products/create`; bulk import at `/masters/products/bulk-import`
+- Deep-link create for customers: `/sales/customers/create` → opens the create modal on the list page
 
 ### Procurement & Vendor Master
 - Purchase orders, material requests, goods receipt (GRN), supplier payments
-- **Enterprise Vendor Master** (`/procurement/vendors`) built on the existing `suppliers` table
-  - Company Name, Contact Person, GST, PAN, address (PIN auto-fill), bank & procurement terms
-  - Auto vendor codes (`VEN-0001` style), soft delete, bulk activate/deactivate
-  - List KPIs, filters, Excel/PDF export; detail tabs (Overview, Purchase History, Products, Payments, Documents, Performance, Audit)
-  - **Bank verification:** Account Number + IFSC validated via lookup API; Bank Name and Branch auto-filled; Account Holder Name auto-filled from Contact Person (editable)
-- Roles with vendor access/write: Admin, Purchase Manager, Procurement Manager, Store Manager
+- **Enterprise Vendor Master** (`/procurement/vendors`) on the existing `suppliers` table
+  - Company, contact, GST, address (PIN auto-fill), bank & procurement terms
+  - Auto vendor codes (`VEN-0001` style), soft delete
+  - Detail route `/procurement/vendors/:id` (overview, purchase history, products, payments, documents, performance, audit)
+  - **Bank verification:** Account Number + IFSC via lookup API; bank name/branch auto-fill
+- Roles with vendor access/write: Admin, Purchase Manager, Procurement Manager, Store Manager (Production Manager may see write UI where permitted)
 
 ### HR & Employee Management
 - Worker attendance (clock in/out)
@@ -87,18 +95,16 @@ To add or replace slides, drop PNG/JPG files into `frontend/public/auth/` using 
 - Performance tracking
 
 ### Sales & Billing Module
-- Sales orders (with invoiced / packed / shipped status)
-- GST billing (SGST, CGST, IGST)
-- Invoice generation (Tax Invoice form)
-- Payment tracking
-- Customer management
+- Tax invoices, quotations, payment receipts, refund vouchers, proforma / export invoices, delivery challans, credit & debit notes
+- e-Invoice and E-Waybill login helpers; digital signature page
+- GST billing (SGST, CGST, IGST); payment tracking
+- Customer management (Masters → Customers)
 
 ### Accounts & Reports
-- Accounts dashboard (invoice analytics, overdue tracking, settlement metrics)
-- Profit & Loss (Revenue vs Cost/Expense by month)
-- Expense tracking
-- Tax reports (GST summary)
-- Export to Excel / PDF
+- Ledger, expense, expense settings, chart of accounts, manual journal entries
+- Balance sheet, profit & loss, accounting reports, restore deleted documents
+- Export to Excel / PDF where supported
+- Legacy finance views (AP/AR/payment tracking/general ledger) remain routed under `/finance/*` where applicable
 
 ### Quality Control
 - Quality inspection
@@ -153,13 +159,13 @@ Dashboard → Production Module → **Create Work Order** (3 fields: Product, Qu
 - **Quick Create Work Order:** Dashboard → Click "Create Work Order" → Fill 3 fields → Save → Done ✅
 
 ### 3. Inventory
-Purchase Raw Material → Add to Materials Master / Inventory → Use in Production → Update Stock → Low Stock Alert → Reorder
+Store Dashboard / Raw Materials / Finished Goods → Stock movements → Low Stock Alert → Reorder. Products list also available under Masters → Products and sidebar Inventory (`/inventory`).
 
 ### 3b. Vendor Master (Procurement)
-Vendors → Add Vendor → Fill Company & Contact → Enter Account Number + IFSC (auto-verify bank) → Save → View Vendor Detail / Create PO
+Vendors → Create Vendor (modal or `/procurement/vendors/create`) → Fill company & contact → Optional bank verify → Save → Detail / PO. Bulk import: `/procurement/vendors/bulk-import`.
 
 ### 4. Sales
-Create Customer → Create Sales Order → Generate Invoice → Dispatch Product → Receive Payment
+Customers (create modal or `/sales/customers/create`) → Invoice / Quotation / Receipt flows → Receive payment. Bulk buyers: `/sales/customers/bulk-import`.
 
 ### 5. HR (Employee)
 Add Employee → Assign Role → Track Attendance → Calculate Payroll → Generate Salary Report
@@ -236,11 +242,11 @@ GNS Insights/
 | Auth | Login, Register | authApi, `BrandLogo`, `AuthSlider` |
 | Dashboard | Dashboard (KPIs, charts) | productionApi, inventoryApi, hrApi, analyticsApi, accountsApi |
 | Production | Planning, WorkOrders, BatchTracking, MachineStatus, DailyReports, CreateProduction, CreateMachine | productionApi |
-| Inventory | Dashboard, InventoryList, Warehouses, StockMovement, CreateItem/Warehouse | inventoryApi |
-| Masters | ProductsMaster, CreateProduct (Materials), BomMaster, DepartmentManagement | productsApi |
-| Procurement | VendorManagement, CreateVendor, VendorDetail, PurchaseOrders, MaterialRequests, GoodsReceipt, SupplierPayments | procurementApi |
-| Sales | InvoiceDashboard, TaxInvoiceForm, SalesOrders, Customers, PaymentTracking + create pages | salesApi |
-| Accounts | Dashboard, ProfitLoss, ExpenseTracking, TaxReports, RecordIncome, RecordExpense | accountsApi |
+| Inventory | Dashboard, RawMaterials, FinishedGoods, Warehouses, Stock*, CreateItem | inventoryApi |
+| Masters | Customers, BulkImportBuyer; VendorManagement, BulkImportSeller, CreateVendor, VendorDetail; ProductsMaster, BulkImportProduct, CreateProduct; BomMaster, DepartmentManagement | salesApi, procurementApi, productsApi |
+| Procurement | PurchaseOrders, MaterialRequests, GoodsReceipt, SupplierPayments (+ create pages) | procurementApi |
+| Sales | Invoices, Quotations, PaymentReceipts, Customers, document forms | salesApi |
+| Accounts | Ledger, Expense, ChartOfAccounts, ManualJournal, BalanceSheet, ProfitLoss, Reports | accountsApi |
 | HR | HRDashboard, Attendance, Shifts, Payroll, Performance, Employees + create pages | hrApi |
 | Quality, Maintenance, Analytics, Alerts | Inspection, Defects, BatchReports, Compliance; MachineMaintenance, Preventive, Breakdowns, Schedule; Production/Machine/Inventory/Profit analytics; AllAlerts, LowStock, etc. | quality/maintenance/analytics/alert APIs |
 | Admin, Documents, Settings | UserManagement, RolesPermissions, AccessLogs; Purchase/Production/Quality/Reports docs; Settings sub-pages | adminApi, document APIs |
@@ -489,13 +495,14 @@ Base URL: `http://localhost:8000` (or your `VITE_API_BASE_URL`).
 | Field      | Type   | Required |
 |-----------|--------|----------|
 | `email`   | string | Yes      |
-| `password`| string | Yes      |
+| `password`| string | Yes      | Min **12** characters on register / reset |
 
-**Response (200):**
+**Response (200):** JWT pair + user (includes `refresh_token` when issued).
 
 ```json
 {
   "access_token": "<jwt>",
+  "refresh_token": "<opaque>",
   "token_type": "bearer",
   "user": {
     "id": 1,
@@ -508,7 +515,7 @@ Base URL: `http://localhost:8000` (or your `VITE_API_BASE_URL`).
 }
 ```
 
-**Errors:** `401` — Invalid email or password.
+**Errors:** `401` — `"Invalid Credentials"` (generic); `429` — account lockout.
 
 ### POST `/auth/register`
 
@@ -519,21 +526,24 @@ Base URL: `http://localhost:8000` (or your `VITE_API_BASE_URL`).
 | `company_name` | string | Yes      | New tenant   |
 | `full_name`    | string | Yes      |              |
 | `email`        | string | Yes      | Valid email  |
-| `password`     | string | Yes      | Min 6 chars  |
+| `password`     | string | Yes      | Min **12** chars |
 
-**Response (200):** Same shape as login — returns JWT and user (role `Admin` for the new tenant).
+**Response (200):** Same shape as login in development (auto-verified). In production, email verification may be required before login — see [SECURITY_REPORT.md](./SECURITY_REPORT.md).
 
 **Errors:** `409` — Email already registered.
 
 ### Frontend
 
-- **Login** (`/login`): Calls `POST /auth/login`, stores `access_token` in `localStorage` as `smrt-token`, persists user in `smrt-user`. Axios sends `Authorization: Bearer <token>` on subsequent requests.
-- **Register** (`/register`): Calls `POST /auth/register`, then same as login.
+- **Login** (`/login`): `POST /auth/login`, stores `smrt-token` / `smrt-refresh-token` / `smrt-user`. Axios refreshes on 401.
+- **Register** (`/register`): `POST /auth/register`.
+- **Forgot / reset / verify:** `/forgot-password`, `/reset-password`, `/verify-email`.
 
-Optional `backend/.env`:
+Optional `backend/.env` (security-related — full list in SECURITY_REPORT):
 
 ```env
 JWT_SECRET_KEY=your-long-random-secret
+ENVIRONMENT=development
+CORS_ORIGINS=http://localhost:5173
 ```
 
 ## Usage
@@ -543,23 +553,24 @@ JWT_SECRET_KEY=your-long-random-secret
 3. **Notifications:** Click the bell icon (🔔) in the top bar to view in-app notifications. Unread items are highlighted; opening one marks it read and updates the badge without refreshing the page.
 4. **Dashboard:** View production, inventory, HR, and machine status summaries.
 5. **Production:** Create production orders, work orders, machines; track batches and daily reports. Tables support search, sorting, pagination.
-6. **Inventory / Materials:** Add warehouses, manage Materials Master, create items, record stock movements.
-7. **Procurement / Vendors:** Manage Vendor Master (company, bank verify, documents), purchase orders, material requests, GRN, supplier payments.
-8. **Sales:** Manage invoices, sales orders, customers, and payments.
-9. **Accounts:** View analytics dashboard, Profit & Loss, expense tracking, tax reports; export to Excel/PDF.
-10. **Settings:** Configure theme (light/dark), language, date format, currency, company profile.
+6. **Inventory / Materials:** Store dashboard, raw materials, finished goods, warehouses, stock movements; products also under Masters → Products.
+7. **Masters:** Customers, Vendors, Products — create/edit via modals; bulk import pages for each.
+8. **Procurement / Vendors:** Vendor Master, purchase orders, material requests, GRN, supplier payments.
+9. **Sales:** Invoices, quotations, receipts, and related sales documents.
+10. **Accounts:** Ledger, expenses, chart of accounts, journals, P&L, balance sheet, reports.
+11. **Settings:** Theme, language, company profile, invoice/format/template/sector/sequence settings where enabled.
 
 ## API Overview
 
 | Prefix | Endpoints |
 |--------|-----------|
-| `/auth/` | `POST /login`, `POST /register` (JWT bearer) |
+| `/auth/` | `POST /login`, `POST /register`, `POST /refresh`, `POST /logout`, verify-email, forgot/reset-password |
 | `/production/` | products, orders, work-orders, batches, machines, machine-status, daily-reports |
 | `/inventory/` | warehouses, suppliers, items, items/barcode/{barcode}, dashboard, stock-levels, stock-movements |
-| `/procurement/` | purchase-orders, **vendors** (list, create, detail, update, soft-delete, bulk-status, summary, export, purchase-history, products), **vendors/bank-lookup**, material-requests, goods-receipt, supplier-payments |
+| `/procurement/` | purchase-orders, **vendors** (CRUD, soft-delete, bulk-status, summary, export, purchase-history, products, bank-lookup), material-requests, goods-receipt, supplier-payments |
 | `/hr/` | dashboard, employees, shifts, attendance (clock-in, clock-out), payroll, performance |
 | `/sales/` | customers, sales-orders, invoices, invoices/{id}, payments |
-| `/accounts/` | dashboard, profit-loss, tax-report, income, expenses |
+| `/accounts/` | ledger/accounting APIs as exposed by accounts router; income/expenses where enabled |
 | `/analytics/` | production-trend, machine-efficiency, inventory-turnover, worker-performance, profit, dashboard |
 | `/quality/` | inspection, defects, batch-reports, compliance |
 | `/maintenance/` | records, preventive, breakdowns, schedule |

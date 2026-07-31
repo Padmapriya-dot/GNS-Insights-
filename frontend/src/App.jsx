@@ -9,20 +9,46 @@ import Breadcrumbs from "./components/common/Breadcrumbs";
 import AiChatWidget from "./components/ai/AiChatWidget";
 import useAuth from "./hooks/useAuth";
 
+/** Settings routes that render inside the main ERP shell (sidebar + navbar). */
+const IN_APP_SETTINGS_SEGMENTS = new Set([
+  "change-format",
+  "format-settings",
+  "change-template",
+  "template-settings",
+  "invoice-template",
+  "quotation-template",
+  "purchase-template",
+  "inventory-settings",
+  "invoice-settings",
+  "sector-settings",
+  "sequence-reset",
+]);
+
+function normalizePath(pathname) {
+  return (pathname || "/").replace(/\/+$/, "") || "/";
+}
+
 /** Routes that render without the ERP shell (sidebar + navbar). */
 function isShellLessRoute(pathname) {
+  const path = normalizePath(pathname);
   if (
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/landing" ||
-    pathname === "/forgot-password" ||
-    pathname === "/reset-password" ||
-    pathname === "/verify-email"
+    path === "/login" ||
+    path === "/register" ||
+    path === "/landing" ||
+    path === "/forgot-password" ||
+    path === "/reset-password" ||
+    path === "/verify-email"
   ) {
     return true;
   }
-  if (pathname.startsWith("/gns-admin")) return true;
-  if (pathname.startsWith("/settings")) return true;
+  if (path.startsWith("/gns-admin")) return true;
+  // Settings hub + catalog sections use SettingsLayout; sidebar feature pages stay in-app
+  if (path === "/settings") return true;
+  if (path.startsWith("/settings/")) {
+    const segment = path.slice("/settings/".length).split("/")[0];
+    if (IN_APP_SETTINGS_SEGMENTS.has(segment)) return false;
+    return true;
+  }
   return false;
 }
 
@@ -61,7 +87,86 @@ export default function App() {
   const location = useLocation();
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const showChatbot = shouldShowChatbot(user, location.pathname);
+  const isInvoiceEditor =
+    location.pathname === "/sales/invoices/create" ||
+    /^\/sales\/invoices\/[^/]+\/edit$/.test(location.pathname) ||
+    location.pathname === "/sales/quotations/create" ||
+    /^\/sales\/quotations\/[^/]+\/edit$/.test(location.pathname) ||
+    location.pathname === "/sales/payment-receipts/create" ||
+    /^\/sales\/payment-receipts\/[^/]+\/edit$/.test(location.pathname) ||
+    location.pathname === "/sales/proforma-invoices/create" ||
+    /^\/sales\/proforma-invoices\/[^/]+\/edit$/.test(location.pathname) ||
+    location.pathname === "/sales/export-invoices/create" ||
+    /^\/sales\/export-invoices\/[^/]+\/edit$/.test(location.pathname) ||
+    location.pathname === "/sales/delivery-challans/create" ||
+    /^\/sales\/delivery-challans\/[^/]+\/edit$/.test(location.pathname) ||
+    location.pathname === "/sales/credit-notes/create" ||
+    /^\/sales\/credit-notes\/[^/]+\/edit$/.test(location.pathname) ||
+    location.pathname === "/sales/debit-notes/create" ||
+    /^\/sales\/debit-notes\/[^/]+\/edit$/.test(location.pathname) ||
+    location.pathname === "/purchases/create" ||
+    /^\/purchases\/[^/]+\/edit$/.test(location.pathname) ||
+    location.pathname === "/purchases/payments-made/create" ||
+    /^\/purchases\/payments-made\/[^/]+\/edit$/.test(location.pathname) ||
+    location.pathname === "/purchases/debit-notes/create" ||
+    /^\/purchases\/debit-notes\/[^/]+\/edit$/.test(location.pathname) ||
+    location.pathname === "/procurement/purchase-orders/create" ||
+    /^\/procurement\/purchase-orders\/[^/]+\/edit$/.test(location.pathname) ||
+    /^\/sales\/invoices\/[^/]+\/copy$/.test(location.pathname);
+  const isSalesDocList =
+    location.pathname === "/sales/invoices" ||
+    location.pathname === "/sales/quotations" ||
+    location.pathname === "/sales/payment-receipts" ||
+    location.pathname === "/sales/refund-vouchers" ||
+    location.pathname === "/sales/proforma-invoices" ||
+    location.pathname === "/sales/export-proforma-invoices" ||
+    location.pathname === "/sales/export-invoices" ||
+    location.pathname === "/sales/delivery-challans" ||
+    location.pathname === "/sales/credit-notes" ||
+    location.pathname === "/sales/debit-notes" ||
+    location.pathname === "/purchases" ||
+    location.pathname === "/purchases/payments-made" ||
+    location.pathname === "/purchases/debit-notes" ||
+    location.pathname === "/procurement/purchase-orders" ||
+    location.pathname === "/inventory" ||
+    location.pathname === "/inventory/settings" ||
+    location.pathname === "/settings/change-template" ||
+    location.pathname === "/settings/template-settings" ||
+    location.pathname === "/settings/invoice-template" ||
+    location.pathname === "/settings/quotation-template" ||
+    location.pathname === "/settings/purchase-template" ||
+    location.pathname === "/settings/change-format" ||
+    location.pathname === "/settings/format-settings" ||
+    location.pathname === "/settings/invoice-settings" ||
+    location.pathname === "/inventory/items/create" ||
+    location.pathname === "/masters/products" ||
+    location.pathname.startsWith("/masters/products/") ||
+    location.pathname === "/products" ||
+    location.pathname.startsWith("/products/") ||
+    location.pathname === "/master/products" ||
+    location.pathname.startsWith("/master/products/") ||
+    location.pathname === "/accounts/ledger" ||
+    location.pathname.startsWith("/accounts/ledger/") ||
+    location.pathname === "/accounts/expenses" ||
+    location.pathname.startsWith("/accounts/expenses/") ||
+    location.pathname === "/accounts/chart-of-accounts" ||
+    location.pathname.startsWith("/accounts/chart-of-accounts/") ||
+    location.pathname === "/accounts/journal-entries" ||
+    location.pathname.startsWith("/accounts/journal-entries/") ||
+    location.pathname === "/accounts/balance-sheet" ||
+    location.pathname === "/accounts/profit-loss" ||
+    location.pathname === "/accounts/restore-deleted" ||
+    location.pathname === "/accounts/restore-deleted-docs" ||
+    location.pathname === "/accounts/reports" ||
+    location.pathname.startsWith("/accounts/reports/") ||
+    location.pathname === "/reports" ||
+    location.pathname.startsWith("/reports/") ||
+    location.pathname === "/ledger" ||
+    location.pathname.startsWith("/ledger/");
+  const isEInvoiceLogin = location.pathname === "/sales/e-invoice";
+  const isFullBleedSales = isInvoiceEditor || isSalesDocList || isEInvoiceLogin;
 
   if (isShellLessRoute(location.pathname)) {
     return (
@@ -87,21 +192,43 @@ export default function App() {
         aria-hidden="true"
       />
       <aside
-        className={`fixed left-0 top-0 z-50 h-full transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 w-60 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
+        className={`fixed left-0 top-0 z-50 h-full transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 ${
+          sidebarCollapsed ? "w-[72px]" : "w-60"
+        } ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
-        <Sidebar onClose={() => setSidebarOpen(false)} />
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+          onClose={() => setSidebarOpen(false)}
+        />
       </aside>
-      <div className="flex min-h-0 flex-1 flex-col min-w-0 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <Navbar onMenuClick={() => setSidebarOpen(true)} />
-        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto bg-[#F4F7FE] p-4 sm:p-5 lg:p-6 pb-8 outline-none">
-          <div className="ui-page ui-stack">
-            <Breadcrumbs />
-            <Suspense fallback={<RouteFallback />}>
-              <AppRoutes />
-            </Suspense>
-          </div>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className={`min-h-0 flex-1 outline-none ${
+            isInvoiceEditor || isEInvoiceLogin
+              ? "overflow-hidden bg-[#F5F5F5]"
+              : isSalesDocList
+                ? "overflow-y-auto bg-[#F5F5F5]"
+                : "overflow-y-auto bg-[#F4F7FE] p-4 pb-8 sm:p-5 lg:p-6"
+          }`}
+        >
+          {isFullBleedSales ? (
+            <div className={isInvoiceEditor || isEInvoiceLogin ? "h-full min-h-0" : "min-h-full"}>
+              <Suspense fallback={<RouteFallback />}>
+                <AppRoutes />
+              </Suspense>
+            </div>
+          ) : (
+            <div className="ui-page ui-stack">
+              <Breadcrumbs />
+              <Suspense fallback={<RouteFallback />}>
+                <AppRoutes />
+              </Suspense>
+            </div>
+          )}
           {showChatbot && <AiChatWidget />}
         </main>
       </div>

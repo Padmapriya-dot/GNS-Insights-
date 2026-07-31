@@ -10,9 +10,9 @@ function formatRoleLabel(role) {
   return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function ClientProfilePanel({ onClose }) {
+export default function ClientProfilePanel({ onClose, onRequestLogout }) {
   const navigate = useNavigate();
-  const { user, logout, refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   useEffect(() => {
     refreshUser?.();
@@ -61,10 +61,9 @@ export default function ClientProfilePanel({ onClose }) {
         </button>
         <button
           type="button"
-          onClick={async () => {
+          onClick={() => {
             onClose?.();
-            await logout();
-            navigate("/login");
+            onRequestLogout?.();
           }}
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
         >

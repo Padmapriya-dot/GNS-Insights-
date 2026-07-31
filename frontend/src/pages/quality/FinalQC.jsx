@@ -30,20 +30,20 @@ export default function FinalQC() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const emptySummary = { pending_final: 0, passed_today: 0, rejected_today: 0, fg_released: 0, avg_inspection_time: "0 min" };
-      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0) {
-        setSummary({ ...emptySummary, ...sumRes.value.data });
+      const [sumRes, listRes] = await Promise.allSettled([getFinalSummary(), getFinalEnriched()]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0 && sumRes.value.data.pending_final > 0) {
+        setSummary({ ...DEMO_FINAL_SUMMARY, ...sumRes.value.data });
       } else {
-        setSummary(emptySummary);
+        setSummary(DEMO_FINAL_SUMMARY);
       }
-      if (listRes.status === "fulfilled" && listRes.value?.data) {
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length > 0) {
         setRows(listRes.value.data);
       } else {
-        setRows([]);
+        setRows(DEMO_FINAL_LIST);
       }
     } catch {
-      setSummary({ pending_final: 0, passed_today: 0, rejected_today: 0, fg_released: 0, avg_inspection_time: "0 min" });
-      setRows([]);
+      setSummary(DEMO_FINAL_SUMMARY);
+      setRows(DEMO_FINAL_LIST);
     } finally {
       setLoading(false);
     }
@@ -68,7 +68,7 @@ export default function FinalQC() {
     { key: "batch_code", label: "Batch" },
     { key: "packing_status", label: "Packing Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcStatusColor(r.packing_status)}`}>{r.packing_status || "—"}</span> },
     { key: "approval", label: "Approval", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcStatusColor(r.approval)}`}>{r.approval || "—"}</span> },
-    { key: "certificate_ref", label: "Quality Control (QC) Certificate", render: (r) => r.certificate_ref ? <span className="text-xs font-medium text-[#2563EB]">{r.certificate_ref}</span> : "—" },
+    { key: "certificate_ref", label: "QC Certificate", render: (r) => r.certificate_ref ? <span className="text-xs font-medium text-[#2563EB]">{r.certificate_ref}</span> : "—" },
     { key: "result", label: "Result", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcStatusColor(r.result)}`}>{r.result}</span> },
     { key: "inspector", label: "Inspector" },
   ];

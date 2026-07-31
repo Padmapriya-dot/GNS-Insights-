@@ -4,7 +4,7 @@ export const WAREHOUSE_STATUSES = ["active", "inactive"];
 export const WAREHOUSE_TYPES = [
   "Raw Material",
   "Finished Goods",
-  "Work in Progress (WIP)",
+  "WIP",
   "General",
   "Distribution",
   "Transit",
@@ -22,10 +22,47 @@ export const WORKFLOW_STEPS = [
 ];
 
 export const TRANSFER_WORKFLOW = [
-  "Warehouse A",
-  "Warehouse B",
+  "Source Warehouse",
+  "Destination Warehouse",
+  "Product Selection",
+  "Quantity",
   "Approval",
-  "Stock Updated",
+  "Transfer Confirmation",
+];
+
+export const GRN_WORKFLOW = [
+  "Supplier",
+  "Purchase Order",
+  "Goods Receipt",
+  "Quality Check",
+  "Put Away",
+  "Inventory Update",
+];
+
+export const ISSUE_WORKFLOW = [
+  "Production Order",
+  "Material Selection",
+  "Quantity",
+  "Approval",
+  "Issue",
+  "Stock Update",
+];
+
+export const PICK_PACK_WORKFLOW = [
+  "Sales Order",
+  "Picking",
+  "Packing",
+  "Dispatch",
+  "Delivery",
+];
+
+export const INVENTORY_CATEGORIES = [
+  "Raw Materials",
+  "Finished Goods",
+  "Semi-Finished Goods",
+  "Packing Materials",
+  "Consumables",
+  "Spare Parts",
 ];
 
 export const REPORT_TYPES = [
@@ -41,65 +78,7 @@ export const IMPORT_TEMPLATE_HEADERS = [
   "code", "name", "branch", "plant", "warehouse_type", "state", "manager_name", "capacity", "status",
 ];
 
-export const DEMO_WAREHOUSES = [
-  {
-    id: "wh-101",
-    code: "WH-HYD-01",
-    name: "Main Warehouse Nacharam",
-    branch: "Hyderabad",
-    plant: "Plant-1 Hyderabad",
-    warehouse_type: "Raw Material & FG",
-    state: "Telangana",
-    manager_name: "Sowmya",
-    capacity: 10000,
-    used_capacity: 4500,
-    available_capacity: 5500,
-    utilization_pct: 45.0,
-    inventory_value: 84600,
-    is_primary: true,
-    status: "active",
-    low_stock_items: 0,
-    created_at: new Date().toISOString().slice(0, 10),
-  },
-  {
-    id: "wh-102",
-    code: "WH-BLR-02",
-    name: "Peenya Storage Depot",
-    branch: "Bengaluru",
-    plant: "Plant-2 Bengaluru",
-    warehouse_type: "Finished Goods",
-    state: "Karnataka",
-    manager_name: "Anand Kumar",
-    capacity: 8000,
-    used_capacity: 6200,
-    available_capacity: 1800,
-    utilization_pct: 77.5,
-    inventory_value: 80000,
-    is_primary: false,
-    status: "active",
-    low_stock_items: 1,
-    created_at: new Date().toISOString().slice(0, 10),
-  },
-  {
-    id: "wh-103",
-    code: "WH-PUN-03",
-    name: "Bhosari Auxiliary Store",
-    branch: "Pune",
-    plant: "Plant-3 Pune",
-    warehouse_type: "Consumables & Spares",
-    state: "Maharashtra",
-    manager_name: "Venkatesh",
-    capacity: 5000,
-    used_capacity: 1200,
-    available_capacity: 3800,
-    utilization_pct: 24.0,
-    inventory_value: 1800,
-    is_primary: false,
-    status: "active",
-    low_stock_items: 0,
-    created_at: new Date().toISOString().slice(0, 10),
-  },
-];
+export const DEMO_WAREHOUSES = [];
 
 
 export const DEMO_BIN_TREE = [];
@@ -145,7 +124,7 @@ export function computeWarehouseSummary(warehouses) {
       return (w.low_stock_items || 0) > 0 || (w.out_of_stock || 0) > 0 || (avail !== null && avail <= 0);
     }).length,
 
-    pendingTransfers: 3,
+    pendingTransfers: 0,
     newThisMonth: warehouses.filter((w) => new Date(w.created_at) >= monthStart).length,
   };
 }

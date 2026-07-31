@@ -9,6 +9,7 @@ import { useToast } from "../../context/ToastContext";
 import {
   approveMaterialRequest,
   convertMaterialRequestToPO,
+  deleteMaterialRequest,
   getMaterialRequest,
   getMREnriched,
   getMRSummary,
@@ -353,6 +354,18 @@ export default function MaterialRequests() {
 
   useManufacturingRefresh(load);
 
+  const handleDelete = async (row) => {
+    if (!row?.id || typeof row.id !== "number") return;
+    if (!window.confirm(`Delete material request ${row.mr_number || row.id}?`)) return;
+    try {
+      await deleteMaterialRequest(row.id);
+      addToast("Material request deleted", "success");
+      await load();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Failed to delete", "error");
+    }
+  };
+
   const filtered = useMemo(() => {
     let list = rows;
     if (filters.department) list = list.filter((r) => r.department === filters.department);
@@ -425,6 +438,15 @@ export default function MaterialRequests() {
                 To PO
               </button>
             )}
+          {typeof r.id === "number" ? (
+            <button
+              type="button"
+              onClick={() => handleDelete(r)}
+              className="text-xs font-semibold text-red-600 hover:underline"
+            >
+              Delete
+            </button>
+          ) : null}
         </div>
       ),
     },

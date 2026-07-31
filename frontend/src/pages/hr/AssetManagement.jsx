@@ -5,7 +5,8 @@ import { Plus, RefreshCw, Briefcase, Tag, MapPin, User, ShieldCheck, X, Save } f
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
-import { getEmployees } from "../../api/hrApi";
+import { createHrAsset, getEmployees, getHrAssets } from "../../api/hrApi";
+import { apiErrorMessage } from "../../utils/apiError";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
@@ -69,26 +70,18 @@ export default function AssetManagement({ autoOpenCreate }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // Load employees
-      const empRes = await getEmployees();
+      const [empRes, assetRes] = await Promise.all([getEmployees(), getHrAssets()]);
       setEmployees(empRes.data || []);
-
-      // Load assets from localStorage
-      const stored = localStorage.getItem("smrt_assets");
-      if (stored) {
-        setAssets([...JSON.parse(stored)]);
-      } else {
-        setAssets([]);
-      }
+      setAssets(assetRes.data || []);
     } catch (err) {
+      setAssets([]);
+      addToast(apiErrorMessage(err, "Failed to load assets"), "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [addToast]);
 
   const handleRefresh = async () => {
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 350));
     await loadData();
   };
 
@@ -118,7 +111,7 @@ export default function AssetManagement({ autoOpenCreate }) {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.asset_code || !form.name) {
       setError("Asset Code and Asset Name are required.");
@@ -128,16 +121,10 @@ export default function AssetManagement({ autoOpenCreate }) {
     setError("");
 
     try {
-      const stored = localStorage.getItem("smrt_assets");
-      const currentAssets = stored ? JSON.parse(stored) : [];
-      const newAsset = {
-        id: Date.now(),
+      await createHrAsset({
         ...form,
         purchase_cost: form.purchase_cost ? Number(form.purchase_cost) : 0,
-      };
-      const updatedAssets = [newAsset, ...currentAssets];
-      localStorage.setItem("smrt_assets", JSON.stringify(updatedAssets));
-
+      });
       addToast("Asset registered successfully", "success");
       setShowCreateModal(false);
       setForm({
@@ -150,10 +137,10 @@ export default function AssetManagement({ autoOpenCreate }) {
         purchase_date: new Date().toISOString().slice(0, 10),
         purchase_cost: "",
       });
-      loadData();
+      await loadData();
     } catch (err) {
-      setError("Failed to save asset registry.");
-      addToast("Failed to save asset", "error");
+      setError(apiErrorMessage(err, "Failed to save asset registry."));
+      addToast(apiErrorMessage(err, "Failed to save asset"), "error");
     } finally {
       setSaving(false);
     }

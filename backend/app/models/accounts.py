@@ -80,6 +80,7 @@ class GLAccount(Base, TimestampMixin):
     type: Mapped[str] = mapped_column(String(64), default="Assets", nullable=False)  # Assets, Liabilities, Equity, Revenue, Expenses
     balance: Mapped[float] = mapped_column(Numeric(12, 2), default=0.0, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="Active", nullable=False)
+    meta: Mapped[str | None] = mapped_column(Text)
 
 
 class FixedAsset(Base, TimestampMixin):

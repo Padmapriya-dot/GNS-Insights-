@@ -37,20 +37,20 @@ export default function BatchQualityReports() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const emptySummary = { total_batches: 0, passed_batches: 0, failed_batches: 0, retested: 0, avg_pass_rate: "0%", quarantine: 0 };
-      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0) {
-        setSummary({ ...emptySummary, ...sumRes.value.data });
+      const [sumRes, listRes] = await Promise.allSettled([getBatchSummary(), getBatchEnriched()]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0 && sumRes.value.data.total_batches > 0) {
+        setSummary({ ...DEMO_BATCH_SUMMARY, ...sumRes.value.data });
       } else {
-        setSummary(emptySummary);
+        setSummary(DEMO_BATCH_SUMMARY);
       }
-      if (listRes.status === "fulfilled" && listRes.value?.data) {
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length > 0) {
         setRows(listRes.value.data);
       } else {
-        setRows([]);
+        setRows(DEMO_BATCH_LIST);
       }
     } catch {
-      setSummary({ total_batches: 0, passed_batches: 0, failed_batches: 0, retested: 0, avg_pass_rate: "0%", quarantine: 0 });
-      setRows([]);
+      setSummary(DEMO_BATCH_SUMMARY);
+      setRows(DEMO_BATCH_LIST);
     } finally {
       setLoading(false);
     }

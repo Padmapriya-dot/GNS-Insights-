@@ -67,7 +67,7 @@ const DEPARTMENT_BY_TYPE = {
   production: "Production",
   quality: "Quality",
   report: "Finance",
-  hr: "Human Resources (HR)",
+  hr: "HR",
   general: "General",
 };
 
@@ -155,35 +155,17 @@ export default function DocumentsDashboard({ initialDocType = null, title, subti
     try {
       const res = await getDocuments(initialDocType || null);
       const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
-      const scoped = data.filter((d) => {
+      let scoped = data.filter((d) => {
         if (admin || !allowedTypes.length) return true;
         return allowedTypes.includes(d.doc_type);
       });
-
-      const stored = localStorage.getItem("smrt_local_documents");
-      let localDocs = stored ? JSON.parse(stored) : [];
-
-      if (initialDocType) {
-        localDocs = localDocs.filter((d) => !d.doc_type || d.doc_type === initialDocType);
-      }
-
-      const combined = [...localDocs, ...scoped];
-      const uniqueMap = new Map();
-      combined.forEach((item) => {
-        if (!uniqueMap.has(item.id)) {
-          uniqueMap.set(item.id, item);
-        }
-      });
-
-      setRows(Array.from(uniqueMap.values()));
+      setRows(scoped);
+      setError(null);
     } catch (e) {
-      console.warn("Document load notice, using local storage:", e);
-      const stored = localStorage.getItem("smrt_local_documents");
-      const localDocs = stored ? JSON.parse(stored) : [];
-      if (!localDocs.length && e.response?.status !== 401) {
-        setError(e.response?.data?.detail || e.message || "Failed to connect to document server");
+      setRows([]);
+      if (e.response?.status !== 401) {
+        setError(e.response?.data?.detail || e.message || "Failed to load documents");
       }
-      setRows(localDocs);
     } finally {
       setLoading(false);
     }
@@ -344,38 +326,16 @@ export default function DocumentsDashboard({ initialDocType = null, title, subti
       if (modal === "create") {
         const res = await createDocument(payload);
         const savedDoc = res.data || { ...payload, id: Date.now() };
-
-        const stored = localStorage.getItem("smrt_local_documents");
-        const localList = stored ? JSON.parse(stored) : [];
-        localStorage.setItem("smrt_local_documents", JSON.stringify([savedDoc, ...localList]));
-
         setRows((prev) => [savedDoc, ...prev]);
         addToast("Document uploaded successfully", "success");
       } else {
         await updateDocument(modal.id, payload);
-        const stored = localStorage.getItem("smrt_local_documents");
-        if (stored) {
-          const list = JSON.parse(stored).map((d) => (d.id === modal.id ? { ...d, ...payload } : d));
-          localStorage.setItem("smrt_local_documents", JSON.stringify(list));
-        }
         addToast("Document updated successfully", "success");
       }
       setModal(null);
       await load();
     } catch (err) {
-      console.warn("Document API notice, maintaining local state:", err);
-      const fallbackDoc = {
-        id: modal?.id || Date.now(),
-        ...payload,
-      };
-
-      const stored = localStorage.getItem("smrt_local_documents");
-      const localList = stored ? JSON.parse(stored) : [];
-      localStorage.setItem("smrt_local_documents", JSON.stringify([fallbackDoc, ...localList.filter(d => d.id !== fallbackDoc.id)]));
-
-      setRows((prev) => [fallbackDoc, ...prev.filter(d => d.id !== fallbackDoc.id)]);
-      addToast("Document saved successfully", "success");
-      setModal(null);
+      addToast(err.response?.data?.detail || err.message || "Failed to save document", "error");
     } finally {
       setSaving(false);
     }
@@ -384,24 +344,12 @@ export default function DocumentsDashboard({ initialDocType = null, title, subti
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this document permanently?")) return;
     setBusyId(id);
-
-    // 1. Remove from local storage IMMEDIATELY
-    const stored = localStorage.getItem("smrt_local_documents");
-    if (stored) {
-      const list = JSON.parse(stored).filter((d) => String(d.id) !== String(id));
-      localStorage.setItem("smrt_local_documents", JSON.stringify(list));
-    }
-
-    // 2. Remove from React state IMMEDIATELY
-    setRows((prev) => prev.filter((d) => String(d.id) !== String(id)));
-
-    // 3. Call backend API to delete permanently from DB
     try {
       await deleteDocument(id);
+      setRows((prev) => prev.filter((d) => String(d.id) !== String(id)));
       addToast("Document deleted permanently", "success");
     } catch (err) {
-      console.warn("Backend delete notice:", err);
-      addToast("Document removed successfully", "success");
+      addToast(err.response?.data?.detail || err.message || "Failed to delete document", "error");
     } finally {
       setBusyId(null);
     }

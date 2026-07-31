@@ -6,6 +6,7 @@ import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import {
   createVendorBill,
+  deleteVendorBill,
   getGRNEnriched,
   getPurchaseOrdersEnriched,
   getVendors,
@@ -34,7 +35,7 @@ function KpiCard({ label, value, icon: Icon, color }) {
 }
 
 function WorkflowStrip() {
-  const steps = ["Purchase Order (PO)", "Goods Receipt Note (GRN)", "Vendor Invoice", "Finance Approval", "Payment"];
+  const steps = ["PO", "GRN", "Vendor Invoice", "Finance Approval", "Payment"];
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
       {steps.map((s, i) => (
@@ -143,13 +144,13 @@ function CreateBillModal({ isOpen, onClose, onCreated, suppliers, purchaseOrders
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700">Goods Receipt Note (GRN)</label>
+              <label className="block text-xs font-semibold text-slate-700">Goods Receipt (GRN)</label>
               <select
                 value={form.goods_receipt_id}
                 onChange={(e) => setForm((f) => ({ ...f, goods_receipt_id: e.target.value }))}
                 className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
               >
-                <option value="">Select Goods Receipt Note (GRN) (Opt)</option>
+                <option value="">Select GRN (Opt)</option>
                 {goodsReceipts.map((grn) => (
                   <option key={grn.id} value={grn.id}>
                     {grn.grn_number}
@@ -283,13 +284,25 @@ export default function VendorBills() {
     }
   };
 
+  const handleDelete = async (row) => {
+    if (!row?.id) return;
+    if (!window.confirm(`Delete vendor bill ${row.bill_number || row.id}?`)) return;
+    try {
+      await deleteVendorBill(row.id);
+      addToast("Vendor bill deleted", "success");
+      await load();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Failed to delete bill", "error");
+    }
+  };
+
   const columns = [
-    { key: "bill_number", label: "Bill Number" },
+    { key: "bill_number", label: "Bill No" },
     { key: "vendor_name", label: "Vendor" },
-    { key: "po_number", label: "Purchase Order Number", render: (r) => r.po_number || "—" },
-    { key: "grn_number", label: "Goods Receipt Note (GRN) Number", render: (r) => r.grn_number || "—" },
+    { key: "po_number", label: "PO", render: (r) => r.po_number || "—" },
+    { key: "grn_number", label: "GRN", render: (r) => r.grn_number || "—" },
     { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
-    { key: "gst_amount", label: "Goods & Services Tax (GST)", render: (r) => formatInr(r.gst_amount) },
+    { key: "gst_amount", label: "GST", render: (r) => formatInr(r.gst_amount) },
     { key: "due_date", label: "Due Date", render: (r) => (r.due_date ? String(r.due_date).slice(0, 10) : "—") },
     {
       key: "status",
@@ -305,6 +318,15 @@ export default function VendorBills() {
       label: "Actions",
       render: (r) => {
         const isBusy = updatingId === r.id;
+        const deleteBtn = (
+          <button
+            type="button"
+            onClick={() => handleDelete(r)}
+            className="text-xs font-semibold text-red-600 hover:underline"
+          >
+            Delete
+          </button>
+        );
         if (r.status === "pending" || r.status === "due") {
           return (
             <div className="flex items-center gap-1.5">
@@ -324,22 +346,31 @@ export default function VendorBills() {
               >
                 <XCircle className="h-3.5 w-3.5" /> Reject
               </button>
+              {deleteBtn}
             </div>
           );
         }
         if (r.status === "approved") {
           return (
-            <button
-              type="button"
-              disabled={isBusy}
-              onClick={() => handleStatusChange(r.id, "paid")}
-              className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" /> Mark Paid
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => handleStatusChange(r.id, "paid")}
+                className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Mark Paid
+              </button>
+              {deleteBtn}
+            </div>
           );
         }
-        return <span className="text-xs font-semibold text-emerald-700">Paid ✓</span>;
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-emerald-700">Paid ✓</span>
+            {deleteBtn}
+          </div>
+        );
       },
     },
   ];
@@ -352,7 +383,7 @@ export default function VendorBills() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Vendor Bills</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Invoice module with three-way matching (Purchase Order (PO) ↔ Goods Receipt Note (GRN) ↔ Vendor Invoice) and finance approval.
+            Invoice module with three-way matching (PO ↔ GRN ↔ Vendor Invoice) and finance approval.
           </p>
         </div>
         <div className="flex items-center gap-2">

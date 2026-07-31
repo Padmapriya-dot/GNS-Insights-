@@ -27,11 +27,14 @@ from app.schemas.procurement import (
     MaterialRequestConvertToPORequest,
     MaterialRequestCreate,
     MaterialRequestRead,
+    MaterialRequestUpdate,
     PurchaseOrderCreate,
     PurchaseOrderListRead,
     PurchaseOrderRead,
+    PurchaseOrderUpdate,
     SupplierPaymentCreate,
     SupplierPaymentRead,
+    SupplierPaymentUpdate,
 )
 from app.services.inventory_service import update_supplier_approval
 from app.services.vendor_service import (
@@ -87,12 +90,22 @@ from app.services.procurement_service import (
     create_material_request,
     create_purchase_order,
     create_supplier_payment,
+    delete_goods_receipt,
+    delete_material_request,
+    delete_purchase_order,
+    delete_supplier_payment,
+    get_goods_receipt,
     get_material_request,
+    get_purchase_order,
+    get_supplier_payment,
     list_goods_receipts,
     list_material_requests,
     list_purchase_orders,
     list_supplier_payments,
+    update_material_request,
+    update_purchase_order,
     update_purchase_order_status,
+    update_supplier_payment,
 )
 from app.schemas.procurement_extended import (
     GRNListRead,
@@ -118,6 +131,8 @@ from app.services.procurement_extended_service import (
     create_rfq,
     create_vendor_bill,
     create_vendor_quotation,
+    delete_rfq,
+    delete_vendor_bill,
     update_vendor_bill_status,
     get_grn_summary,
     get_mr_summary,
@@ -445,6 +460,32 @@ def get_material_request_endpoint(
     return mr
 
 
+@router.put("/material-requests/{mr_id}", response_model=MaterialRequestRead)
+def update_material_request_endpoint(
+    mr_id: int,
+    payload: MaterialRequestUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+) -> MaterialRequestRead:
+    mr = update_material_request(
+        db, tenant_id, mr_id, payload.model_dump(exclude_unset=True)
+    )
+    if not mr:
+        raise HTTPException(404, "Material request not found")
+    return mr
+
+
+@router.delete("/material-requests/{mr_id}", status_code=204)
+def delete_material_request_endpoint(
+    mr_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_material_request(db, tenant_id, mr_id):
+        raise HTTPException(404, "Material request not found")
+    return None
+
+
 @router.post(
     "/material-requests/{mr_id}/approve",
     response_model=MaterialRequestRead,
@@ -509,6 +550,29 @@ def grn_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = D
     return list_grn_enriched(db, tenant_id)
 
 
+@router.get("/goods-receipt/{grn_id}", response_model=GoodsReceiptRead)
+def get_goods_receipt_endpoint(
+    grn_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+) -> GoodsReceiptRead:
+    gr = get_goods_receipt(db, tenant_id, grn_id)
+    if not gr:
+        raise HTTPException(404, "Goods receipt not found")
+    return gr
+
+
+@router.delete("/goods-receipt/{grn_id}", status_code=204)
+def delete_goods_receipt_endpoint(
+    grn_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_goods_receipt(db, tenant_id, grn_id):
+        raise HTTPException(404, "Goods receipt not found")
+    return None
+
+
 @router.post("/goods-receipt/{grn_id}/qc", response_model=GoodsReceiptRead)
 def goods_receipt_qc_endpoint(
     grn_id: int,
@@ -534,6 +598,44 @@ def list_supplier_payments_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
 ) -> list[SupplierPaymentRead]:
     return list_supplier_payments(db, tenant_id)
+
+
+@router.get("/supplier-payments/{payment_id}", response_model=SupplierPaymentRead)
+def get_supplier_payment_endpoint(
+    payment_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+) -> SupplierPaymentRead:
+    sp = get_supplier_payment(db, tenant_id, payment_id)
+    if not sp:
+        raise HTTPException(404, "Supplier payment not found")
+    return sp
+
+
+@router.put("/supplier-payments/{payment_id}", response_model=SupplierPaymentRead)
+def update_supplier_payment_endpoint(
+    payment_id: int,
+    payload: SupplierPaymentUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+) -> SupplierPaymentRead:
+    sp = update_supplier_payment(
+        db, tenant_id, payment_id, payload.model_dump(exclude_unset=True)
+    )
+    if not sp:
+        raise HTTPException(404, "Supplier payment not found")
+    return sp
+
+
+@router.delete("/supplier-payments/{payment_id}", status_code=204)
+def delete_supplier_payment_endpoint(
+    payment_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_supplier_payment(db, tenant_id, payment_id):
+        raise HTTPException(404, "Supplier payment not found")
+    return None
 
 
 @router.get("/rfq/summary", response_model=RFQSummaryRead)
@@ -593,6 +695,17 @@ def rfq_comparison(rfq_id: int, tenant_id: int = Depends(tenant_scope(MODULE)), 
     return get_rfq_comparison(db, tenant_id, rfq_id)
 
 
+@router.delete("/rfq/{rfq_id}", status_code=204)
+def delete_rfq_endpoint(
+    rfq_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_rfq(db, tenant_id, rfq_id):
+        raise HTTPException(404, "RFQ not found")
+    return None
+
+
 
 @router.get("/purchase-orders/summary", response_model=POSummaryRead)
 def po_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
@@ -602,6 +715,44 @@ def po_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Dep
 @router.get("/purchase-orders/enriched", response_model=list[POListRead])
 def po_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
     return list_po_enriched(db, tenant_id)
+
+
+@router.get("/purchase-orders/{po_id}", response_model=PurchaseOrderRead)
+def get_purchase_order_endpoint(
+    po_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+) -> PurchaseOrderRead:
+    po = get_purchase_order(db, tenant_id, po_id)
+    if not po:
+        raise HTTPException(404, "Purchase order not found")
+    return po
+
+
+@router.put("/purchase-orders/{po_id}", response_model=PurchaseOrderRead)
+def update_purchase_order_endpoint(
+    po_id: int,
+    payload: PurchaseOrderUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+) -> PurchaseOrderRead:
+    po = update_purchase_order(
+        db, tenant_id, po_id, payload.model_dump(exclude_unset=True)
+    )
+    if not po:
+        raise HTTPException(404, "Purchase order not found")
+    return po
+
+
+@router.delete("/purchase-orders/{po_id}")
+def delete_purchase_order_endpoint(
+    po_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_purchase_order(db, tenant_id, po_id):
+        raise HTTPException(404, "Purchase order not found")
+    return {"ok": True, "id": po_id}
 
 
 @router.get("/vendor-bills/summary", response_model=VendorBillSummaryRead)
@@ -643,6 +794,17 @@ def update_vendor_bill_status_endpoint(
     if not match:
         raise HTTPException(500, "Vendor bill updated but could not be loaded")
     return match
+
+
+@router.delete("/vendor-bills/{bill_id}", status_code=204)
+def delete_vendor_bill_endpoint(
+    bill_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_vendor_bill(db, tenant_id, bill_id):
+        raise HTTPException(404, "Vendor bill not found")
+    return None
 
 
 

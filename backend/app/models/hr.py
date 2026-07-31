@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Time
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -134,3 +134,39 @@ class PerformanceReview(Base, TimestampMixin):
     notes: Mapped[str | None] = mapped_column(String(1024))
 
     employee = relationship("Employee", back_populates="performance_reviews")
+
+
+class HrAsset(Base, TimestampMixin):
+    """Company assets assigned to employees (IT / facilities)."""
+    __tablename__ = "hr_assets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    asset_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(64), default="Active", nullable=False)
+    assigned_to: Mapped[str | None] = mapped_column(String(255))
+    location: Mapped[str | None] = mapped_column(String(255))
+    purchase_date: Mapped[date | None] = mapped_column(Date)
+    purchase_cost: Mapped[float] = mapped_column(Numeric(12, 2), default=0.0, nullable=False)
+
+
+class SafetyIncident(Base, TimestampMixin):
+    """Workplace safety / incident reports."""
+    __tablename__ = "safety_incidents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    incident_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    type: Mapped[str | None] = mapped_column(String(128))
+    reporter: Mapped[str | None] = mapped_column(String(255))
+    incident_date: Mapped[date | None] = mapped_column(Date)
+    severity: Mapped[str] = mapped_column(String(32), default="Low", nullable=False)
+    status: Mapped[str] = mapped_column(String(64), default="Open", nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)

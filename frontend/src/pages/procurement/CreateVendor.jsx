@@ -192,11 +192,16 @@ export default function CreateVendor() {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const { user, isAdmin } = usePermissions();
-  const roles = Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean);
+  const roles =
+    Array.isArray(user?.roles) && user.roles.length
+      ? user.roles.map((r) => (typeof r === "string" ? r : r?.name)).filter(Boolean)
+      : [user?.role, user?.role_name].filter(Boolean);
   const canWrite =
     isAdmin ||
     roles.some((r) =>
-      ["Purchase Manager", "Procurement Manager", "Store Manager", "Admin"].includes(r)
+      ["Purchase Manager", "Procurement Manager", "Store Manager", "Admin", "Production Manager"].includes(
+        r
+      )
     );
   const viewOnly = !canWrite;
 
@@ -214,11 +219,11 @@ export default function CreateVendor() {
   const lastVerifiedBankKey = useRef("");
   const holderEditedManually = useRef(false);
 
+  // Only bounce after we know the user; avoid racing an empty session into a redirect.
   useEffect(() => {
-    if (viewOnly) {
-      navigate(isEdit ? `/procurement/vendors/${vendorId}` : "/procurement/vendors", { replace: true });
-    }
-  }, [viewOnly, isEdit, vendorId, navigate]);
+    if (!user || !viewOnly) return;
+    navigate(isEdit ? `/procurement/vendors/${vendorId}` : "/procurement/vendors", { replace: true });
+  }, [user, viewOnly, isEdit, vendorId, navigate]);
 
   useEffect(() => {
     getProducts()

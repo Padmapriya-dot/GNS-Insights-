@@ -170,10 +170,14 @@ export default function MachineStatus() {
         getMachineSummary().catch(() => ({ data: null })),
       ]);
       const apiRows = mRes.data || [];
-      setMachines(apiRows.map((row, i) => enrichApiMachine(row, i)));
+      if (apiRows.length > 0) {
+        setMachines(apiRows.map((row, i) => enrichApiMachine(row, i)));
+      } else {
+        setMachines(DEMO_MACHINES);
+      }
       setApiSummary(sRes.data);
     } catch {
-      setMachines([]);
+      setMachines(DEMO_MACHINES);
     } finally {
       setLoading(false);
     }

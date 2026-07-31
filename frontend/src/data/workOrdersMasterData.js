@@ -9,9 +9,6 @@ export const WO_STATUSES = [
   "running", "paused", "in_progress", "planned", "completed", "closed",
 ];
 
-const COMPLETED_STATUSES = ["completed", "closed", "done"];
-const IN_PROGRESS_STATUSES = ["running", "in_progress", "paused", "quality_check"];
-
 export const WO_STATUS_COLORS = {
   draft: "bg-slate-100 text-slate-600",
   released: "bg-blue-100 text-blue-800",
@@ -56,34 +53,11 @@ import { calculateProgressPct } from "./productionPlanningMasterData";
 
 export const DEMO_WORK_ORDERS = [];
 
-function normalizeStatus(status) {
-  return String(status || "").trim().toLowerCase().replace(/\s+/g, "_");
-}
-
 export function enrichApiWorkOrder(row, index = 0) {
   const planned = Number(row.planned_quantity || 0);
-  let rawProduced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
-  let status = normalizeStatus(row.status || "planned");
-
-  const poStatus = normalizeStatus(row.production_order_status || "");
-  const poStarted = ["in_progress", "running", "quality_check"].includes(poStatus);
-  if (poStarted && ["planned", "draft", "released"].includes(status)) {
-    status = "in_progress";
-  }
-
-  const progress = calculateProgressPct({ ...row, produced_quantity: rawProduced, status });
-
-  let produced = rawProduced;
-  if (COMPLETED_STATUSES.includes(status) || progress >= 100 || (planned > 0 && produced >= planned)) {
-    status = "completed";
-    produced = Math.max(rawProduced, planned);
-  } else if (rawProduced <= 0 && progress > 0 && planned > 0) {
-    produced = Math.round((planned * progress) / 100);
-  }
-
-  const finalProgress = status === "completed" ? 100 : progress;
+  const produced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
   const remaining = Number(row.remaining_quantity ?? Math.max(planned - produced, 0));
-
+  const progress = calculateProgressPct(row);
   return {
     ...row,
     work_order_number: row.work_order_number || `WO-${row.id || index + 1}`,
@@ -94,11 +68,10 @@ export function enrichApiWorkOrder(row, index = 0) {
     machine_status: row.machine_status || "—",
     operator_name: row.operator_name || "—",
     priority: row.priority || "medium",
-    status: status,
     planned_quantity: planned,
     produced_quantity: produced,
     remaining_quantity: remaining,
-    progress_pct: finalProgress,
+    progress_pct: progress,
     materials: row.materials || [],
     documents: row.documents || [],
     audit_logs: row.audit_logs || [],
@@ -108,23 +81,10 @@ export function enrichApiWorkOrder(row, index = 0) {
 export function computeWorkOrderSummary(orders) {
   const counts = { planned: 0, in_progress: 0, completed: 0, delayed: 0, high: 0 };
   orders.forEach((o) => {
-    const s = normalizeStatus(o.status);
-    const progressPct = Number(o.progress_pct ?? 0);
-    const plannedQty = Number(o.planned_quantity || 0);
-    const producedQty = Number(o.produced_quantity || 0);
-
-    if (
-      COMPLETED_STATUSES.includes(s) ||
-      progressPct >= 100 ||
-      (plannedQty > 0 && producedQty >= plannedQty)
-    ) {
-      counts.completed += 1;
-    } else if (IN_PROGRESS_STATUSES.includes(s)) {
-      counts.in_progress += 1;
-    } else {
-      counts.planned += 1;
-    }
-
+    const s = o.status;
+    if (["completed", "closed", "done"].includes(s)) counts.completed += 1;
+    else if (["running", "in_progress", "paused"].includes(s)) counts.in_progress += 1;
+    else counts.planned += 1;
     if (o.is_delayed) counts.delayed += 1;
     if (o.priority === "high") counts.high += 1;
   });
@@ -143,7 +103,7 @@ export function woStatusLabel(status) {
 }
 
 export function canWoStart(status) {
-  return ["draft", "released", "planned", "in_progress", "material_ready", "machine_ready", "pending"].includes(status);
+  return ["draft", "released", "planned", "material_ready", "machine_ready", "pending"].includes(status);
 }
 
 export function canWoIssueMaterials(status, materialsIssued) {

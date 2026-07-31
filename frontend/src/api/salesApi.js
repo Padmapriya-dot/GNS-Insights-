@@ -2,6 +2,9 @@ import api from "./axiosConfig";
 
 export const getCustomers = () => api.get("/sales/customers");
 export const createCustomer = (payload) => api.post("/sales/customers", payload);
+export const updateCustomer = (customerId, payload) =>
+  api.put(`/sales/customers/${customerId}`, payload);
+export const deleteCustomer = (customerId) => api.delete(`/sales/customers/${customerId}`);
 
 export const getSalesOrders = (_tenantId, status = null) =>
   api.get("/sales/sales-orders", { params: { status } });
@@ -18,16 +21,35 @@ export const updateSalesOrderDispatch = (orderId, flags) =>
 export const confirmSalesOrderDelivery = (orderId) =>
   api.post(`/sales/sales-orders/${orderId}/confirm-delivery`);
 
-export const getInvoices = (_tenantId, status = null) =>
-  api.get("/sales/invoices", { params: { status } });
-export const getInvoicesEnriched = () => api.get("/sales/invoices/enriched");
-export const getInvoiceSummary = () => api.get("/sales/invoices/summary");
+export const getInvoices = (_tenantId, status = null, params = {}) =>
+  api
+    .get("/sales/invoices", { params: { payment_filter: status || undefined, page_size: 500, ...params } })
+    .then((res) => {
+      const data = res.data;
+      if (Array.isArray(data)) return res;
+      const items = (data?.items || []).map((row) => ({
+        ...row,
+        customer_name: row.buyer_name ?? row.customer_name,
+        grand_total: row.amount ?? row.grand_total,
+      }));
+      return { ...res, data: items };
+    });
+export const getInvoicesV2 = (params = {}) => api.get("/sales/invoices/v2", { params });
+export const getInvoicesEnriched = (params = {}) => api.get("/sales/invoices/v2", { params });
+export const getInvoiceSummary = (params = {}) =>
+  api.get("/sales/invoices/summary", { params });
 export const getInvoiceDetail = (invoiceId) => api.get(`/sales/invoices/${invoiceId}`);
 export const createInvoice = (payload) => api.post("/sales/invoices", payload);
+export const updateInvoice = (invoiceId, payload) => api.put(`/sales/invoices/${invoiceId}`, payload);
+export const cancelInvoice = (invoiceId) => api.delete(`/sales/invoices/${invoiceId}`);
 
 export const getPayments = (_tenantId, invoiceId = null) =>
   api.get("/sales/payments", { params: { invoice_id: invoiceId } });
+export const getPayment = (paymentId) => api.get(`/sales/payments/${paymentId}`);
 export const createPayment = (payload) => api.post("/sales/payments", payload);
+export const updatePayment = (paymentId, payload) =>
+  api.put(`/sales/payments/${paymentId}`, payload);
+export const deletePayment = (paymentId) => api.delete(`/sales/payments/${paymentId}`);
 
 export const getLeads = (status = null) => api.get("/sales/leads", { params: { status } });
 export const getLeadSummary = () => api.get("/sales/leads/summary");
@@ -42,7 +64,11 @@ export const getQuotations = (status = null) =>
   api.get("/sales/quotations", { params: { status } });
 export const getQuotationSummary = () => api.get("/sales/quotations/summary");
 export const getQuotationsEnriched = () => api.get("/sales/quotations/enriched");
+export const getQuotation = (quoteId) => api.get(`/sales/quotations/${quoteId}`);
 export const createQuotation = (payload) => api.post("/sales/quotations", payload);
+export const updateQuotation = (quoteId, payload) =>
+  api.put(`/sales/quotations/${quoteId}`, payload);
+export const deleteQuotation = (quoteId) => api.delete(`/sales/quotations/${quoteId}`);
 export const updateQuotationStatus = (quoteId, status) =>
   api.patch(`/sales/quotations/${quoteId}/status`, null, { params: { status } });
 export const convertQuotationToSalesOrder = (quoteId, payload = {}) =>

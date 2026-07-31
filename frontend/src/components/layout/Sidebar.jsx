@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   BarChart3,
@@ -18,16 +18,21 @@ import {
   Wrench,
   ChevronDown,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 
 import BrandLogo from "../common/BrandLogo";
+import LogoutConfirmModal from "../common/LogoutConfirmModal";
 import useAuth from "../../hooks/useAuth";
 import { getSidebarMenus } from "../../api/authApi";
-import { userCanAccess } from "../../config/permissions";
+import { userCanAccess, isStoreManager, storeManagerPathAllowed } from "../../config/permissions";
 import { SIDEBAR_NAV, sectionHasActiveChild } from "../../config/sidebarNav";
+import { STORE_MANAGER_NAV_ITEMS } from "../../config/storeManagerNavConfig";
 
 const ICON_BY_KEY = {
   dashboard: LayoutDashboard,
+  manufacturingWorkflow: Factory,
   masters: Layers,
   production: Factory,
   inventory: Boxes,
@@ -43,6 +48,42 @@ const ICON_BY_KEY = {
   settings: Settings,
   admin: Settings,
 };
+
+function buildStoreManagerSidebarNav() {
+  return STORE_MANAGER_NAV_ITEMS.map((item) => {
+    if (item.action) {
+      return {
+        key: item.key,
+        label: item.label,
+        action: item.action,
+        icon: item.icon,
+      };
+    }
+    if (item.children?.length) {
+      return {
+        key: item.key,
+        label: item.label,
+        icon: item.icon,
+        module: "inventory",
+        children: item.children.map((c) => ({
+          key: c.key,
+          label: c.label,
+          to: c.to,
+          module: "inventory",
+          end: c.end,
+        })),
+      };
+    }
+    return {
+      key: item.key,
+      label: item.label,
+      to: item.to,
+      icon: item.icon,
+      module: "inventory",
+      end: item.end,
+    };
+  });
+}
 
 function FactorySkyline() {
   return (
@@ -86,81 +127,18 @@ function mapApiMenusToNav(menus) {
   });
 }
 
-const PROD_MANAGER_ALLOWED_SECTIONS = new Set([
-  "dashboard",
-  "masters",
-  "production",
-  "inventory",
-  "procurement",
-  "quality",
-  "maintenance",
-  "alerts",
-  "documents",
-  "analytics",
-]);
-
-const PROD_MANAGER_ALLOWED_CHILDREN = new Set([
-  "/masters/products",
-  "/masters/bom",
-  "/production/machines",
-  "/production/planning",
-  "/production/mrp",
-  "/production/work-orders",
-  "/production/schedule",
-  "/factory-monitor/live-production",
-  "/production/tasks",
-  "/production/assign-tasks",
-  "/production/batches",
-  "/production/reports",
-  "/inventory/raw-materials",
-  "/inventory/finished-goods",
-  "/inventory/stock-transfer",
-  "/procurement/material-requests",
-  "/quality/in-process",
-  "/quality/final",
-  "/quality/defects",
-  "/maintenance/preventive",
-  "/maintenance/breakdowns",
-  "/maintenance/machine-history",
-  "/alerts",
-  "/alerts/low-stock",
-  "/alerts/machine-failure",
-  "/alerts/production-delay",
-  "/alerts/maintenance",
-  "/alerts/quality",
-  "/alerts/safety",
-  "/alerts/general",
-  "/documents",
-  "/documents/production",
-  "/documents/quality",
-  "/documents/reports",
-  "/analytics/production",
-  "/analytics/inventory",
-  "/analytics/live",
-]);
-
-function isProductionManager(user) {
-  if (!user) return false;
-  const roles = Array.isArray(user.roles)
-    ? user.roles.map((r) => (typeof r === "object" ? r.name : String(r)))
-    : [];
-  const roleStr = String(user.role || user.role_name || (typeof user.roles === "string" ? user.roles : "")).toLowerCase();
-  const allRoles = [...roles.map((r) => String(r).toLowerCase()), roleStr];
-  if (allRoles.some((r) => r.includes("admin"))) return false;
-  return allRoles.some((r) => r.includes("production manager") || r.includes("production_manager"));
-}
-
 function filterStaticNav(user) {
-  const isPM = isProductionManager(user);
+  const storeMgr = isStoreManager(user);
   return SIDEBAR_NAV.map((section) => {
-    if (isPM && !PROD_MANAGER_ALLOWED_SECTIONS.has(section.key)) return null;
     if (section.to) {
-      return userCanAccess(user, section.module) ? section : null;
+      if (!userCanAccess(user, section.module)) return null;
+      if (storeMgr && !storeManagerPathAllowed(section.to)) return null;
+      return section;
     }
-    const children = (section.children || []).filter((c) => {
-      if (isPM && !PROD_MANAGER_ALLOWED_CHILDREN.has(c.to)) return false;
-      return userCanAccess(user, c.module);
-    });
+    let children = (section.children || []).filter((c) => userCanAccess(user, c.module));
+    if (storeMgr) {
+      children = children.filter((c) => storeManagerPathAllowed(c.to));
+    }
     if (children.length === 0) return null;
     return { ...section, children };
   }).filter(Boolean);
@@ -176,11 +154,15 @@ function buildInitialExpanded(pathname, nav) {
   return state;
 }
 
-export default function Sidebar({ collapsed, onClose }) {
+export default function Sidebar({ collapsed = false, onToggleCollapse, onClose }) {
   const { t } = useTranslation();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [apiNav, setApiNav] = useState(null);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const storeMode = isStoreManager(user);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -201,20 +183,13 @@ export default function Sidebar({ collapsed, onClose }) {
   }, [isAuthenticated, user?.id, user?.role, user?.role_id]);
 
   const visibleNav = useMemo(() => {
-    const raw = apiNav && apiNav.length ? apiNav : filterStaticNav(user);
-    if (isProductionManager(user)) {
-      return raw
-        .map((section) => {
-          if (!PROD_MANAGER_ALLOWED_SECTIONS.has(section.key)) return null;
-          if (!section.children) return section;
-          const children = section.children.filter((c) => PROD_MANAGER_ALLOWED_CHILDREN.has(c.to));
-          if (children.length === 0) return null;
-          return { ...section, children };
-        })
-        .filter(Boolean);
+    if (storeMode) {
+      return buildStoreManagerSidebarNav();
     }
-    return raw;
-  }, [apiNav, user]);
+    // Prefer local SIDEBAR_NAV so new pages (Inventory v2, Ledger) appear even if API catalog is stale.
+    const staticNav = filterStaticNav(user);
+    return staticNav.length ? staticNav : apiNav && apiNav.length ? apiNav : [];
+  }, [apiNav, user, storeMode]);
 
   const [expanded, setExpanded] = useState(() =>
     buildInitialExpanded(location.pathname, visibleNav)
@@ -236,39 +211,72 @@ export default function Sidebar({ collapsed, onClose }) {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const handleConfirmLogout = async ({ allDevices }) => {
+    setLoggingOut(true);
+    try {
+      await logout({ allDevices });
+      onClose?.();
+      navigate("/login", { replace: true });
+    } finally {
+      setLoggingOut(false);
+      setLogoutOpen(false);
+    }
+  };
+
+  /* Screenshot-style: yellow right accent when active */
   const topLinkClass = ({ isActive }) =>
-    `flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-all ${
+    `relative flex items-center gap-2.5 rounded-l-lg px-3 py-2.5 text-sm transition-all ${
       isActive
-        ? "bg-[#2563EB] text-white font-medium shadow-md shadow-blue-900/30"
+        ? "bg-white/10 font-medium text-white after:absolute after:inset-y-1 after:right-0 after:w-1 after:rounded-l after:bg-[#F5C518]"
         : "text-slate-300 hover:bg-white/10 hover:text-white"
     }`;
 
   const childLinkClass = ({ isActive }) =>
-    `block rounded-lg py-2 pl-9 pr-3 text-[13px] transition-colors ${
+    `relative block rounded-l-lg py-2 pl-9 pr-3 text-[13px] transition-colors ${
       isActive
-        ? "bg-[#2563EB]/90 text-white font-medium"
+        ? "bg-white/10 font-medium text-white after:absolute after:inset-y-1 after:right-0 after:w-1 after:rounded-l after:bg-[#F5C518]"
         : "text-slate-400 hover:bg-white/10 hover:text-slate-200"
     }`;
 
   const sectionButtonClass = (_isOpen, hasActive) =>
-    `flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+    `relative flex w-full items-center justify-between gap-2 rounded-l-lg px-3 py-2.5 text-sm font-medium transition-colors ${
       hasActive
-        ? "bg-white/10 text-white"
+        ? "bg-white/10 text-white after:absolute after:inset-y-1 after:right-0 after:w-1 after:rounded-l after:bg-[#F5C518]"
         : "text-slate-300 hover:bg-white/10 hover:text-white"
     }`;
+
+  const actionButtonClass =
+    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/10 hover:text-white";
 
   const sectionLabel = (section) => section.label || (section.labelKey ? t(section.labelKey) : section.key);
   const childLabel = (child) => child.label || (child.labelKey ? t(child.labelKey) : child.to);
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col bg-[#001B3D] text-white">
+    <aside className="relative flex h-full w-full shrink-0 flex-col bg-[#001B3D] text-white">
+      {typeof onToggleCollapse === "function" ? (
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="absolute -right-3 top-[48%] z-20 hidden h-11 w-6 -translate-y-1/2 items-center justify-center rounded-l-md border border-r-0 border-[#c8c8d0] bg-[#001B3D] text-white shadow-sm hover:bg-[#00264f] lg:flex"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? (
+            <ChevronsRight className="h-4 w-4" strokeWidth={2.25} />
+          ) : (
+            <ChevronsLeft className="h-4 w-4" strokeWidth={2.25} />
+          )}
+        </button>
+      ) : null}
       <div className={`shrink-0 border-b border-white/10 ${collapsed ? "p-3" : "px-4 py-5"}`}>
-        <Link to="/" className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`} onClick={() => onClose?.()}>
+        <Link to={storeMode ? "/inventory" : "/"} className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`} onClick={() => onClose?.()}>
           <BrandLogo size="md" imageClassName="rounded-lg bg-white/95 p-0.5" />
           {!collapsed && (
             <div className="min-w-0">
               <p className="text-lg font-bold tracking-tight">GNS Insights</p>
-              <p className="text-[9px] leading-tight text-slate-400">{t("nav.tagline")}</p>
+              <p className="text-[9px] leading-tight text-slate-400">
+                {storeMode ? "Store Manager" : t("nav.tagline")}
+              </p>
             </div>
           )}
         </Link>
@@ -276,6 +284,22 @@ export default function Sidebar({ collapsed, onClose }) {
 
       <nav className="sidebar-scroll flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         {visibleNav.map((section) => {
+          if (section.action === "logout") {
+            const Icon = section.icon || LayoutDashboard;
+            return (
+              <button
+                key={section.key}
+                type="button"
+                title={collapsed ? section.label : undefined}
+                onClick={() => setLogoutOpen(true)}
+                className={actionButtonClass}
+              >
+                <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
+                {!collapsed && <span className="truncate">{section.label}</span>}
+              </button>
+            );
+          }
+
           if (section.to) {
             const Icon = section.icon || LayoutDashboard;
             const label = sectionLabel(section);
@@ -319,7 +343,7 @@ export default function Sidebar({ collapsed, onClose }) {
                 <div className="space-y-0.5 pb-1">
                   {section.children.map((child) => (
                     <NavLink
-                      key={child.to}
+                      key={`${section.key}-${child.to}-${child.label || child.key}`}
                       to={child.to}
                       end={child.end}
                       onClick={() => onClose?.()}
@@ -335,14 +359,23 @@ export default function Sidebar({ collapsed, onClose }) {
         })}
       </nav>
 
-      {!collapsed && (
-        <div className="shrink-0 border-t border-white/10 px-3 py-3 space-y-2.5">
+      {!collapsed && !storeMode && (
+        <div className="shrink-0 space-y-2.5 border-t border-white/10 px-3 py-3">
           <FactorySkyline />
           <p className="text-center text-[9px] font-medium uppercase tracking-wider text-slate-500">
             {t("nav.footerTagline")}
           </p>
         </div>
       )}
+
+      <LogoutConfirmModal
+        open={logoutOpen}
+        busy={loggingOut}
+        onCancel={() => {
+          if (!loggingOut) setLogoutOpen(false);
+        }}
+        onConfirm={handleConfirmLogout}
+      />
     </aside>
   );
 }

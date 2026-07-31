@@ -7,6 +7,7 @@ from app.models.user import User
 from app.schemas.inventory import (
     InventoryItemCreate,
     InventoryItemRead,
+    InventoryItemUpdate,
     StockLevelCreate,
     StockLevelRead,
     StockMovementCreate,
@@ -36,7 +37,9 @@ from app.services.inventory_service import (
     create_stock_level,
     create_supplier,
     create_warehouse,
+    delete_inventory_item,
     get_inventory_dashboard,
+    get_inventory_item,
     get_item_by_barcode,
     get_stock_by_item,
     get_total_stock,
@@ -45,6 +48,7 @@ from app.services.inventory_service import (
     list_suppliers,
     list_warehouses,
     record_stock_movement,
+    update_inventory_item,
     update_stock_level,
 )
 from app.schemas.inventory_extended import (
@@ -218,6 +222,44 @@ def get_item_by_barcode_endpoint(
         "total_stock": total,
         "needs_reorder": total < item.reorder_level if item.reorder_level else False,
     }
+
+
+@router.get("/items/{item_id}", response_model=InventoryItemRead)
+def get_item_endpoint(
+    item_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+) -> InventoryItemRead:
+    item = get_inventory_item(db, tenant_id, item_id)
+    if not item:
+        raise HTTPException(404, "Item not found")
+    return item
+
+
+@router.put("/items/{item_id}", response_model=InventoryItemRead)
+def update_item_endpoint(
+    item_id: int,
+    payload: InventoryItemUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+) -> InventoryItemRead:
+    item = update_inventory_item(
+        db, tenant_id, item_id, payload.model_dump(exclude_unset=True)
+    )
+    if not item:
+        raise HTTPException(404, "Item not found")
+    return item
+
+
+@router.delete("/items/{item_id}")
+def delete_item_endpoint(
+    item_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_inventory_item(db, tenant_id, item_id):
+        raise HTTPException(404, "Item not found")
+    return {"ok": True, "id": item_id}
 
 
 @router.get("/dashboard")

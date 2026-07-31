@@ -29,7 +29,7 @@ const pathLabels = {
   invoices: "Invoices",
   customers: "Customers",
   payments: "Payments",
-  hr: "Human Resources (HR)",
+  hr: "HR",
   employees: "Employees",
   attendance: "Attendance",
   leave: "Leave",
@@ -38,11 +38,11 @@ const pathLabels = {
   procurement: "Procurement",
   "purchase-orders": "Purchase Orders",
   vendors: "Vendors",
-  "goods-receipt": "Goods Receipt Note (GRN)",
+  "goods-receipt": "Goods Receipt",
   "supply-chain": "Supply Chain",
   masters: "Masters",
   products: "Products",
-  bom: "Bill of Materials (BOM)",
+  bom: "Bill of Materials",
   quality: "Quality",
   analytics: "Analytics",
   forecasting: "Forecasting",
@@ -60,7 +60,7 @@ const pathLabels = {
   "live-production": "Live Production",
   "machine-status": "Machine Status",
   "production-lines": "Production Lines",
-  iot: "Internet of Things (IoT)",
+  iot: "IoT",
 };
 
 function getLabel(segment, segments, index) {

@@ -65,7 +65,7 @@ export default function SupplyChainDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiCard label="Purchase Spend" value={formatInr(hub.purchase_spend)} icon={IndianRupee} color="bg-blue-600" />
         <KpiCard label="Pending Approvals" value={hub.pending_approvals} icon={ShoppingCart} color="bg-amber-500" />
-        <KpiCard label="Open Request for Quotation (RFQ)s" value={hub.open_rfqs} icon={ShoppingCart} color="bg-indigo-600" />
+        <KpiCard label="Open RFQs" value={hub.open_rfqs} icon={ShoppingCart} color="bg-indigo-600" />
         <KpiCard label="Active Vendors" value={hub.active_vendors} icon={Users} color="bg-teal-600" />
         <KpiCard label="Outstanding Bills" value={formatInr(hub.outstanding_bills)} icon={IndianRupee} color="bg-red-500" />
         <KpiCard label="Today's Deliveries" value={hub.todays_deliveries} icon={Truck} color="bg-green-600" />
@@ -125,9 +125,9 @@ export default function SupplyChainDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <QuickLink to="/procurement/material-requests" label="Material Requests" />
-        <QuickLink to="/procurement/rfq" label="Request for Quotation (RFQ)" />
+        <QuickLink to="/procurement/rfq" label="RFQ" />
         <QuickLink to="/procurement/purchase-orders" label="Purchase Orders" />
-        <QuickLink to="/procurement/goods-receipt" label="Goods Receipt Note (GRN)" />
+        <QuickLink to="/procurement/goods-receipt" label="GRN" />
         <QuickLink to="/procurement/supplier-payments" label="Vendor Bills" />
         <QuickLink to="/procurement/vendors" label="Vendors" />
         <QuickLink to="/inventory/raw-materials" label="Raw Materials" />

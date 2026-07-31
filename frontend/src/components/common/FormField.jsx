@@ -30,19 +30,11 @@ export function Input({
   icon: Icon,
   type = "text",
   className = "",
-  onFocus,
   ...props
 }) {
   const [visible, setVisible] = useState(false);
   const isPassword = type === "password";
   const inputType = isPassword ? (visible ? "text" : "password") : type;
-
-  const handleFocus = (e) => {
-    // Auto-select all text on focus so default values (e.g. '0') are instantly
-    // replaced when the user starts typing — no manual deletion needed.
-    e.target.select();
-    onFocus?.(e);
-  };
 
   return (
     <FormField label={label} error={error} hint={hint} required={required}>
@@ -53,7 +45,6 @@ export function Input({
         <input
           type={inputType}
           className={`${inputBase} ${Icon ? "pl-10" : ""} ${isPassword ? "pr-11" : ""} ${error ? "border-red-500 dark:border-red-500" : ""} ${className}`}
-          onFocus={handleFocus}
           {...props}
         />
         {isPassword ? (

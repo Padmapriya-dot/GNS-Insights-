@@ -36,6 +36,17 @@ export const getLeaveEnriched = () => api.get("/hr/leave/enriched");
 export const createLeaveRequest = (payload) => api.post("/hr/leave", payload);
 export const updateLeaveRequest = (leaveId, payload) => api.patch(`/hr/leave/${leaveId}`, payload);
 
+export const getHrAssets = () => api.get("/hr/assets");
+export const createHrAsset = (payload) => api.post("/hr/assets", payload);
+export const updateHrAsset = (assetId, payload) => api.put(`/hr/assets/${assetId}`, payload);
+export const deleteHrAsset = (assetId) => api.delete(`/hr/assets/${assetId}`);
+
+export const getSafetyIncidents = () => api.get("/hr/incidents");
+export const createSafetyIncident = (payload) => api.post("/hr/incidents", payload);
+export const updateSafetyIncident = (incidentId, payload) =>
+  api.put(`/hr/incidents/${incidentId}`, payload);
+export const deleteSafetyIncident = (incidentId) => api.delete(`/hr/incidents/${incidentId}`);
+
 export const getDepartments = () => api.get("/hr/departments");
 export const getDepartmentSummary = () => api.get("/hr/departments/summary");
 export const getDepartmentDetail = (departmentId) => api.get(`/hr/departments/${departmentId}`);

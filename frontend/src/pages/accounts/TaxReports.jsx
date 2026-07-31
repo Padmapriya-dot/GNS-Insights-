@@ -93,13 +93,13 @@ export default function TaxReports() {
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-        <KpiCard label="State Goods & Services Tax (SGST)" value={formatInr(data.sgst)} icon={IndianRupee} color="bg-indigo-600" />
-        <KpiCard label="Central Goods & Services Tax (CGST)" value={formatInr(data.cgst)} icon={IndianRupee} color="bg-purple-600" />
-        <KpiCard label="Integrated Goods & Services Tax (IGST)" value={formatInr(data.igst)} icon={IndianRupee} color="bg-pink-600" />
-        <KpiCard label="Total Goods & Services Tax (GST)" value={formatInr(data.total_gst)} icon={IndianRupee} color="bg-blue-600" highlight />
+        <KpiCard label="SGST" value={formatInr(data.sgst)} icon={IndianRupee} color="bg-indigo-600" />
+        <KpiCard label="CGST" value={formatInr(data.cgst)} icon={IndianRupee} color="bg-purple-600" />
+        <KpiCard label="IGST" value={formatInr(data.igst)} icon={IndianRupee} color="bg-pink-600" />
+        <KpiCard label="Total GST" value={formatInr(data.total_gst)} icon={IndianRupee} color="bg-blue-600" highlight />
         <KpiCard label="Taxable Value" value={formatInr(data.taxable_value)} icon={FileText} color="bg-slate-600" />
-        <KpiCard label="Goods & Services Tax (GST) Payable" value={formatInr(data.gst_payable)} icon={IndianRupee} color="bg-red-500" />
-        <KpiCard label="Goods & Services Tax (GST) Receivable" value={formatInr(data.gst_receivable)} icon={IndianRupee} color="bg-green-600" />
+        <KpiCard label="GST Payable" value={formatInr(data.gst_payable)} icon={IndianRupee} color="bg-red-500" />
+        <KpiCard label="GST Receivable" value={formatInr(data.gst_receivable)} icon={IndianRupee} color="bg-green-600" />
       </div>
 
       <FinanceFilters

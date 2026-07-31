@@ -113,8 +113,8 @@ export function InventorySummaryWidget() {
       <div className="grid grid-cols-3 gap-2 mb-4">
         {[
           { label: "Raw", data: rawMaterials, color: "#2563EB" },
-          { label: "Work in Progress (WIP)", data: wip, color: "#F59E0B" },
-          { label: "Finished Goods (FG)", data: finishedGoods, color: "#22C55E" },
+          { label: "WIP", data: wip, color: "#F59E0B" },
+          { label: "FG", data: finishedGoods, color: "#22C55E" },
         ].map(({ label, data, color }) => (
           <div key={label} className="rounded-xl bg-slate-50 p-3 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
@@ -171,10 +171,10 @@ export function TodaysDispatchWidget() {
 
 export function PurchaseSummaryWidget() {
   return (
-    <ChartPanel title="Purchase Summary" action={<WidgetLink to="/procurement/purchase-orders" label="Purchase Orders (POs)" />}>
+    <ChartPanel title="Purchase Summary" action={<WidgetLink to="/procurement/purchase-orders" label="POs" />}>
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-blue-50 p-3">
-          <p className="text-xs text-slate-500">Open Purchase Orders (POs)</p>
+          <p className="text-xs text-slate-500">Open POs</p>
           <p className="text-2xl font-bold text-[#2563EB]">{purchaseSummary.openPOs}</p>
         </div>
         <div className="rounded-xl bg-amber-50 p-3">
@@ -186,7 +186,7 @@ export function PurchaseSummaryWidget() {
           <p className="text-2xl font-bold text-emerald-600">{purchaseSummary.receivedToday}</p>
         </div>
         <div className="rounded-xl bg-slate-50 p-3">
-          <p className="text-xs text-slate-500">Purchase Order (PO) Value</p>
+          <p className="text-xs text-slate-500">PO Value</p>
           <p className="text-xl font-bold text-slate-800">{purchaseSummary.value}</p>
         </div>
       </div>
@@ -196,7 +196,7 @@ export function PurchaseSummaryWidget() {
 
 export function QualityInspectionWidget() {
   return (
-    <ChartPanel title="Quality Inspection" action={<WidgetLink to="/quality/inspection" label="Quality Control (QC)" />}>
+    <ChartPanel title="Quality Inspection" action={<WidgetLink to="/quality/inspection" label="QC" />}>
       <div className="flex items-center gap-4">
         <div className="relative h-20 w-20 shrink-0">
           <svg viewBox="0 0 36 36" className="h-20 w-20 -rotate-90">
@@ -270,9 +270,9 @@ export function RecentWorkOrdersWidget() {
         <table className="w-full min-w-[480px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
-              <th className="pb-2 pr-3 font-semibold">Work Order Number</th>
+              <th className="pb-2 pr-3 font-semibold">WO No.</th>
               <th className="pb-2 pr-3 font-semibold">Product</th>
-              <th className="pb-2 pr-3 font-semibold">Quantity</th>
+              <th className="pb-2 pr-3 font-semibold">Qty</th>
               <th className="pb-2 pr-3 font-semibold">Status</th>
               <th className="pb-2 font-semibold">Due</th>
             </tr>
@@ -297,7 +297,7 @@ export function RecentWorkOrdersWidget() {
 export function EmployeeAttendanceWidget() {
   const pct = Math.round((employeeAttendance.present / employeeAttendance.total) * 100);
   return (
-    <ChartPanel title="Employee Attendance" action={<WidgetLink to="/hr/attendance" label="Human Resources (HR)" />}>
+    <ChartPanel title="Employee Attendance" action={<WidgetLink to="/hr/attendance" label="HR" />}>
       <div className="flex items-center gap-3 mb-3">
         <Users className="h-5 w-5 text-[#2563EB]" />
         <div>

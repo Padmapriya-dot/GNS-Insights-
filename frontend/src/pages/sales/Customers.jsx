@@ -1,453 +1,373 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  AlertCircle,
-  Download,
-  FileText,
+  ChevronLeft,
+  ChevronRight,
+  FileSpreadsheet,
+  Pencil,
   Plus,
-  Printer,
   RefreshCw,
+  Search,
+  Trash2,
   Upload,
-  UserCheck,
-  UserPlus,
-  Users,
-  UserX,
-  Wallet,
 } from "lucide-react";
+import { createPortal } from "react-dom";
 
-import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
-import CustomerDetailModal, { CustomerFormModal } from "../../components/sales/CustomerDetailModal";
+import AddNewPartyModal from "../../components/sales/AddNewPartyModal";
 import { useToast } from "../../context/ToastContext";
-import useTenantId from "../../hooks/useTenantId";
-import { getCustomers, createCustomer } from "../../api/salesApi";
-import {
-  CUSTOMER_STATUSES,
-  CUSTOMER_TYPES,
-  DEMO_CUSTOMERS,
-  IMPORT_TEMPLATE_HEADERS,
-  INDIAN_STATES,
-  REPORT_TYPES,
-  SALES_EXECUTIVES,
-  WORKFLOW_STEPS,
-  computeCustomerSummary,
-  enrichApiCustomer,
-} from "../../data/customersMasterData";
-import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
+import { deleteCustomer, getCustomers } from "../../api/salesApi";
+import { enrichApiCustomer } from "../../data/customersMasterData";
+import { exportToExcel } from "../../utils/exportUtils";
+import { apiErrorMessage } from "../../utils/apiError";
 
-function SummaryCard({ label, value, icon: Icon, color, format }) {
-  const display = format === "currency" ? `₹${Number(value || 0).toLocaleString("en-IN")}` : value;
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className="mt-1 truncate text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{display}</p>
+const PAGE_BG = "#F5F5F5";
+const YELLOW = "#F5C518";
+const PAGE_SIZES = [20, 50, 100];
+
+function blankOr(value) {
+  if (value == null) return "";
+  const s = String(value).trim();
+  return !s || s === "—" ? "" : s;
+}
+
+function DeleteConfirmModal({ open, onClose, onConfirm, busy }) {
+  if (!open) return null;
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4"
+      onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose?.()}
+    >
+      <div className="w-full max-w-[420px] rounded-2xl bg-white px-8 py-8 text-center shadow-2xl">
+        <div className="mx-auto mb-5 grid h-[72px] w-[72px] place-items-center rounded-full bg-[#fee2e2]">
+          <Trash2 className="h-9 w-9 text-[#ef4444]" strokeWidth={1.75} />
         </div>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${color}`}>
-          <Icon className="h-5 w-5 text-white" />
+        <h3 className="text-[28px] font-bold leading-tight text-[#1a1a1f]">Delete Customer?</h3>
+        <p className="mt-3 text-[14px] leading-relaxed text-[#5a5a66]">
+          Are you sure you want to delete this Customer?
+          <br />
+          This action is not reversible.
+        </p>
+        <div className="mt-7 grid grid-cols-2 gap-4">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onClose}
+            className="rounded-xl bg-[#eceef4] py-3 text-[15px] font-semibold text-[#1a1a1f] disabled:opacity-60"
+          >
+            No
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onConfirm}
+            className="rounded-xl bg-[#ef5350] py-3 text-[15px] font-semibold text-white disabled:opacity-60"
+          >
+            {busy ? "Deleting…" : "Delete"}
+          </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
-
-function StatusPill({ status }) {
-  const active = status === "active";
-  return (
-    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
-      active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
-    }`}>
-      {status}
-    </span>
-  );
-}
-
-const defaultFilters = {
-  customer_code: "",
-  company: "",
-  contact: "",
-  gstin: "",
-  state: "",
-  city: "",
-  status: "",
-  customer_type: "",
-  sales_executive: "",
-  date_from: "",
-  date_to: "",
-};
 
 export default function Customers() {
   const { addToast } = useToast();
-  const tenantId = useTenantId();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [formCustomer, setFormCustomer] = useState(null);
-  const [filters, setFilters] = useState(defaultFilters);
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [partyOpen, setPartyOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [deletingBusy, setDeletingBusy] = useState(false);
 
   const loadCustomers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getCustomers();
-      const apiRows = res.data || [];
-      const enriched = apiRows.map((row, i) => enrichApiCustomer(row, i));
-      enriched.sort((a, b) => {
-        if (!a.created_at && !b.created_at) return 0;
-        if (!a.created_at) return 1;
-        if (!b.created_at) return -1;
-        return String(b.created_at).localeCompare(String(a.created_at));
-      });
-      try {
-        const raw = localStorage.getItem("recentlyCreatedCustomers");
-        const recent = raw ? JSON.parse(raw) : [];
-        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-        const fresh = recent.filter((r) => r.ts && r.ts > cutoff);
-        localStorage.setItem("recentlyCreatedCustomers", JSON.stringify(fresh));
-        const recentIds = fresh.map((r) => String(r.id)).filter(Boolean);
-        if (recentIds.length > 0) {
-          const recentItems = [];
-          const others = [];
-          for (const item of enriched) {
-            if (recentIds.includes(String(item.id))) recentItems.push(item);
-            else others.push(item);
-          }
-          recentItems.sort((a, b) => recentIds.indexOf(String(a.id)) - recentIds.indexOf(String(b.id)));
-          setCustomers([...recentItems, ...others]);
-          return;
-        }
-      } catch {
-        // ignore storage issues
-      }
-      setCustomers(enriched);
+      const rows = Array.isArray(res.data) ? res.data : [];
+      setCustomers(rows.map((row) => enrichApiCustomer(row)));
     } catch {
       setCustomers([]);
+      addToast("Could not load customers", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
-
+  }, [addToast]);
 
   useEffect(() => {
     loadCustomers();
   }, [loadCustomers]);
 
-  const filteredCustomers = useMemo(() => {
-    return customers.filter((c) => {
-      if (filters.customer_code && !c.customer_code.toLowerCase().includes(filters.customer_code.toLowerCase())) return false;
-      if (filters.company && !c.company.toLowerCase().includes(filters.company.toLowerCase())) return false;
-      if (filters.contact && !c.contact_person.toLowerCase().includes(filters.contact.toLowerCase())) return false;
-      if (filters.gstin && !String(c.gstin).toLowerCase().includes(filters.gstin.toLowerCase())) return false;
-      if (filters.state && c.state !== filters.state) return false;
-      if (filters.city && !c.city?.toLowerCase().includes(filters.city.toLowerCase())) return false;
-      if (filters.status && c.status !== filters.status) return false;
-      if (filters.customer_type && c.customer_type !== filters.customer_type) return false;
-      if (filters.sales_executive && c.sales_executive !== filters.sales_executive) return false;
-      if (filters.date_from && c.created_at && c.created_at < filters.date_from) return false;
-      if (filters.date_to && c.created_at && c.created_at > filters.date_to) return false;
-      return true;
-    });
-  }, [customers, filters]);
+  // Deep-link: /sales/customers?create=1 or /sales/customers/create → open create modal
+  useEffect(() => {
+    if (searchParams.get("create") !== "1") return;
+    setEditing(null);
+    setPartyOpen(true);
+    navigate("/sales/customers", { replace: true });
+  }, [searchParams, navigate]);
 
-  const summary = useMemo(() => computeCustomerSummary(filteredCustomers), [filteredCustomers]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return customers;
+    return customers.filter((c) =>
+      [
+        c.company,
+        c.name,
+        c.gstin,
+        c.email,
+        c.phone,
+        c.address_line1 || c.billing_address,
+        c.city,
+        c.state,
+        c.pincode,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [customers, query]);
 
-  const cities = useMemo(() => [...new Set(customers.map((c) => c.city).filter(Boolean))], [customers]);
+  useEffect(() => {
+    setPage(1);
+  }, [query, pageSize]);
 
-  const exportColumns = [
-    { key: "customer_code", label: "Customer Code" },
-    { key: "company", label: "Company" },
-    { key: "contact_person", label: "Contact Person" },
-    { key: "phone", label: "Phone" },
-    { key: "email", label: "Email" },
-    { key: "gstin", label: "GSTIN" },
-    { key: "city", label: "City" },
-    { key: "state", label: "State" },
-    { key: "credit_limit", label: "Credit Limit" },
-    { key: "outstanding", label: "Outstanding" },
-    { key: "status", label: "Status" },
-  ];
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const rows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
 
-  const handleExportExcel = () => {
-    exportToExcel(filteredCustomers, exportColumns, "customers");
-    addToast("Exported to Excel");
+  const onExport = () => {
+    exportToExcel(
+      filtered.map((c) => ({
+        ...c,
+        company: c.company || c.name || "",
+        address_line1: c.address_line1 || c.billing_address || "",
+      })),
+      [
+        { key: "company", label: "Customer Name" },
+        { key: "gstin", label: "GSTIN" },
+        { key: "email", label: "Email" },
+        { key: "phone", label: "Mobile No." },
+        { key: "address_line1", label: "Address" },
+        { key: "city", label: "City" },
+        { key: "state", label: "State" },
+        { key: "pincode", label: "Pincode" },
+      ],
+      "customers"
+    );
+    addToast("Exported to Excel", "success");
   };
 
-  const handleExportPdf = () => {
-    exportToPdf(filteredCustomers, exportColumns, "Customer Master", "customers");
-    addToast("Exported to PDF");
-  };
-
-  const handlePrint = () => {
-    handleExportPdf();
-  };
-
-  const handleDownloadTemplate = () => {
-    const header = IMPORT_TEMPLATE_HEADERS.join(",");
-    const blob = new Blob([`${header}\nCUS006,Sample Corp,John Doe,+919999999999,john@sample.com,36AABCS1234A1Z1,Hyderabad,Telangana,500000,active`], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "customers_import_template.csv";
-    a.click();
-    addToast("Template downloaded");
-  };
-
-  const handleImport = () => {
-    handleDownloadTemplate();
-    addToast("Use template for import — full CSV import coming soon", "info");
-  };
-
-  const handleSave = async (form) => {
-    const payload = {
-      tenant_id: tenantId,
-      name: form.company,
-      contact_name: form.contact_person,
-      phone: form.phone,
-      email: form.email,
-      gstin: form.gstin,
-      city: form.city?.trim() || undefined,
-      state: form.state?.trim() || undefined,
-      state_code: form.state_code?.trim() || null,
-      address_line1: form.billing_address,
-      customer_code: form.customer_code || `CUS${String(customers.length + 1).padStart(3, "0")}`,
-      credit_limit: form.credit_limit != null && form.credit_limit !== "" ? Number(form.credit_limit) : undefined,
-      outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : undefined,
-      status: form.status || "active",
-    };
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setDeletingBusy(true);
     try {
-      if (formCustomer?.id && typeof formCustomer.id === "number") {
-        addToast("Update API not available — saved locally");
-      } else {
-        const res = await createCustomer(payload);
-        const createdRow = res?.data || payload;
-        const createdId = createdRow?.id ?? null;
-        try {
-          const raw = localStorage.getItem("recentlyCreatedCustomers");
-          const recent = raw ? JSON.parse(raw) : [];
-          const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-          const filtered = recent.filter((r) => r.ts && r.ts > cutoff);
-          if (createdId) filtered.unshift({ id: createdId, ts: Date.now() });
-          localStorage.setItem("recentlyCreatedCustomers", JSON.stringify(filtered.slice(0, 50)));
-        } catch {
-          // ignore storage issues
-        }
-        const newC = {
-          ...enrichApiCustomer(createdRow, customers.length),
-          ...createdRow,
-        };
-        setCustomers((prev) => [newC, ...prev]);
-        addToast("Customer created");
-        setFormCustomer(null);
-        setTimeout(() => loadCustomers(), 2000);
-        return;
-      }
-    } catch {
-      /* fall through to local */
+      if (typeof deleting.id === "number") await deleteCustomer(deleting.id);
+      setCustomers((prev) => prev.filter((c) => c.id !== deleting.id));
+      setDeleting(null);
+      addToast("Customer deleted", "success");
+    } catch (err) {
+      addToast(apiErrorMessage(err, "Could not delete customer."), "error");
+    } finally {
+      setDeletingBusy(false);
     }
-    if (formCustomer?.id) {
-      setCustomers((prev) => prev.map((c) => (c.id === formCustomer.id ? { ...c, ...form, company: form.company, name: form.company } : c)));
-      addToast("Customer updated");
-    } else {
-      const cusCode = form.customer_code?.trim() || `CUS${String(customers.length + 1).padStart(3, "0")}`;
-      const newC = {
-        ...enrichApiCustomer({ id: `new-${Date.now()}`, name: form.company, ...payload }, customers.length),
-        id: `new-${Date.now()}`,
-        ...form,
-        customer_code: cusCode,
-        credit_limit: form.credit_limit != null && form.credit_limit !== "" ? Number(form.credit_limit) : undefined,
-        outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : undefined,
-        status: form.status || "active",
-        company: form.company,
-        name: form.company,
-        created_at: new Date().toISOString().slice(0, 10),
-      };
-      setCustomers((prev) => [newC, ...prev]);
-      addToast("Customer added");
-    }
-    setFormCustomer(null);
   };
-
-  const handleDelete = (customer) => {
-    if (!window.confirm(`Delete ${customer.company}?`)) return;
-    setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
-    setSelected(null);
-    addToast("Customer deleted");
-  };
-
-  const columns = [
-    { key: "customer_code", label: "Customer Code" },
-    { key: "company", label: "Company" },
-    { key: "contact_person", label: "Contact Person" },
-    { key: "phone", label: "Phone" },
-    { key: "email", label: "Email" },
-    { key: "gstin", label: "GSTIN" },
-    {
-      key: "city",
-      label: "City",
-      render: (r) => r.city || "—",
-    },
-    {
-      key: "state",
-      label: "State",
-      render: (r) => r.state || "—",
-    },
-    {
-      key: "credit_limit",
-      label: "Credit Limit",
-      render: (r) =>
-        r.credit_limit != null
-          ? `₹${Number(r.credit_limit).toLocaleString("en-IN")}`
-          : "—",
-    },
-    {
-      key: "outstanding",
-      label: "Outstanding",
-      render: (r) => r.outstanding != null ? `₹${Number(r.outstanding).toLocaleString("en-IN")}` : "—",
-    },
-    {
-      key: "status",
-      label: "Status",
-      render: (r) => <StatusPill status={r.status} />,
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      sortable: false,
-      render: (r) => (
-        <div className="flex flex-wrap gap-1 text-xs">
-          <button type="button" onClick={() => setSelected(r)} className="font-semibold text-[#2563EB] hover:underline">View</button>
-          <button type="button" onClick={() => setFormCustomer(r)} className="font-semibold text-slate-600 hover:underline">Edit</button>
-          <button type="button" onClick={() => handleDelete(r)} className="font-semibold text-red-600 hover:underline">Delete</button>
-        </div>
-      ),
-    },
-  ];
 
   if (loading) return <Loader label="Loading customers..." />;
 
   return (
-    <div className="space-y-6 pb-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Customer Management</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Manage customers, credit limits, outstanding balances, and sales relationships.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setFormCustomer({})} className="ui-btn-primary">
-            <Plus className="h-4 w-4" /> New Customer
-          </button>
-          <button type="button" onClick={handleImport} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <Upload className="h-4 w-4" /> Import Customers
-          </button>
-          <button type="button" onClick={handleExportExcel} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <Download className="h-4 w-4" /> Export Excel
-          </button>
-          <button type="button" onClick={handleExportPdf} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <FileText className="h-4 w-4" /> Export PDF
-          </button>
-          <button type="button" onClick={handlePrint} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <Printer className="h-4 w-4" /> Print
-          </button>
-          <button type="button" onClick={loadCustomers} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </button>
-        </div>
-      </header>
+    <div className="min-h-full" style={{ background: PAGE_BG }}>
+      <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8">
+        <h1 className="mb-4 text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Customers</h1>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <SummaryCard label="Total Customers" value={summary.total} icon={Users} color="bg-[#2563EB]" />
-        <SummaryCard label="Active Customers" value={summary.active} icon={UserCheck} color="bg-green-500" />
-        <SummaryCard label="Inactive Customers" value={summary.inactive} icon={UserX} color="bg-slate-500" />
-        <SummaryCard label="New Customers (This Month)" value={summary.newThisMonth} icon={UserPlus} color="bg-purple-500" />
-        <SummaryCard label="Pending Payments" value={summary.pendingPayments} icon={AlertCircle} color="bg-orange-500" />
-        <SummaryCard label="Outstanding Amount" value={summary.outstandingAmount} icon={Wallet} color="bg-red-500" format="currency" />
-      </div>
+        <div className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex flex-wrap items-center gap-2.5">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search"
+                className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] py-2.5 pl-10 pr-4 text-[13px] outline-none placeholder:text-[#a0a0ab] focus:border-[#d0d0d8] focus:bg-white"
+              />
+            </div>
+            <Link
+              to="/sales/customers/bulk-import"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+            >
+              <Upload className="h-4 w-4" />
+              Bulk Import
+            </Link>
+            <button
+              type="button"
+              onClick={onExport}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Export (xlsx)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(null);
+                setPartyOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
+              style={{ background: YELLOW }}
+            >
+              <Plus className="h-4 w-4" />
+              Create Customer
+            </button>
+          </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-          <input type="search" placeholder="Search Customer" value={filters.customer_code} onChange={(e) => setFilters((f) => ({ ...f, customer_code: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          <input placeholder="Company Name" value={filters.company} onChange={(e) => setFilters((f) => ({ ...f, company: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          <input placeholder="Contact Person" value={filters.contact} onChange={(e) => setFilters((f) => ({ ...f, contact: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          <input placeholder="GSTIN" value={filters.gstin} onChange={(e) => setFilters((f) => ({ ...f, gstin: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          <select value={filters.state} onChange={(e) => setFilters((f) => ({ ...f, state: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            <option value="">State</option>
-            {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select value={filters.city} onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            <option value="">City</option>
-            {cities.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            <option value="">Status</option>
-            {CUSTOMER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select value={filters.customer_type} onChange={(e) => setFilters((f) => ({ ...f, customer_type: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            <option value="">Customer Type</option>
-            {CUSTOMER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <select value={filters.sales_executive} onChange={(e) => setFilters((f) => ({ ...f, sales_executive: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            <option value="">Sales Executive</option>
-            {SALES_EXECUTIVES.map((e) => <option key={e} value={e}>{e}</option>)}
-          </select>
-          <input type="date" value={filters.date_from} onChange={(e) => setFilters((f) => ({ ...f, date_from: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" title="From date" />
-          <input type="date" value={filters.date_to} onChange={(e) => setFilters((f) => ({ ...f, date_to: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" title="To date" />
-          <button type="button" onClick={() => setFilters(defaultFilters)} className="text-sm font-semibold text-[#2563EB] hover:underline">
-            Reset Filters
-          </button>
-        </div>
+          <div className="overflow-hidden rounded-lg border border-[#ececf0]">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] border-collapse text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-[#e8e8ee] bg-[#f5f5f5] text-[12px] font-medium text-[#6b6b76]">
+                    <th className="px-4 py-3 font-medium">Customer Name</th>
+                    <th className="px-4 py-3 font-medium">GSTIN</th>
+                    <th className="px-4 py-3 font-medium">Email</th>
+                    <th className="px-4 py-3 font-medium">Mobile No.</th>
+                    <th className="px-4 py-3 font-medium">Address</th>
+                    <th className="px-4 py-3 font-medium">City</th>
+                    <th className="px-4 py-3 font-medium">State</th>
+                    <th className="px-4 py-3 font-medium">Pincode</th>
+                    <th className="px-4 py-3 text-right font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((c) => (
+                    <tr key={c.id} className="border-b border-[#f0f0f4] text-[#1a1a1f] last:border-b-0">
+                      <td className="px-4 py-3.5">{c.company || c.name || ""}</td>
+                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.gstin)}</td>
+                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.email)}</td>
+                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.phone)}</td>
+                      <td className="px-4 py-3.5 text-[#4a4a55]">
+                        {blankOr(c.address_line1 || c.billing_address)}
+                      </td>
+                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.city)}</td>
+                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.state)}</td>
+                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.pincode)}</td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditing(c);
+                              setPartyOpen(true);
+                            }}
+                            className="grid h-8 w-8 place-items-center rounded-full bg-[#eef0ff] text-[#5b5bd6] hover:bg-[#e4e6fc]"
+                            title="Edit"
+                            aria-label="Edit customer"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleting(c)}
+                            className="grid h-8 w-8 place-items-center rounded-full bg-[#fde8e8] text-[#ef4444] hover:bg-[#fcdada]"
+                            title="Delete"
+                            aria-label="Delete customer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {rows.length === 0 ? (
+              <div className="px-4 py-16 text-center text-[13px] text-[#8a8a96]">No data available</div>
+            ) : null}
+          </div>
 
-        <DataTable
-          columns={columns}
-          data={filteredCustomers}
-          searchPlaceholder="Search Customer"
-          searchKeys={["customer_code", "company", "contact_person", "email", "phone", "gstin", "city"]}
-          pageSize={10}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-bold text-slate-800">Reports</h3>
-          <ul className="space-y-2">
-            {REPORT_TYPES.map((r) => (
-              <li key={r}>
-                <button type="button" onClick={() => addToast(`${r} — coming soon`, "info")} className="text-sm font-medium text-[#2563EB] hover:underline">
-                  {r}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-bold text-slate-800">Customer Workflow</h3>
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
-            {WORKFLOW_STEPS.map((step, i, arr) => (
-              <span key={step} className="flex items-center gap-2">
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-[#2563EB]">{step}</span>
-                {i < arr.length - 1 && <span className="text-slate-300">↓</span>}
-              </span>
-            ))}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[12px] text-[#6b6b76]">
+            <div className="flex items-center gap-2">
+              <span>Rows per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="rounded border border-[#e2e2e8] bg-white px-2 py-1 outline-none"
+              >
+                {PAGE_SIZES.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <span>{total === 0 ? "0-0 of 0" : `${from}-${to} of ${total}`}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="grid h-8 min-w-8 place-items-center rounded border border-[#e0b400] px-2 text-[13px] font-semibold"
+                style={{ background: "#fff2b8" }}
+              >
+                {page}
+              </button>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {selected && (
-        <CustomerDetailModal
-          customer={selected}
-          onClose={() => setSelected(null)}
-          onEdit={(c) => { setSelected(null); setFormCustomer(c); }}
-          onDelete={handleDelete}
-        />
-      )}
+      <button
+        type="button"
+        onClick={loadCustomers}
+        className="fixed bottom-20 right-6 z-30 grid h-11 w-11 place-items-center rounded-xl border border-[#d0d0d8] bg-white shadow-lg hover:bg-[#f7f7f9] md:bottom-6"
+        aria-label="Refresh customers"
+        title="Refresh"
+      >
+        <RefreshCw className="h-5 w-5 text-[#2563eb]" />
+      </button>
 
-      {formCustomer && (
-        <CustomerFormModal
-          customer={formCustomer}
-          onClose={() => setFormCustomer(null)}
-          onSave={handleSave}
-        />
-      )}
+      <AddNewPartyModal
+        open={partyOpen}
+        customer={editing}
+        onClose={() => {
+          setPartyOpen(false);
+          setEditing(null);
+        }}
+        onSaved={() => {
+          setPartyOpen(false);
+          setEditing(null);
+          loadCustomers();
+        }}
+      />
+      <DeleteConfirmModal
+        open={Boolean(deleting)}
+        busy={deletingBusy}
+        onClose={() => !deletingBusy && setDeleting(null)}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

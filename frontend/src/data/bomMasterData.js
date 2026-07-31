@@ -83,11 +83,9 @@ export function computeBomSummary(boms, totalProducts = 0) {
 export function groupApiBomRows(rows) {
   const groups = {};
   for (const row of rows) {
-    // Use product_id as the stable key — never changes between refreshes
-    const key = row.product_id ? String(row.product_id) : (row.product_sku || row.product || row.product_name || "unknown");
+    const key = row.product_sku || row.product || row.product_name || String(row.product_id);
     if (!groups[key]) {
       groups[key] = {
-        product_id: row.product_id,
         product: row.product || row.product_name,
         product_sku: row.product_sku || key,
         components: [],
@@ -104,15 +102,13 @@ export function groupApiBomRows(rows) {
       total_cost: row.total_cost || 0,
     });
   }
-  return Object.entries(groups).map(([productId, g]) => {
+  return Object.entries(groups).map(([sku, g], i) => {
     const materialCost = g.components.reduce((s, c) => s + (c.total_cost || 0), 0);
     return {
-      // Stable ID: based on product_id, never recalculates from array index
-      id: `bom-prod-${productId}`,
-      bom_number: `BOM-${String(productId).padStart(4, "0")}`,
+      id: `api-${i}`,
+      bom_number: `BOM${String(i + 10).padStart(3, "0")}`,
       product_name: g.product,
-      product_code: g.product_sku,
-      product_id: g.product_id,
+      product_code: sku,
       version: "V1.0",
       revision: "R0",
       description: `BOM for ${g.product}`,

@@ -71,20 +71,12 @@ export default function Payroll() {
         getPayrollEnriched(),
         getEmployeesEnriched()
       ]);
-      let statusMap = {};
-      try {
-        statusMap = JSON.parse(localStorage.getItem("smrt_payroll_status_map") || "{}");
-      } catch {}
 
       if (sumRes.status === "fulfilled" && sumRes.value?.data) {
         setSummary({ ...DEMO_PAY_SUMMARY, ...sumRes.value.data });
       }
       if (listRes.status === "fulfilled" && Array.isArray(listRes.value?.data)) {
-        const merged = listRes.value.data.map((r) => {
-          const overrideStatus = statusMap[String(r.id)];
-          return overrideStatus ? { ...r, status: overrideStatus } : r;
-        });
-        setRows(merged);
+        setRows(listRes.value.data);
       }
       if (empRes.status === "fulfilled" && Array.isArray(empRes.value?.data)) {
         setEmployees([...empRes.value.data]);
@@ -185,14 +177,12 @@ export default function Payroll() {
       prev.map((r) => (String(r.id) === String(id) ? { ...r, status: newStatus } : r))
     );
     try {
-      const stored = JSON.parse(localStorage.getItem("smrt_payroll_status_map") || "{}");
-      stored[String(id)] = newStatus;
-      localStorage.setItem("smrt_payroll_status_map", JSON.stringify(stored));
-    } catch {}
-    try {
       await updatePayrollStatus(id, newStatus);
-    } catch {}
-    addToast(`Payroll status updated to ${newStatus}`, "success");
+      addToast(`Payroll status updated to ${newStatus}`, "success");
+    } catch {
+      addToast("Failed to update payroll status", "error");
+      await load();
+    }
   };
 
   const columns = [

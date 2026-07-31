@@ -15,7 +15,7 @@ export const STATUS_OPTIONS = [
 
 export const MODULE_OPTIONS = [
   { value: "", label: "All modules" },
-  { value: "hr", label: "Human Resources (HR) & Personnel" },
+  { value: "hr", label: "HR & Personnel" },
   { value: "safety", label: "Safety & Incident" },
   { value: "low_stock", label: "Inventory / Stock" },
   { value: "machine_failure", label: "Machine / Equipment" },

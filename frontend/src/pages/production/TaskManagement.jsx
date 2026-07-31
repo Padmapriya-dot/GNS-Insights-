@@ -28,7 +28,7 @@ const MODULES = [
   { value: "procurement", label: "Procurement" },
   { value: "inventory", label: "Inventory" },
   { value: "sales", label: "Sales" },
-  { value: "hr", label: "Human Resources (HR)" },
+  { value: "hr", label: "HR" },
   { value: "accounts", label: "Accounts" },
   { value: "general", label: "General" },
 ];
@@ -75,7 +75,7 @@ export default function TaskManagement() {
     <ResourcePage
       title="Task Management"
       subtitle="Assign and track production and operations tasks."
-      fetcher={getTasks}
+      fetcher={() => getTasks()}
       createFn={(payload) => createTask({ ...payload, tenant_id: tenantId })}
       createLabel="+ New Task"
       emptyTitle="No tasks yet"

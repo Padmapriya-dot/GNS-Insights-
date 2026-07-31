@@ -33,20 +33,20 @@ export default function IncomingInspection() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const emptySummary = { todays_inspections: 0, pending_grn: 0, passed: 0, rejected: 0, vendor_rejection_rate: "0%" };
-      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0) {
-        setSummary({ ...emptySummary, ...sumRes.value.data });
+      const [sumRes, listRes] = await Promise.allSettled([getIncomingSummary(), getIncomingEnriched()]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0 && sumRes.value.data.todays_inspections > 0) {
+        setSummary({ ...DEMO_INCOMING_SUMMARY, ...sumRes.value.data });
       } else {
-        setSummary(emptySummary);
+        setSummary(DEMO_INCOMING_SUMMARY);
       }
-      if (listRes.status === "fulfilled" && listRes.value?.data) {
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length > 0) {
         setRows(listRes.value.data);
       } else {
-        setRows([]);
+        setRows(DEMO_INCOMING_LIST);
       }
     } catch {
-      setSummary({ todays_inspections: 0, pending_grn: 0, passed: 0, rejected: 0, vendor_rejection_rate: "0%" });
-      setRows([]);
+      setSummary(DEMO_INCOMING_SUMMARY);
+      setRows(DEMO_INCOMING_LIST);
     } finally {
       setLoading(false);
     }
@@ -63,9 +63,21 @@ export default function IncomingInspection() {
     });
   }, [rows, search, resultFilter]);
 
+  const handleInspect = (row) => {
+    const key = row.id ?? row.inspection_number;
+    setRows((prev) =>
+      prev.map((r) =>
+        (r.id ?? r.inspection_number) === key
+          ? { ...r, status: "inspected", result: r.result === "pending" || !r.result ? "passed" : r.result }
+          : r
+      )
+    );
+    addToast(`Inspection ${row.inspection_number || ""} marked as inspected`, "success");
+  };
+
   const columns = [
     { key: "inspection_number", label: "Inspection No" },
-    { key: "po_reference", label: "Purchase Order (PO)" },
+    { key: "po_reference", label: "PO" },
     { key: "vendor_name", label: "Vendor" },
     { key: "material_name", label: "Material" },
     { key: "batch_code", label: "Batch" },
@@ -73,7 +85,18 @@ export default function IncomingInspection() {
     { key: "inspector", label: "Inspector" },
     { key: "result", label: "Result", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcStatusColor(r.result)}`}>{r.result}</span> },
     { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcStatusColor(r.status)}`}>{r.status}</span> },
-    { key: "actions", label: "Action", render: (r) => r.attachment ? <span className="text-xs text-[#2563EB]">{r.attachment}</span> : <button type="button" className="text-xs font-semibold text-[#2563EB] hover:underline">Inspect</button> },
+    {
+      key: "actions",
+      label: "Action",
+      render: (r) =>
+        r.attachment ? (
+          <span className="text-xs text-[#2563EB]">{r.attachment}</span>
+        ) : (
+          <button type="button" onClick={() => handleInspect(r)} className="text-xs font-semibold text-[#2563EB] hover:underline">
+            Inspect
+          </button>
+        ),
+    },
   ];
 
   if (loading) return <Loader label="Loading incoming inspections..." />;

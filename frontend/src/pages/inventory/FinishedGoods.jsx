@@ -4,6 +4,8 @@ import { AlertTriangle, Box, Download, Package, Plus, QrCode, RefreshCw, Truck }
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
+import MaterialDetailModal from "../../components/inventory/MaterialDetailModal";
+import EditInventoryItemModal from "../../components/inventory/EditInventoryItemModal";
 import { useToast } from "../../context/ToastContext";
 import { getFinishedGoods, getFinishedGoodsSummary } from "../../api/inventoryApi";
 import { formatInr, stockStatusColor, stockStatusLabel } from "../../data/inventoryMasterData";
@@ -27,6 +29,8 @@ export default function FinishedGoods() {
   const [summary, setSummary] = useState({});
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [editing, setEditing] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,14 +93,13 @@ export default function FinishedGoods() {
   }, [products, summary]);
 
   const filtered = search.trim()
-    ? products.filter((p) => [p.sku, p.name, p.batch_number, p.customer_name].some((v) => v && String(v).toLowerCase().includes(search.toLowerCase())))
+    ? products.filter((p) => [p.name, p.batch_number, p.customer_name].some((v) => v && String(v).toLowerCase().includes(search.toLowerCase())))
     : products;
 
   const columns = [
-    { key: "sku", label: "Stock Keeping Unit (SKU)" },
     { key: "name", label: "Product" },
     { key: "batch_number", label: "Batch" },
-    { key: "quantity", label: "Quantity" },
+    { key: "quantity", label: "Qty" },
     { key: "reserved", label: "Reserved" },
     { key: "available", label: "Available" },
     { key: "unit_cost", label: "Cost", render: (r) => r.unit_cost ? `₹${r.unit_cost}` : "—" },
@@ -109,6 +112,28 @@ export default function FinishedGoods() {
     { key: "serial_number", label: "Serial" },
     { key: "qr_code", label: "QR", render: (r) => <span className="inline-flex items-center gap-1 text-xs text-[#2563EB]"><QrCode className="h-3 w-3" />{r.qr_code}</span> },
     { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${stockStatusColor(r.status)}`}>{stockStatusLabel(r.status)}</span> },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (r) => (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setSelected(r)}
+            className="text-xs font-semibold text-[#2563EB] hover:underline"
+          >
+            View
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(r)}
+            className="text-xs text-slate-600 hover:underline"
+          >
+            Edit
+          </button>
+        </div>
+      ),
+    },
   ];
 
   if (loading) return <Loader label="Loading finished goods..." />;
@@ -116,7 +141,7 @@ export default function FinishedGoods() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-900">Finished Goods</h1><p className="mt-1 text-sm text-slate-500">Verify produced stock ready for inspection and handover to sales dispatch.</p></div>
+        <div><h1 className="text-2xl font-bold text-slate-900">Finished Goods</h1><p className="mt-1 text-sm text-slate-500">Production output inventory with batch, QR, serial, and dispatch readiness.</p></div>
         <div className="flex flex-wrap gap-2">
           <Link to="/inventory/items/create?type=finished_good" className="ui-btn-primary"><Plus className="h-4 w-4" /> New Product</Link>
           <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "finished-goods")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
@@ -134,9 +159,20 @@ export default function FinishedGoods() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <input type="search" placeholder="Search SKU, product, batch, customer..." value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4 w-full rounded-lg border px-3 py-2 text-sm" />
+        <input type="search" placeholder="Search product, batch, customer..." value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4 w-full rounded-lg border px-3 py-2 text-sm" />
         <DataTable columns={columns} data={filtered} showSearch={false} />
       </div>
+      {selected ? (
+        <MaterialDetailModal material={selected} onClose={() => setSelected(null)} />
+      ) : null}
+      {editing ? (
+        <EditInventoryItemModal
+          item={editing}
+          addToast={addToast}
+          onClose={() => setEditing(null)}
+          onSaved={() => load()}
+        />
+      ) : null}
     </div>
   );
 }

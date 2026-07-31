@@ -13,7 +13,7 @@ import { starRating } from "../../data/vendorsMasterData";
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "purchase_orders", label: "Purchase Orders" },
-  { id: "grn", label: "Goods Receipt Note (GRN)" },
+  { id: "grn", label: "GRN" },
   { id: "bills", label: "Bills" },
   { id: "payments", label: "Payments" },
   { id: "ledger", label: "Ledger" },
@@ -211,7 +211,7 @@ export default function VendorDetailModal({
           )}
 
           {tab === "grn" && (
-            <TabPlaceholder title="Goods Receipt Note (GRN) records for this vendor" link="/procurement/goods-receipt" linkLabel="View goods receipts" />
+            <TabPlaceholder title="GRN records for this vendor" link="/procurement/goods-receipt" linkLabel="View goods receipts" />
           )}
 
           {tab === "bills" && (
@@ -365,7 +365,7 @@ export function VendorFormModal({ vendor, onClose, onSave }) {
     city: vendor?.city || "",
     state: vendor?.state || "",
     payment_terms: vendor?.payment_terms || "Net 30",
-    outstanding: vendor?.outstanding ?? "",
+    outstanding: vendor?.outstanding ?? 0,
     rating: vendor?.rating ?? 4.0,
     category: vendor?.category || "General",
     material_type: vendor?.material_type || "General",
@@ -488,9 +488,8 @@ export function VendorFormModal({ vendor, onClose, onSave }) {
             <label className="block text-sm font-medium text-slate-700">
               Outstanding (₹)
               <input
-                type="text"
-                inputMode="numeric"
-                placeholder="e.g. 25000"
+                type="number"
+                min="0"
                 value={form.outstanding}
                 onChange={(e) => set("outstanding", e.target.value)}
                 className={inputClass}

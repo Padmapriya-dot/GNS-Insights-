@@ -24,6 +24,22 @@ class CustomerCreate(CustomerBase):
     pass
 
 
+class CustomerUpdate(BaseModel):
+    name: str | None = None
+    contact_name: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    state: str | None = None
+    state_code: str | None = None
+    gstin: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    customer_code: str | None = None
+    credit_limit: float | None = None
+    outstanding: float | None = None
+    status: str | None = None
+
+
 class CustomerRead(CustomerBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
@@ -139,6 +155,14 @@ class PaymentCreate(PaymentBase):
     pass
 
 
+class PaymentUpdate(BaseModel):
+    invoice_id: int | None = None
+    amount: float | None = None
+    payment_date: date | None = None
+    method: str | None = None
+    notes: str | None = None
+
+
 class PaymentRead(PaymentBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
@@ -200,6 +224,18 @@ class QuotationCreate(BaseModel):
     notes: str | None = None
     sales_person: str | None = None
     discount: float = 0
+
+
+class QuotationUpdate(BaseModel):
+    customer_id: int | None = None
+    customer_name: str | None = None
+    quote_date: date | None = None
+    valid_until: date | None = None
+    status: str | None = None
+    total_amount: float | None = None
+    notes: str | None = None
+    sales_person: str | None = None
+    discount: float | None = None
 
 
 class QuotationRead(QuotationBase):
