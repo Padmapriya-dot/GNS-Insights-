@@ -61,6 +61,8 @@ export const ROUTE_MODULE_OVERRIDES = {
   "/production/schedule": "production",
   "/hr/attendance": "attendance",
   "/procurement/rfq": "procurement",
+  "/procurement/vendors": "masters",
+  "/masters/vendors": "masters",
   "/finance/accounts-payable": "accounts",
   "/finance/accounts-receivable": "accounts",
   "/finance/payment-tracking": "accounts",
@@ -195,6 +197,7 @@ export const STORE_MANAGER_ALLOWED_PATHS = new Set([
   "/procurement/goods-receipt",
   "/procurement/material-requests",
   "/procurement/vendors",
+  "/masters/vendors",
   "/masters/products",
   "/settings",
   "/settings/subscription",
@@ -223,6 +226,7 @@ export function storeManagerPathAllowed(pathname) {
   if (path.startsWith("/procurement/goods-receipt")) return true;
   if (path.startsWith("/procurement/material-requests")) return true;
   if (path.startsWith("/procurement/vendors")) return true;
+  if (path.startsWith("/masters/vendors")) return true;
   if (path.startsWith("/settings")) return true;
   return false;
 }
@@ -230,6 +234,12 @@ export function storeManagerPathAllowed(pathname) {
 export function userCanAccessPath(user, pathname) {
   if (!user) return false;
   if (isAdmin(user)) return true;
+  const path = (pathname || "").replace(/\/$/, "") || "/";
+  if (path.startsWith("/procurement/vendors") || path.startsWith("/masters/vendors")) {
+    if (!userCanAccess(user, "masters") && !userCanAccess(user, "procurement")) return false;
+    if (isStoreManager(user) && !storeManagerPathAllowed(pathname)) return false;
+    return true;
+  }
   const module = getModuleForPath(pathname);
   if (!userCanAccess(user, module)) return false;
   if (isStoreManager(user) && !storeManagerPathAllowed(pathname)) return false;

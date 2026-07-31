@@ -7,6 +7,10 @@ import AddCustomFieldModal from "./AddCustomFieldModal";
 import AddOtherDetailsModal from "./AddOtherDetailsModal";
 import SearchableSelect from "../common/SearchableSelect";
 import { createCustomer, updateCustomer } from "../../api/salesApi";
+import {
+  createMastersVendor,
+  updateMastersVendor,
+} from "../../api/mastersVendorsApi";
 import { lookupIndianPincode } from "../../api/addressLookupApi";
 import { INDIAN_STATES } from "../../data/customersMasterData";
 import { useToast } from "../../context/ToastContext";
@@ -59,29 +63,36 @@ function SoftField({ label, required, children }) {
   );
 }
 
-function toInitial(customer) {
-  if (!customer) return null;
+function toInitial(party, variant = "customer") {
+  if (!party) return null;
+  const isVendor = variant === "vendor";
   return {
     form: {
-      gstin: customer.gstin || "",
-      name: customer.company || customer.name || "",
-      phone: customer.phone || "",
+      gstin: party.gstin || "",
+      name: isVendor ? party.name || "" : party.company || party.name || "",
+      phone: party.phone || "",
     },
     address: {
-      address_line1: customer.address_line1 || customer.billing_address || "",
-      pincode: customer.pincode || "",
-      city: customer.city || "",
-      state: customer.state || "",
-      country: "India",
+      address_line1: party.address_line1 || party.billing_address || "",
+      pincode: party.pincode || "",
+      city: party.city || "",
+      state: party.state || "",
+      country: party.country || "India",
     },
     basic: {
       ...EMPTY_BASIC,
-      opening_balance: customer.outstanding != null ? String(customer.outstanding) : "",
-      email: customer.email || "",
+      opening_balance:
+        party.outstanding != null
+          ? String(party.outstanding)
+          : party.credit_limit != null
+            ? String(party.credit_limit)
+            : "",
+      email: party.email || "",
     },
     other: {
       ...EMPTY_OTHER,
-      gst_treatment: customer.gstin ? "REGISTERED BUSINESS" : "",
+      party_type: isVendor ? "Seller" : "Buyer",
+      gst_treatment: party.gstin ? "REGISTERED BUSINESS" : "",
     },
   };
 }
@@ -235,9 +246,18 @@ function AddressModal({ open, onClose, initial, onSave }) {
   );
 }
 
-export default function AddNewPartyModal({ open, onClose, onSaved, customer = null }) {
+export default function AddNewPartyModal({
+  open,
+  onClose,
+  onSaved,
+  customer = null,
+  vendor = null,
+  variant = "customer",
+}) {
   const tenantId = useTenantId();
   const { addToast } = useToast();
+  const party = variant === "vendor" ? vendor : customer;
+  const isVendor = variant === "vendor";
   const [form, setForm] = useState(EMPTY);
   const [address, setAddress] = useState(EMPTY_ADDRESS);
   const [addressOpen, setAddressOpen] = useState(false);
@@ -249,11 +269,11 @@ export default function AddNewPartyModal({ open, onClose, onSaved, customer = nu
   const [customOpen, setCustomOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const isEdit = Boolean(customer);
+  const isEdit = Boolean(party);
 
   useEffect(() => {
     if (!open) return;
-    const init = toInitial(customer);
+    const init = toInitial(party, variant);
     if (!init) {
       setForm(EMPTY);
       setAddress(EMPTY_ADDRESS);
@@ -267,7 +287,7 @@ export default function AddNewPartyModal({ open, onClose, onSaved, customer = nu
     setBasicDetails(init.basic);
     setOtherDetails(init.other);
     setCustomFields([]);
-  }, [open, customer]);
+  }, [open, party, variant]);
 
   const addressText = useMemo(() => {
     return [address.address_line1, address.city, address.state, address.pincode]
@@ -282,6 +302,18 @@ export default function AddNewPartyModal({ open, onClose, onSaved, customer = nu
     if (!form.name.trim()) {
       addToast("Company Name is required", "error");
       return;
+    }
+    if (isVendor) {
+      const email = basicDetails?.email?.trim() || party?.email || "";
+      const phone = form.phone.trim();
+      if (!phone) {
+        addToast("Mobile No. is required for vendors", "error");
+        return;
+      }
+      if (!email) {
+        addToast("Add email in Basic Details for vendors", "error");
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -301,33 +333,67 @@ export default function AddNewPartyModal({ open, onClose, onSaved, customer = nu
 
       const opening = basicDetails?.opening_balance
         ? Number(basicDetails.opening_balance)
-        : Number(customer?.outstanding || 0);
+        : Number(party?.outstanding || 0);
+
+      if (isVendor) {
+        const email = basicDetails?.email?.trim() || party?.email || "";
+        const vendorPayload = {
+          tenant_id: tenantId,
+          name: form.name.trim(),
+          contact: form.name.trim(),
+          gstin: form.gstin.trim().toUpperCase() || null,
+          phone: form.phone.trim(),
+          email,
+          address_line1: address.address_line1 || null,
+          address_line2:
+            [address.city, address.state, address.pincode, extraNotes].filter(Boolean).join(", ") ||
+            null,
+          city: address.city || null,
+          state: address.state || null,
+          pincode: address.pincode || null,
+          country: address.country || "India",
+          vendor_type: "Raw Material Supplier",
+          status: "active",
+          credit_limit: Number(party?.credit_limit || 0),
+        };
+        let response = null;
+        if (isEdit && typeof party?.id === "number") {
+          response = await updateMastersVendor(party.id, vendorPayload);
+          addToast("Vendor updated");
+        } else {
+          response = await createMastersVendor(vendorPayload);
+          addToast("Vendor added successfully");
+        }
+        onSaved?.(response?.data || vendorPayload, { isEdit, vendor: party });
+        onClose?.();
+        return;
+      }
 
       const payload = {
         tenant_id: tenantId,
         name: form.name.trim(),
         gstin: form.gstin.trim().toUpperCase() || null,
         phone: form.phone.trim() || null,
-        email: basicDetails?.email?.trim() || customer?.email || null,
+        email: basicDetails?.email?.trim() || party?.email || null,
         address_line1: address.address_line1 || null,
         address_line2:
           [address.city, address.state, address.pincode, extraNotes].filter(Boolean).join(", ") ||
           null,
         state: address.state || null,
-        credit_limit: Number(customer?.credit_limit || 0),
+        credit_limit: Number(party?.credit_limit || 0),
         outstanding: Number.isFinite(opening) ? opening : 0,
         status: "active",
       };
 
       let response = null;
-      if (isEdit && typeof customer?.id === "number") {
-        response = await updateCustomer(customer.id, payload);
+      if (isEdit && typeof party?.id === "number") {
+        response = await updateCustomer(party.id, payload);
         addToast("Customer updated");
       } else {
         response = await createCustomer(payload);
         addToast("Buyer added successfully");
       }
-      onSaved?.(response?.data || payload, { isEdit, customer });
+      onSaved?.(response?.data || payload, { isEdit, customer: party });
       onClose?.();
     } catch (err) {
       addToast(err?.response?.data?.detail || "Failed to save customer", "error");

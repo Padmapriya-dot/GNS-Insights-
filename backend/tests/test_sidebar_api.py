@@ -20,6 +20,20 @@ def test_masters_products(register_admin, client):
     assert resp.status_code == 200
 
 
+def test_masters_vendors(register_admin, client):
+    admin = register_admin()
+    login = client.post(
+        "/api/auth/login",
+        json={"email": admin["email"], "password": admin["password"], "role": "Admin"},
+    )
+    headers = {"Authorization": f"Bearer {login.json()['data']['access_token']}"}
+    resp = client.get("/api/masters/vendors", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert isinstance(body["data"], list)
+
+
 def test_production_hub(register_admin, client):
     admin = register_admin()
     login = client.post("/api/auth/login", json={"email": admin["email"], "password": admin["password"], "role": "Admin"})

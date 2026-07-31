@@ -9,6 +9,7 @@ from app.models.user import User
 from app.routers.operator_deps import deny_delete_for_operator, require_tenant
 from app.schemas.machine import MachineCreateExtended, MachineFullUpdate
 from app.schemas.product import BomItemCreate, ProductCreate, ProductUpdate
+from app.schemas.vendor import VendorBulkImportRequest, VendorCreate, VendorUpdate
 from app.schemas.production import MachineCreate, MachineStatusEventCreate, MachineUpdate
 from app.services.machine_service import get_machine_summary
 from app.services.masters_service import MastersService
@@ -242,3 +243,98 @@ def list_machine_status_events_endpoint(
         "Machine status events retrieved",
         _dump(list_machine_status_events(db, tenant_id, machine_id)),
     )
+
+
+# ── Vendors (Masters → Vendors page) ───────────────────────────────────────
+
+
+def _actor_label(user: User) -> str:
+    return (user.full_name or user.email or f"user-{user.id}").strip()
+
+
+@router.get("/vendors")
+def list_vendors(
+    search: str | None = Query(None),
+    user_tenant: tuple[User, int] = Depends(require_tenant("vendors")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    return success_response("Vendors retrieved", _svc(db, tenant_id).list_vendors(search=search))
+
+
+@router.get("/vendors/{vendor_id}")
+def get_vendor(
+    vendor_id: int,
+    user_tenant: tuple[User, int] = Depends(require_tenant("vendors")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    data = _svc(db, tenant_id).get_vendor(vendor_id)
+    if not data:
+        raise HTTPException(404, "Vendor not found")
+    return success_response("Vendor retrieved", data)
+
+
+@router.post("/vendors")
+def create_vendor(
+    payload: VendorCreate,
+    user_tenant: tuple[User, int] = Depends(require_tenant("vendors")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    try:
+        if not payload.contact:
+            payload.contact = payload.name
+        data = _svc(db, tenant_id).create_vendor(payload, actor=_actor_label(user))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc) or "Failed to create vendor") from exc
+    return success_response("Vendor created", data)
+
+
+@router.put("/vendors/{vendor_id}")
+def update_vendor(
+    vendor_id: int,
+    payload: VendorUpdate,
+    user_tenant: tuple[User, int] = Depends(require_tenant("vendors")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    try:
+        data = _svc(db, tenant_id).update_vendor(
+            vendor_id, payload, actor=_actor_label(user)
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc) or "Failed to update vendor") from exc
+    if not data:
+        raise HTTPException(404, "Vendor not found")
+    return success_response("Vendor updated", data)
+
+
+@router.delete("/vendors/{vendor_id}")
+def delete_vendor(
+    vendor_id: int,
+    user_tenant: tuple[User, int] = Depends(require_tenant("vendors")),
+    _no_operator: User = Depends(deny_delete_for_operator),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    if not _svc(db, tenant_id).delete_vendor(vendor_id, actor=_actor_label(user)):
+        raise HTTPException(404, "Vendor not found")
+    return success_response("Vendor deleted", {"id": vendor_id})
+
+
+@router.post("/vendors/bulk-import")
+def bulk_import_vendors(
+    payload: VendorBulkImportRequest,
+    user_tenant: tuple[User, int] = Depends(require_tenant("vendors")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    result = _svc(db, tenant_id).bulk_import_vendors(
+        payload.rows, actor=_actor_label(user)
+    )
+    return success_response("Vendor bulk import completed", result)

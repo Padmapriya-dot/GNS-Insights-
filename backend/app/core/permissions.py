@@ -70,21 +70,15 @@ def _permissions_for_role_name(name: str) -> list[str]:
 
 def get_user_permissions(user: User) -> set[str]:
     perms: set[str] = set()
-<<<<<<< HEAD
     if not user:
         return perms
     roles = getattr(user, "roles", []) or []
     for role in roles:
-        for p in getattr(role, "permissions", []) or []:
-            perms.add(p)
-=======
-    for role in user.roles:
         normalized = _normalize_permissions(getattr(role, "permissions", None))
         if normalized:
             perms.update(normalized)
-        elif role.name in PERMISSION_MATRIX:
+        elif getattr(role, "name", None) in PERMISSION_MATRIX:
             perms.update(_permissions_for_role_name(role.name))
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
     return perms
 
 

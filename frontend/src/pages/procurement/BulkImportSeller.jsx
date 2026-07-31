@@ -1,5 +1,5 @@
 import BulkImportPage from "../../components/masters/BulkImportPage";
-import { createVendor } from "../../api/procurementApi";
+import { bulkImportMastersVendors, createMastersVendor } from "../../api/mastersVendorsApi";
 import useTenantId from "../../hooks/useTenantId";
 
 const COLUMNS = [
@@ -81,35 +81,51 @@ export default function BulkImportSeller() {
         "Step 3 : Upload Excel File",
       ]}
       onImportRows={async (rows) => {
-        let created = 0;
-        let failed = 0;
+        const payloads = [];
         for (const row of rows) {
           const name = pick(row, "Company Name", "company", "name", "vendor name");
-          if (!name) {
-            failed += 1;
-            continue;
-          }
-          try {
-            await createVendor({
-              tenant_id: tenantId,
-              name,
-              gstin: pick(row, "GSTIN") || null,
-              address_line1: pick(row, "Address") || null,
-              city: pick(row, "City") || null,
-              state: pick(row, "State") || null,
-              pincode: pick(row, "Pincode") || null,
-              phone: pick(row, "Mobile No.", "Mobile", "phone") || null,
-              email: pick(row, "Email") || null,
-              vendor_type: "Raw Material Supplier",
-              status: "active",
-              country: "India",
-            });
-            created += 1;
-          } catch {
-            failed += 1;
-          }
+          if (!name) continue;
+          payloads.push({
+            tenant_id: tenantId,
+            name,
+            contact: name,
+            gstin: pick(row, "GSTIN") || null,
+            address_line1: pick(row, "Address") || null,
+            city: pick(row, "City") || null,
+            state: pick(row, "State") || null,
+            pincode: pick(row, "Pincode") || null,
+            phone: pick(row, "Mobile No.", "Mobile", "phone") || "9999999999",
+            email:
+              pick(row, "Email") ||
+              `${String(name).replace(/\s+/g, "").slice(0, 20).toLowerCase()}@vendor.local`,
+            vendor_type: "Raw Material Supplier",
+            status: "active",
+            country: "India",
+          });
         }
-        return { created, failed };
+        if (payloads.length === 0) {
+          return { created: 0, failed: rows.length };
+        }
+        try {
+          const res = await bulkImportMastersVendors(payloads);
+          const data = res.data || {};
+          return {
+            created: data.created ?? 0,
+            failed: data.failed ?? 0,
+          };
+        } catch {
+          let created = 0;
+          let failed = 0;
+          for (const payload of payloads) {
+            try {
+              await createMastersVendor(payload);
+              created += 1;
+            } catch {
+              failed += 1;
+            }
+          }
+          return { created, failed };
+        }
       }}
     />
   );

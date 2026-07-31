@@ -7,6 +7,7 @@ from app.repositories.machine_repository import MachineRepository
 from app.repositories.product_repository import ProductRepository
 from app.schemas.machine import MachineCreateExtended, MachineFullUpdate
 from app.schemas.product import BomItemCreate, ProductCreate, ProductUpdate
+from app.schemas.vendor import VendorBulkImportRequest, VendorCreate, VendorUpdate
 from app.services.machine_service import create_machine_extended, get_machine_detail, list_machines_enriched, update_machine_full
 from app.services.product_service import (
     add_bom_item,
@@ -121,3 +122,63 @@ class MastersService:
         if not m:
             return None
         return {"id": m.id, "code": m.code, "name": m.name, "status": m.status}
+
+    # ── Vendors (Masters → Vendors page) ───────────────────────────────────
+
+    def list_vendors(self, search: str | None = None) -> list[dict]:
+        from app.services.vendor_service import list_vendors_enriched
+
+        rows = list_vendors_enriched(self.db, self.tenant_id, search=search)
+        return [row.model_dump(mode="json") for row in rows]
+
+    def get_vendor(self, vendor_id: int) -> dict | None:
+        from app.services.vendor_service import get_vendor_detail
+
+        detail = get_vendor_detail(self.db, self.tenant_id, vendor_id)
+        return detail.model_dump(mode="json") if detail else None
+
+    def create_vendor(self, payload: VendorCreate, *, actor: str | None = None) -> dict:
+        from app.services.vendor_service import _to_list_read, create_vendor
+
+        payload.tenant_id = self.tenant_id
+        supplier = create_vendor(self.db, payload, actor=actor)
+        return _to_list_read(self.db, self.tenant_id, supplier).model_dump(mode="json")
+
+    def update_vendor(
+        self, vendor_id: int, payload: VendorUpdate, *, actor: str | None = None
+    ) -> dict | None:
+        from app.services.vendor_service import _to_list_read, update_vendor
+
+        supplier = update_vendor(
+            self.db, self.tenant_id, vendor_id, payload, actor=actor
+        )
+        if not supplier:
+            return None
+        return _to_list_read(self.db, self.tenant_id, supplier).model_dump(mode="json")
+
+    def delete_vendor(self, vendor_id: int, *, actor: str | None = None) -> bool:
+        from app.services.vendor_service import soft_delete_vendor
+
+        supplier = soft_delete_vendor(
+            self.db, self.tenant_id, vendor_id, actor=actor
+        )
+        return supplier is not None
+
+    def bulk_import_vendors(
+        self, rows: list[VendorCreate], *, actor: str | None = None
+    ) -> dict:
+        created = 0
+        failed = 0
+        errors: list[str] = []
+        for idx, row in enumerate(rows, start=1):
+            try:
+                payload = row.model_copy()
+                if not payload.contact:
+                    payload.contact = payload.name
+                payload.tenant_id = self.tenant_id
+                self.create_vendor(payload, actor=actor)
+                created += 1
+            except Exception as exc:
+                failed += 1
+                errors.append(f"Row {idx}: {exc}")
+        return {"created": created, "failed": failed, "errors": errors[:20]}
