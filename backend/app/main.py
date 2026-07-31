@@ -1058,7 +1058,7 @@ def on_startup():
 
     from app.models.tenant import Tenant as TenantModel
 
-    from sqlalchemy import select as sa_select
+    from sqlalchemy import select as sa_select, func
 
 
 
@@ -1087,7 +1087,7 @@ def on_startup():
 
         for t in all_tenants:
 
-            inv_count = db.scalar(sa_select(sa_select(InvoiceModel.id).where(InvoiceModel.tenant_id == t.id).subquery().c.id.count()))
+            inv_count = db.scalar(sa_select(func.count(InvoiceModel.id)).where(InvoiceModel.tenant_id == t.id))
 
             if not inv_count:
 

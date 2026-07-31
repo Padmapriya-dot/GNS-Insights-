@@ -20,11 +20,7 @@ function KpiCard({ label, value, icon: Icon, color }) {
   );
 }
 
-const monthlyYield = [
-  { month: "Jan", yield: 92, failures: 8 }, { month: "Feb", yield: 93, failures: 7 },
-  { month: "Mar", yield: 93.5, failures: 6 }, { month: "Apr", yield: 94, failures: 6 },
-  { month: "May", yield: 94.5, failures: 5 }, { month: "Jun", yield: 95, failures: 5 },
-];
+const monthlyYield = [];
 
 export default function BatchQualityReports() {
   const { addToast } = useToast();

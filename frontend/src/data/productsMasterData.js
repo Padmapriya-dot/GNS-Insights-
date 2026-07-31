@@ -62,74 +62,7 @@ export const PRODUCT_UNITS = [
   "Sheet",
 ];
 
-export const DEMO_PRODUCTS = [
-  {
-    id: "prd-101",
-    product_code: "PRD-001",
-    name: "Executive Ergonomic Office Chair",
-    category: "Finished Goods",
-    product_type: "Finished Goods",
-    sku: "SKU-CHAIR-001",
-    barcode: "8901234567891",
-    brand: "Generic",
-    unit: "Nos",
-    hsn_code: "94013000",
-    gst_percent: 18,
-    purchase_price: 2550,
-    selling_price: 4500,
-    min_stock: 10,
-    max_stock: 100,
-    current_stock: 45,
-    warehouse: "Main Store",
-    status: "active",
-    units_sold: 120,
-    created_at: new Date().toISOString().slice(0, 10),
-  },
-  {
-    id: "prd-102",
-    product_code: "PRD-002",
-    name: "Cold Rolled Steel Sheet 2mm",
-    category: "Raw Material",
-    product_type: "Raw Material",
-    sku: "SKU-STEEL-002",
-    barcode: "8901234567892",
-    brand: "Tata Steel",
-    unit: "Kgs",
-    hsn_code: "72091690",
-    gst_percent: 18,
-    purchase_price: 75,
-    selling_price: 95,
-    min_stock: 500,
-    max_stock: 5000,
-    current_stock: 1200,
-    warehouse: "Raw Material Store",
-    status: "active",
-    units_sold: 850,
-    created_at: new Date().toISOString().slice(0, 10),
-  },
-  {
-    id: "prd-103",
-    product_code: "PRD-003",
-    name: "Heavy Duty Workstation Table",
-    category: "Finished Goods",
-    product_type: "Finished Goods",
-    sku: "SKU-TBL-003",
-    barcode: "8901234567893",
-    brand: "Generic",
-    unit: "Nos",
-    hsn_code: "94031000",
-    gst_percent: 18,
-    purchase_price: 4800,
-    selling_price: 8200,
-    min_stock: 5,
-    max_stock: 50,
-    current_stock: 18,
-    warehouse: "Main Store",
-    status: "active",
-    units_sold: 40,
-    created_at: new Date().toISOString().slice(0, 10),
-  },
-];
+export const DEMO_PRODUCTS = [];
 
 
 export function guessCategory(sku = "", name = "") {
@@ -219,15 +152,7 @@ export function computeQuickStats(products) {
   };
 }
 
-export const categoryChartData = [
-  { name: "Raw Material", value: 35, color: "#3B82F6" },
-  { name: "Finished Goods", value: 28, color: "#22C55E" },
-  { name: "WIP", value: 12, color: "#F97316" },
-  { name: "Consumables", value: 15, color: "#A855F7" },
-  { name: "Spare Parts", value: 10, color: "#64748B" },
-  { name: "Packaging Material", value: 8, color: "#0EA5E9" },
-  { name: "Utility / Raw Material", value: 6, color: "#14B8A6" },
-];
+export const categoryChartData = [];
 
 export const IMPORT_TEMPLATE_HEADERS = [
   "product_code",
