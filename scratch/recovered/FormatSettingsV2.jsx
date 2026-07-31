@@ -1,0 +1,228 @@
+import { useMemo, useState } from "react";
+import { Building2, ChevronDown } from "lucide-react";
+import useSettings from "../../context/SettingsContext";
+
+const YELLOW = "#F5C518";
+const PAGE_BG = "#F3F4F6";
+const SECTION_BG = "#DBE2F0";
+const LABEL_GREEN = "#2D6A4F";
+const STORAGE_KEY = "gns_format_settings_v2";
+
+const COMMA_OPTIONS = [
+  { id: "indian", label: "10,00,000" },
+  { id: "western", label: "1,000,000" },
+];
+
+const CURRENCY_OPTIONS = [
+  { id: "₹", label: "₹" },
+  { id: "INR", label: "INR" },
+  { id: "Rs.", label: "Rs." },
+  { id: "$", label: "$" },
+  { id: "€", label: "€" },
+  { id: "AED", label: "AED" },
+  { id: "QR", label: "QR" },
+];
+
+const DATE_OPTIONS = [
+  "30-07-2026",
+  "07-30-2026",
+  "30/07/2026",
+  "07/30/2026",
+  "2026/07/30",
+  "2026-30-07",
+  "2026/30/07",
+  "2026-07-30",
+  "30-Jul-2026",
+  "Jul-30-2026",
+  "30/Jul/2026",
+  "Jul/30/2026",
+];
+
+function defaultState() {
+  return {
+    commaFormat: "indian",
+    currencyFormat: "₹",
+    dateFormat: "30-07-2026",
+  };
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+    return { ...defaultState(), ...JSON.parse(raw) };
+  } catch {
+    return defaultState();
+  }
+}
+
+function saveState(state) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function RadioOption({ checked, label, onChange, name }) {
+  return (
+    <label className="inline-flex cursor-pointer items-center gap-2.5">
+      <span
+        className={`grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-2 ${
+          checked ? "border-[#1a1a1f]" : "border-[#b0b0b8]"
+        }`}
+      >
+        {checked ? (
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: LABEL_GREEN }} />
+        ) : null}
+      </span>
+      <input
+        type="radio"
+        name={name}
+        className="sr-only"
+        checked={checked}
+        onChange={onChange}
+      />
+      <span className="text-[15px] font-medium" style={{ color: LABEL_GREEN }}>
+        {label}
+      </span>
+    </label>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-[#e4e4ea]">
+      <div
+        className="px-4 py-2.5 text-[15px] font-semibold text-[#1a1a1f]"
+        style={{ background: SECTION_BG }}
+      >
+        {title}
+      </div>
+      <div className="bg-white px-4 py-4 sm:px-5 sm:py-5">{children}</div>
+    </div>
+  );
+}
+
+export default function FormatSettingsV2() {
+  const { companyName, updateCurrency, updateDateFormat } = useSettings();
+  const company = companyName?.trim() || "My Company";
+  const [state, setState] = useState(() => loadState());
+
+  const persist = (next) => {
+    setState(next);
+    saveState(next);
+  };
+
+  const setComma = (id) => persist({ ...state, commaFormat: id });
+
+  const setCurrency = (id) => {
+    persist({ ...state, currencyFormat: id });
+    try {
+      updateCurrency(id === "₹" || id === "Rs." ? "INR" : id === "$" ? "USD" : id === "€" ? "EUR" : id);
+    } catch {
+      /* ignore if settings unavailable */
+    }
+  };
+
+  const setDate = (label) => {
+    persist({ ...state, dateFormat: label });
+    try {
+      const map = {
+        "30-07-2026": "DD-MM-YYYY",
+        "07-30-2026": "MM-DD-YYYY",
+        "30/07/2026": "DD/MM/YYYY",
+        "07/30/2026": "MM/DD/YYYY",
+        "2026/07/30": "YYYY/MM/DD",
+        "2026-07-30": "YYYY-MM-DD",
+        "30-Jul-2026": "DD-MMM-YYYY",
+        "Jul-30-2026": "MMM-DD-YYYY",
+        "30/Jul/2026": "DD/MMM/YYYY",
+        "Jul/30/2026": "MMM/DD/YYYY",
+      };
+      updateDateFormat(map[label] || label);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const dateRows = useMemo(() => {
+    const row1 = DATE_OPTIONS.slice(0, 9);
+    const row2 = DATE_OPTIONS.slice(9);
+    return [row1, row2];
+  }, []);
+
+  return (
+    <div className="min-h-full" style={{ background: PAGE_BG }}>
+      <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">
+              Format Settings
+            </h1>
+            <span className="rounded-full bg-[#d4d4d8] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#5a5a66]">
+              v2
+            </span>
+          </div>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-full border border-[#d0d0d8] bg-white px-3 py-1.5 text-[14px] font-semibold text-[#1a1a1f]"
+          >
+            <span
+              className="grid h-8 w-8 place-items-center rounded-full"
+              style={{ background: YELLOW }}
+            >
+              <Building2 className="h-4 w-4 text-white" />
+            </span>
+            {company}
+            <ChevronDown className="h-4 w-4 text-[#9a9aa5]" />
+          </button>
+        </div>
+
+        <div className="space-y-5 rounded-2xl border border-[#e4e4ea] bg-white p-5 shadow-sm sm:p-6">
+          <Section title="Comma Format">
+            <div className="flex flex-wrap gap-x-10 gap-y-3">
+              {COMMA_OPTIONS.map((opt) => (
+                <RadioOption
+                  key={opt.id}
+                  name="comma-format"
+                  label={opt.label}
+                  checked={state.commaFormat === opt.id}
+                  onChange={() => setComma(opt.id)}
+                />
+              ))}
+            </div>
+          </Section>
+
+          <Section title="Currency Format">
+            <div className="flex flex-wrap gap-x-10 gap-y-3">
+              {CURRENCY_OPTIONS.map((opt) => (
+                <RadioOption
+                  key={opt.id}
+                  name="currency-format"
+                  label={opt.label}
+                  checked={state.currencyFormat === opt.id}
+                  onChange={() => setCurrency(opt.id)}
+                />
+              ))}
+            </div>
+          </Section>
+
+          <Section title="Date Format">
+            <div className="space-y-4">
+              {dateRows.map((row, i) => (
+                <div key={i} className="flex flex-wrap gap-x-8 gap-y-3">
+                  {row.map((label) => (
+                    <RadioOption
+                      key={label}
+                      name="date-format"
+                      label={label}
+                      checked={state.dateFormat === label}
+                      onChange={() => setDate(label)}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </Section>
+        </div>
+      </div>
+    </div>
+  );
+}
