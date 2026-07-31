@@ -88,13 +88,19 @@ api.interceptors.response.use(
       }
     }
 
-    if (status === 401) {
+    const isAuthUrl =
+      original?.url?.includes("/auth/login") ||
+      original?.url?.includes("/platform/auth/login") ||
+      original?.url?.includes("/auth/refresh");
+
+    if (status === 401 && !isAuthUrl) {
       clearAuthStorage();
       if (typeof onUnauthorized === "function") {
         onUnauthorized();
       } else if (
         typeof window !== "undefined" &&
-        !window.location.pathname.startsWith("/login")
+        !window.location.pathname.startsWith("/login") &&
+        !window.location.pathname.startsWith("/gns-admin")
       ) {
         window.location.assign("/login");
       }

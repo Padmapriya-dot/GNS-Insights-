@@ -34,7 +34,15 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     setUnauthorizedHandler(() => {
       setUser(null);
-      setSessionExpired(true);
+      const isAuthPage =
+        typeof window !== "undefined" &&
+        (window.location.pathname.startsWith("/login") ||
+          window.location.pathname.startsWith("/gns-admin") ||
+          window.location.pathname.startsWith("/register") ||
+          window.location.pathname === "/landing");
+      if (!isAuthPage) {
+        setSessionExpired(true);
+      }
     });
     return () => setUnauthorizedHandler(null);
   }, []);
