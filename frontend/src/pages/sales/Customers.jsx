@@ -93,7 +93,6 @@ export default function Customers() {
   const loadCustomers = useCallback(async () => {
     setLoading(true);
     try {
-<<<<<<< HEAD
       const res = await getCustomers();
       const apiRows = res.data || [];
       const enriched = apiRows.map((row, i) => enrichApiCustomer(row, i));
@@ -126,61 +125,7 @@ export default function Customers() {
       }
       setCustomers(enriched);
     } catch {
-      setCustomers([]);
-=======
-      const res = await getCustomers().catch(() => null);
-      const apiRows = res?.data || [];
-      const stored = localStorage.getItem("smrt_customers");
-      const localRows = stored ? JSON.parse(stored) : [];
-      const deletedStored = localStorage.getItem("smrt_deleted_customers");
-      const deletedIds = (deletedStored ? JSON.parse(deletedStored) : []).map((d) => String(d).trim().toLowerCase());
-
-      const map = new Map();
-      // 1. API customer rows
-      apiRows.forEach((row, i) => {
-        const enriched = enrichApiCustomer(row, i);
-        const key = getCustomerKey(enriched);
-        if (key) map.set(key, enriched);
-      });
-
-      // 2. Persistent local customer rows (overwrites API row if same company/code to avoid duplicates)
-      localRows.forEach((row, i) => {
-        const enriched = enrichApiCustomer(row, i);
-        const key = getCustomerKey(enriched);
-        if (key) map.set(key, enriched);
-      });
-
-      // 3. Filter out deleted customer IDs / company names
-      const finalCustomers = Array.from(map.values()).filter((c) => {
-        const key = getCustomerKey(c);
-        const codeKey = String(c.customer_code || "").trim().toLowerCase();
-        const idKey = String(c.id || "").trim().toLowerCase();
-        return !deletedIds.includes(key) && !deletedIds.includes(codeKey) && !deletedIds.includes(idKey);
-      });
-
-      setCustomers(finalCustomers);
-    } catch {
-      const stored = localStorage.getItem("smrt_customers");
-      const localRows = stored ? JSON.parse(stored) : [];
-      const deletedStored = localStorage.getItem("smrt_deleted_customers");
-      const deletedIds = (deletedStored ? JSON.parse(deletedStored) : []).map((d) => String(d).trim().toLowerCase());
-      
-      const map = new Map();
-      localRows.forEach((row, i) => {
-        const enriched = enrichApiCustomer(row, i);
-        const key = getCustomerKey(enriched);
-        if (key) map.set(key, enriched);
-      });
-
-      const finalCustomers = Array.from(map.values()).filter((c) => {
-        const key = getCustomerKey(c);
-        const codeKey = String(c.customer_code || "").trim().toLowerCase();
-        const idKey = String(c.id || "").trim().toLowerCase();
-        return !deletedIds.includes(key) && !deletedIds.includes(codeKey) && !deletedIds.includes(idKey);
-      });
-      setCustomers(finalCustomers);
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-    } finally {
+      setCustomers([]);    } finally {
       setLoading(false);
     }
   }, []);
@@ -274,7 +219,6 @@ export default function Customers() {
       status: form.status || "active",
     };
     try {
-<<<<<<< HEAD
       if (formCustomer?.id && typeof formCustomer.id === "number") {
         addToast("Update API not available — saved locally");
       } else {
@@ -299,16 +243,10 @@ export default function Customers() {
         addToast("Customer created");
         setFormCustomer(null);
         setTimeout(() => loadCustomers(), 2000);
-        return;
-=======
-      if (!formCustomer?.id || typeof formCustomer.id !== "number") {
-        await createCustomer(payload).catch(() => null);
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-      }
+        return;      }
     } catch {
       /* fall through to local */
     }
-<<<<<<< HEAD
     if (formCustomer?.id) {
       setCustomers((prev) => prev.map((c) => (c.id === formCustomer.id ? { ...c, ...form, company: form.company, name: form.company } : c)));
       addToast("Customer updated");
@@ -328,57 +266,7 @@ export default function Customers() {
       };
       setCustomers((prev) => [newC, ...prev]);
       addToast("Customer added");
-    }
-=======
-
-    const cusCode = form.customer_code?.trim() || `CUS${String(customers.length + 1).padStart(3, "0")}`;
-    const targetId = formCustomer?.id || `cus-${Date.now()}`;
-    const newCustomer = enrichApiCustomer({
-      ...formCustomer,
-      ...form,
-      id: targetId,
-      customer_code: cusCode,
-      company: form.company,
-      name: form.company,
-      contact_person: form.contact_person,
-      customer_type: form.customer_type,
-      sales_executive: form.sales_executive,
-      phone: form.phone,
-      email: form.email,
-      gstin: form.gstin,
-      city: form.city,
-      state: form.state,
-      billing_address: form.billing_address,
-      credit_limit: form.credit_limit != null && form.credit_limit !== "" ? Number(form.credit_limit) : 500000,
-      outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
-      status: form.status || "active",
-      created_at: formCustomer?.created_at || new Date().toISOString().slice(0, 10),
-    });
-
-    const stored = localStorage.getItem("smrt_customers");
-    const localRows = stored ? JSON.parse(stored) : [];
-    const map = new Map();
-    localRows.forEach((item) => {
-      const k = getCustomerKey(item);
-      if (k) map.set(k, item);
-    });
-    map.set(getCustomerKey(newCustomer), newCustomer);
-    const updatedLocal = Array.from(map.values());
-    localStorage.setItem("smrt_customers", JSON.stringify(updatedLocal));
-
-    setCustomers((prev) => {
-      const pMap = new Map();
-      prev.forEach((item) => {
-        const k = getCustomerKey(item);
-        if (k) pMap.set(k, item);
-      });
-      pMap.set(getCustomerKey(newCustomer), newCustomer);
-      return Array.from(pMap.values());
-    });
-
-    addToast(formCustomer?.id ? "Customer updated successfully" : "Customer created successfully");
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-    setFormCustomer(null);
+    }    setFormCustomer(null);
   };
 
   const handleDelete = (customer) => {

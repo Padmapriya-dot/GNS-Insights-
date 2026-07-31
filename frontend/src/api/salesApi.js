@@ -41,12 +41,7 @@ export const getInvoiceSummary = (params = {}) =>
 export const getInvoiceDetail = (invoiceId) => api.get(`/sales/invoices/${invoiceId}`);
 export const createInvoice = (payload) => api.post("/sales/invoices", payload);
 export const updateInvoice = (invoiceId, payload) => api.put(`/sales/invoices/${invoiceId}`, payload);
-<<<<<<< HEAD
 export const cancelInvoice = (invoiceId) => api.delete(`/sales/invoices/${invoiceId}`);
-=======
-export const deleteInvoice = (invoiceId) => api.delete(`/sales/invoices/${invoiceId}`);
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-
 export const getPayments = (_tenantId, invoiceId = null) =>
   api.get("/sales/payments", { params: { invoice_id: invoiceId } });
 export const getPayment = (paymentId) => api.get(`/sales/payments/${paymentId}`);

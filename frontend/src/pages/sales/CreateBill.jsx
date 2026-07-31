@@ -312,32 +312,11 @@ export default function CreateBill() {
               <select value={item.unit} onChange={(e) => updateItem(idx, "unit", e.target.value)} className={inputClass}>
                 {["pcs", "kg", "ltr", "box", "set", "hr", "KGS", "MTR", "nos"].map((u) => <option key={u}>{u}</option>)}
               </select>
-<<<<<<< HEAD
               {customers.length === 0 && (
                 <p className="mt-1 text-xs text-amber-600">
                   No customers found. <Link to="/sales/customers?create=1" className="underline">Add one</Link> first.
                 </p>
-              )}
-=======
-              <input
-                type="text"
-                inputMode="decimal"
-                value={item.rate}
-                onChange={(e) => updateItem(idx, "rate", e.target.value)}
-                className={`${inputClass} text-right`}
-              />
-              <div className="mt-1.5 flex items-center justify-end rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-800">
-                {Number(item.amount).toLocaleString("en-IN")}
-              </div>
-              <button
-                type="button"
-                onClick={() => setItems((p) => p.length > 1 ? p.filter((_, i) => i !== idx) : p)}
-                className="mx-auto mt-1.5 flex h-9 w-9 items-center justify-center rounded-xl text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-            </div>
+              )}            </div>
           ))}
         </div>
       </div>

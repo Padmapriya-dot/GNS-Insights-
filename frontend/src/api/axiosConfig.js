@@ -105,7 +105,6 @@ api.interceptors.response.use(
         window.location.assign("/login");
       }
     } else if (typeof onApiError === "function" && !error.config?.skipGlobalError) {
-<<<<<<< HEAD
       if (!status || status >= 500) {
         const raw = error.response?.data?.detail;
         const message = !status
@@ -114,12 +113,7 @@ api.interceptors.response.use(
             ? raw
             : Array.isArray(raw)
               ? raw.map((e) => e?.msg || String(e)).join("; ") || "Something went wrong. Please try again."
-              : "Something went wrong. Please try again.";
-=======
-      if (status && status >= 500) {
-        const message = error.response?.data?.detail || "Server error. Please try again later.";
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-        onApiError(message);
+              : "Something went wrong. Please try again.";        onApiError(message);
       }
     }
     return Promise.reject(error);

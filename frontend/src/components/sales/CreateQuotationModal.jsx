@@ -175,7 +175,6 @@ export default function CreateQuotationModal({ isOpen, onClose, onSuccess }) {
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
-<<<<<<< HEAD
               {!loadingCustomers && customers.length === 0 ? (
                 <p className="mt-1 text-xs text-slate-500">
                   No customers yet.{" "}
@@ -186,11 +185,6 @@ export default function CreateQuotationModal({ isOpen, onClose, onSuccess }) {
                 </p>
               ) : null}
             </Field>
-=======
-            </div>
-          </div>
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Quote Date</label>

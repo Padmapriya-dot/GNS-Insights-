@@ -106,7 +106,6 @@ export default function SalesOrders() {
   const columns = [
     {
       key: "order_number",
-<<<<<<< HEAD
       label: "Sales Order Number",
       render: (r) =>
         typeof r.id === "number" ? (
@@ -115,20 +114,7 @@ export default function SalesOrders() {
           </Link>
         ) : (
           <span className="font-medium text-[#2563EB]">{r.order_number}</span>
-        ),
-=======
-      label: "SO No",
-      render: (r) => (
-        <button
-          type="button"
-          onClick={() => setSelected(r)}
-          className="font-semibold text-[#2563EB] hover:underline text-left"
-        >
-          {r.order_number || r.so_number}
-        </button>
-      ),
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-    },
+        ),    },
     { key: "customer_name", label: "Customer" },
     { key: "order_date", label: "Order Date", render: (r) => String(r.order_date || r.so_date || "").slice(0, 10) || "—" },
     { key: "due_date", label: "Due Date", render: (r) => String(r.due_date || "").slice(0, 10) || "—" },

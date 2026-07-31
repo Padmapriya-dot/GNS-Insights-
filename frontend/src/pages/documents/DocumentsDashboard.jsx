@@ -162,56 +162,10 @@ export default function DocumentsDashboard({ initialDocType = null, title, subti
       setRows(scoped);
       setError(null);
     } catch (e) {
-<<<<<<< HEAD
       setRows([]);
       if (e.response?.status !== 401) {
         setError(e.response?.data?.detail || e.message || "Failed to load documents");
-      }
-=======
-      console.warn("Document load notice, using local storage:", e);
-      const stored = localStorage.getItem("smrt_local_documents");
-      const localDocs = stored ? JSON.parse(stored) : [];
-      setError(null);
-      setRows(localDocs.length ? localDocs : [
-        {
-          id: "doc-1",
-          title: "Standard Operating Procedure (SOP) - Quality Control",
-          file_name: "SOP_Quality_Control_v2.pdf",
-          doc_type: "quality",
-          version: "2.0",
-          created_at: new Date().toISOString(),
-          uploaded_by_name: "Quality Manager",
-          file_size_bytes: 245000,
-          file_type: "pdf",
-          tags: ["quality", "sop"],
-        },
-        {
-          id: "doc-2",
-          title: "Employee Leave & Attendance Policy",
-          file_name: "HR_Leave_Policy_2026.pdf",
-          doc_type: "hr",
-          version: "1.0",
-          created_at: new Date().toISOString(),
-          uploaded_by_name: "HR Lead",
-          file_size_bytes: 180000,
-          file_type: "pdf",
-          tags: ["hr", "policy"],
-        },
-        {
-          id: "doc-3",
-          title: "Monthly Financial Audit Report",
-          file_name: "Financial_Report_Q2.xlsx",
-          doc_type: "report",
-          version: "1.0",
-          created_at: new Date().toISOString(),
-          uploaded_by_name: "Finance Controller",
-          file_size_bytes: 350000,
-          file_type: "excel",
-          tags: ["finance", "report"],
-        },
-      ]);
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-    } finally {
+      }    } finally {
       setLoading(false);
     }
   }, [initialDocType, allowedTypes, admin]);

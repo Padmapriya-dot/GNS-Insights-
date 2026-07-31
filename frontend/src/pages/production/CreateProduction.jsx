@@ -60,16 +60,10 @@ export default function CreateProduction() {
       fetchProductsWithFallback().catch(() => []),
       getMachines().catch(() => ({ data: [] })),
     ])
-<<<<<<< HEAD
       .then(([pRes, mRes]) => {
         const rawProducts = pRes?.data || [];
         const sortedProducts = [...rawProducts].sort((a, b) => (b.id || 0) - (a.id || 0));
-        setProducts(sortedProducts);
-=======
-      .then(([prods, mRes]) => {
-        setProducts(Array.isArray(prods) ? prods : []);
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-        setMachines(mRes?.data || []);
+        setProducts(sortedProducts);        setMachines(mRes?.data || []);
       })
       .finally(() => setLoadingProducts(false));
   }, [tenantId]);
@@ -202,7 +196,6 @@ export default function CreateProduction() {
               className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500"
             >
               <option value="">{loadingProducts ? t("createProduction.loading") : t("createProduction.selectProduct")}</option>
-<<<<<<< HEAD
               {products.map((p) => {
                 const code = p.product_code || p.sku || p.code || (p.id ? `PRD${String(p.id).padStart(3, "0")}` : "");
                 return (
@@ -210,15 +203,7 @@ export default function CreateProduction() {
                     {p.name}{code ? ` (${code})` : ""}
                   </option>
                 );
-              })}
-=======
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} {p.product_code || p.sku ? `(${p.product_code || p.sku})` : ""}
-                </option>
-              ))}
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-            </select>
+              })}            </select>
             {products.length === 0 && !loadingProducts && (
               <div className="mt-2">
                 <p className="text-xs text-amber-600">No products found. Please add products first via Masters → Products.</p>

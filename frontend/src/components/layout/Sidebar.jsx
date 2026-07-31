@@ -86,7 +86,6 @@ function mapApiMenusToNav(menus) {
     };
   });
 }
-<<<<<<< HEAD
 
 const PROD_MANAGER_ALLOWED_SECTIONS = new Set([
   "dashboard",
@@ -151,10 +150,6 @@ function isProductionManager(user) {
   if (allRoles.some((r) => r.includes("admin"))) return false;
   return allRoles.some((r) => r.includes("production manager") || r.includes("production_manager"));
 }
-
-=======
- 
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
 function filterStaticNav(user) {
   const isPM = isProductionManager(user);
   return SIDEBAR_NAV.map((section) => {

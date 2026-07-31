@@ -163,7 +163,6 @@ export default function AccountsPayable() {
     });
   }, [payments, search, vendors, vendorFilter, financialYear, month]);
 
-<<<<<<< HEAD
   const columns = [
     { key: "bill_number", label: "Bill No" },
     { key: "vendor_name", label: "Vendor" },
@@ -183,22 +182,7 @@ export default function AccountsPayable() {
       >
         Record Payment
       </Link>
-    ) },
-=======
-  const paymentColumns = [
-    { key: "id", label: "Payment No", render: (r) => <span className="font-mono font-semibold text-blue-700">VPY-{String(r.id).padStart(5, "0")}</span> },
-    { key: "payment_date", label: "Date", render: (r) => String(r.payment_date || "").slice(0, 10) },
-    { key: "supplier_id", label: "Vendor", render: (r) => vendors.find((v) => v.id === r.supplier_id)?.name || `Supplier #${r.supplier_id}` },
-    { key: "amount", label: "Amount", render: (r) => <span className="font-semibold text-slate-800">{formatInr(r.amount ?? 0)}</span> },
-    { key: "payment_method", label: "Method", render: (r) => (
-      <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 uppercase">
-        {String(r.payment_method || r.method || "BANK")}
-      </span>
-    )},
-    { key: "reference", label: "Reference", render: (r) => r.reference || "—" },
-    { key: "notes", label: "Notes", render: (r) => r.notes || "—" },
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-  ];
+    ) },  ];
 
   if (loading) return <Loader label="Loading accounts payable..." />;
 
@@ -210,18 +194,8 @@ export default function AccountsPayable() {
           <p className="mt-1 text-sm text-slate-500">Vendor payments management and outstanding payables.</p>
         </div>
         <div className="flex gap-2">
-<<<<<<< HEAD
           <Link to="/purchases/payments-made/create" className="inline-flex items-center rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Record Payment</Link>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
-=======
-          <button type="button" onClick={() => setShowCreatePayment(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
-            <Plus className="h-4 w-4" /> Record Payment
-          </button>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </button>
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-        </div>
+          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>        </div>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

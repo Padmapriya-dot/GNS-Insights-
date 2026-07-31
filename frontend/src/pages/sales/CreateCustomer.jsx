@@ -1,133 +1,53 @@
-import { useState } from "react";
-<<<<<<< HEAD
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Building2, MapPin, Phone, Receipt } from "lucide-react";
-=======
-import { useNavigate } from "react-router-dom";
-import { Save, ArrowLeft, UserPlus } from "lucide-react";
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
 
 import PageHeader from "../../components/common/PageHeader";
 import { FormRow, Input, Select } from "../../components/common/FormField";
 import { useToast } from "../../context/ToastContext";
 import { createCustomer } from "../../api/salesApi";
 import useTenantId from "../../hooks/useTenantId";
-<<<<<<< HEAD
 import { INDIAN_STATES } from "../../data/customersMasterData";
-import CITIES_MAP from "../../data/indiaCitiesToStates.json";
-=======
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
 
-const inputClass =
-  "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
-
-const labelClass = "block text-xs font-bold text-slate-500 uppercase tracking-wider";
-
-// ── Validators ────────────────────────────────────────────────────────────────
-const VALIDATORS = {
-  name: (v) => {
-    if (!v.trim()) return "Company / customer name is required.";
-    return "";
-  },
-  contact_name: (v) => {
-    if (!v.trim()) return "";
-    if (!/^[A-Za-z\s.'-]+$/.test(v.trim()))
-      return "Contact person name should contain only letters.";
-    return "";
-  },
-  customer_code: (v) => {
-    if (!v.trim()) return "";
-    if (!/^[A-Za-z0-9_-]+$/.test(v.trim()))
-      return "Customer code must be alphanumeric (letters, digits, - or _).";
-    return "";
-  },
-  city: (v) => {
-    if (!v.trim()) return "";
-    if (!/^[A-Za-z\s.'-]+$/.test(v.trim()))
-      return "City should contain only letters.";
-    return "";
-  },
-  email: (v) => {
-    if (!v.trim()) return "";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()))
-      return "Enter a valid email address.";
-    return "";
-  },
-  phone: (v) => {
-    if (!v.trim()) return "";
-    if (!/^\d{10}$/.test(v.trim()))
-      return "Phone must be exactly 10 digits (numbers only).";
-    return "";
-  },
-  credit_limit: (v) => {
-    if (v === "" || v == null) return "";
-    if (isNaN(Number(v)) || Number(v) < 0)
-      return "Credit limit must be a non-negative number.";
-    return "";
-  },
-  gstin: (v) => {
-    const g = (v || "").trim().toUpperCase();
-    if (!g) return "";
-    if (g.length !== 15) return "GSTIN should be exactly 15 characters.";
-    if (!/^[0-9A-Z]{15}$/.test(g)) return "Enter a valid GSTIN (alphanumeric, uppercase).";
-    return "";
-  },
+const STATE_CODES = {
+  "Andhra Pradesh": "37",
+  Telangana: "36",
+  Karnataka: "29",
+  Maharashtra: "27",
+  "Tamil Nadu": "33",
+  Gujarat: "24",
+  Delhi: "07",
+  "Uttar Pradesh": "09",
+  "West Bengal": "19",
+  Rajasthan: "08",
 };
+
+const STATE_OPTIONS = INDIAN_STATES.map((name) => ({
+  value: name,
+  label: `${name}${STATE_CODES[name] ? ` (${STATE_CODES[name]})` : ""}`,
+}));
 
 export default function CreateCustomer() {
   const tenantId = useTenantId();
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [submitError, setSubmitError] = useState("");
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     name: "",
     contact_name: "",
     customer_code: "",
     address_line1: "",
     address_line2: "",
-    city: "",
     state: "",
     state_code: "",
     gstin: "",
     email: "",
     phone: "",
+    credit_limit: "",
   });
 
-<<<<<<< HEAD
-  const getStateForCity = (city) => {
-    if (!city) return null;
-    const key = String(city).trim().toLowerCase();
-    return CITIES_MAP[key] || null;
-  };
-
-  // Validate a single field and update fieldErrors
-  const validateField = (key, value) => {
-    const fn = VALIDATORS[key];
-    if (!fn) return "";
-    const err = fn(value);
-    setFieldErrors((prev) => ({ ...prev, [key]: err }));
-    return err;
-  };
-
-  const set = (key, value) => {
-    setForm((prev) => {
-      const next = { ...prev, [key]: value };
-      if (key === "city") {
-        const mapped = getStateForCity(value);
-        const prevMapped = getStateForCity(prev.city);
-        if (mapped && (!prev.state || prev.state === "" || prev.state === prevMapped)) {
-          next.state = mapped;
-          next.state_code = STATE_CODES[mapped] || prev.state_code || "";
-        }
-      }
-      return next;
-    });
-    // Live-validate on change (except on first keystroke to avoid annoying errors)
-    if (value) validateField(key, value);
-    else setFieldErrors((prev) => ({ ...prev, [key]: "" }));
-  };
+  const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const onStateChange = (state) => {
     setForm((prev) => ({
@@ -137,46 +57,27 @@ export default function CreateCustomer() {
     }));
   };
 
-  // Only allow digit keystrokes in phone field
-  const onPhoneKeyDown = (e) => {
-    const allowedKeys = ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End"];
-    if (allowedKeys.includes(e.key)) return;
-    if (e.ctrlKey || e.metaKey) return; // allow copy/paste shortcuts
-    if (!/^\d$/.test(e.key)) e.preventDefault();
-  };
-
-  // Full form validation before submit
-  const validateAll = () => {
-    const keys = ["name", "contact_name", "customer_code", "city", "email", "phone", "credit_limit", "gstin"];
-    const errors = {};
-    let hasError = false;
-    keys.forEach((key) => {
-      const err = VALIDATORS[key] ? VALIDATORS[key](form[key]) : "";
-      errors[key] = err;
-      if (err) hasError = true;
-    });
-    setFieldErrors(errors);
-    return !hasError;
-  };
+  const gstinError = useMemo(() => {
+    const g = (form.gstin || "").trim().toUpperCase();
+    if (!g) return "";
+    if (g.length !== 15) return "GSTIN should be 15 characters.";
+    if (!/^[0-9A-Z]{15}$/.test(g)) return "Enter a valid GSTIN.";
+    return "";
+  }, [form.gstin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitError("");
-    if (!validateAll()) {
-      addToast("Please fix the highlighted fields before saving.", "error");
+    setError("");
+    if (!form.name.trim()) {
+      setError("Company / customer name is required.");
       return;
     }
-=======
-  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.name) { setError("Company / Name is required."); return; }
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
+    if (gstinError) {
+      setError(gstinError);
+      return;
+    }
     setSaving(true);
-    setError("");
     try {
-<<<<<<< HEAD
       await createCustomer({
         tenant_id: tenantId,
         name: form.name.trim(),
@@ -184,16 +85,12 @@ export default function CreateCustomer() {
         customer_code: form.customer_code.trim() || null,
         address_line1: form.address_line1.trim() || null,
         address_line2: form.address_line2.trim() || null,
-        city: form.city.trim() || null,
         state: form.state || null,
         state_code: form.state_code.trim() || null,
         gstin: form.gstin.trim().toUpperCase() || null,
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
-        credit_limit:
-          form.credit_limit != null && form.credit_limit !== ""
-            ? Number(form.credit_limit)
-            : undefined,
+        credit_limit: form.credit_limit ? Number(form.credit_limit) : 0,
         status: "active",
       });
       addToast("Customer created successfully", "success");
@@ -201,7 +98,7 @@ export default function CreateCustomer() {
     } catch (err) {
       const detail = err?.response?.data?.detail;
       const msg = typeof detail === "string" ? detail : "Failed to create customer.";
-      setSubmitError(msg);
+      setError(msg);
       addToast(msg, "error");
     } finally {
       setSaving(false);
@@ -223,14 +120,13 @@ export default function CreateCustomer() {
         subtitle="Add a billing customer for quotations, sales orders, and invoices."
       />
 
-      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-        {submitError ? (
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
-            {submitError}
+            {error}
           </div>
         ) : null}
 
-        {/* ── Company ────────────────────────────────── */}
         <section className="ui-card space-y-4 p-5 sm:p-6">
           <SectionTitle icon={Building2} title="Company" hint="Legal / trading name used on documents" />
           <Input
@@ -240,7 +136,6 @@ export default function CreateCustomer() {
             onChange={(e) => set("name", e.target.value)}
             placeholder="e.g. Acme Manufacturing Pvt Ltd"
             autoFocus
-            error={fieldErrors.name}
           />
           <FormRow>
             <Input
@@ -248,21 +143,17 @@ export default function CreateCustomer() {
               value={form.contact_name}
               onChange={(e) => set("contact_name", e.target.value)}
               placeholder="Primary contact name"
-              error={fieldErrors.contact_name}
-              hint="Letters only"
             />
             <Input
               label="Customer code"
               value={form.customer_code}
               onChange={(e) => set("customer_code", e.target.value)}
               placeholder="Optional internal code"
-              hint="Alphanumeric, - or _"
-              error={fieldErrors.customer_code}
+              hint="Leave blank if you assign codes later"
             />
           </FormRow>
         </section>
 
-        {/* ── Billing address ────────────────────────── */}
         <section className="ui-card space-y-4 p-5 sm:p-6">
           <SectionTitle icon={MapPin} title="Billing address" hint="Used on invoices and delivery documents" />
           <Input
@@ -277,15 +168,7 @@ export default function CreateCustomer() {
             onChange={(e) => set("address_line2", e.target.value)}
             placeholder="City / additional line"
           />
-          <Input
-            label="City"
-            value={form.city}
-            onChange={(e) => set("city", e.target.value)}
-            placeholder="e.g. Lucknow"
-            error={fieldErrors.city}
-            hint="Letters only"
-          />
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_7.5rem]">
+          <FormRow className="sm:grid-cols-[1fr_7rem]">
             <Select
               label="State"
               value={form.state}
@@ -301,10 +184,9 @@ export default function CreateCustomer() {
               maxLength={2}
               hint="GST state code"
             />
-          </div>
+          </FormRow>
         </section>
 
-        {/* ── Tax ───────────────────────────────────── */}
         <section className="ui-card space-y-4 p-5 sm:p-6">
           <SectionTitle icon={Receipt} title="Tax" hint="GST identification for India invoices" />
           <Input
@@ -313,13 +195,11 @@ export default function CreateCustomer() {
             onChange={(e) => set("gstin", e.target.value.toUpperCase())}
             placeholder="22AAAAA0000A1Z5"
             maxLength={15}
-            error={fieldErrors.gstin}
+            error={gstinError || undefined}
             className="font-mono tracking-wide uppercase sm:max-w-sm"
-            hint="15-character alphanumeric GST number"
           />
         </section>
 
-        {/* ── Contact & Credit ──────────────────────── */}
         <section className="ui-card space-y-4 p-5 sm:p-6">
           <SectionTitle icon={Phone} title="Contact & credit" hint="How your team reaches this customer" />
           <FormRow>
@@ -329,23 +209,13 @@ export default function CreateCustomer() {
               value={form.email}
               onChange={(e) => set("email", e.target.value)}
               placeholder="accounts@company.com"
-              error={fieldErrors.email}
             />
             <Input
               label="Phone"
               type="tel"
-              inputMode="numeric"
-              maxLength={10}
               value={form.phone}
-              onChange={(e) => {
-                // Strip non-digits on paste/autofill too
-                const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
-                set("phone", digits);
-              }}
-              onKeyDown={onPhoneKeyDown}
-              placeholder="10-digit mobile number"
-              error={fieldErrors.phone}
-              hint="Numbers only, 10 digits"
+              onChange={(e) => set("phone", e.target.value)}
+              placeholder="10-digit mobile / landline"
             />
           </FormRow>
           <Input
@@ -357,7 +227,6 @@ export default function CreateCustomer() {
             onChange={(e) => set("credit_limit", e.target.value)}
             placeholder="0"
             className="sm:max-w-xs"
-            error={fieldErrors.credit_limit}
           />
         </section>
 
@@ -373,133 +242,21 @@ export default function CreateCustomer() {
           >
             Cancel
           </button>
-=======
-      await createCustomer(form).catch(() => null);
-    } catch { /* fall through */ }
+        </div>
+      </form>
+    </div>
+  );
+}
 
-    const newCustomer = {
-      id: `cus-${Date.now()}`,
-      customer_code: `CUS${Date.now().toString().slice(-4)}`,
-      company: form.name,
-      name: form.name,
-      contact_person: form.contact_name,
-      phone: form.phone,
-      email: form.email,
-      gstin: form.gstin,
-      state: form.state,
-      billing_address: form.address_line1,
-      status: "active",
-      created_at: new Date().toISOString().slice(0, 10),
-    };
-    const stored = localStorage.getItem("smrt_customers");
-    const existing = stored ? JSON.parse(stored) : [];
-    localStorage.setItem("smrt_customers", JSON.stringify([newCustomer, ...existing]));
-
-    addToast?.("Customer created successfully!", "success");
-    setSaving(false);
-    navigate("/sales/customers");
-  };
-
+function SectionTitle({ icon: Icon, title, hint }) {
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex items-center gap-4">
-        <button
-          type="button"
-          onClick={() => navigate("/sales/customers")}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">New Customer</h1>
-          <p className="mt-0.5 text-sm text-slate-500">Register a new customer into the system.</p>
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-3 border-b border-slate-100 pb-4 mb-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
-            <UserPlus className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-slate-900">Customer Details</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Fill in the customer information below.</p>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-700">
-              {error}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Company / Name *</label>
-              <input type="text" required placeholder="e.g. Acme Industries" value={form.name} onChange={set("name")} className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Contact Person</label>
-              <input type="text" placeholder="e.g. Rajesh Mehta" value={form.contact_name} onChange={set("contact_name")} className={inputClass} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Email Address</label>
-              <input type="email" placeholder="e.g. rajesh@acme.com" value={form.email} onChange={set("email")} className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Phone</label>
-              <input type="text" placeholder="e.g. +91 98765 43210" value={form.phone} onChange={set("phone")} className={inputClass} />
-            </div>
-          </div>
-
-          <div>
-            <label className={labelClass}>Address Line 1</label>
-            <input type="text" placeholder="Street / Building" value={form.address_line1} onChange={set("address_line1")} className={inputClass} />
-          </div>
-
-          <div>
-            <label className={labelClass}>Address Line 2</label>
-            <input type="text" placeholder="Area / Landmark" value={form.address_line2} onChange={set("address_line2")} className={inputClass} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>State</label>
-              <input type="text" placeholder="e.g. Tamil Nadu" value={form.state} onChange={set("state")} className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>State Code</label>
-              <input type="text" placeholder="e.g. 33" value={form.state_code} onChange={set("state_code")} className={inputClass} />
-            </div>
-          </div>
-
-          <div>
-            <label className={labelClass}>GSTIN</label>
-            <input type="text" placeholder="e.g. 33AABCU9603R1ZX" value={form.gstin} onChange={set("gstin")} className={inputClass} />
-          </div>
-
-          <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-            <button
-              type="button"
-              onClick={() => navigate("/sales/customers")}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all disabled:opacity-50"
-            >
-              <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save Customer"}
-            </button>
-          </div>
-        </form>
+    <div className="flex items-start gap-3 border-b border-slate-100 pb-3 dark:border-slate-700">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div>
+        <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h2>
+        {hint ? <p className="text-xs text-slate-500">{hint}</p> : null}
       </div>
     </div>
   );

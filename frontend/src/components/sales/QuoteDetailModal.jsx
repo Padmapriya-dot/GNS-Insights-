@@ -3,122 +3,32 @@ import { useNavigate } from "react-router-dom";
 import { Download, Mail, Printer, X } from "lucide-react";
 
 import { convertQuotationToSalesOrder } from "../../api/salesApi";
-import { getProducts } from "../../api/productionApi";
 import { formatInr, statusColor } from "../../data/salesMasterData";
 import { useToast } from "../../context/ToastContext";
-<<<<<<< HEAD
-import { exportToPdf } from "../../utils/exportUtils";
-=======
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
 
-export default function QuoteDetailModal({ quote, onClose, onStatusChange, onConverted }) {
+export default function QuoteDetailModal({ quote, onClose, onConverted, onStatusChange }) {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [converting, setConverting] = useState(false);
   const [error, setError] = useState("");
-  const [productId, setProductId] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [products, setProducts] = useState([]);
-  const [productsLoaded, setProductsLoaded] = useState(false);
 
   if (!quote) return null;
 
-  const amount = quote.amount ?? quote.total_amount;
-
-  const handlePreview = () => {
-    addToast(
-      `${quote.quote_number}: ${quote.customer_name || "Customer"} — ${formatInr(amount)} (${quote.status})`,
-      "info"
-    );
-    window.print();
-  };
-
-  const handlePdf = () => {
-    try {
-      exportToPdf(
-        [
-          {
-            quote_number: quote.quote_number,
-            customer_name: quote.customer_name,
-            quote_date: quote.quote_date,
-            valid_until: quote.valid_until,
-            amount,
-            status: quote.status,
-            sales_person: quote.sales_person,
-          },
-        ],
-        [
-          { key: "quote_number", label: "Quote No" },
-          { key: "customer_name", label: "Customer" },
-          { key: "quote_date", label: "Date" },
-          { key: "valid_until", label: "Valid Until" },
-          { key: "amount", label: "Amount" },
-          { key: "status", label: "Status" },
-          { key: "sales_person", label: "Sales Person" },
-        ],
-        `Quotation ${quote.quote_number}`,
-        `quote-${quote.quote_number || "export"}`
-      );
-      addToast("Quote PDF downloaded");
-    } catch {
-      addToast(
-        `PDF unavailable — ${quote.quote_number}: ${quote.customer_name || "Customer"} ${formatInr(amount)}`,
-        "info"
-      );
-    }
-  };
-
-  const handleEmail = () => {
-    const subject = encodeURIComponent(`Quotation ${quote.quote_number || ""}`);
-    const body = encodeURIComponent(
-      `Dear ${quote.customer_name || "Customer"},\n\nPlease find quotation ${quote.quote_number} for ${formatInr(amount)}.\nValid until: ${quote.valid_until || "—"}.\n\nRegards`
-    );
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-  };
-
-  const loadProducts = async () => {
-    if (productsLoaded) return;
-    try {
-      const res = await getProducts();
-      setProducts(res.data || []);
-    } catch {
-      setProducts([]);
-    } finally {
-      setProductsLoaded(true);
-    }
-  };
-
   const handleConvert = async () => {
-    if (quote.status !== "accepted") {
-      setError("Only accepted quotations can be converted to a Sales Order. Please change the status to 'Accepted' first.");
-      return;
-    }
-
     setConverting(true);
     setError("");
-
     try {
-      if (typeof quote.id === "number") {
-        const payload = {};
-        if (productId) {
-          const product = products.find((p) => String(p.id) === String(productId));
-          payload.product_id = Number(productId);
-          payload.quantity = Number(quantity) || 1;
-          payload.item_description = product?.name;
-          payload.unit_price = product?.unit_price != null ? Number(product.unit_price) : 0;
-        }
-        const res = await convertQuotationToSalesOrder(quote.id, payload);
-        const so = res.data;
-        onConverted?.(so);
+      if (quote.id) {
+        const res = await convertQuotationToSalesOrder(quote.id);
+        if (addToast) addToast(`Quotation ${quote.quote_number} converted to Sales Order!`, "success");
+        onConverted?.(res.data);
         onClose?.();
-        if (so?.id) navigate(`/sales/orders/${so.id}`);
-        else navigate("/sales/orders");
+        navigate("/sales/orders");
       } else {
-        onStatusChange?.(quote, "accepted");
         const newSo = {
-          order_number: `SO-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-          customer_name: quote.customer_name,
-          order_date: new Date().toISOString().slice(0, 10),
+          id: Date.now(),
+          so_number: `SO-${String(Date.now()).slice(-6)}`,
+          customer_name: quote.customer_name || "Customer",
           total_amount: quote.amount || quote.total_amount || 0,
           status: "pending",
           line_items: (quote.items || []).map((it) => ({
@@ -139,7 +49,7 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
         navigate("/sales/orders");
       }
     } catch (err) {
-      const msg = err.response?.data?.detail || "Convert failed";
+      const msg = err?.response?.data?.detail || "Convert failed";
       setError(typeof msg === "string" ? msg : "Convert failed");
     } finally {
       setConverting(false);
@@ -208,16 +118,6 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
           </div>
         </div>
 
-<<<<<<< HEAD
-        <div className="flex flex-wrap gap-2 border-t px-5 py-4">
-          <button type="button" onClick={handlePreview} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700">
-            <Printer className="h-4 w-4" /> Preview
-          </button>
-          <button type="button" onClick={handlePdf} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700">
-            <Download className="h-4 w-4" /> PDF
-          </button>
-          <button type="button" onClick={handleEmail} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700">
-=======
         <div className="flex flex-wrap gap-2 border-t px-5 py-4 print:hidden">
           <button type="button" onClick={handlePrint} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <Printer className="h-4 w-4" /> Preview
@@ -226,7 +126,6 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
             <Download className="h-4 w-4" /> PDF
           </button>
           <button type="button" onClick={handleSendEmail} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
             <Mail className="h-4 w-4" /> Email
           </button>
 

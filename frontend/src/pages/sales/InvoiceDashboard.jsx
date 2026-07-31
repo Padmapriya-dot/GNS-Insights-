@@ -189,18 +189,9 @@ export default function InvoiceDashboard() {
       ),
     },
     { key: "customer_name", label: "Customer" },
-<<<<<<< HEAD
     { key: "sales_order_number", label: "Sales Order" },
     { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
-    { key: "gst_amount", label: "Goods & Services Tax (GST)", render: (r) => formatInr(r.gst_amount) },
-=======
-    {
-      key: "issue_date",
-      label: "Issue Date",
-      render: (r) => String(r.issue_date || "").slice(0, 10) || "—",
-    },
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-    {
+    { key: "gst_amount", label: "Goods & Services Tax (GST)", render: (r) => formatInr(r.gst_amount) },    {
       key: "due_date",
       label: "Due Date",
       render: (r) => String(r.due_date || "").slice(0, 10) || "—",

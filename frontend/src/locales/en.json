@@ -54,16 +54,8 @@
     "accountsReceivable": "Accounts Receivable",
     "paymentTracking": "Payment Tracking",
     "generalLedger": "General Ledger",
-<<<<<<< HEAD
     "gstReports": "Goods & Services Tax (GST) Reports",
-    "profitLoss": "Profit & Loss (P&L)",
-=======
-    "vendors": "Vendors",
-    "suppliers": "Suppliers",
-    "gstReports": "GST Reports",
-    "profitLoss": "P&L",
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-    "balanceSheet": "Balance Sheet",
+    "profitLoss": "Profit & Loss (P&L)",    "balanceSheet": "Balance Sheet",
     "trialBalance": "Trial Balance",
     "journalEntries": "Journal Entries",
     "chartOfAccounts": "Chart of Accounts",

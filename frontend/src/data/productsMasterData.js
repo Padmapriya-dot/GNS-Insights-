@@ -157,7 +157,6 @@ export function computeQuickStats(products) {
   };
 }
 
-<<<<<<< HEAD
 export const categoryChartData = [
   { name: "Raw Material", value: 35, color: "#3B82F6" },
   { name: "Finished Goods", value: 28, color: "#22C55E" },
@@ -165,10 +164,6 @@ export const categoryChartData = [
   { name: "Consumables", value: 15, color: "#A855F7" },
   { name: "Spare Parts", value: 10, color: "#64748B" },
 ];
-=======
-export const categoryChartData = [];
->>>>>>> 7872881b74fcfb6e581ae019a9831f239bd44c90
-
 export const IMPORT_TEMPLATE_HEADERS = [
   "product_code",
   "name",
