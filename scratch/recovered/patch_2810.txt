@@ -1,0 +1,865 @@
+*** Begin Patch
+*** Update File: c:\Users\satee\OneDrive\Desktop\GNS Insights\frontend\src\pages\procurement\VendorManagement.jsx
+@@
+-import { useCallback, useEffect, useMemo, useState } from "react";
+-import { Link, useNavigate } from "react-router-dom";
+-import {
+-  AlertCircle,
+-  Building2,
+-  Download,
+-  Eye,
+-  Filter,
+-  Pencil,
+-  Plus,
+-  RefreshCw,
+-  Star,
+-  UserCheck,
+-  UserX,
+-} from "lucide-react";
+-
+-import DataTable from "../../components/common/DataTable";
+-import Loader from "../../components/common/Loader";
+-import StoreManagerNav from "../../components/inventory/StoreManagerNav";
+-import { useToast } from "../../context/ToastContext";
+-import usePermissions from "../../hooks/usePermissions";
+-import { isStoreManager } from "../../config/permissions";
+-import {
+-  bulkVendorStatus,
+-  getVendorSummary,
+-  getVendors,
+-} from "../../api/procurementApi";
+-import {
+-  VENDOR_STATUSES,
+-  VENDOR_TYPES,
+-  computeVendorSummary,
+-  enrichApiVendor,
+-  starRating,
+-} from "../../data/vendorsMasterData";
+-import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
+-
+-function SummaryCard({ label, value, icon: Icon, color, hint }) {
+-  return (
+-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+-      <div className="flex items-center justify-between gap-3">
+-        <div className="min-w-0">
+-          <p className="text-xs font-medium text-slate-500">{label}</p>
+-          <p className="mt-1 truncate text-2xl font-bold tabular-nums text-slate-900">
+-            {value ?? "—"}
+-          </p>
+-          {hint ? <p className="mt-0.5 text-xs text-slate-400">{hint}</p> : null}
+-        </div>
+-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${color}`}>
+-          <Icon className="h-5 w-5 text-white" />
+-        </div>
+-      </div>
+-    </div>
+-  );
+-}
+-
+-function StatusPill({ status }) {
+-  const s = (status || "active").toLowerCase();
+-  const cls =
+-    s === "active"
+-      ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+-      : s === "blacklisted"
+-        ? "bg-red-50 text-red-700 ring-1 ring-red-200"
+-        : "bg-slate-50 text-slate-600 ring-1 ring-slate-200";
+-  return (
+-    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${cls}`}>
+-      {s}
+-    </span>
+-  );
+-}
+-
+-const defaultFilters = {
+-  search: "",
+-  vendor_type: "",
+-  status: "",
+-  state: "",
+-  city: "",
+-  preferred: "",
+-  rating: "",
+-  date_from: "",
+-  date_to: "",
+-};
+-
+-const secondaryBtn =
+-  "inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50";
+-
+-export default function VendorManagement() {
+-  const navigate = useNavigate();
+-  const { addToast } = useToast();
+-  const { user, isAdmin } = usePermissions();
+-  const storeMode = isStoreManager(user);
+-  const roles = Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean);
+-  const canWrite =
+-    isAdmin ||
+-    roles.some((r) =>
+-      ["Purchase Manager", "Procurement Manager", "Store Manager", "Admin"].includes(r)
+-    );
+-  const viewOnly = !canWrite;
+-
+-  const [loading, setLoading] = useState(true);
+-  const [error, setError] = useState("");
+-  const [vendors, setVendors] = useState([]);
+-  const [apiSummary, setApiSummary] = useState(null);
+-  const [filters, setFilters] = useState(defaultFilters);
+-  const [searchInput, setSearchInput] = useState("");
+-  const [showAdvanced, setShowAdvanced] = useState(false);
+-  const [selectedIds, setSelectedIds] = useState([]);
+-
+-  // Debounce search so typing doesn't reload on every keystroke
+-  useEffect(() => {
+-    const t = setTimeout(() => {
+-      setFilters((f) => (f.search === searchInput ? f : { ...f, search: searchInput }));
+-    }, 350);
+-    return () => clearTimeout(t);
+-  }, [searchInput]);
+-
+-  const loadVendors = useCallback(async () => {
+-    setLoading(true);
+-    setError("");
+-    try {
+-      const params = {};
+-      if (filters.search.trim()) params.search = filters.search.trim();
+-      if (filters.vendor_type) params.vendor_type = filters.vendor_type;
+-      if (filters.status) params.status = filters.status;
+-      if (filters.state) params.state = filters.state;
+-      if (filters.city) params.city = filters.city;
+-      if (filters.preferred === "yes") params.preferred = true;
+-      if (filters.preferred === "no") params.preferred = false;
+-      if (filters.rating) params.min_rating = Number(filters.rating);
+-      if (filters.date_from) params.date_from = filters.date_from;
+-      if (filters.date_to) params.date_to = filters.date_to;
+-
+-      const [vRes, sRes] = await Promise.all([
+-        getVendors(params),
+-        getVendorSummary(),
+-      ]);
+-      const apiRows = vRes.data || [];
+-      setVendors(apiRows.map((row, i) => enrichApiVendor(row, i)));
+-      setApiSummary(sRes.data);
+-      setSelectedIds([]);
+-    } catch (err) {
+-      const detail = err.response?.data?.detail;
+-      setError(typeof detail === "string" ? detail : "Failed to load vendors.");
+-      setVendors([]);
+-    } finally {
+-      setLoading(false);
+-    }
+-  }, [filters]);
+-
+-  useEffect(() => {
+-    loadVendors();
+-  }, [loadVendors]);
+-
+-  const summary = useMemo(() => {
+-    if (apiSummary) {
+-      return {
+-        total: apiSummary.total_vendors,
+-        active: apiSummary.active_vendors,
+-        preferred: apiSummary.preferred_vendors,
+-        blacklisted: apiSummary.blacklisted_vendors,
+-        newThisMonth: apiSummary.new_this_month,
+-        avgRating: apiSummary.average_rating,
+-      };
+-    }
+-    const local = computeVendorSummary(vendors);
+-    return {
+-      total: local.total_vendors,
+-      active: local.active_vendors,
+-      preferred: local.preferred_vendors,
+-      blacklisted: local.blacklisted_vendors,
+-      newThisMonth: 0,
+-      avgRating: local.average_rating,
+-    };
+-  }, [apiSummary, vendors]);
+-
+-  const hasActiveFilters = useMemo(
+-    () =>
+-      Boolean(
+-        searchInput.trim() ||
+-          filters.vendor_type ||
+-          filters.status ||
+-          filters.state ||
+-          filters.city ||
+-          filters.preferred ||
+-          filters.rating ||
+-          filters.date_from ||
+-          filters.date_to
+-      ),
+-    [searchInput, filters]
+-  );
+-
+-  const clearFilters = () => {
+-    setSearchInput("");
+-    setFilters(defaultFilters);
+-  };
+-
+-  const exportColumns = [
+-    { key: "vendor_code", label: "Vendor Code" },
+-    { key: "name", label: "Company Name" },
+-    { key: "vendor_type", label: "Vendor Type" },
+-    { key: "city", label: "City" },
+-    { key: "contact", label: "Contact Person" },
+-    { key: "phone", label: "Mobile" },
+-    { key: "credit_days", label: "Credit Days" },
+-    { key: "preferred_vendor", label: "Preferred" },
+-    { key: "rating", label: "Rating" },
+-    { key: "status", label: "Status" },
+-  ];
+-
+-  const handleExportExcel = () => {
+-    exportToExcel(
+-      vendors.map((v) => ({ ...v, preferred_vendor: v.preferred_vendor ? "Yes" : "No" })),
+-      exportColumns,
+-      "vendors"
+-    );
+-    addToast("Exported to Excel");
+-  };
+-
+-  const handleExportPdf = () => {
+-    exportToPdf(
+-      vendors.map((v) => ({ ...v, preferred_vendor: v.preferred_vendor ? "Yes" : "No" })),
+-      exportColumns,
+-      "Vendor Master",
+-      "vendors"
+-    );
+-    addToast("Exported to PDF");
+-  };
+-
+-  const toggleSelect = (id) => {
+-    setSelectedIds((prev) =>
+-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+-    );
+-  };
+-
+-  const toggleSelectAll = () => {
+-    if (selectedIds.length === vendors.length) setSelectedIds([]);
+-    else setSelectedIds(vendors.map((v) => v.id).filter((id) => typeof id === "number"));
+-  };
+-
+-  const handleBulk = async (status) => {
+-    if (!canWrite || selectedIds.length === 0) return;
+-    try {
+-      const { data } = await bulkVendorStatus({ vendor_ids: selectedIds, status });
+-      addToast(`Updated ${data.updated} vendor(s) to ${status}`);
+-      loadVendors();
+-    } catch (err) {
+-      addToast(err.response?.data?.detail || "Bulk update failed", "error");
+-    }
+-  };
+-
+-  const columns = [
+-    {
+-      key: "_select",
+-      label: (
+-        <input
+-          type="checkbox"
+-          className="rounded border-slate-300"
+-          checked={vendors.length > 0 && selectedIds.length === vendors.length}
+-          onChange={toggleSelectAll}
+-          disabled={viewOnly || vendors.length === 0}
+-        />
+-      ),
+-      sortable: false,
+-      render: (r) =>
+-        typeof r.id === "number" ? (
+-          <input
+-            type="checkbox"
+-            className="rounded border-slate-300"
+-            checked={selectedIds.includes(r.id)}
+-            onChange={() => toggleSelect(r.id)}
+-            disabled={viewOnly}
+-          />
+-        ) : null,
+-    },
+-    {
+-      key: "vendor_code",
+-      label: "Code",
+-      render: (r) => (
+-        <span className="font-mono text-xs font-semibold text-slate-600">{r.vendor_code}</span>
+-      ),
+-    },
+-    {
+-      key: "name",
+-      label: "Company",
+-      render: (r) => (
+-        <div className="min-w-0">
+-          <div className="flex items-center gap-1.5">
+-            <button
+-              type="button"
+-              onClick={() => navigate(`/procurement/vendors/${r.id}`)}
+-              className="truncate text-left text-sm font-semibold text-slate-900 hover:text-[var(--color-primary)]"
+-            >
+-              {r.name}
+-            </button>
+-            {r.preferred_vendor ? (
+-              <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" title="Preferred" />
+-            ) : null}
+-          </div>
+-          <p className="truncate text-xs text-slate-500">{r.vendor_type || "—"}</p>
+-        </div>
+-      ),
+-    },
+-    {
+-      key: "city",
+-      label: "Location",
+-      render: (r) => (
+-        <span className="text-sm text-slate-700">
+-          {[r.city, r.state].filter(Boolean).join(", ") || "—"}
+-        </span>
+-      ),
+-    },
+-    {
+-      key: "contact",
+-      label: "Contact",
+-      render: (r) => (
+-        <div className="min-w-0">
+-          <p className="truncate text-sm text-slate-800">{r.contact || "—"}</p>
+-          <p className="truncate text-xs text-slate-500">{r.phone || "—"}</p>
+-        </div>
+-      ),
+-    },
+-    {
+-      key: "rating",
+-      label: "Rating",
+-      render: (r) =>
+-        r.rating != null ? (
+-          <span className="text-xs text-amber-500" title={`${r.rating}/5`}>
+-            {starRating(r.rating)}
+-          </span>
+-        ) : (
+-          <span className="text-slate-400">—</span>
+-        ),
+-    },
+-    {
+-      key: "status",
+-      label: "Status",
+-      render: (r) => <StatusPill status={r.status} />,
+-    },
+-    {
+-      key: "actions",
+-      label: "Actions",
+-      sortable: false,
+-      render: (r) => (
+-        <div className="flex items-center gap-1">
+-          <button
+-            type="button"
+-            onClick={() => navigate(`/procurement/vendors/${r.id}`)}
+-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-[var(--color-primary)] hover:bg-sky-50"
+-            title="View"
+-          >
+-            <Eye className="h-3.5 w-3.5" /> View
+-          </button>
+-          {!viewOnly && (
+-            <button
+-              type="button"
+-              onClick={() => navigate(`/procurement/vendors/${r.id}/edit`)}
+-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+-              title="Edit"
+-            >
+-              <Pencil className="h-3.5 w-3.5" /> Edit
+-            </button>
+-          )}
+-        </div>
+-      ),
+-    },
+-  ];
+-
+-  const emptyState = (
+-    <div className="py-14 text-center">
+-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+-        <Building2 className="h-7 w-7 text-slate-400" />
+-      </div>
+-      <p className="mt-4 text-sm font-semibold text-slate-700">
+-        {hasActiveFilters ? "No vendors match your filters" : "No vendors yet"}
+-      </p>
+-      <p className="mt-1 text-sm text-slate-500">
+-        {hasActiveFilters
+-          ? "Try clearing filters or adjusting your search."
+-          : "Add your first vendor to start procurement."}
+-      </p>
+-      {!viewOnly && !hasActiveFilters && (
+-        <Link to="/procurement/vendors/create" className="ui-btn-primary mt-5">
+-          <Plus className="h-4 w-4" /> Add Vendor
+-        </Link>
+-      )}
+-      {hasActiveFilters && (
+-        <button type="button" onClick={clearFilters} className="mt-4 text-sm font-semibold text-[var(--color-primary)] hover:underline">
+-          Clear filters
+-        </button>
+-      )}
+-    </div>
+-  );
+-
+-  if (loading && vendors.length === 0) {
+-    return (
+-      <div className="space-y-6 pb-8">
+-        {storeMode ? <StoreManagerNav /> : null}
+-        <Loader label="Loading vendors..." />
+-      </div>
+-    );
+-  }
+-
+-  return (
+-    <div className="space-y-6 pb-8">
+-      {storeMode ? <StoreManagerNav /> : null}
+-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+-        <div>
+-          <h1 className="text-2xl font-bold text-slate-900">Vendors</h1>
+-          <p className="mt-1 max-w-2xl text-sm text-slate-500">
+-            Manage supplier companies, contacts, and procurement terms.
+-          </p>
+-        </div>
+-        <div className="flex flex-wrap gap-2">
+-          {!viewOnly && (
+-            <Link to="/procurement/vendors/create" className="ui-btn-primary">
+-              <Plus className="h-4 w-4" /> Add Vendor
+-            </Link>
+-          )}
+-          <button type="button" onClick={handleExportExcel} className={secondaryBtn}>
+-            <Download className="h-4 w-4" /> Export Excel
+-          </button>
+-          <button type="button" onClick={handleExportPdf} className={secondaryBtn}>
+-            <Download className="h-4 w-4" /> Export PDF
+-          </button>
+-          <button type="button" onClick={loadVendors} className={secondaryBtn}>
+-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+-          </button>
+-        </div>
+-      </header>
+-
+-      {error && (
+-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+-          <span className="inline-flex items-center gap-2">
+-            <AlertCircle className="h-4 w-4" /> {error}
+-          </span>
+-          <button type="button" onClick={loadVendors} className="font-semibold underline">
+-            Retry
+-          </button>
+-        </div>
+-      )}
+-
+-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+-        <SummaryCard label="Total Vendors" value={summary.total} icon={Building2} color="bg-[var(--color-primary)]" />
+-        <SummaryCard
+-          label="Active"
+-          value={summary.active}
+-          icon={UserCheck}
+-          color="bg-emerald-600"
+-          hint={summary.newThisMonth ? `+${summary.newThisMonth} this month` : undefined}
+-        />
+-        <SummaryCard
+-          label="Preferred"
+-          value={summary.preferred}
+-          icon={Star}
+-          color="bg-amber-500"
+-          hint={summary.avgRating != null ? `Avg rating ${summary.avgRating}` : undefined}
+-        />
+-        <SummaryCard label="Blacklisted" value={summary.blacklisted} icon={UserX} color="bg-red-500" />
+-      </div>
+-
+-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+-        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+-          <div className="flex flex-1 flex-wrap items-center gap-2">
+-            <input
+-              className="min-w-[200px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+-              placeholder="Search company, code, mobile, GST…"
+-              value={searchInput}
+-              onChange={(e) => setSearchInput(e.target.value)}
+-            />
+-            <select
+-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+-              value={filters.vendor_type}
+-              onChange={(e) => setFilters((f) => ({ ...f, vendor_type: e.target.value }))}
+-            >
+-              <option value="">All types</option>
+-              {VENDOR_TYPES.map((t) => (
+-                <option key={t} value={t}>{t}</option>
+-              ))}
+-            </select>
+-            <select
+-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+-              value={filters.status}
+-              onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+-            >
+-              <option value="">All statuses</option>
+-              {VENDOR_STATUSES.map((s) => (
+-                <option key={s} value={s} className="capitalize">{s}</option>
+-              ))}
+-            </select>
+-            <button
+-              type="button"
+-              onClick={() => setShowAdvanced((v) => !v)}
+-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold ${
+-                showAdvanced
+-                  ? "border-[var(--color-primary)] bg-sky-50 text-[var(--color-primary)]"
+-                  : "border-slate-200 text-slate-700 hover:bg-slate-50"
+-              }`}
+-            >
+-              <Filter className="h-4 w-4" />
+-              {showAdvanced ? "Hide filters" : "More filters"}
+-            </button>
+-            {hasActiveFilters && (
+-              <button
+-                type="button"
+-                onClick={clearFilters}
+-                className="text-sm font-semibold text-[var(--color-primary)] hover:underline"
+-              >
+-                Clear
+-              </button>
+-            )}
+-          </div>
+-          {!viewOnly && selectedIds.length > 0 && (
+-            <div className="flex flex-wrap gap-2">
+-              <button
+-                type="button"
+-                onClick={() => handleBulk("active")}
+-                className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+-              >
+-                Activate ({selectedIds.length})
+-              </button>
+-              <button
+-                type="button"
+-                onClick={() => handleBulk("inactive")}
+-                className="rounded-lg bg-slate-600 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700"
+-              >
+-                Deactivate ({selectedIds.length})
+-              </button>
+-            </div>
+-          )}
+-        </div>
+-
+-        {showAdvanced && (
+-          <div className="mb-4 grid gap-3 rounded-xl border border-slate-100 bg-slate-50/80 p-3 sm:grid-cols-2 lg:grid-cols-4">
+-            <input
+-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+-              placeholder="State"
+-              value={filters.state}
+-              onChange={(e) => setFilters((f) => ({ ...f, state: e.target.value }))}
+-            />
+-            <input
+-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+-              placeholder="City"
+-              value={filters.city}
+-              onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))}
+-            />
+-            <select
+-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+-              value={filters.preferred}
+-              onChange={(e) => setFilters((f) => ({ ...f, preferred: e.target.value }))}
+-            >
+-              <option value="">Preferred: Any</option>
+-              <option value="yes">Preferred only</option>
+-              <option value="no">Not preferred</option>
+-            </select>
+-            <select
+-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+-              value={filters.rating}
+-              onChange={(e) => setFilters((f) => ({ ...f, rating: e.target.value }))}
+-            >
+-              <option value="">Min rating</option>
+-              {[5, 4, 3, 2, 1].map((n) => (
+-                <option key={n} value={n}>{n}+</option>
+-              ))}
+-            </select>
+-            <input
+-              type="date"
+-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+-              value={filters.date_from}
+-              onChange={(e) => setFilters((f) => ({ ...f, date_from: e.target.value }))}
+-            />
+-            <input
+-              type="date"
+-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+-              value={filters.date_to}
+-              onChange={(e) => setFilters((f) => ({ ...f, date_to: e.target.value }))}
+-            />
+-          </div>
+-        )}
+-
+-        <DataTable
+-          columns={columns}
+-          data={vendors}
+-          searchPlaceholder=""
+-          searchKeys={[]}
+-          emptyState={emptyState}
+-          showSearch={false}
+-          pageSize={10}
+-        />
+-      </div>
+-    </div>
+-  );
+-}
++import { useCallback, useEffect, useMemo, useState } from "react";
++import { Link } from "react-router-dom";
++import {
++  Building2,
++  ChevronDown,
++  ChevronLeft,
++  ChevronRight,
++  FileSpreadsheet,
++  Pencil,
++  Plus,
++  RefreshCw,
++  Search,
++  Trash2,
++  Upload,
++} from "lucide-react";
++
++import Loader from "../../components/common/Loader";
++import { useToast } from "../../context/ToastContext";
++import { getVendors } from "../../api/procurementApi";
++import { enrichApiVendor } from "../../data/vendorsMasterData";
++import { exportToExcel } from "../../utils/exportUtils";
++import useSettings from "../../context/SettingsContext";
++
++const PAGE_BG = "#F5F5F5";
++const PAGE_SIZES = [20, 50, 100];
++
++export default function VendorManagement() {
++  const { addToast } = useToast();
++  const { companyName } = useSettings();
++  const company = companyName?.trim() || "My Company";
++
++  const [loading, setLoading] = useState(true);
++  const [vendors, setVendors] = useState([]);
++  const [query, setQuery] = useState("");
++  const [page, setPage] = useState(1);
++  const [pageSize, setPageSize] = useState(20);
++
++  const loadVendors = useCallback(async () => {
++    setLoading(true);
++    try {
++      const res = await getVendors();
++      const rows = Array.isArray(res.data) ? res.data : [];
++      setVendors(rows.map((row, i) => enrichApiVendor(row, i)));
++    } catch {
++      setVendors([]);
++    } finally {
++      setLoading(false);
++    }
++  }, []);
++
++  useEffect(() => {
++    loadVendors();
++  }, [loadVendors]);
++
++  const filtered = useMemo(() => {
++    const q = query.trim().toLowerCase();
++    if (!q) return vendors;
++    return vendors.filter((v) =>
++      [
++        v.name,
++        v.email,
++        v.gstin,
++        v.phone,
++        v.address_line1,
++        v.city,
++        v.state,
++        v.pincode,
++      ]
++        .filter(Boolean)
++        .join(" ")
++        .toLowerCase()
++        .includes(q)
++    );
++  }, [vendors, query]);
++
++  useEffect(() => {
++    setPage(1);
++  }, [query, pageSize]);
++
++  const total = filtered.length;
++  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
++  const rows = filtered.slice((page - 1) * pageSize, page * pageSize);
++  const from = total === 0 ? 1 : (page - 1) * pageSize + 1;
++  const to = Math.min(page * pageSize, total);
++
++  const exportColumns = [
++    { key: "name", label: "Vendor Name" },
++    { key: "email", label: "Email" },
++    { key: "gstin", label: "GSTIN" },
++    { key: "phone", label: "Mobile No." },
++    { key: "address_line1", label: "Address" },
++    { key: "city", label: "City" },
++    { key: "state", label: "State" },
++    { key: "pincode", label: "Pincode" },
++  ];
++
++  const onExport = () => {
++    exportToExcel(rows, exportColumns, "vendors");
++    addToast("Exported to Excel", "success");
++  };
++
++  if (loading) return <Loader label="Loading vendors..." />;
++
++  return (
++    <div className="min-h-full" style={{ background: PAGE_BG }}>
++      <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8">
++        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
++          <div className="flex items-center gap-2">
++            <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Vendors</h1>
++            <span className="rounded bg-[#d4d4d8] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
++              v2
++            </span>
++          </div>
++          <button
++            type="button"
++            className="inline-flex items-center gap-2 rounded-full border border-[#d0d0d8] bg-white px-4 py-2 text-[14px] font-semibold text-[#1a1a1f]"
++          >
++            <span className="grid h-8 w-8 place-items-center rounded-full bg-[#F5C518]">
++              <Building2 className="h-4 w-4" />
++            </span>
++            {company}
++            <ChevronDown className="h-4 w-4 text-[#9a9aa5]" />
++          </button>
++        </div>
++
++        <div className="rounded-xl border border-[#d0d0d8] bg-white p-4 shadow-sm">
++          <div className="mb-3 flex flex-wrap items-center gap-2">
++            <div className="relative min-w-[220px] flex-1">
++              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
++              <input
++                value={query}
++                onChange={(e) => setQuery(e.target.value)}
++                placeholder="Search"
++                className="w-full rounded-full border border-[#e4e4ea] bg-[#f3f3f6] py-2 pl-9 pr-3 text-[13px] outline-none"
++              />
++            </div>
++            <Link
++              to="/procurement/vendors/create"
++              className="inline-flex items-center gap-1 rounded-lg border border-[#d0d0d8] bg-[#f3f3f6] px-3 py-2 text-[13px] font-semibold text-[#1a1a1f]"
++            >
++              <Upload className="h-4 w-4" />
++              Bulk Import
++            </Link>
++            <button
++              type="button"
++              onClick={onExport}
++              className="inline-flex items-center gap-1 rounded-lg border border-[#d0d0d8] bg-[#f3f3f6] px-3 py-2 text-[13px] font-semibold text-[#1a1a1f]"
++            >
++              <FileSpreadsheet className="h-4 w-4" />
++              Export (xlsx)
++            </button>
++            <Link
++              to="/procurement/vendors/create"
++              className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-[13px] font-semibold text-[#1a1a1f]"
++              style={{ background: "#F5C518" }}
++            >
++              <Plus className="h-4 w-4" />
++              Create Vendor
++            </Link>
++          </div>
++
++          <div className="overflow-hidden rounded-lg border border-[#ececf0]">
++            <table className="w-full border-collapse text-left text-[12px]">
++              <thead>
++                <tr className="border-b border-[#ececf0] bg-[#f5f5f5] text-[#6b6b76]">
++                  <th className="px-3 py-2.5 font-medium">Vendor Name</th>
++                  <th className="px-3 py-2.5 font-medium">Email</th>
++                  <th className="px-3 py-2.5 font-medium">GSTIN</th>
++                  <th className="px-3 py-2.5 font-medium">Mobile No.</th>
++                  <th className="px-3 py-2.5 font-medium">Address</th>
++                  <th className="px-3 py-2.5 font-medium">City</th>
++                  <th className="px-3 py-2.5 font-medium">State</th>
++                  <th className="px-3 py-2.5 font-medium">Pincode</th>
++                  <th className="px-3 py-2.5 font-medium">Actions</th>
++                </tr>
++              </thead>
++              <tbody>
++                {rows.map((v) => (
++                  <tr key={v.id} className="border-b border-[#f0f0f4] text-[#1a1a1f]">
++                    <td className="px-3 py-3">{v.name || "-"}</td>
++                    <td className="px-3 py-3">{v.email || "-"}</td>
++                    <td className="px-3 py-3">{v.gstin || "-"}</td>
++                    <td className="px-3 py-3">{v.phone || "-"}</td>
++                    <td className="px-3 py-3">{v.address_line1 || "-"}</td>
++                    <td className="px-3 py-3">{v.city || "-"}</td>
++                    <td className="px-3 py-3">{v.state || "-"}</td>
++                    <td className="px-3 py-3">{v.pincode || "-"}</td>
++                    <td className="px-3 py-3">
++                      <div className="flex items-center gap-2">
++                        <Link
++                          to={`/procurement/vendors/${v.id}/edit`}
++                          className="grid h-7 w-7 place-items-center rounded bg-[#f5f5f8] text-[#6b4eff]"
++                        >
++                          <Pencil className="h-3.5 w-3.5" />
++                        </Link>
++                        <button
++                          type="button"
++                          className="grid h-7 w-7 place-items-center rounded bg-[#f5f5f8] text-[#ef4444]"
++                        >
++                          <Trash2 className="h-3.5 w-3.5" />
++                        </button>
++                      </div>
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++            {rows.length === 0 ? (
++              <div className="px-3 py-28 text-center text-[13px] text-[#8a8a96]">No data available</div>
++            ) : null}
++          </div>
++
++          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[12px] text-[#6b6b76]">
++            <div className="flex items-center gap-2">
++              <span>Rows per page:</span>
++              <select
++                value={pageSize}
++                onChange={(e) => setPageSize(Number(e.target.value))}
++                className="rounded border border-[#e2e2e8] bg-white px-2 py-1"
++              >
++                {PAGE_SIZES.map((n) => (
++                  <option key={n} value={n}>
++                    {n}
++                  </option>
++                ))}
++              </select>
++              <span>
++                {from}-{to} of {total}
++              </span>
++            </div>
++            <div className="flex items-center gap-1">
++              <button
++                type="button"
++                disabled={page <= 1}
++                onClick={() => setPage((p) => Math.max(1, p - 1))}
++                className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
++              >
++                <ChevronLeft className="h-4 w-4" />
++              </button>
++              <button
++                type="button"
++                className="grid h-8 min-w-8 place-items-center rounded border border-[#e2e2e8] bg-[#fff2b8] px-2"
++              >
++                {page}
++              </button>
++              <button
++                type="button"
++                disabled={page >= totalPages}
++                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
++                className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
++              >
++                <ChevronRight className="h-4 w-4" />
++              </button>
++            </div>
++          </div>
++        </div>
++      </div>
++
++      <button
++        type="button"
++        onClick={loadVendors}
++        className="fixed bottom-20 right-6 z-30 grid h-11 w-11 place-items-center rounded-xl border border-[#d0d0d8] bg-white shadow-lg hover:bg-[#f7f7f9] md:bottom-6"
++        aria-label="Refresh vendors"
++        title="Refresh"
++      >
++        <RefreshCw className="h-5 w-5 text-[#2563eb]" />
++      </button>
++    </div>
++  );
++}
+*** End Patch

@@ -1,0 +1,25 @@
+---
+description: Protect existing routes, nav links, and user flows from breakage
+alwaysApply: true
+---
+
+# Route stability (mandatory)
+
+Route stability is a **high priority**. Do not introduce changes that break navigation or routing.
+
+## Before any feature, refactor, or behavior change
+
+1. **Impact analysis** — Identify every affected `path` in `frontend/src/routes/AppRoutes.jsx`, lazy exports in `lazyPages.jsx`, sidebar/store-manager `to` links, and in-app `Link` / `navigate` / redirects.
+2. **Prefer additive changes** — Do not rename, remove, or repurpose routes unless absolutely necessary.
+3. **If a route must change** — Update **all** of: route config, lazy imports, sidebar/header menus, buttons, breadcrumbs, redirects, and related API/docs references in the same change.
+4. **Do not overload URLs** — A path named `.../create` must not render bulk-import (or vice versa). Add a dedicated `.../bulk-import` (or similar) instead of hijacking create/edit.
+
+## After every routing-related change
+
+1. Validate that sidebar links, header menus, buttons, breadcrumbs, internal links, and redirects still hit the correct destinations.
+2. Confirm no new 404s and no param routes swallowing static paths (`create`, `bulk-import`, `edit` declared before `:id`).
+3. Smoke-test the affected module end-to-end (list → create → edit → back) plus any aliased paths that share the same pages.
+
+## Before marking a task complete
+
+Confirm existing routes and user flows for the touched modules still work. If unsure, audit `AppRoutes.jsx` + nav configs against the links you changed.

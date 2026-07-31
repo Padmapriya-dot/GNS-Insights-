@@ -1,45 +1,58 @@
-# Dependencies & embedded folders
-GNS_in/
-node_modules/
-frontend/node_modules/
-backend/venv/
-venv/
-.venv/
-
-# Environment variables & secrets
-.env
-backend/.env
-frontend/.env
-*.env.local
-
-# Databases & local data files
-*.db
-*.sqlite
-*.sqlite3
-*.db.undo
-smrt.db
-backend/smrt.db
-
-# Python bytecode & caches
+# ---- Python / backend ----
 __pycache__/
-*/__pycache__/
-*/*/__pycache__/
-*/*/*/__pycache__/
-*/*/*/*/__pycache__/
 *.py[cod]
 *$py.class
 *.so
+.Python
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Build & bundle output
-dist/
+# Local SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+backend/smrt.db
+
+# ---- Node / frontend ----
+node_modules/
+frontend/node_modules/
 frontend/dist/
-build/
-*.log
+dist/
+.vite/
+*.local
 
-# Temp & IDE files
+# ---- Environment / secrets ----
+.env
+*.env
+!*.env.example
+backend/.env
+frontend/.env
+
+# ---- Editor / OS ----
 .vscode/
 .idea/
 .DS_Store
-*.tmp
-tmp_*.py
-vite.config.js.timestamp-*
+Thumbs.db
+*.log
+
+# ---- Build / coverage ----
+coverage/
+htmlcov/
+.coverage
+*.cover
+
+backend/venv/
+venv/
+__pycache__/
+*.pyc
+frontend/dist/
+backend/smrt.db
+smrt.db
+.env

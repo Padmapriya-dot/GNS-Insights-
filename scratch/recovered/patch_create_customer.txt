@@ -1,0 +1,398 @@
+*** Begin Patch
+*** Update File: c:\Users\satee\OneDrive\Desktop\GNS Insights\frontend\src\pages\sales\CreateCustomer.jsx
+@@
+-import { useMemo, useState } from "react";
+-import { Link, useNavigate } from "react-router-dom";
+-import { ArrowLeft, Building2, MapPin, Phone, Receipt } from "lucide-react";
+-
+-import PageHeader from "../../components/common/PageHeader";
+-import { FormRow, Input, Select } from "../../components/common/FormField";
+-import { useToast } from "../../context/ToastContext";
+-import { createCustomer } from "../../api/salesApi";
+-import useTenantId from "../../hooks/useTenantId";
+-import { INDIAN_STATES, INDIAN_STATE_CODES } from "../../data/indiaLocations";
+-
+-const STATE_OPTIONS = INDIAN_STATES.map((name) => ({
+-  value: name,
+-  label: `${name}${INDIAN_STATE_CODES[name] ? ` (${INDIAN_STATE_CODES[name]})` : ""}`,
+-}));
+-
+-export default function CreateCustomer() {
+-  const tenantId = useTenantId();
+-  const navigate = useNavigate();
+-  const { addToast } = useToast();
+-  const [saving, setSaving] = useState(false);
+-  const [error, setError] = useState("");
+-  const [form, setForm] = useState({
+-    name: "",
+-    contact_name: "",
+-    customer_code: "",
+-    address_line1: "",
+-    address_line2: "",
+-    state: "",
+-    state_code: "",
+-    gstin: "",
+-    email: "",
+-    phone: "",
+-    credit_limit: "",
+-  });
+-
+-  const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+-
+-  const onStateChange = (state) => {
+-    setForm((prev) => ({
+-      ...prev,
+-      state,
+-      state_code: INDIAN_STATE_CODES[state] || prev.state_code,
+-    }));
+-  };
+-
+-  const gstinError = useMemo(() => {
+-    const g = (form.gstin || "").trim().toUpperCase();
+-    if (!g) return "";
+-    if (g.length !== 15) return "GSTIN should be 15 characters.";
+-    if (!/^[0-9A-Z]{15}$/.test(g)) return "Enter a valid GSTIN.";
+-    return "";
+-  }, [form.gstin]);
+-
+-  const handleSubmit = async (e) => {
+-    e.preventDefault();
+-    setError("");
+-    if (!form.name.trim()) {
+-      setError("Company / customer name is required.");
+-      return;
+-    }
+-    if (gstinError) {
+-      setError(gstinError);
+-      return;
+-    }
+-    setSaving(true);
+-    try {
+-      await createCustomer({
+-        tenant_id: tenantId,
+-        name: form.name.trim(),
+-        contact_name: form.contact_name.trim() || null,
+-        customer_code: form.customer_code.trim() || null,
+-        address_line1: form.address_line1.trim() || null,
+-        address_line2: form.address_line2.trim() || null,
+-        state: form.state || null,
+-        state_code: form.state_code.trim() || null,
+-        gstin: form.gstin.trim().toUpperCase() || null,
+-        email: form.email.trim() || null,
+-        phone: form.phone.trim() || null,
+-        credit_limit: form.credit_limit ? Number(form.credit_limit) : 0,
+-        status: "active",
+-      });
+-      addToast("Customer created successfully", "success");
+-      navigate("/sales/customers");
+-    } catch (err) {
+-      const detail = err?.response?.data?.detail;
+-      const msg = typeof detail === "string" ? detail : "Failed to create customer.";
+-      setError(msg);
+-      addToast(msg, "error");
+-    } finally {
+-      setSaving(false);
+-    }
+-  };
+-
+-  return (
+-    <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
+-      <Link
+-        to="/sales/customers"
+-        className="inline-flex items-center gap-2 text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400"
+-      >
+-        <ArrowLeft className="h-4 w-4" />
+-        Back to customers
+-      </Link>
+-
+-      <PageHeader
+-        title="New customer"
+-        subtitle="Add a billing customer for quotations, sales orders, and invoices."
+-      />
+-
+-      <form onSubmit={handleSubmit} className="space-y-5">
+-        {error ? (
+-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
+-            {error}
+-          </div>
+-        ) : null}
+-
+-        <section className="ui-card space-y-4 p-5 sm:p-6">
+-          <SectionTitle icon={Building2} title="Company" hint="Legal / trading name used on documents" />
+-          <Input
+-            label="Company / name"
+-            required
+-            value={form.name}
+-            onChange={(e) => set("name", e.target.value)}
+-            placeholder="e.g. Acme Manufacturing Pvt Ltd"
+-            autoFocus
+-          />
+-          <FormRow>
+-            <Input
+-              label="Contact person"
+-              value={form.contact_name}
+-              onChange={(e) => set("contact_name", e.target.value)}
+-              placeholder="Primary contact name"
+-            />
+-            <Input
+-              label="Customer code"
+-              value={form.customer_code}
+-              onChange={(e) => set("customer_code", e.target.value)}
+-              placeholder="Optional internal code"
+-              hint="Leave blank if you assign codes later"
+-            />
+-          </FormRow>
+-        </section>
+-
+-        <section className="ui-card space-y-4 p-5 sm:p-6">
+-          <SectionTitle icon={MapPin} title="Billing address" hint="Used on invoices and delivery documents" />
+-          <Input
+-            label="Address line 1"
+-            value={form.address_line1}
+-            onChange={(e) => set("address_line1", e.target.value)}
+-            placeholder="Street, area, landmark"
+-          />
+-          <Input
+-            label="Address line 2"
+-            value={form.address_line2}
+-            onChange={(e) => set("address_line2", e.target.value)}
+-            placeholder="City / additional line"
+-          />
+-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_7.5rem]">
+-            <Select
+-              label="State"
+-              value={form.state}
+-              onChange={(e) => onStateChange(e.target.value)}
+-              options={STATE_OPTIONS}
+-              placeholder="Select state"
+-            />
+-            <Input
+-              label="Code"
+-              value={form.state_code}
+-              onChange={(e) => set("state_code", e.target.value)}
+-              placeholder="37"
+-              maxLength={2}
+-              hint="GST state code"
+-            />
+-          </div>
+-        </section>
+-
+-        <section className="ui-card space-y-4 p-5 sm:p-6">
+-          <SectionTitle icon={Receipt} title="Tax" hint="GST identification for India invoices" />
+-          <Input
+-            label="GSTIN"
+-            value={form.gstin}
+-            onChange={(e) => set("gstin", e.target.value.toUpperCase())}
+-            placeholder="22AAAAA0000A1Z5"
+-            maxLength={15}
+-            error={gstinError || undefined}
+-            className="font-mono tracking-wide uppercase sm:max-w-sm"
+-          />
+-        </section>
+-
+-        <section className="ui-card space-y-4 p-5 sm:p-6">
+-          <SectionTitle icon={Phone} title="Contact & credit" hint="How your team reaches this customer" />
+-          <FormRow>
+-            <Input
+-              label="Email"
+-              type="email"
+-              value={form.email}
+-              onChange={(e) => set("email", e.target.value)}
+-              placeholder="accounts@company.com"
+-            />
+-            <Input
+-              label="Phone"
+-              type="tel"
+-              value={form.phone}
+-              onChange={(e) => set("phone", e.target.value)}
+-              placeholder="10-digit mobile / landline"
+-            />
+-          </FormRow>
+-          <Input
+-            label="Credit limit (₹)"
+-            type="number"
+-            min="0"
+-            step="0.01"
+-            value={form.credit_limit}
+-            onChange={(e) => set("credit_limit", e.target.value)}
+-            placeholder="0"
+-            className="sm:max-w-xs"
+-          />
+-        </section>
+-
+-        <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
+-          <button type="submit" disabled={saving} className="ui-btn-primary disabled:opacity-50">
+-            {saving ? "Saving…" : "Save customer"}
+-          </button>
+-          <button
+-            type="button"
+-            onClick={() => navigate("/sales/customers")}
+-            className="ui-btn-secondary"
+-            disabled={saving}
+-          >
+-            Cancel
+-          </button>
+-        </div>
+-      </form>
+-    </div>
+-  );
+-}
+-
+-function SectionTitle({ icon: Icon, title, hint }) {
+-  return (
+-    <div className="flex items-start gap-3 border-b border-slate-100 pb-3 dark:border-slate-700">
+-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">
+-        <Icon className="h-4 w-4" />
+-      </div>
+-      <div>
+-        <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h2>
+-        {hint ? <p className="text-xs text-slate-500">{hint}</p> : null}
+-      </div>
+-    </div>
+-  );
+-}
++import { useMemo, useState } from "react";
++import { Link, useNavigate } from "react-router-dom";
++import { ArrowLeft, Building2, ChevronDown, Upload, X } from "lucide-react";
++
++import { useToast } from "../../context/ToastContext";
++import useSettings from "../../context/SettingsContext";
++
++const PAGE_BG = "#F5F5F5";
++
++export default function CreateCustomer() {
++  const navigate = useNavigate();
++  const { addToast } = useToast();
++  const { companyName } = useSettings();
++  const company = companyName?.trim() || "My Company";
++  const [file, setFile] = useState(null);
++
++  const fileName = useMemo(() => file?.name || "", [file]);
++
++  const handleTemplate = () => {
++    const csv = "Company Name,GSTIN,Address,City,State,Pincode,Mobile No.,Email\n";
++    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
++    const url = URL.createObjectURL(blob);
++    const a = document.createElement("a");
++    a.href = url;
++    a.download = "buyers_import_template.csv";
++    a.click();
++    URL.revokeObjectURL(url);
++  };
++
++  return (
++    <div className="min-h-full" style={{ background: PAGE_BG }}>
++      <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8">
++        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
++          <div className="flex items-center gap-2">
++            <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">
++              Upload Bulk Buyer
++            </h1>
++            <span className="rounded bg-[#d4d4d8] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
++              v2
++            </span>
++          </div>
++          <button
++            type="button"
++            className="inline-flex items-center gap-2 rounded-full border border-[#d0d0d8] bg-white px-4 py-2 text-[14px] font-semibold text-[#1a1a1f]"
++          >
++            <span className="grid h-8 w-8 place-items-center rounded-full bg-[#F5C518]">
++              <Building2 className="h-4 w-4" />
++            </span>
++            {company}
++            <ChevronDown className="h-4 w-4 text-[#9a9aa5]" />
++          </button>
++        </div>
++
++        <Link
++          to="/sales/customers"
++          className="mb-4 inline-flex items-center gap-2 text-[14px] font-medium text-[#1a1a1f]"
++        >
++          <ArrowLeft className="h-4 w-4" />
++          Go back
++        </Link>
++
++        <div className="rounded-lg border border-[#d0d0d8] bg-white px-7 py-6 shadow-sm">
++          <div className="grid gap-8 lg:grid-cols-2">
++            <div>
++              <p className="mb-3 text-[14px] text-[#6b6b76]">Example :</p>
++              <div className="rounded-md border border-[#ececf0] bg-[#fbfbfd] p-4">
++                <div className="grid grid-cols-5 border border-[#d8d8e0] text-[10px] text-[#4a4a55]">
++                  <div className="border-r border-[#d8d8e0] p-1 font-semibold">Company</div>
++                  <div className="border-r border-[#d8d8e0] p-1 font-semibold">GSTIN</div>
++                  <div className="border-r border-[#d8d8e0] p-1 font-semibold">Address</div>
++                  <div className="border-r border-[#d8d8e0] p-1 font-semibold">City</div>
++                  <div className="p-1 font-semibold">State</div>
++                </div>
++                <div className="mt-4 text-center text-[36px] font-semibold text-[#1a1a1f]">SAMPLE SHEET</div>
++              </div>
++            </div>
++            <div>
++              <h2 className="mb-3 text-[24px] font-semibold text-[#1a1a1f]">
++                Follow these Steps to upload Bulk items
++              </h2>
++              <div className="space-y-2 text-[14px] text-[#1a1a1f]">
++                <p>
++                  Step 1 : Download Excel File template for import{" "}
++                  <button
++                    type="button"
++                    onClick={handleTemplate}
++                    className="font-semibold text-[#1d4ed8] underline"
++                  >
++                    Click here
++                  </button>
++                </p>
++                <p>Step 2 : Fill the buyer data in Excel file according to columns.</p>
++                <p>Step 3 : Upload Excel File</p>
++              </div>
++
++              <label className="mt-4 block cursor-pointer rounded-lg border border-dashed border-[#222] bg-white p-5 text-center">
++                <input
++                  type="file"
++                  accept=".xlsx,.xls,.csv"
++                  className="hidden"
++                  onChange={(e) => setFile(e.target.files?.[0] || null)}
++                />
++                <Upload className="mx-auto h-12 w-12 text-[#1a1a1f]" />
++                <p className="mt-2 text-[13px] text-[#4a4a55]">
++                  Drop your file(s) here, or click on above icon select them.
++                </p>
++                {fileName ? (
++                  <div className="mt-3 inline-flex items-center gap-2 rounded bg-[#f3f3f6] px-2 py-1 text-[12px]">
++                    {fileName}
++                    <button
++                      type="button"
++                      onClick={(e) => {
++                        e.preventDefault();
++                        setFile(null);
++                      }}
++                    >
++                      <X className="h-3.5 w-3.5" />
++                    </button>
++                  </div>
++                ) : null}
++              </label>
++
++              <button
++                type="button"
++                onClick={() => {
++                  if (!file) {
++                    addToast("Select a file first", "error");
++                    return;
++                  }
++                  addToast("Bulk import started. Processing file…", "success");
++                  navigate("/sales/customers");
++                }}
++                className="mt-4 inline-flex items-center gap-2 rounded px-7 py-2.5 text-[15px] font-semibold text-[#1a1a1f]"
++                style={{ background: "#a18b1d" }}
++              >
++                Proceed <span>→</span>
++              </button>
++            </div>
++          </div>
++        </div>
++      </div>
++    </div>
++  );
++}
+*** End Patch
