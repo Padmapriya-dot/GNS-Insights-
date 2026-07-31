@@ -42,11 +42,16 @@ export default function VendorDetail() {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const { user, isAdmin } = usePermissions();
-  const roles = Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean);
+  const roles =
+    Array.isArray(user?.roles) && user.roles.length
+      ? user.roles.map((r) => (typeof r === "string" ? r : r?.name)).filter(Boolean)
+      : [user?.role, user?.role_name].filter(Boolean);
   const hasWriteRole =
     isAdmin ||
     roles.some((r) =>
-      ["Purchase Manager", "Procurement Manager", "Store Manager", "Admin"].includes(r)
+      ["Purchase Manager", "Procurement Manager", "Store Manager", "Admin", "Production Manager"].includes(
+        r
+      )
     );
   const viewOnly = !hasWriteRole;
 

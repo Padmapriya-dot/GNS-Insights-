@@ -86,8 +86,10 @@ def list_quotations_enriched(db: Session, tenant_id: int) -> list[QuotationListR
             customer_name=q.customer_name,
             sales_person=getattr(q, "sales_person", None),
             amount=float(q.total_amount or 0),
+            quote_date=q.quote_date.isoformat() if q.quote_date else None,
             valid_until=q.valid_until.isoformat() if q.valid_until else None,
             status=q.status,
+            converted_to_invoice=str(q.status or "").lower() in ("converted", "invoiced"),
         )
         for q in quotes
     ]

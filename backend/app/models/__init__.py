@@ -13,8 +13,10 @@ import app.models.accounts  # noqa: F401
 import app.models.ai_conversation  # noqa: F401
 import app.models.alert  # noqa: F401
 import app.models.bom  # noqa: F401
+import app.models.business_documents  # noqa: F401
 import app.models.company_settings  # noqa: F401
 import app.models.department  # noqa: F401
+import app.models.dispatch_address  # noqa: F401
 import app.models.document  # noqa: F401
 import app.models.erp_notification  # noqa: F401
 import app.models.hr  # noqa: F401

@@ -6,18 +6,24 @@ from sqlalchemy.orm import Session
 from app.models.hr import (
     AttendanceRecord,
     Employee,
+    HrAsset,
     LeaveRequest,
     PayrollRecord,
     PerformanceReview,
+    SafetyIncident,
     Shift,
 )
 from app.schemas.hr import (
     AttendanceRecordCreate,
     EmployeeCreate,
+    HrAssetCreate,
+    HrAssetUpdate,
     LeaveRequestCreate,
     LeaveRequestUpdate,
     PayrollRecordCreate,
     PerformanceReviewCreate,
+    SafetyIncidentCreate,
+    SafetyIncidentUpdate,
     ShiftCreate,
 )
 
@@ -297,3 +303,103 @@ def update_leave_request(
     db.commit()
     db.refresh(leave)
     return leave
+
+
+# ── HR Assets ──────────────────────────────────────────────────────────────
+
+
+def list_hr_assets(db: Session, tenant_id: int) -> list[HrAsset]:
+    return list(
+        db.scalars(
+            select(HrAsset)
+            .where(HrAsset.tenant_id == tenant_id)
+            .order_by(HrAsset.id.desc())
+        ).all()
+    )
+
+
+def create_hr_asset(db: Session, tenant_id: int, payload: HrAssetCreate) -> HrAsset:
+    row = HrAsset(tenant_id=tenant_id, **payload.model_dump())
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def update_hr_asset(
+    db: Session, tenant_id: int, asset_id: int, payload: HrAssetUpdate
+) -> HrAsset | None:
+    row = db.scalars(
+        select(HrAsset).where(HrAsset.id == asset_id, HrAsset.tenant_id == tenant_id)
+    ).first()
+    if not row:
+        return None
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(row, field, value)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_hr_asset(db: Session, tenant_id: int, asset_id: int) -> bool:
+    row = db.scalars(
+        select(HrAsset).where(HrAsset.id == asset_id, HrAsset.tenant_id == tenant_id)
+    ).first()
+    if not row:
+        return False
+    db.delete(row)
+    db.commit()
+    return True
+
+
+# ── Safety Incidents ───────────────────────────────────────────────────────
+
+
+def list_safety_incidents(db: Session, tenant_id: int) -> list[SafetyIncident]:
+    return list(
+        db.scalars(
+            select(SafetyIncident)
+            .where(SafetyIncident.tenant_id == tenant_id)
+            .order_by(SafetyIncident.id.desc())
+        ).all()
+    )
+
+
+def create_safety_incident(
+    db: Session, tenant_id: int, payload: SafetyIncidentCreate
+) -> SafetyIncident:
+    row = SafetyIncident(tenant_id=tenant_id, **payload.model_dump())
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def update_safety_incident(
+    db: Session, tenant_id: int, incident_id: int, payload: SafetyIncidentUpdate
+) -> SafetyIncident | None:
+    row = db.scalars(
+        select(SafetyIncident).where(
+            SafetyIncident.id == incident_id, SafetyIncident.tenant_id == tenant_id
+        )
+    ).first()
+    if not row:
+        return None
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(row, field, value)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_safety_incident(db: Session, tenant_id: int, incident_id: int) -> bool:
+    row = db.scalars(
+        select(SafetyIncident).where(
+            SafetyIncident.id == incident_id, SafetyIncident.tenant_id == tenant_id
+        )
+    ).first()
+    if not row:
+        return False
+    db.delete(row)
+    db.commit()
+    return True

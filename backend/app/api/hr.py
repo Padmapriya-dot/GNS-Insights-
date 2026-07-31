@@ -16,6 +16,9 @@ from app.schemas.hr import (
     AttendanceRecordRead,
     EmployeeCreate,
     EmployeeRead,
+    HrAssetCreate,
+    HrAssetRead,
+    HrAssetUpdate,
     LeaveRequestCreate,
     LeaveRequestCreateIn,
     LeaveRequestRead,
@@ -24,6 +27,9 @@ from app.schemas.hr import (
     PayrollRecordRead,
     PerformanceReviewCreate,
     PerformanceReviewRead,
+    SafetyIncidentCreate,
+    SafetyIncidentRead,
+    SafetyIncidentUpdate,
     ShiftCreate,
     ShiftRead,
 )
@@ -46,21 +52,29 @@ from app.services.department_service import (
 from app.services.hr_service import (
     create_attendance_record,
     create_employee,
+    create_hr_asset,
     create_leave_request,
     create_payroll_record,
     create_performance_review,
+    create_safety_incident,
     create_shift,
+    delete_hr_asset,
+    delete_safety_incident,
     get_hr_dashboard,
     list_attendance,
     list_employees,
+    list_hr_assets,
     list_leave_requests,
     list_payroll,
     list_performance_reviews,
+    list_safety_incidents,
     list_shifts,
     record_clock_in,
     record_clock_out,
+    update_hr_asset,
     update_leave_request,
     update_payroll_status,
+    update_safety_incident,
 )
 from app.schemas.hr_extended import (
     AttendanceListRead,
@@ -391,3 +405,85 @@ def payroll_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session
 @router.get("/hub", response_model=HRHubRead)
 def hr_hub(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
     return get_hr_hub(db, tenant_id)
+
+
+@router.get("/assets", response_model=list[HrAssetRead])
+def list_assets_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return list_hr_assets(db, tenant_id)
+
+
+@router.post("/assets", response_model=HrAssetRead, status_code=201)
+def create_asset_endpoint(
+    payload: HrAssetCreate,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return create_hr_asset(db, user.tenant_id, payload)
+
+
+@router.put("/assets/{asset_id}", response_model=HrAssetRead)
+def update_asset_endpoint(
+    asset_id: int,
+    payload: HrAssetUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    row = update_hr_asset(db, tenant_id, asset_id, payload)
+    if not row:
+        raise HTTPException(404, "Asset not found")
+    return row
+
+
+@router.delete("/assets/{asset_id}", status_code=204)
+def delete_asset_endpoint(
+    asset_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_hr_asset(db, tenant_id, asset_id):
+        raise HTTPException(404, "Asset not found")
+    return None
+
+
+@router.get("/incidents", response_model=list[SafetyIncidentRead])
+def list_incidents_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return list_safety_incidents(db, tenant_id)
+
+
+@router.post("/incidents", response_model=SafetyIncidentRead, status_code=201)
+def create_incident_endpoint(
+    payload: SafetyIncidentCreate,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return create_safety_incident(db, user.tenant_id, payload)
+
+
+@router.put("/incidents/{incident_id}", response_model=SafetyIncidentRead)
+def update_incident_endpoint(
+    incident_id: int,
+    payload: SafetyIncidentUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    row = update_safety_incident(db, tenant_id, incident_id, payload)
+    if not row:
+        raise HTTPException(404, "Incident not found")
+    return row
+
+
+@router.delete("/incidents/{incident_id}", status_code=204)
+def delete_incident_endpoint(
+    incident_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_safety_incident(db, tenant_id, incident_id):
+        raise HTTPException(404, "Incident not found")
+    return None

@@ -138,7 +138,23 @@ export default function AppRoutes() {
         path="/inventory"
         element={
           <ProtectedRoute>
+            <P.InventoryV2 />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/dashboard"
+        element={
+          <ProtectedRoute>
             <P.InventoryDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/settings"
+        element={
+          <ProtectedRoute>
+            <P.InventorySettingsV2 />
           </ProtectedRoute>
         }
       />
@@ -207,6 +223,46 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <P.StockMovement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/stock-in"
+        element={
+          <ProtectedRoute>
+            <P.StoreStockIn />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/material-requests"
+        element={
+          <ProtectedRoute>
+            <P.StoreMaterialRequests />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/issue-materials"
+        element={
+          <ProtectedRoute>
+            <P.StoreIssueMaterials />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/stock-return"
+        element={
+          <ProtectedRoute>
+            <P.StoreStockReturn />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/history"
+        element={
+          <ProtectedRoute>
+            <P.StoreInventoryHistory />
           </ProtectedRoute>
         }
       />
@@ -403,6 +459,22 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/sales/quotations/create"
+        element={
+          <ProtectedRoute>
+            <P.QuotationForm />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales/quotations/:id/edit"
+        element={
+          <ProtectedRoute>
+            <P.QuotationForm />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/sales/dispatch"
         element={
           <ProtectedRoute>
@@ -458,14 +530,22 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/sales/invoices/create"
-        element={
-          <ProtectedRoute>
-            <P.TaxInvoiceForm />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/sales/invoices/:id/edit"
+          element={
+            <ProtectedRoute>
+              <P.TaxInvoiceForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sales/invoices/create"
+          element={
+            <ProtectedRoute>
+              <P.TaxInvoiceForm />
+            </ProtectedRoute>
+          }
+        />
       <Route
         path="/sales/orders"
         element={
@@ -507,6 +587,14 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/sales/customers/bulk-import"
+        element={
+          <ProtectedRoute>
+            <P.BulkImportBuyer />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/sales/customers/create"
         element={
           <ProtectedRoute>
@@ -530,16 +618,63 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/sales/payment-receipts" element={<ProtectedRoute><P.PaymentReceipts /></ProtectedRoute>} />
+      <Route path="/sales/payment-receipts/create" element={<ProtectedRoute><P.PaymentReceiptForm /></ProtectedRoute>} />
+      <Route path="/sales/payment-receipts/:id/edit" element={<ProtectedRoute><P.PaymentReceiptForm /></ProtectedRoute>} />
+      <Route path="/sales/refund-vouchers" element={<ProtectedRoute><P.RefundVouchers /></ProtectedRoute>} />
+      <Route path="/sales/proforma-invoices" element={<ProtectedRoute><P.ProformaInvoices /></ProtectedRoute>} />
+      <Route path="/sales/proforma-invoices/create" element={<ProtectedRoute><P.ProformaInvoiceForm /></ProtectedRoute>} />
+      <Route path="/sales/proforma-invoices/:id/edit" element={<ProtectedRoute><P.ProformaInvoiceForm /></ProtectedRoute>} />
+      <Route path="/sales/export-invoices" element={<ProtectedRoute><P.ExportInvoices /></ProtectedRoute>} />
+      <Route path="/sales/export-invoices/create" element={<ProtectedRoute><P.ExportInvoiceForm /></ProtectedRoute>} />
+      <Route path="/sales/export-invoices/:id/edit" element={<ProtectedRoute><P.ExportInvoiceForm /></ProtectedRoute>} />
+      <Route path="/sales/export-proforma-invoices" element={<ProtectedRoute><P.ProformaInvoices /></ProtectedRoute>} />
+      <Route path="/sales/delivery-challans" element={<ProtectedRoute><P.DeliveryChallans /></ProtectedRoute>} />
+      <Route path="/sales/delivery-challans/create" element={<ProtectedRoute><P.DeliveryChallanForm /></ProtectedRoute>} />
+      <Route path="/sales/delivery-challans/:id/edit" element={<ProtectedRoute><P.DeliveryChallanForm /></ProtectedRoute>} />
+      <Route path="/sales/credit-notes" element={<ProtectedRoute><P.CreditNotes /></ProtectedRoute>} />
+      <Route path="/sales/credit-notes/create" element={<ProtectedRoute><P.CreditNoteForm /></ProtectedRoute>} />
+      <Route path="/sales/credit-notes/:id/edit" element={<ProtectedRoute><P.CreditNoteForm /></ProtectedRoute>} />
+      <Route path="/sales/debit-notes" element={<ProtectedRoute><P.DebitNotes /></ProtectedRoute>} />
+      <Route path="/sales/debit-notes/create" element={<ProtectedRoute><P.DebitNoteForm /></ProtectedRoute>} />
+      <Route path="/sales/debit-notes/:id/edit" element={<ProtectedRoute><P.DebitNoteForm /></ProtectedRoute>} />
+      <Route path="/sales/e-invoice" element={<ProtectedRoute><P.EInvoiceLogin /></ProtectedRoute>} />
+      <Route path="/ewaybill/login" element={<ProtectedRoute><P.EwaybillLogin /></ProtectedRoute>} />
+      <Route path="/digital-signature" element={<ProtectedRoute><P.DigitalSignatureSetup /></ProtectedRoute>} />
+      <Route path="/purchases" element={<ProtectedRoute><P.Purchases /></ProtectedRoute>} />
+      <Route path="/purchases/create" element={<ProtectedRoute><P.PurchaseForm /></ProtectedRoute>} />
+      <Route path="/purchases/:id/edit" element={<ProtectedRoute><P.PurchaseForm /></ProtectedRoute>} />
+      <Route path="/purchases/payments-made" element={<ProtectedRoute><P.PaymentsMade /></ProtectedRoute>} />
+      <Route path="/purchases/payments-made/create" element={<ProtectedRoute><P.MakePaymentForm /></ProtectedRoute>} />
+      <Route path="/purchases/payments-made/:id/edit" element={<ProtectedRoute><P.MakePaymentForm /></ProtectedRoute>} />
+      <Route path="/purchases/debit-notes" element={<ProtectedRoute><P.PurchaseDebitNotes /></ProtectedRoute>} />
+      <Route path="/purchases/debit-notes/create" element={<ProtectedRoute><P.PurchaseDebitNoteForm /></ProtectedRoute>} />
+      <Route path="/purchases/debit-notes/:id/edit" element={<ProtectedRoute><P.PurchaseDebitNoteForm /></ProtectedRoute>} />
+      <Route path="/accounts/reports" element={<ProtectedRoute><P.AccountingReports /></ProtectedRoute>} />
+      <Route path="/accounts/reports/:reportId" element={<ProtectedRoute><P.ReportDetailV2 /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><P.AccountingReports /></ProtectedRoute>} />
+      <Route path="/reports/:reportId" element={<ProtectedRoute><P.ReportDetailV2 /></ProtectedRoute>} />
+      <Route path="/accounts/ledger" element={<ProtectedRoute><P.LedgerV2 /></ProtectedRoute>} />
+      <Route path="/accounts/ledger/:kind/:id" element={<ProtectedRoute><P.LedgerDetailsV2 /></ProtectedRoute>} />
+      <Route path="/ledger" element={<ProtectedRoute><P.LedgerV2 /></ProtectedRoute>} />
+      <Route path="/ledger/:kind/:id" element={<ProtectedRoute><P.LedgerDetailsV2 /></ProtectedRoute>} />
       <Route path="/accounts" element={<ProtectedRoute><P.AccountsDashboard /></ProtectedRoute>} />
       <Route path="/accounts/profit-loss" element={<ProtectedRoute><P.ProfitLoss /></ProtectedRoute>} />
-      <Route path="/accounts/expenses" element={<ProtectedRoute><P.ExpenseTracking /></ProtectedRoute>} />
+      <Route path="/accounts/expenses" element={<ProtectedRoute><P.ExpenseV2 /></ProtectedRoute>} />
+      <Route path="/accounts/expenses/settings" element={<ProtectedRoute><P.ExpenseSettingsV2 /></ProtectedRoute>} />
       <Route path="/accounts/expenses/record" element={<ProtectedRoute><P.RecordExpense /></ProtectedRoute>} />
       <Route path="/accounts/tax-reports" element={<ProtectedRoute><P.TaxReports /></ProtectedRoute>} />
       <Route path="/accounts/income/record" element={<ProtectedRoute><P.RecordIncome /></ProtectedRoute>} />
       <Route path="/accounts/balance-sheet" element={<ProtectedRoute><P.BalanceSheet /></ProtectedRoute>} />
+      <Route path="/accounts/restore-deleted" element={<ProtectedRoute><P.RestoreDeletedDoc /></ProtectedRoute>} />
+      <Route path="/accounts/restore-deleted-docs" element={<ProtectedRoute><P.RestoreDeletedDoc /></ProtectedRoute>} />
       <Route path="/accounts/trial-balance" element={<ProtectedRoute><P.TrialBalance /></ProtectedRoute>} />
       <Route path="/accounts/journal-entries" element={<ProtectedRoute><P.JournalEntries /></ProtectedRoute>} />
+      <Route path="/accounts/journal-entries/new" element={<ProtectedRoute><P.NewJournalEntry /></ProtectedRoute>} />
+      <Route path="/accounts/journal-entries/:entryId/edit" element={<ProtectedRoute><P.NewJournalEntry /></ProtectedRoute>} />
       <Route path="/accounts/chart-of-accounts" element={<ProtectedRoute><P.ChartOfAccounts /></ProtectedRoute>} />
+      <Route path="/accounts/chart-of-accounts/:accountId" element={<ProtectedRoute><P.ChartOfAccountDetail /></ProtectedRoute>} />
+      <Route path="/accounts/chart-of-accounts/:accountId/journal/new" element={<ProtectedRoute><P.NewJournalEntry /></ProtectedRoute>} />
       <Route path="/accounts/fixed-assets" element={<ProtectedRoute><P.FixedAssets /></ProtectedRoute>} />
       <Route path="/accounts/bank-reconciliation" element={<ProtectedRoute><P.BankReconciliation /></ProtectedRoute>} />
       <Route path="/accounts/budget-actual" element={<ProtectedRoute><P.BudgetActual /></ProtectedRoute>} />
@@ -548,7 +683,9 @@ export default function AppRoutes() {
       <Route path="/accounts/year-closing" element={<ProtectedRoute><P.YearClosing /></ProtectedRoute>} />
       <Route path="/procurement/purchase-orders" element={<ProtectedRoute><P.PurchaseOrders /></ProtectedRoute>} />
       <Route path="/procurement/purchase-orders/create" element={<ProtectedRoute><P.CreatePurchaseOrder /></ProtectedRoute>} />
+      <Route path="/procurement/purchase-orders/:id/edit" element={<ProtectedRoute><P.CreatePurchaseOrder /></ProtectedRoute>} />
       <Route path="/procurement/vendors" element={<ProtectedRoute><P.VendorManagement /></ProtectedRoute>} />
+      <Route path="/procurement/vendors/bulk-import" element={<ProtectedRoute><P.BulkImportSeller /></ProtectedRoute>} />
       <Route path="/procurement/vendors/create" element={<ProtectedRoute><P.CreateVendor /></ProtectedRoute>} />
       <Route path="/procurement/vendors/:vendorId/edit" element={<ProtectedRoute><P.CreateVendor /></ProtectedRoute>} />
       <Route path="/procurement/vendors/:vendorId" element={<ProtectedRoute><P.VendorDetail /></ProtectedRoute>} />
@@ -603,19 +740,41 @@ export default function AppRoutes() {
       <Route path="/documents/production" element={<ProtectedRoute><P.ProductionFiles /></ProtectedRoute>} />
       <Route path="/documents/quality" element={<ProtectedRoute><P.QualityCertificates /></ProtectedRoute>} />
       <Route path="/documents/reports" element={<ProtectedRoute><P.ReportsArchive /></ProtectedRoute>} />
+      <Route path="/settings/change-template" element={<ProtectedRoute><P.TemplateSettings /></ProtectedRoute>} />
+      <Route path="/settings/template-settings" element={<ProtectedRoute><P.TemplateSettings /></ProtectedRoute>} />
+      <Route path="/settings/invoice-template" element={<ProtectedRoute><P.TemplateSettings /></ProtectedRoute>} />
+      <Route path="/settings/quotation-template" element={<ProtectedRoute><P.TemplateSettings /></ProtectedRoute>} />
+      <Route path="/settings/purchase-template" element={<ProtectedRoute><P.TemplateSettings /></ProtectedRoute>} />
+      <Route path="/settings/change-format" element={<ProtectedRoute><P.FormatSettings /></ProtectedRoute>} />
+      <Route path="/settings/format-settings" element={<ProtectedRoute><P.FormatSettings /></ProtectedRoute>} />
+      <Route path="/settings/inventory-settings" element={<ProtectedRoute><P.InventorySettingsV2 /></ProtectedRoute>} />
+      <Route path="/settings/invoice-settings" element={<ProtectedRoute><P.InvoiceSettings /></ProtectedRoute>} />
+      <Route path="/settings/sector-settings" element={<ProtectedRoute><P.SectorSettingsV2 /></ProtectedRoute>} />
+      <Route path="/settings/sequence-reset" element={<ProtectedRoute><P.SequenceResetSettingV2 /></ProtectedRoute>} />
+      <Route path="/settings/expense-settings" element={<ProtectedRoute><Navigate to="/accounts/expenses/settings" replace /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><P.SettingsLayout /></ProtectedRoute>}>
         <Route index element={<P.SettingsHome />} />
         <Route path=":sectionId" element={<P.SettingsSectionPage />} />
         {/* Legacy deep links → section pages (must not target the same path or it loops) */}
         <Route path="addresses/billing" element={<Navigate to="/settings/company" replace />} />
-        <Route path="addresses/delivery" element={<Navigate to="/settings/inventory" replace />} />
+        <Route path="addresses/delivery" element={<Navigate to="/settings/company" replace />} />
         <Route path="accounts/*" element={<Navigate to="/settings/finance" replace />} />
         <Route path="documents/:legacySub/*" element={<Navigate to="/settings/documents" replace />} />
         <Route path="documents/:legacySub" element={<Navigate to="/settings/documents" replace />} />
       </Route>
       <Route path="/masters/products" element={<ProtectedRoute><P.ProductsMaster /></ProtectedRoute>} />
+      <Route path="/masters/products/bulk-import" element={<ProtectedRoute><P.BulkImportProduct /></ProtectedRoute>} />
       <Route path="/masters/products/create" element={<ProtectedRoute><P.CreateProduct /></ProtectedRoute>} />
       <Route path="/masters/products/:id/edit" element={<ProtectedRoute><P.CreateProduct /></ProtectedRoute>} />
+      <Route path="/products" element={<ProtectedRoute><P.ProductsMaster /></ProtectedRoute>} />
+      <Route path="/products/bulk-import" element={<ProtectedRoute><P.BulkImportProduct /></ProtectedRoute>} />
+      <Route path="/products/create" element={<ProtectedRoute><P.CreateProduct /></ProtectedRoute>} />
+      <Route path="/products/:id/edit" element={<ProtectedRoute><P.CreateProduct /></ProtectedRoute>} />
+      <Route path="/master/products" element={<ProtectedRoute><P.ProductsMaster /></ProtectedRoute>} />
+      <Route path="/master/products/bulk-import" element={<ProtectedRoute><P.BulkImportProduct /></ProtectedRoute>} />
+      <Route path="/master/products/create" element={<ProtectedRoute><P.CreateProduct /></ProtectedRoute>} />
+      <Route path="/master/products/:id/edit" element={<ProtectedRoute><P.CreateProduct /></ProtectedRoute>} />
+      <Route path="/inventory/products/bulk-import" element={<ProtectedRoute><P.BulkImportProduct /></ProtectedRoute>} />
       <Route path="/masters/bom" element={<ProtectedRoute><P.BomMaster /></ProtectedRoute>} />
       <Route path="/masters/departments" element={<ProtectedRoute><P.DepartmentManagement /></ProtectedRoute>} />
       <Route path="/production/schedule" element={<ProtectedRoute><P.ProductionSchedule /></ProtectedRoute>} />

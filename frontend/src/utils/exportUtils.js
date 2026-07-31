@@ -25,7 +25,7 @@ export function exportToExcel(data, columns, filename = "report") {
  * Export data to PDF
  */
 export function exportToPdf(data, columns, title = "Report", filename = "report") {
-  if (!data?.length) return;
+  const rowsData = Array.isArray(data) ? data : [];
   const doc = new jsPDF();
   doc.setFontSize(16);
   doc.text(title, 14, 20);
@@ -33,7 +33,7 @@ export function exportToPdf(data, columns, title = "Report", filename = "report"
   doc.text(`Exported: ${new Date().toLocaleString()}`, 14, 28);
 
   const headers = columns.map((c) => (typeof c.label === "string" ? c.label : c.key));
-  const rows = data.map((row) =>
+  const rows = rowsData.map((row) =>
     columns.map((c) => {
       const val = row[c.key];
       if (c.render && typeof c.render === "function") return String(c.render(row) ?? "");
@@ -46,8 +46,39 @@ export function exportToPdf(data, columns, title = "Report", filename = "report"
     body: rows,
     startY: 34,
     styles: { fontSize: 8 },
-    headStyles: { fillColor: [13, 148, 136] },
+    headStyles: { fillColor: [45, 42, 74] },
   });
 
   doc.save(`${filename}_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+/**
+ * Export data to CSV
+ */
+export function exportToCsv(data, columns, filename = "report") {
+  const rowsData = Array.isArray(data) ? data : [];
+  const headers = columns.map((c) => (typeof c.label === "string" ? c.label : c.key));
+  const escape = (v) => {
+    const s = String(v ?? "");
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+  const lines = [
+    headers.map(escape).join(","),
+    ...rowsData.map((row) =>
+      columns
+        .map((c) => {
+          if (c.render && typeof c.render === "function") return escape(c.render(row));
+          return escape(row[c.key]);
+        })
+        .join(",")
+    ),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

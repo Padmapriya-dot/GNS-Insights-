@@ -62,8 +62,27 @@ export default function PODetailModal({ po, onClose, onApprove, onReject }) {
               <button type="button" onClick={() => onReject?.(po)} className="rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700">Reject</button>
             </>
           ) : null}
-          <button type="button" className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700"><Printer className="h-4 w-4" /> Print PO</button>
-          <button type="button" className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700"><Mail className="h-4 w-4" /> Email Vendor</button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700"
+          >
+            <Printer className="h-4 w-4" /> Print PO
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const vendor = po.vendor_name || po.supplier_name || "Vendor";
+              const subject = encodeURIComponent(`Purchase Order ${po.po_number || ""}`);
+              const body = encodeURIComponent(
+                `Dear ${vendor},\n\nPlease find Purchase Order ${po.po_number} totaling ${formatInr(total)}.\nExpected delivery: ${po.expected_date || "—"}.\n\nRegards`
+              );
+              window.location.href = `mailto:?subject=${subject}&body=${body}`;
+            }}
+            className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700"
+          >
+            <Mail className="h-4 w-4" /> Email Vendor
+          </button>
           <LinkClone po={po} />
         </div>
       </div>

@@ -5,9 +5,12 @@ import { Download, Mail, Printer, X } from "lucide-react";
 import { convertQuotationToSalesOrder } from "../../api/salesApi";
 import { getProducts } from "../../api/productionApi";
 import { formatInr, statusColor } from "../../data/salesMasterData";
+import { useToast } from "../../context/ToastContext";
+import { exportToPdf } from "../../utils/exportUtils";
 
 export default function QuoteDetailModal({ quote, onClose, onStatusChange, onConverted }) {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [converting, setConverting] = useState(false);
   const [error, setError] = useState("");
   const [productId, setProductId] = useState("");
@@ -16,6 +19,59 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
   const [productsLoaded, setProductsLoaded] = useState(false);
 
   if (!quote) return null;
+
+  const amount = quote.amount ?? quote.total_amount;
+
+  const handlePreview = () => {
+    addToast(
+      `${quote.quote_number}: ${quote.customer_name || "Customer"} — ${formatInr(amount)} (${quote.status})`,
+      "info"
+    );
+    window.print();
+  };
+
+  const handlePdf = () => {
+    try {
+      exportToPdf(
+        [
+          {
+            quote_number: quote.quote_number,
+            customer_name: quote.customer_name,
+            quote_date: quote.quote_date,
+            valid_until: quote.valid_until,
+            amount,
+            status: quote.status,
+            sales_person: quote.sales_person,
+          },
+        ],
+        [
+          { key: "quote_number", label: "Quote No" },
+          { key: "customer_name", label: "Customer" },
+          { key: "quote_date", label: "Date" },
+          { key: "valid_until", label: "Valid Until" },
+          { key: "amount", label: "Amount" },
+          { key: "status", label: "Status" },
+          { key: "sales_person", label: "Sales Person" },
+        ],
+        `Quotation ${quote.quote_number}`,
+        `quote-${quote.quote_number || "export"}`
+      );
+      addToast("Quote PDF downloaded");
+    } catch {
+      addToast(
+        `PDF unavailable — ${quote.quote_number}: ${quote.customer_name || "Customer"} ${formatInr(amount)}`,
+        "info"
+      );
+    }
+  };
+
+  const handleEmail = () => {
+    const subject = encodeURIComponent(`Quotation ${quote.quote_number || ""}`);
+    const body = encodeURIComponent(
+      `Dear ${quote.customer_name || "Customer"},\n\nPlease find quotation ${quote.quote_number} for ${formatInr(amount)}.\nValid until: ${quote.valid_until || "—"}.\n\nRegards`
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
 
   const loadProducts = async () => {
     if (productsLoaded) return;
@@ -134,13 +190,13 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
         </div>
 
         <div className="flex flex-wrap gap-2 border-t px-5 py-4">
-          <button type="button" className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700">
+          <button type="button" onClick={handlePreview} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700">
             <Printer className="h-4 w-4" /> Preview
           </button>
-          <button type="button" className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700">
+          <button type="button" onClick={handlePdf} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700">
             <Download className="h-4 w-4" /> PDF
           </button>
-          <button type="button" className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700">
+          <button type="button" onClick={handleEmail} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700">
             <Mail className="h-4 w-4" /> Email
           </button>
           <button

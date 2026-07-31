@@ -66,7 +66,14 @@ export default function AccountsPayable() {
     { key: "paid", label: "Paid", render: (r) => formatInr(r.paid) },
     { key: "balance", label: "Balance", render: (r) => formatInr(r.balance) },
     { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
-    { key: "actions", label: "Actions", render: () => <button type="button" className="text-xs font-semibold text-[#2563EB] hover:underline">Record Payment</button> },
+    { key: "actions", label: "Actions", render: (r) => (
+      <Link
+        to={`/purchases/payments-made/create?vendor=${encodeURIComponent(r.vendor_name || "")}&bill=${encodeURIComponent(r.bill_number || "")}`}
+        className="text-xs font-semibold text-[#2563EB] hover:underline"
+      >
+        Record Payment
+      </Link>
+    ) },
   ];
 
   if (loading) return <Loader label="Loading accounts payable..." />;
@@ -79,7 +86,7 @@ export default function AccountsPayable() {
           <p className="mt-1 text-sm text-slate-500">Vendor bills, payment scheduling, and outstanding payables management.</p>
         </div>
         <div className="flex gap-2">
-          <Link to="/sales/payments/create" className="inline-flex items-center rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Record Payment</Link>
+          <Link to="/purchases/payments-made/create" className="inline-flex items-center rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Record Payment</Link>
           <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
         </div>
       </header>

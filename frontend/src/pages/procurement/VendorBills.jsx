@@ -6,6 +6,7 @@ import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import {
   createVendorBill,
+  deleteVendorBill,
   getGRNEnriched,
   getPurchaseOrdersEnriched,
   getVendors,
@@ -283,6 +284,18 @@ export default function VendorBills() {
     }
   };
 
+  const handleDelete = async (row) => {
+    if (!row?.id) return;
+    if (!window.confirm(`Delete vendor bill ${row.bill_number || row.id}?`)) return;
+    try {
+      await deleteVendorBill(row.id);
+      addToast("Vendor bill deleted", "success");
+      await load();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Failed to delete bill", "error");
+    }
+  };
+
   const columns = [
     { key: "bill_number", label: "Bill Number" },
     { key: "vendor_name", label: "Vendor" },
@@ -305,6 +318,15 @@ export default function VendorBills() {
       label: "Actions",
       render: (r) => {
         const isBusy = updatingId === r.id;
+        const deleteBtn = (
+          <button
+            type="button"
+            onClick={() => handleDelete(r)}
+            className="text-xs font-semibold text-red-600 hover:underline"
+          >
+            Delete
+          </button>
+        );
         if (r.status === "pending" || r.status === "due") {
           return (
             <div className="flex items-center gap-1.5">
@@ -324,22 +346,31 @@ export default function VendorBills() {
               >
                 <XCircle className="h-3.5 w-3.5" /> Reject
               </button>
+              {deleteBtn}
             </div>
           );
         }
         if (r.status === "approved") {
           return (
-            <button
-              type="button"
-              disabled={isBusy}
-              onClick={() => handleStatusChange(r.id, "paid")}
-              className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" /> Mark Paid
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() => handleStatusChange(r.id, "paid")}
+                className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Mark Paid
+              </button>
+              {deleteBtn}
+            </div>
           );
         }
-        return <span className="text-xs font-semibold text-emerald-700">Paid ✓</span>;
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-emerald-700">Paid ✓</span>
+            {deleteBtn}
+          </div>
+        );
       },
     },
   ];

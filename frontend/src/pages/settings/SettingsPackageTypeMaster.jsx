@@ -1,19 +1,84 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Plus, ChevronUp, ChevronDown, Pencil, Trash2, FileX2, Search } from "lucide-react";
+import { useToast } from "../../context/ToastContext";
 
 const ROWS_PER_PAGE_OPTIONS = [5, 7, 10, 25, 50];
+const STORAGE_KEY = "gns_package_type_master_v1";
 const COLUMNS = [
   { key: "package_type", label: "Package Type" },
   { key: "gross_weight", label: "Gross Weight / Unit" },
   { key: "volumetric_weight", label: "Volumetric Weight / Unit" },
 ];
 
+function loadItems() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveItems(items) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
 export default function SettingsPackageTypeMaster() {
-  const [items] = useState([]);
+  const { addToast } = useToast();
+  const [items, setItems] = useState(() => loadItems());
   const [search, setSearch] = useState(Object.fromEntries(COLUMNS.map((c) => [c.key, ""])));
   const [sort, setSort] = useState({ key: "package_type", dir: "asc" });
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(7);
+
+  const persist = (next) => {
+    setItems(next);
+    saveItems(next);
+  };
+
+  const addItem = () => {
+    const packageType = window.prompt("Package type name");
+    if (!packageType?.trim()) return;
+    const gross = window.prompt("Gross weight / unit", "0") || "0";
+    const volumetric = window.prompt("Volumetric weight / unit", "0") || "0";
+    const row = {
+      id: `pkg-${Date.now()}`,
+      package_type: packageType.trim(),
+      gross_weight: gross,
+      volumetric_weight: volumetric,
+    };
+    persist([row, ...items]);
+    addToast("Package type added", "success");
+  };
+
+  const editItem = (row) => {
+    const packageType = window.prompt("Package type name", row.package_type);
+    if (!packageType?.trim()) return;
+    const gross = window.prompt("Gross weight / unit", String(row.gross_weight ?? "0")) || "0";
+    const volumetric =
+      window.prompt("Volumetric weight / unit", String(row.volumetric_weight ?? "0")) || "0";
+    persist(
+      items.map((item) =>
+        item.id === row.id
+          ? {
+              ...item,
+              package_type: packageType.trim(),
+              gross_weight: gross,
+              volumetric_weight: volumetric,
+            }
+          : item
+      )
+    );
+    addToast("Package type updated", "success");
+  };
+
+  const deleteItem = (row) => {
+    if (!window.confirm(`Delete package type "${row.package_type}"?`)) return;
+    persist(items.filter((item) => item.id !== row.id));
+    addToast("Package type deleted", "success");
+  };
 
   const filtered = useMemo(() => {
     let list = [...items];
@@ -32,7 +97,7 @@ export default function SettingsPackageTypeMaster() {
   const total = filtered.length;
   const start = page * rowsPerPage;
   const paginated = filtered.slice(start, start + rowsPerPage);
-  const totalPages = Math.max(1, Math.ceil(total / rowsPerPage));
+  const totalPages = Math.max(1, Math.ceil(total / rowsPerPage) || 1);
 
   const SortHeader = ({ colKey, label }) => (
     <div className="flex flex-col gap-1">
@@ -71,6 +136,7 @@ export default function SettingsPackageTypeMaster() {
         </div>
         <button
           type="button"
+          onClick={addItem}
           className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700"
         >
           <Plus className="h-4 w-4" />
@@ -78,52 +144,51 @@ export default function SettingsPackageTypeMaster() {
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-sky-50 dark:bg-sky-900/20">
-              {COLUMNS.map((c) => (
-                <th key={c.key} className="border-b border-slate-200 px-4 py-3 text-left dark:border-slate-700">
-                  <SortHeader colKey={c.key} label={c.label} />
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <table className="w-full border-collapse text-left">
+          <thead className="bg-slate-50 dark:bg-slate-800/60">
+            <tr>
+              {COLUMNS.map((col) => (
+                <th key={col.key} className="px-4 py-3">
+                  <SortHeader colKey={col.key} label={col.label} />
                 </th>
               ))}
-              <th className="border-b border-slate-200 px-4 py-3 text-left dark:border-slate-700">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">Actions</span>
-              </th>
+              <th className="px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Actions</th>
             </tr>
           </thead>
           <tbody>
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-16 text-center">
-                  <FileX2 className="mx-auto mb-3 h-12 w-12 text-slate-300 dark:text-slate-600" />
-                  <p className="text-slate-500 dark:text-slate-400">No data found</p>
+                <td colSpan={4} className="px-4 py-16 text-center text-sm text-slate-500">
+                  <FileX2 className="mx-auto mb-2 h-10 w-10 text-slate-300" />
+                  No package types yet. Add one to get started.
                 </td>
               </tr>
             ) : (
               paginated.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-slate-100 hover:bg-slate-50/50 dark:border-slate-700/50 dark:hover:bg-slate-800/30"
-                >
-                  {COLUMNS.map((c) => (
-                    <td key={c.key} className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
-                      {row[c.key] ?? "—"}
-                    </td>
-                  ))}
+                <tr key={row.id} className="border-t border-slate-100 dark:border-slate-800">
+                  <td className="px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-200">
+                    {row.package_type}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{row.gross_weight}</td>
+                  <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
+                    {row.volumetric_weight}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        className="rounded p-1.5 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20"
                         title="Edit"
+                        onClick={() => editItem(row)}
+                        className="rounded p-1.5 text-teal-600 hover:bg-teal-50"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
-                        className="rounded p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                         title="Delete"
+                        onClick={() => deleteItem(row)}
+                        className="rounded p-1.5 text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -137,7 +202,7 @@ export default function SettingsPackageTypeMaster() {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+        <div className="flex items-center gap-2 text-sm text-slate-600">
           <span>Rows per page:</span>
           <select
             value={rowsPerPage}
@@ -145,24 +210,35 @@ export default function SettingsPackageTypeMaster() {
               setRowsPerPage(Number(e.target.value));
               setPage(0);
             }}
-            className="rounded border border-slate-200 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            className="rounded border border-slate-200 bg-white px-2 py-1 text-sm"
           >
             {ROWS_PER_PAGE_OPTIONS.map((n) => (
-              <option key={n} value={n}>{n}</option>
+              <option key={n} value={n}>
+                {n}
+              </option>
             ))}
           </select>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-600 dark:text-slate-400">
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <span>
             {total === 0 ? "0 to 0 of 0" : `${start + 1} to ${Math.min(start + rowsPerPage, total)} of ${total}`}
           </span>
-          <div className="flex items-center gap-0.5">
-            <button type="button" onClick={() => setPage(0)} disabled={page === 0} className="rounded p-1.5 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700">«</button>
-            <button type="button" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="rounded p-1.5 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700">‹</button>
-            <button type="button" className="rounded bg-slate-200 px-2 py-1 text-sm font-medium dark:bg-slate-600">{page + 1}</button>
-            <button type="button" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="rounded p-1.5 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700">›</button>
-            <button type="button" onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1} className="rounded p-1.5 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700">»</button>
-          </div>
+          <button
+            type="button"
+            disabled={page <= 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            className="rounded border px-2 py-1 disabled:opacity-40"
+          >
+            Prev
+          </button>
+          <button
+            type="button"
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            className="rounded border px-2 py-1 disabled:opacity-40"
+          >
+            Next
+          </button>
         </div>
       </div>
     </div>

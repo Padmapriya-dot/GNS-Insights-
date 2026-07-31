@@ -4,7 +4,8 @@ import { ArrowLeft, Save } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
-import { getEmployees } from "../../api/hrApi";
+import { createHrAsset, getEmployees } from "../../api/hrApi";
+import { apiErrorMessage } from "../../utils/apiError";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
@@ -50,7 +51,7 @@ export default function CreateAsset() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.asset_code || !form.name) {
       setError("Asset Code and Asset Name are required.");
@@ -60,21 +61,15 @@ export default function CreateAsset() {
     setError("");
 
     try {
-      const stored = localStorage.getItem("smrt_assets");
-      const currentAssets = stored ? JSON.parse(stored) : [];
-      const newAsset = {
-        id: Date.now(),
+      await createHrAsset({
         ...form,
         purchase_cost: form.purchase_cost ? Number(form.purchase_cost) : 0,
-      };
-      const updatedAssets = [newAsset, ...currentAssets];
-      localStorage.setItem("smrt_assets", JSON.stringify(updatedAssets));
-
+      });
       addToast("Asset registered successfully", "success");
       navigate("/hr/assets");
     } catch (err) {
-      setError("Failed to save asset registry.");
-      addToast("Failed to save asset", "error");
+      setError(apiErrorMessage(err, "Failed to save asset registry."));
+      addToast(apiErrorMessage(err, "Failed to save asset"), "error");
     } finally {
       setSaving(false);
     }

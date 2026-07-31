@@ -43,8 +43,10 @@ class QuotationListRead(BaseModel):
     customer_name: str | None = None
     sales_person: str | None = None
     amount: float = 0
+    quote_date: str | None = None
     valid_until: str | None = None
     status: str = "draft"
+    converted_to_invoice: bool = False
 
 
 class SOSummaryRead(BaseModel):

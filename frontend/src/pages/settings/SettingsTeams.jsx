@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   ChevronUp,
@@ -11,10 +12,13 @@ import {
 
 import useAuth from "../../hooks/useAuth";
 import { getRoles } from "../../api/adminApi";
+import { useToast } from "../../context/ToastContext";
 
 const ROWS_PER_PAGE_OPTIONS = [5, 7, 10, 25, 50];
 
 export default function SettingsTeams() {
+  const navigate = useNavigate();
+  const { addToast } = useToast();
   const { user } = useAuth();
   const tenantId = user?.tenant_id ?? 1;
   const [teams, setTeams] = useState([]);
@@ -133,6 +137,7 @@ export default function SettingsTeams() {
         </div>
         <button
           type="button"
+          onClick={() => navigate("/admin/roles")}
           className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-700"
         >
           <Plus className="h-4 w-4" />
@@ -199,6 +204,7 @@ export default function SettingsTeams() {
                         type="button"
                         className="rounded p-1.5 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20"
                         title="Edit"
+                        onClick={() => navigate("/admin/roles")}
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -206,6 +212,7 @@ export default function SettingsTeams() {
                         type="button"
                         className="flex items-center gap-1 rounded border border-teal-600 bg-teal-50 px-2 py-1 text-xs font-medium text-teal-700 hover:bg-teal-100 dark:border-teal-500 dark:bg-teal-900/30 dark:text-teal-400"
                         title="Permissions"
+                        onClick={() => navigate("/admin/roles")}
                       >
                         <Shield className="h-3.5 w-3.5" />
                         PRO
@@ -214,6 +221,7 @@ export default function SettingsTeams() {
                         type="button"
                         className="rounded-full bg-teal-100 p-1.5 text-teal-600 hover:bg-teal-200 dark:bg-teal-900/30 dark:hover:bg-teal-900/50"
                         title="View Users"
+                        onClick={() => navigate("/admin/users")}
                       >
                         <Users className="h-4 w-4" />
                       </button>
@@ -221,6 +229,11 @@ export default function SettingsTeams() {
                         type="button"
                         className="rounded p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                         title="Delete"
+                        onClick={() => {
+                          if (!window.confirm(`Remove team "${t.name}" from this list?`)) return;
+                          setTeams((rows) => rows.filter((row) => row.id !== t.id));
+                          addToast(`Team "${t.name}" removed from list`, "success");
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

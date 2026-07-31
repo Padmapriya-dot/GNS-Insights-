@@ -1,11 +1,11 @@
 /** Customer master demo data and helpers. */
 
+import { INDIAN_STATES as INDIA_STATES_FULL } from "./indiaLocations";
+
 export const CUSTOMER_STATUSES = ["active", "inactive"];
 export const CUSTOMER_TYPES = ["Corporate", "Retail", "Distributor", "OEM", "Government"];
-export const INDIAN_STATES = [
-  "Andhra Pradesh", "Telangana", "Karnataka", "Maharashtra", "Tamil Nadu",
-  "Gujarat", "Delhi", "Uttar Pradesh", "West Bengal", "Rajasthan",
-];
+/** All 28 States + 8 Union Territories (official names, A–Z). */
+export const INDIAN_STATES = INDIA_STATES_FULL;
 export const SALES_EXECUTIVES = ["Ravi Kumar", "Anita Sharma", "Suresh Reddy", "Priya Nair"];
 
 export const DEMO_CUSTOMERS = [

@@ -358,7 +358,12 @@ def logout(
     db: Session = Depends(get_db),
 ):
     user = validate_refresh_token(db, req.refresh_token)
-    revoke_refresh_token(db, req.refresh_token)
+    if req.all_devices and user:
+        from app.services.security_service import revoke_all_refresh_tokens_for_user
+
+        revoke_all_refresh_tokens_for_user(db, user.id)
+    else:
+        revoke_refresh_token(db, req.refresh_token)
     if user:
         mark_logout(db, user_id=user.id, email=user.email)
         AuditLogService.log_logout(db, request=request, user=user)

@@ -36,8 +36,20 @@ class PurchaseOrderCreate(PurchaseOrderBase):
     line_items: list[PurchaseOrderLineCreate] = []
 
 
+class PurchaseOrderUpdate(BaseModel):
+    supplier_id: int | None = None
+    po_number: str | None = None
+    order_date: date | None = None
+    expected_date: date | None = None
+    status: str | None = None
+    total_amount: float | None = None
+    notes: str | None = None
+    line_items: list[PurchaseOrderLineCreate] | None = None
+
+
 class PurchaseOrderRead(PurchaseOrderBase):
     id: int
+    line_items: list[PurchaseOrderLineRead] = []
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -84,6 +96,16 @@ class MaterialRequestBase(BaseModel):
 
 class MaterialRequestCreate(MaterialRequestBase):
     line_items: list[MaterialRequestLineCreate] = []
+
+
+class MaterialRequestUpdate(BaseModel):
+    mr_number: str | None = None
+    request_date: date | None = None
+    required_date: date | None = None
+    requested_by: str | None = None
+    status: str | None = None
+    notes: str | None = None
+    line_items: list[MaterialRequestLineCreate] | None = None
 
 
 class MaterialRequestRead(MaterialRequestBase):
@@ -148,6 +170,15 @@ class SupplierPaymentBase(BaseModel):
 
 class SupplierPaymentCreate(SupplierPaymentBase):
     pass
+
+
+class SupplierPaymentUpdate(BaseModel):
+    supplier_id: int | None = None
+    payment_date: date | None = None
+    amount: float | None = None
+    payment_method: str | None = None
+    reference: str | None = None
+    notes: str | None = None
 
 
 class SupplierPaymentRead(SupplierPaymentBase):

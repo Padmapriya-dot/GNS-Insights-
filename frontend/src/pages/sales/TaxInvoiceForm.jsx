@@ -1,8 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Building2, ChevronDown, FileText, Grid2x2, ImagePlus, MapPin, Package, PenLine, Plane, Plus, Ban, Search, Ship, TrainFront, Trash2, Truck, User, X } from "lucide-react";
+
 import Loader from "../../components/common/Loader";
-import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
-import { createInvoice } from "../../api/salesApi";
+import AddBankAccountModal from "../../components/sales/AddBankAccountModal";
+import AddCustomFieldModal from "../../components/sales/AddCustomFieldModal";
+import AddNewItemModal from "../../components/sales/AddNewItemModal";
+import AddNewPartyModal from "../../components/sales/AddNewPartyModal";
+import AddInvoiceDiscountModal from "../../components/sales/AddInvoiceDiscountModal";
+import AddOtherChargesModal, {
+  computeOtherChargeTotal,
+} from "../../components/sales/AddOtherChargesModal";
+import AddPrefixModal from "../../components/sales/AddPrefixModal";
+import AddTermsAndConditionsModal from "../../components/sales/AddTermsAndConditionsModal";
+import AddTransporterDetailsModal from "../../components/sales/AddTransporterDetailsModal";
+import ChangeInvoiceTypeModal from "../../components/sales/ChangeInvoiceTypeModal";
+import DispatchAddressPicker from "../../components/sales/DispatchAddressPicker";
+import EditCompanyDetailsModal from "../../components/sales/EditCompanyDetailsModal";
+import SignatureAndStampPanel from "../../components/sales/SignatureAndStampPanel";
+import TermsAndConditionsPicker, {
+  DEFAULT_TERMS_BODY,
+} from "../../components/sales/TermsAndConditionsPicker";
+import { createInvoice, getInvoiceDetail, updateInvoice } from "../../api/salesApi";
+import { apiErrorMessage } from "../../utils/apiError";
+import { getCompanySettings, updateCompanySettings } from "../../api/settingsApi";
 import useTenantId from "../../hooks/useTenantId";
 import { useToast } from "../../context/ToastContext";
 import {
@@ -16,30 +37,253 @@ import {
   notifyManufacturingSpine,
 } from "../../utils/manufacturingEvents";
 
-const inputStyle = { padding: "6px 10px", border: "1px solid #c4b5a0", borderRadius: 4, background: "#fff", width: "100%" };
-const labelRed = { color: "#b91c1c", fontSize: "0.9rem", marginBottom: 4, display: "block" };
+const LAVENDER = "#efeaf8";
+const PURPLE = "#6b4eff";
+const YELLOW = "#F5C518";
+const PREFIX_STORAGE_KEY = "gns_invoice_prefixes";
+const DEFAULT_PREFIXES = ["INV-", "TI-"];
+const ADD_PREFIX_VALUE = "__add_prefix__";
+
+function loadCustomPrefixes() {
+  try {
+    const raw = localStorage.getItem(PREFIX_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomPrefixes(list) {
+  try {
+    localStorage.setItem(PREFIX_STORAGE_KEY, JSON.stringify(list));
+  } catch {
+    /* ignore */
+  }
+}
+
+const emptyItem = () => ({
+  item_description: "",
+  hsn: "",
+  qty: "",
+  unit: "",
+  rate: "",
+  tax_type: "Exclusive",
+  discount: "",
+  discount_type: "₹",
+  gst_pct: "",
+  amount: 0,
+});
+
+function money(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+function lineTotals(row) {
+  const qty = Number(row.qty) || 0;
+  const rate = Number(row.rate) || 0;
+  let discount = Number(row.discount) || 0;
+  if (row.discount_type === "%" && discount > 0) {
+    discount = money((qty * rate * discount) / 100);
+  }
+  const gstPct = Number(row.gst_pct) || 0;
+  let taxable = money(qty * rate - discount);
+  if (String(row.tax_type).toLowerCase() === "inclusive" && gstPct > 0) {
+    taxable = money(taxable / (1 + gstPct / 100));
+  }
+  const gst = money((taxable * gstPct) / 100);
+  return { taxable, gst, total: money(taxable + gst) };
+}
+
+function FieldLabel({ children }) {
+  return <span className="mb-1.5 block text-[12px] font-medium text-[#6b6b76]">{children}</span>;
+}
+
+function SoftInput({ className = "", ...props }) {
+  return (
+    <input
+      {...props}
+      className={`w-full rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-3 py-2.5 text-[13px] text-[#1a1a1f] placeholder:text-[#a0a0ab] focus:border-[#6b4eff] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#c4b5fd] ${className}`}
+    />
+  );
+}
+
+function SoftSelect({ className = "", children, ...props }) {
+  return (
+    <select
+      {...props}
+      className={`w-full rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-3 py-2.5 text-[13px] text-[#1a1a1f] focus:border-[#6b4eff] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#c4b5fd] ${className}`}
+    >
+      {children}
+    </select>
+  );
+}
+
+function Pill({ active, onClick, children, soft }) {
+  if (soft) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition ${
+          active
+            ? "border-[#6b4eff] bg-[#efeaf8] text-[#4a3fd0]"
+            : "border-[#e4e4ea] bg-[#f7f7f9] text-[#4a4a55] hover:bg-[#efefef]"
+        }`}
+      >
+        {children}
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${
+        active
+          ? "bg-[#2d2a4a] text-white"
+          : "bg-[#f0f0f3] text-[#4a4a55] hover:bg-[#e4e4ea]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+const TRANSPORT_MODES = [
+  { id: "Road", label: "Road", Icon: Truck },
+  { id: "Rail", label: "Rail", Icon: TrainFront },
+  { id: "Air", label: "Air", Icon: Plane },
+  { id: "Ship/Road Cum Ship", label: "Ship/Road Cum Ship", Icon: Ship },
+  { id: "Not Applicable", label: "Not-Applicable", Icon: Ban },
+];
+
+function transportDocLabels(mode) {
+  if (mode === "Rail") {
+    return { number: "RR Number", numberPh: "Enter RR Number", date: "RR Date" };
+  }
+  if (mode === "Air") {
+    return {
+      number: "Airway Bill Number",
+      numberPh: "Enter Airway Bill Number",
+      date: "Airway Bill Date",
+    };
+  }
+  if (mode === "Ship/Road Cum Ship") {
+    return {
+      number: "Lading Number",
+      numberPh: "Enter Lading Number",
+      date: "Lading Date",
+    };
+  }
+  return { number: "LR Number", numberPh: "Enter LR Number", date: "LR Date" };
+}
+
+function showsVehicleNo(mode) {
+  return mode === "Road" || mode === "Ship/Road Cum Ship" || mode === "Not Applicable";
+}
+
+function SectionHeader({ icon: Icon, title, children, className = "", collapsible, open, onToggle }) {
+  const titleRow = (
+    <div className="flex min-w-0 items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[#3d3560]">
+      {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
+      <span className="truncate">{title}</span>
+      {collapsible ? (
+        <ChevronDown
+          className={`ml-0.5 h-4 w-4 shrink-0 text-[#6b6b76] transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      ) : null}
+    </div>
+  );
+
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-between gap-2 border-b border-[#d0d0d8] px-4 py-3 ${className}`}
+      style={{ background: LAVENDER }}
+    >
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex min-w-0 items-center text-left"
+          aria-expanded={Boolean(open)}
+        >
+          {titleRow}
+        </button>
+      ) : (
+        titleRow
+      )}
+      {children ? (
+        <div className="relative z-10 flex flex-wrap items-center gap-2">{children}</div>
+      ) : null}
+    </div>
+  );
+}
+
+const INDIAN_STATES = [
+  "Andhra Pradesh",
+  "Delhi",
+  "Gujarat",
+  "Karnataka",
+  "Maharashtra",
+  "Tamil Nadu",
+  "Telangana",
+  "Uttar Pradesh",
+  "West Bengal",
+];
 
 export default function TaxInvoiceForm() {
   const tenantId = useTenantId();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { id: editId } = useParams();
+  const isEdit = Boolean(editId);
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
+  const [company, setCompany] = useState(null);
   const [customerSearch, setCustomerSearch] = useState("");
+  const [showBuyerPicker, setShowBuyerPicker] = useState(false);
+  const [dispatchAddress, setDispatchAddress] = useState(null);
+  const [editCompanyOpen, setEditCompanyOpen] = useState(false);
+  const [addBuyerOpen, setAddBuyerOpen] = useState(false);
+  const [addItemOpen, setAddItemOpen] = useState(false);
+  const [otherChargeOpen, setOtherChargeOpen] = useState(false);
+  const [otherChargeMeta, setOtherChargeMeta] = useState(null);
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const [discountMeta, setDiscountMeta] = useState(null);
+  const [transportOpen, setTransportOpen] = useState(true);
+  const [otherDetailsOpen, setOtherDetailsOpen] = useState(true);
+  const [termsOpen, setTermsOpen] = useState(true);
+  const [termsAttached, setTermsAttached] = useState(true);
+  const [termsPickerOpen, setTermsPickerOpen] = useState(false);
+  const [termsAddOpen, setTermsAddOpen] = useState(false);
+  const [transporterModalOpen, setTransporterModalOpen] = useState(false);
+  const [customFieldOpen, setCustomFieldOpen] = useState(false);
+  const [customFields, setCustomFields] = useState([]);
+  const [bankModalOpen, setBankModalOpen] = useState(false);
+  const [bankAccount, setBankAccount] = useState(null);
+  const [invoiceType, setInvoiceType] = useState("bill_of_supply");
+  const [pendingInvoiceType, setPendingInvoiceType] = useState(null);
+  const [prefixModalOpen, setPrefixModalOpen] = useState(false);
+  const [customPrefixes, setCustomPrefixes] = useState(loadCustomPrefixes);
+  const [signatureOn, setSignatureOn] = useState(true);
+  const [signatureDataUrl, setSignatureDataUrl] = useState(null);
+  const [stampDataUrl, setStampDataUrl] = useState(null);
   const [form, setForm] = useState({
     tenant_id: tenantId,
     customer_id: "",
     sales_order_id: searchParams.get("sales_order_id")
       ? Number(searchParams.get("sales_order_id"))
       : null,
-    invoice_number: "",
+    invoice_prefix: "",
+    invoice_number: "1",
     issue_date: new Date().toISOString().slice(0, 10),
     due_date: "",
     discount: 0,
-    sgst_pct: 9,
-    cgst_pct: 9,
-    igst_pct: 0,
+    other_charge: 0,
     round_off: 0,
     consignee_name: "",
     consignee_address1: "",
@@ -47,24 +291,195 @@ export default function TaxInvoiceForm() {
     consignee_state: "",
     consignee_state_code: "",
     consignee_gstin: "",
-    notes: "",
-    packaging: "",
-    p_and_f: 0,
+    notes: DEFAULT_TERMS_BODY,
+    transport_mode: "Road",
+    lr_number: "",
+    lr_date: "",
+    vehicle_no: "",
+    distance_km: 0,
+    transporter_name: "",
+    transporter_id: "",
+    place_of_supply: "",
+    date_of_supply: "",
+    supply_type: "B2B",
+    po_number: "",
+    po_date: "",
+    challan_number: "",
+    ewaybill_number: "",
+    sales_person: "",
+    reverse_charge: false,
   });
-  const [items, setItems] = useState([{ item_description: "", sizes: "", grade: "", qty: 1, unit: "KGS", rate: 0, amount: 0 }]);
+  const [items, setItems] = useState([emptyItem(), emptyItem(), emptyItem()]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchCustomersWithFallback()
-      .then(setCustomers)
-      .catch(() => setCustomers([]))
-      .finally(() => setLoading(false));
-  }, []);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const [custRes, companyRes] = await Promise.allSettled([
+          fetchCustomersWithFallback(),
+          getCompanySettings(),
+        ]);
+        if (cancelled) return;
+        setCustomers(custRes.status === "fulfilled" ? custRes.value || [] : []);
+        const co = companyRes.status === "fulfilled" ? companyRes.value?.data || null : null;
+        setCompany(co);
+        if (co?.invoice_prefix) {
+          setForm((f) => (f.invoice_prefix ? f : { ...f, invoice_prefix: co.invoice_prefix }));
+        }
+        if (co?.bank_name) {
+          setBankAccount({
+            ifsc: co.bank_ifsc || "",
+            bank_name: co.bank_name || "",
+            account_holder: "",
+            account_number: co.bank_account_number || "",
+            branch_name: co.bank_branch || "",
+            upi_id: "",
+            show_upi_qr: true,
+            notes: null,
+          });
+        }
+
+        if (editId) {
+          const detail = await getInvoiceDetail(editId);
+          const inv = detail?.data?.invoice || detail?.data;
+          if (!inv) throw new Error("Invoice not found");
+          const num = String(inv.invoice_number || "");
+          const prefix = inv.invoice_prefix || "";
+          const numberOnly =
+            prefix && num.startsWith(prefix) ? num.slice(prefix.length) : num.replace(/^[A-Za-z-]+/, "") || num;
+          setInvoiceType(inv.document_type || "bill_of_supply");
+          setSignatureOn(Boolean(inv.show_signature));
+          if (inv.terms_and_conditions) {
+            setTermsAttached(true);
+          }
+          setForm((f) => ({
+            ...f,
+            customer_id: inv.customer_id || "",
+            sales_order_id: inv.sales_order_id || null,
+            invoice_prefix: prefix,
+            invoice_number: numberOnly || "1",
+            issue_date: inv.issue_date ? String(inv.issue_date).slice(0, 10) : f.issue_date,
+            due_date: inv.due_date ? String(inv.due_date).slice(0, 10) : "",
+            discount: Number(inv.discount || 0),
+            other_charge: Number(inv.other_charge || 0),
+            round_off: Number(inv.round_off || 0),
+            notes: inv.terms_and_conditions || inv.notes || DEFAULT_TERMS_BODY,
+            transport_mode: inv.transport_mode || "Road",
+            lr_number: inv.lr_number || "",
+            lr_date: inv.lr_date ? String(inv.lr_date).slice(0, 10) : "",
+            vehicle_no: inv.vehicle_no || "",
+            distance_km: inv.distance_km || 0,
+            transporter_name: inv.transporter_name || "",
+            place_of_supply: inv.place_of_supply || "",
+            date_of_supply: inv.date_of_supply ? String(inv.date_of_supply).slice(0, 10) : "",
+            supply_type: inv.supply_type || "B2B",
+            po_number: inv.po_number || "",
+            po_date: inv.po_date ? String(inv.po_date).slice(0, 10) : "",
+            challan_number: inv.challan_number || "",
+            ewaybill_number: inv.ewaybill_number || "",
+            sales_person: inv.sales_person || "",
+            reverse_charge: Boolean(inv.reverse_charge),
+          }));
+          const lineItems = (inv.items || [])
+            .filter((it) => String(it.item_description || "").toLowerCase() !== "other charge")
+            .map((it) => ({
+              ...emptyItem(),
+              item_description: it.item_description || "",
+              hsn: it.hsn || "",
+              qty: it.qty ?? 0,
+              unit: it.unit || "pcs",
+              rate: it.rate ?? 0,
+              tax_type: it.tax_type || "Exclusive",
+              discount: it.discount ?? 0,
+              discount_type: it.discount_type || "₹",
+              gst_pct: it.gst_pct ?? 0,
+            }));
+          setItems(lineItems.length ? lineItems : [emptyItem(), emptyItem(), emptyItem()]);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          addToast(apiErrorMessage(err, "Failed to load invoice"), "error");
+          if (editId) navigate("/sales/invoices");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editId, addToast, navigate]);
 
   const filteredCustomers = useMemo(
     () => filterCustomers(customers, customerSearch),
     [customers, customerSearch]
   );
+
+  const selectedBuyer = customers.find((c) => String(c.id) === String(form.customer_id));
+
+  const prefixOptions = useMemo(() => {
+    const set = new Set([
+      ...DEFAULT_PREFIXES,
+      ...customPrefixes,
+      ...(company?.invoice_prefix ? [company.invoice_prefix] : []),
+      ...(form.invoice_prefix ? [form.invoice_prefix] : []),
+    ]);
+    return [...set].filter(Boolean);
+  }, [customPrefixes, company?.invoice_prefix, form.invoice_prefix]);
+
+  const resetInvoiceData = (nextType) => {
+    setInvoiceType(nextType);
+    setCustomerSearch("");
+    setShowBuyerPicker(false);
+    setDispatchAddress(null);
+    setOtherChargeMeta(null);
+    setDiscountMeta(null);
+    setCustomFields([]);
+    setSignatureDataUrl(null);
+    setStampDataUrl(null);
+    setSignatureOn(true);
+    setTermsAttached(true);
+    setTermsOpen(true);
+    setItems([emptyItem(), emptyItem(), emptyItem()]);
+    setForm((f) => ({
+      ...f,
+      customer_id: "",
+      sales_order_id: null,
+      discount: 0,
+      other_charge: 0,
+      round_off: 0,
+      consignee_name: "",
+      consignee_address1: "",
+      consignee_address2: "",
+      consignee_state: "",
+      consignee_state_code: "",
+      consignee_gstin: "",
+      notes: DEFAULT_TERMS_BODY,
+      transport_mode: "Road",
+      lr_number: "",
+      lr_date: "",
+      vehicle_no: "",
+      distance_km: 0,
+      transporter_name: "",
+      transporter_id: "",
+      place_of_supply: "",
+      date_of_supply: "",
+      supply_type: "B2B",
+      po_number: "",
+      po_date: "",
+      challan_number: "",
+      ewaybill_number: "",
+      sales_person: "",
+      reverse_charge: false,
+    }));
+  };
+
+  const requestInvoiceTypeChange = (nextType) => {
+    if (nextType === invoiceType) return;
+    setPendingInvoiceType(nextType);
+  };
 
   const handleCustomerChange = (customerId) => {
     const customer = customers.find((c) => String(c.id) === String(customerId));
@@ -73,192 +488,1121 @@ export default function TaxInvoiceForm() {
       customer_id: customerId,
       ...customerToConsigneeFields(customer),
     }));
+    setShowBuyerPicker(false);
   };
 
   const updateItem = (idx, field, val) => {
-    const next = [...items];
-    next[idx] = { ...next[idx], [field]: val };
-    if (field === "qty" || field === "rate") {
-      const q = Number(next[idx].qty) || 0;
-      const r = Number(next[idx].rate) || 0;
-      next[idx].amount = Math.round(q * r * 100) / 100;
-    }
-    setItems(next);
+    setItems((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [field]: val };
+      next[idx].amount = lineTotals(next[idx]).total;
+      return next;
+    });
   };
 
-  const netAmount = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
-  const pAndF = Number(form.p_and_f) || 0;
-  const discount = Number(form.discount) || 0;
-  const subtotal = netAmount - discount + pAndF;
-  const sgst = Math.round(subtotal * ((Number(form.sgst_pct) || 0) / 100) * 100) / 100;
-  const cgst = Math.round(subtotal * ((Number(form.cgst_pct) || 0) / 100) * 100) / 100;
-  const igst = Math.round(subtotal * ((Number(form.igst_pct) || 0) / 100) * 100) / 100;
-  const grandTotal = Math.round((subtotal + sgst + cgst + igst + (Number(form.round_off) || 0)) * 100) / 100;
+  const removeItem = (idx) => {
+    setItems((prev) => (prev.length <= 1 ? [emptyItem()] : prev.filter((_, i) => i !== idx)));
+  };
+
+  const filledItems = items.filter((i) => i.item_description?.trim());
+  const taxableAmount = filledItems.reduce((s, i) => s + lineTotals(i).taxable, 0);
+  const gstAmount = filledItems.reduce((s, i) => s + lineTotals(i).gst, 0);
+  const itemsTotal = filledItems.reduce((s, i) => s + lineTotals(i).total, 0);
+  const otherCharge = Number(form.other_charge) || 0;
+  const invoiceDiscount = Number(form.discount) || 0;
+  const finalAmount = money(itemsTotal + otherCharge - invoiceDiscount + (Number(form.round_off) || 0));
+
+  const useIgst = invoiceType === "export";
+  const sgstPct = useIgst ? 0 : 9;
+  const cgstPct = useIgst ? 0 : 9;
+  const igstPct = useIgst ? 18 : 0;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.customer_id) {
-      addToast("Please select a customer", "error");
+      addToast("Please select a buyer", "error");
+      setShowBuyerPicker(true);
+      return;
+    }
+    if (filledItems.length === 0) {
+      addToast("Add at least one item", "error");
       return;
     }
     setSaving(true);
     try {
       const customerId = await resolveCustomerId(form.customer_id, customers, tenantId);
-      const res = await createInvoice({
+      const payload = {
         tenant_id: form.tenant_id,
         customer_id: customerId,
         sales_order_id: form.sales_order_id || null,
+        document_type: invoiceType,
+        invoice_prefix: form.invoice_prefix || null,
         invoice_number: form.invoice_number || String(Date.now()).slice(-6),
         issue_date: form.issue_date,
         due_date: form.due_date || null,
-        subtotal: 0,
-        discount: form.discount,
-        sgst_pct: form.sgst_pct,
-        cgst_pct: form.cgst_pct,
-        igst_pct: form.igst_pct,
-        grand_total: grandTotal,
+        discount: invoiceDiscount,
+        other_charge: otherCharge,
+        round_off: Number(form.round_off) || 0,
+        sgst_pct: sgstPct,
+        cgst_pct: cgstPct,
+        igst_pct: igstPct,
         status: "issued",
-        items: (() => {
-        const list = items.filter((i) => i.item_description?.trim()).map((i) => ({
-          item_description: (i.item_description + (i.sizes ? " | " + i.sizes : "") + (i.grade ? " | " + i.grade : "")).trim() || "Item",
-          qty: Number(i.qty) || 0,
-          unit: i.unit || "pcs",
-          rate: Number(i.rate) || 0,
-          amount: Number(i.amount) || 0,
-        }));
-        const pf = Number(form.p_and_f) || 0;
-        if (pf > 0) list.push({ item_description: "Packing & Freight", qty: 1, unit: "pcs", rate: pf, amount: pf });
-        return list;
-      })(),
-      });
-      notifyManufacturingSpine(MANUFACTURING_EVENTS.INVOICE_CREATED, {
-        invoice_id: res.data?.id,
-        sales_order_id: form.sales_order_id,
-      });
-      addToast("Invoice created — AR journal posted");
+        transport_mode: form.transport_mode || null,
+        lr_number: form.lr_number || null,
+        lr_date: form.lr_date || null,
+        vehicle_no: form.vehicle_no || null,
+        distance_km: form.distance_km ? Number(form.distance_km) : null,
+        transporter_name: form.transporter_name || null,
+        place_of_supply: form.place_of_supply || null,
+        date_of_supply: form.date_of_supply || null,
+        supply_type: form.supply_type || null,
+        po_number: form.po_number || null,
+        po_date: form.po_date || null,
+        challan_number: form.challan_number || null,
+        ewaybill_number: form.ewaybill_number || null,
+        sales_person: form.sales_person || null,
+        reverse_charge: Boolean(form.reverse_charge),
+        terms_and_conditions: termsAttached ? form.notes || null : null,
+        show_signature: Boolean(signatureOn),
+        notes: [
+          ...customFields.map((f) => `${f.label}: ${f.value}`),
+          bankAccount
+            ? [
+                "Bank Details:",
+                bankAccount.bank_name,
+                bankAccount.account_holder,
+                bankAccount.account_number
+                  ? `A/C: ${bankAccount.account_number}`
+                  : null,
+                [bankAccount.ifsc, bankAccount.branch_name].filter(Boolean).join(" · ") ||
+                  null,
+                bankAccount.upi_id
+                  ? `UPI: ${bankAccount.upi_id}${
+                      bankAccount.show_upi_qr ? " (QR on invoice)" : ""
+                    }`
+                  : null,
+                bankAccount.notes,
+              ]
+                .filter(Boolean)
+                .join("\n")
+            : null,
+        ]
+          .filter(Boolean)
+          .join("\n") || null,
+        items: filledItems.map((i) => {
+          const t = lineTotals(i);
+          return {
+            item_description: i.item_description.trim(),
+            hsn: i.hsn || null,
+            qty: Number(i.qty) || 0,
+            unit: i.unit || "pcs",
+            rate: Number(i.rate) || 0,
+            tax_type: i.tax_type || "Exclusive",
+            discount: Number(i.discount) || 0,
+            discount_type: i.discount_type || "₹",
+            gst_pct: Number(i.gst_pct) || 0,
+            taxable_value: t.taxable,
+            gst_amount: t.gst,
+            amount: t.total,
+          };
+        }),
+      };
+      if (isEdit) {
+        await updateInvoice(editId, payload);
+        addToast("Invoice updated");
+      } else {
+        const res = await createInvoice(payload);
+        notifyManufacturingSpine(MANUFACTURING_EVENTS.INVOICE_CREATED, {
+          invoice_id: res.data?.id,
+          sales_order_id: form.sales_order_id,
+        });
+        addToast("Invoice created");
+      }
       navigate("/sales/invoices");
     } catch (err) {
       console.error(err);
-      addToast(err.response?.data?.detail || "Failed to save invoice", "error");
+      addToast(apiErrorMessage(err, "Failed to save invoice"), "error");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <Loader label="Loading..." />;
+  if (loading) {
+    return (
+      <div className="flex h-full min-h-[50vh] items-center justify-center bg-[#F5F5F5]">
+        <Loader label="Loading…" />
+      </div>
+    );
+  }
+
+  const companyName = company?.company_name || company?.name || "My Company";
 
   return (
-    <div style={{ background: "#f5e6d3", minHeight: "100%", padding: 20 }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ marginBottom: 12 }}>
-          <ManufacturingWorkflowBar currentStepId="invoice" compact />
+    <form
+      onSubmit={handleSubmit}
+      className="flex h-full min-h-0 flex-col bg-[#F5F5F5]"
+    >
+      {/* Sticky header — matches screenshot */}
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#e4e4ea] bg-white px-5 py-3.5">
+          <h1 className="text-[20px] font-bold text-[#1a1a1f]">
+            {isEdit ? "Edit Invoice" : "Create Invoice"}
+          </h1>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate("/sales/invoices")}
+            className="rounded-lg border border-[#d0d0d8] bg-white px-4 py-2 text-[13px] font-semibold text-[#4a4a55] hover:bg-[#f5f5f7]"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-lg px-5 py-2 text-[13px] font-semibold text-[#1a1a1f] shadow-sm disabled:opacity-60"
+            style={{ background: YELLOW }}
+          >
+            {saving ? "Saving…" : isEdit ? "Update" : "Save"}
+          </button>
         </div>
-        <div style={{ background: "#1e3a5f", color: "#fff", padding: "8px 16px", marginBottom: 16, display: "flex", gap: 16, alignItems: "center" }}>
-          <span>MASTERS</span>
-          <span style={{ background: "#2d5a8a", padding: "4px 12px" }}>MAKE TAX INVOICE</span>
-          <span>PRINT TAX INVOICE</span>
-          <span>REPORTS TAX INVOICE</span>
-          <span>TOOLS</span>
-          <span>QUIT</span>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div><label style={labelRed}>Invoice No. :-</label><input type="text" value={form.invoice_number} onChange={(e) => setForm((f) => ({ ...f, invoice_number: e.target.value }))} style={{ ...inputStyle, width: 80 }} /></div>
-            <h2 style={{ margin: 0, color: "#b91c1c" }}>Tax Invoice</h2>
-            <div><label style={labelRed}>Date :-</label><input type="date" value={form.issue_date} onChange={(e) => setForm((f) => ({ ...f, issue_date: e.target.value }))} style={{ ...inputStyle, width: 140 }} /></div>
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelRed}>Customer :-</label>
-            <input
-              type="search"
-              placeholder="Search customer by name, GSTIN, state..."
-              value={customerSearch}
-              onChange={(e) => setCustomerSearch(e.target.value)}
-              style={{ ...inputStyle, maxWidth: 400, marginBottom: 8 }}
-            />
-            <select
-              value={form.customer_id}
-              onChange={(e) => handleCustomerChange(e.target.value)}
-              required
-              style={{ ...inputStyle, maxWidth: 400 }}
-            >
-              <option value="">Select customer</option>
-              {filteredCustomers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}{c.gstin ? ` · ${c.gstin}` : ""}{c.state ? ` · ${c.state}` : ""}
-                </option>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1200px] space-y-4 p-5 pb-10">
+          {/* Top: invoice type + supplier */}
+          <div className="grid gap-4 lg:grid-cols-[1fr_1.35fr]">
+          <section className="rounded-xl border border-[#d0d0d8] bg-white p-4">
+            <div className="mb-4 flex flex-wrap gap-5">
+              {[
+                { id: "tax", label: "Tax Invoice" },
+                { id: "bill_of_supply", label: "Bill of Supply" },
+                { id: "export", label: "Export Invoice" },
+              ].map((opt) => (
+                <label key={opt.id} className="inline-flex cursor-pointer items-center gap-2 text-[13px] text-[#1a1a1f]">
+                  <span
+                    className={`flex h-4 w-4 items-center justify-center rounded-full border-2 ${
+                      invoiceType === opt.id ? "border-[#F5C518]" : "border-[#c4c4cc]"
+                    }`}
+                  >
+                    {invoiceType === opt.id ? (
+                      <span className="h-2 w-2 rounded-full bg-[#F5C518]" />
+                    ) : null}
+                  </span>
+                  <input
+                    type="radio"
+                    name="invoiceType"
+                    className="sr-only"
+                    checked={invoiceType === opt.id}
+                    onChange={() => requestInvoiceTypeChange(opt.id)}
+                  />
+                  {opt.label}
+                </label>
               ))}
-            </select>
-            {filteredCustomers.length === 0 && (
-              <p style={{ fontSize: "0.85rem", color: "#b91c1c", marginTop: 6 }}>
-                No customers match your search.{" "}
-                <Link to="/sales/customers" style={{ color: "#0d9488" }}>Add a customer</Link>
-              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block">
+                <FieldLabel>Invoice Prefix</FieldLabel>
+                <SoftSelect
+                  value={form.invoice_prefix}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === ADD_PREFIX_VALUE) {
+                      setPrefixModalOpen(true);
+                      return;
+                    }
+                    setForm((f) => ({ ...f, invoice_prefix: v }));
+                  }}
+                >
+                  <option value="">No Prefix</option>
+                  {prefixOptions.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                  <option value={ADD_PREFIX_VALUE}>+ Add Prefix</option>
+                </SoftSelect>
+              </label>
+              <label className="block">
+                <FieldLabel>Invoice No.</FieldLabel>
+                <SoftInput
+                  value={form.invoice_number}
+                  onChange={(e) => setForm((f) => ({ ...f, invoice_number: e.target.value }))}
+                />
+              </label>
+              <label className="block">
+                <FieldLabel>Invoice Date</FieldLabel>
+                <SoftInput
+                  type="date"
+                  value={form.issue_date}
+                  onChange={(e) => setForm((f) => ({ ...f, issue_date: e.target.value }))}
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-white">
+            <SectionHeader icon={Building2} title="Supplier Details" />
+            <div className="flex items-start justify-between gap-4 p-4">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[15px] font-semibold text-[#1a1a1f]">{companyName}</p>
+                  <button
+                    type="button"
+                    onClick={() => setEditCompanyOpen(true)}
+                    className="inline-flex items-center gap-1 text-[13px] font-medium text-[#2563eb] hover:underline"
+                  >
+                    <PenLine className="h-3.5 w-3.5" />
+                    Edit Company Details
+                  </button>
+                </div>
+                <DispatchAddressPicker value={dispatchAddress} onChange={setDispatchAddress} />
+                {dispatchAddress ? (
+                  <p className="mt-2 max-w-sm text-[12px] leading-relaxed text-[#6b6b76]">
+                    {[dispatchAddress.address, dispatchAddress.city, dispatchAddress.state, dispatchAddress.pincode]
+                      .filter(Boolean)
+                      .join(", ")}
+                    {dispatchAddress.gstin ? ` · ${dispatchAddress.gstin}` : ""}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditCompanyOpen(true)}
+                className="flex h-[72px] w-[72px] shrink-0 flex-col items-center justify-center overflow-hidden rounded-full border border-dashed border-[#c4c4cc] bg-[#fafafa] text-[10px] text-[#9a9aa5]"
+              >
+                {company?.logo_url ? (
+                  <img
+                    src={company.logo_url}
+                    alt="Logo"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <>
+                    <ImagePlus className="mb-1 h-5 w-5" />
+                    Add Logo
+                  </>
+                )}
+              </button>
+            </div>
+          </section>
+        </div>
+
+        {/* Buyer */}
+        <section className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-white">
+          <SectionHeader icon={User} title="Buyer Details">
+            <button
+              type="button"
+              onClick={() => setShowBuyerPicker((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold text-white"
+              style={{ background: PURPLE }}
+            >
+              <User className="h-3.5 w-3.5" />
+              Select Buyer
+            </button>
+            <button
+              type="button"
+              onClick={() => setAddBuyerOpen(true)}
+              className="inline-flex items-center gap-1 rounded-lg border border-[#d0d0d8] bg-white px-3 py-1.5 text-[13px] font-semibold text-[#4a4a55]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add New Buyer
+            </button>
+          </SectionHeader>
+          <div className="min-h-[88px] border-t-0 p-4">
+            {showBuyerPicker && (
+              <div className="mb-3 rounded-lg border border-[#e4e4ea] bg-[#fafafa] p-3">
+                <div className="relative mb-2">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
+                  <input
+                    type="search"
+                    placeholder="Search buyer by name, GSTIN, state…"
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    className="w-full rounded-lg border border-[#e4e4ea] bg-white py-2 pl-9 pr-3 text-[13px]"
+                  />
+                </div>
+                <div className="max-h-44 overflow-y-auto">
+                  {filteredCustomers.length === 0 ? (
+                    <p className="p-2 text-[13px] text-[#8a8a95]">
+                      No buyers found.{" "}
+                      <button
+                        type="button"
+                        onClick={() => setAddBuyerOpen(true)}
+                        className="font-medium"
+                        style={{ color: PURPLE }}
+                      >
+                        Add a buyer
+                      </button>
+                    </p>
+                  ) : (
+                    filteredCustomers.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleCustomerChange(c.id)}
+                        className={`block w-full rounded-md px-3 py-2 text-left text-[13px] hover:bg-white ${
+                          String(form.customer_id) === String(c.id) ? "bg-white font-semibold" : ""
+                        }`}
+                      >
+                        {c.name}
+                        {c.gstin ? ` · ${c.gstin}` : ""}
+                        {c.state ? ` · ${c.state}` : ""}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+            {selectedBuyer ? (
+              <div className="grid gap-1 text-[13px] sm:grid-cols-2">
+                <p className="font-semibold text-[#1a1a1f]">{selectedBuyer.name}</p>
+                <p className="text-[#6b6b76]">{selectedBuyer.gstin || "—"}</p>
+                <p className="text-[#6b6b76] sm:col-span-2">
+                  {[form.consignee_address1, form.consignee_address2, form.consignee_state]
+                    .filter(Boolean)
+                    .join(", ") || "—"}
+                </p>
+              </div>
+            ) : (
+              <p className="py-4 text-center text-[13px] text-[#a0a0ab]">Select a buyer to continue</p>
             )}
           </div>
+        </section>
 
-          <div style={{ background: "#e8dcc8", padding: "8px 16px", marginBottom: 12, textAlign: "center", fontWeight: 700 }}>Item</div>
+        {/* Items */}
+        <section className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-white">
+          <SectionHeader icon={Package} title="Item Details">
+            <button
+              type="button"
+              onClick={() => setAddItemOpen(true)}
+              className="rounded-lg border border-[#d0d0d8] bg-white px-3 py-1.5 text-[13px] font-semibold text-[#4a4a55]"
+            >
+              + Add New Item
+            </button>
+          </SectionHeader>
 
-          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", marginBottom: 16 }}>
-            <thead>
-              <tr style={{ background: "#e5e7eb" }}>
-                <th style={{ padding: 8, border: "1px solid #d1d5db", textAlign: "left" }}>Item</th>
-                <th style={{ padding: 8, border: "1px solid #d1d5db", textAlign: "left" }}>Sizes</th>
-                <th style={{ padding: 8, border: "1px solid #d1d5db", textAlign: "left" }}>Grade</th>
-                <th style={{ padding: 8, border: "1px solid #d1d5db" }}>Qty</th>
-                <th style={{ padding: 8, border: "1px solid #d1d5db" }}>Unit</th>
-                <th style={{ padding: 8, border: "1px solid #d1d5db" }}>Rate</th>
-                <th style={{ padding: 8, border: "1px solid #d1d5db" }}>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((row, idx) => (
-                <tr key={idx} style={{ background: idx % 2 === 0 ? "#f0fdf4" : "#fff" }}>
-                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="text" value={row.item_description} onChange={(e) => updateItem(idx, "item_description", e.target.value)} style={{ ...inputStyle, width: "100%", minWidth: 120 }} /></td>
-                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="text" value={row.sizes} onChange={(e) => updateItem(idx, "sizes", e.target.value)} style={{ ...inputStyle, width: 80 }} /></td>
-                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="text" value={row.grade} onChange={(e) => updateItem(idx, "grade", e.target.value)} style={{ ...inputStyle, width: 80 }} /></td>
-                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="number" step="0.01" value={row.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} style={{ ...inputStyle, width: 70 }} /></td>
-                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><select value={row.unit} onChange={(e) => updateItem(idx, "unit", e.target.value)} style={{ ...inputStyle, width: 70 }}><option>KGS</option><option>PCS</option></select></td>
-                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}><input type="number" step="0.01" value={row.rate} onChange={(e) => updateItem(idx, "rate", e.target.value)} style={{ ...inputStyle, width: 80 }} /></td>
-                  <td style={{ padding: 6, border: "1px solid #e5e7eb" }}>{Number(row.amount).toFixed(2)}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1100px] border-collapse text-left text-[12px]">
+              <thead>
+                <tr className="bg-[#f3f3f6] text-[#6b6b76]">
+                  {["#", "Item Name", "HSN", "Qty Unit", "Price", "Tax Type", "Discount", "Taxable Value", "GST", "Total Amt", ""].map(
+                    (h) => (
+                      <th key={h || "x"} className="whitespace-nowrap border-b border-r border-[#d0d0d8] px-2 py-2.5 font-semibold last:border-r-0">
+                        {h}
+                      </th>
+                    )
+                  )}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
-            <button type="button" onClick={() => setItems([...items, { item_description: "", sizes: "", grade: "", qty: 1, unit: "KGS", rate: 0, amount: 0 }])} style={{ padding: "6px 12px", background: "#4b5563", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>Add</button>
-            <div>Net :- {netAmount.toFixed(2)}</div>
+              </thead>
+              <tbody>
+                {items.map((row, idx) => {
+                  const t = lineTotals(row);
+                  const hasDesc = Boolean(row.item_description?.trim());
+                  return (
+                    <tr key={idx}>
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2 text-[#9a9aa5]">{idx + 1}</td>
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
+                        <div className="relative min-w-[160px]">
+                          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9a9aa5]" />
+                          <input
+                            value={row.item_description}
+                            onChange={(e) => updateItem(idx, "item_description", e.target.value)}
+                            placeholder="Select Item"
+                            className="w-full rounded-md border border-[#d0d0d8] bg-[#f7f7f9] py-1.5 pl-7 pr-2 text-[12px]"
+                          />
+                        </div>
+                      </td>
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
+                        <input
+                          value={row.hsn}
+                          onChange={(e) => updateItem(idx, "hsn", e.target.value)}
+                          className="w-16 rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
+                        />
+                      </td>
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
+                        <div className="flex gap-1">
+                          <input
+                            type="number"
+                            value={row.qty}
+                            onChange={(e) => updateItem(idx, "qty", e.target.value)}
+                            placeholder="0"
+                            className="w-14 rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
+                          />
+                          <select
+                            value={row.unit}
+                            onChange={(e) => updateItem(idx, "unit", e.target.value)}
+                            className="rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1 py-1.5"
+                          >
+                            <option value="">Unit</option>
+                            <option value="pcs">pcs</option>
+                            <option value="KGS">KGS</option>
+                            <option value="MT">MT</option>
+                          </select>
+                        </div>
+                      </td>
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
+                        <div className="flex items-center gap-0.5">
+                          <span className="text-[#9a9aa5]">₹</span>
+                          <input
+                            type="number"
+                            value={row.rate}
+                            onChange={(e) => updateItem(idx, "rate", e.target.value)}
+                            className="w-20 rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
+                          />
+                        </div>
+                      </td>
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
+                        <select
+                          value={row.tax_type}
+                          onChange={(e) => updateItem(idx, "tax_type", e.target.value)}
+                          className="rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
+                        >
+                          <option>Exclusive</option>
+                          <option>Inclusive</option>
+                        </select>
+                      </td>
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
+                        <div className="flex gap-1">
+                          <input
+                            type="number"
+                            value={row.discount}
+                            onChange={(e) => updateItem(idx, "discount", e.target.value)}
+                            className="w-14 rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
+                          />
+                          <select
+                            value={row.discount_type}
+                            onChange={(e) => updateItem(idx, "discount_type", e.target.value)}
+                            className="rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1 py-1.5"
+                          >
+                            <option value="₹">₹</option>
+                            <option value="%">%</option>
+                          </select>
+                        </div>
+                      </td>
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2 tabular-nums text-[#6b6b76]">
+                        {hasDesc ? t.taxable.toFixed(2) : "—"}
+                      </td>
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
+                        <select
+                          value={row.gst_pct}
+                          onChange={(e) => updateItem(idx, "gst_pct", e.target.value)}
+                          className="rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
+                        >
+                          <option value="">—</option>
+                          <option value="0">0%</option>
+                          <option value="5">5%</option>
+                          <option value="12">12%</option>
+                          <option value="18">18%</option>
+                          <option value="28">28%</option>
+                        </select>
+                      </td>
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2 font-semibold tabular-nums">
+                        {hasDesc ? t.total.toFixed(2) : "—"}
+                      </td>
+                      <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
+                        <button type="button" onClick={() => removeItem(idx)} className="text-red-500 hover:text-red-700">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 20 }}>
-            <div>
-              <div style={{ ...labelRed, textAlign: "center" }}>Consignee :</div>
-              <label style={{ fontSize: "0.85rem" }}>Name :-</label><input type="text" value={form.consignee_name} onChange={(e) => setForm((f) => ({ ...f, consignee_name: e.target.value }))} style={inputStyle} />
-              <label style={{ fontSize: "0.85rem", marginTop: 8, display: "block" }}>Address (1) :-</label><input type="text" value={form.consignee_address1} onChange={(e) => setForm((f) => ({ ...f, consignee_address1: e.target.value }))} style={inputStyle} />
-              <label style={{ fontSize: "0.85rem", marginTop: 8, display: "block" }}>Address (2) :-</label><input type="text" value={form.consignee_address2} onChange={(e) => setForm((f) => ({ ...f, consignee_address2: e.target.value }))} style={inputStyle} />
-              <label style={{ fontSize: "0.85rem", marginTop: 8, display: "block" }}>State / State Code / GSTIN</label>
-              <div style={{ display: "flex", gap: 8 }}><input type="text" value={form.consignee_state} onChange={(e) => setForm((f) => ({ ...f, consignee_state: e.target.value }))} style={inputStyle} /><input type="text" value={form.consignee_state_code} onChange={(e) => setForm((f) => ({ ...f, consignee_state_code: e.target.value }))} style={inputStyle} /><input type="text" value={form.consignee_gstin} onChange={(e) => setForm((f) => ({ ...f, consignee_gstin: e.target.value }))} style={inputStyle} /></div>
+          <div className="flex flex-col gap-4 border-t border-[#d0d0d8] p-4 sm:flex-row sm:items-start sm:justify-between">
+            <button
+              type="button"
+              onClick={() => setAddItemOpen(true)}
+              className="inline-flex items-center justify-center rounded-lg border px-4 py-2 text-[13px] font-semibold"
+              style={{ borderColor: PURPLE, color: PURPLE, background: "#f8f5ff" }}
+            >
+              + Add More Item
+            </button>
+
+            <div className="min-w-[260px] overflow-hidden rounded-lg border border-[#d0d0d8] text-[13px]">
+              <div className="flex justify-between border-b border-dashed border-[#d0d0d8] px-3 py-2 text-[#6b6b76]">
+                <span>Taxable Amount</span>
+                <span className="tabular-nums">₹ {taxableAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between border-b border-dashed border-[#d0d0d8] px-3 py-2 text-[#6b6b76]">
+                <span>GST Amount</span>
+                <span className="tabular-nums">₹ {gstAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between border-b border-dashed border-[#d0d0d8] px-3 py-2 font-medium text-[#1a1a1f]">
+                <span>Total Amount</span>
+                <span className="tabular-nums">₹ {itemsTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between border-b border-[#d0d0d8] bg-[#fafafa] px-3 py-2.5 text-[16px] font-bold text-[#1a1a1f]">
+                <span>Final Amount</span>
+                <span className="tabular-nums">₹ {finalAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex flex-col gap-2 p-3">
+                <button
+                  type="button"
+                  onClick={() => setOtherChargeOpen(true)}
+                  className="rounded-full border bg-white px-3 py-1.5 text-[12px] font-semibold"
+                  style={{ borderColor: PURPLE, color: PURPLE }}
+                >
+                  {otherChargeMeta?.charge_name
+                    ? `${otherChargeMeta.charge_name} · ₹ ${otherCharge.toFixed(2)}`
+                    : "+ Add Other Charge"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDiscountOpen(true)}
+                  className="rounded-full border bg-white px-3 py-1.5 text-[12px] font-semibold"
+                  style={{ borderColor: PURPLE, color: PURPLE }}
+                >
+                  {invoiceDiscount > 0
+                    ? `Discount · ₹ ${invoiceDiscount.toFixed(2)}`
+                    : "+ Add Invoice Level Discount"}
+                </button>
+              </div>
             </div>
-            <div>
-              <label style={{ fontSize: "0.85rem" }}>Less Discount</label><input type="number" step="0.01" value={form.discount} onChange={(e) => setForm((f) => ({ ...f, discount: e.target.value }))} style={{ ...inputStyle, width: 80 }} />
-              <label style={{ fontSize: "0.85rem", marginTop: 8 }}>P & F :-</label><input type="number" step="0.01" value={form.p_and_f} onChange={(e) => setForm((f) => ({ ...f, p_and_f: e.target.value }))} style={{ ...inputStyle, width: 80 }} />
-              <label style={{ fontSize: "0.85rem", marginTop: 8 }}>SGST {form.sgst_pct}% :-</label><span>{sgst.toFixed(2)}</span>
-              <label style={{ fontSize: "0.85rem", marginTop: 8 }}>CGST {form.cgst_pct}% :-</label><span>{cgst.toFixed(2)}</span>
-              <label style={{ fontSize: "0.85rem", marginTop: 8 }}>IGST {form.igst_pct} :-</label><span>{igst.toFixed(2)}</span>
-              <label style={{ fontSize: "0.85rem", marginTop: 8 }}>Round off :-</label><input type="number" step="0.01" value={form.round_off} onChange={(e) => setForm((f) => ({ ...f, round_off: e.target.value }))} style={{ ...inputStyle, width: 80 }} />
-              <div style={{ marginTop: 16 }}><label style={labelRed}>Grand Total :-</label><div style={{ fontSize: "1.5rem", fontWeight: 700, color: "#b91c1c" }}>{grandTotal.toFixed(2)}</div></div>
-            </div>
+          </div>
+        </section>
+
+        {/* OPTIONAL FIELDS */}
+        <div className="space-y-3">
+          <p className="text-center text-[12px] font-bold uppercase tracking-[0.12em] text-[#6b6b76]">
+            Optional Fields
+          </p>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Transportation */}
+            <section className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-white">
+              <SectionHeader
+                icon={Truck}
+                title="Transportation Details"
+                collapsible
+                open={transportOpen}
+                onToggle={() => setTransportOpen((v) => !v)}
+              />
+              {transportOpen ? (
+              <div className="space-y-4 p-4">
+                <div>
+                  <FieldLabel>Transportation Mode</FieldLabel>
+                  <div className="flex flex-wrap gap-2">
+                    {TRANSPORT_MODES.map(({ id, label, Icon }) => (
+                      <Pill
+                        key={id}
+                        soft
+                        active={form.transport_mode === id}
+                        onClick={() => setForm((f) => ({ ...f, transport_mode: id }))}
+                      >
+                        <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                        {label}
+                      </Pill>
+                    ))}
+                  </div>
+                </div>
+
+                {(() => {
+                  const docs = transportDocLabels(form.transport_mode);
+                  const withVehicle = showsVehicleNo(form.transport_mode);
+                  return (
+                    <div className={`grid gap-3 ${withVehicle ? "sm:grid-cols-2" : "sm:grid-cols-2"}`}>
+                      <label className="block">
+                        <FieldLabel>{docs.number}</FieldLabel>
+                        <SoftInput
+                          placeholder={docs.numberPh}
+                          value={form.lr_number}
+                          onChange={(e) => setForm((f) => ({ ...f, lr_number: e.target.value }))}
+                        />
+                      </label>
+                      <label className="block">
+                        <FieldLabel>{docs.date}</FieldLabel>
+                        <SoftInput
+                          type="date"
+                          value={form.lr_date}
+                          onChange={(e) => setForm((f) => ({ ...f, lr_date: e.target.value }))}
+                        />
+                      </label>
+                      {withVehicle ? (
+                        <label className="block">
+                          <FieldLabel>Vehicle No.</FieldLabel>
+                          <SoftInput
+                            placeholder="Enter Vehicle No."
+                            value={form.vehicle_no}
+                            onChange={(e) => setForm((f) => ({ ...f, vehicle_no: e.target.value }))}
+                          />
+                        </label>
+                      ) : null}
+                      <label className={`block ${withVehicle ? "" : "sm:col-span-2"}`}>
+                        <FieldLabel>Approximate Distance (in km)</FieldLabel>
+                        <div className="relative">
+                          <SoftInput
+                            type="number"
+                            value={form.distance_km}
+                            onChange={(e) =>
+                              setForm((f) => ({ ...f, distance_km: e.target.value }))
+                            }
+                            className="pr-28"
+                          />
+                          <button
+                            type="button"
+                            className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 text-[12px] font-semibold text-[#2563eb]"
+                          >
+                            <MapPin className="h-3.5 w-3.5" />
+                            Calculate
+                          </button>
+                        </div>
+                      </label>
+                    </div>
+                  );
+                })()}
+
+                <div className="flex items-center justify-between border-t border-[#ececf0] pt-3">
+                  <div className="min-w-0">
+                    <span className="text-[13px] font-semibold text-[#1a1a1f]">Transporter Details</span>
+                    {form.transporter_name ? (
+                      <p className="truncate text-[12px] text-[#6b6b76]">
+                        {form.transporter_name}
+                        {form.transporter_id ? ` · ${form.transporter_id}` : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTransporterModalOpen(true)}
+                    className="shrink-0 text-[13px] font-semibold text-[#2563eb]"
+                  >
+                    {form.transporter_name ? "Edit Transporter" : "+ Add New Transporter"}
+                  </button>
+                </div>
+
+                <div className="space-y-3 border-t border-[#ececf0] pt-3">
+                  <p className="text-[13px] font-semibold text-[#1a1a1f]">Other Details</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <FieldLabel>Place of Supply</FieldLabel>
+                      <SoftSelect
+                        value={form.place_of_supply}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, place_of_supply: e.target.value }))
+                        }
+                      >
+                        <option value="">Select State</option>
+                        {INDIAN_STATES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </SoftSelect>
+                    </label>
+                    <label className="block">
+                      <FieldLabel>Date of Supply</FieldLabel>
+                      <SoftInput
+                        type="date"
+                        value={form.date_of_supply}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, date_of_supply: e.target.value }))
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <FieldLabel>Supply Type</FieldLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {["B2B", "SEZWP", "SEZWOP", "EXPWP", "EXPWOP", "DEXP"].map((t) => (
+                        <Pill
+                          key={t}
+                          soft
+                          active={form.supply_type === t}
+                          onClick={() => setForm((f) => ({ ...f, supply_type: t }))}
+                        >
+                          {t}
+                        </Pill>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              ) : null}
+            </section>
+
+            {/* Other details */}
+            <section className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-white">
+              <SectionHeader
+                icon={Grid2x2}
+                title="Other Details"
+                collapsible
+                open={otherDetailsOpen}
+                onToggle={() => setOtherDetailsOpen((v) => !v)}
+              />
+              {otherDetailsOpen ? (
+              <div className="space-y-3 p-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <FieldLabel>PO Number</FieldLabel>
+                    <SoftInput
+                      placeholder="Enter PO Number"
+                      value={form.po_number}
+                      onChange={(e) => setForm((f) => ({ ...f, po_number: e.target.value }))}
+                    />
+                  </label>
+                  <label className="block">
+                    <FieldLabel>PO Date</FieldLabel>
+                    <SoftInput
+                      type="date"
+                      value={form.po_date}
+                      onChange={(e) => setForm((f) => ({ ...f, po_date: e.target.value }))}
+                    />
+                  </label>
+                  <label className="block">
+                    <FieldLabel>Challan Number</FieldLabel>
+                    <SoftInput
+                      placeholder="Enter Challan Number"
+                      value={form.challan_number}
+                      onChange={(e) => setForm((f) => ({ ...f, challan_number: e.target.value }))}
+                    />
+                  </label>
+                  <label className="block">
+                    <FieldLabel>E-Waybill Number</FieldLabel>
+                    <SoftInput
+                      placeholder="Enter E-Waybill Number"
+                      value={form.ewaybill_number}
+                      onChange={(e) => setForm((f) => ({ ...f, ewaybill_number: e.target.value }))}
+                    />
+                  </label>
+                  <label className="block">
+                    <FieldLabel>Sales Person</FieldLabel>
+                    <SoftInput
+                      placeholder="Enter Sales Person"
+                      value={form.sales_person}
+                      onChange={(e) => setForm((f) => ({ ...f, sales_person: e.target.value }))}
+                    />
+                  </label>
+                  <label className="block">
+                    <FieldLabel>Due Date</FieldLabel>
+                    <SoftInput
+                      type="date"
+                      value={form.due_date}
+                      onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))}
+                    />
+                  </label>
+                </div>
+                <label className="inline-flex items-center gap-2 text-[13px] text-[#4a4a55]">
+                  <input
+                    type="checkbox"
+                    checked={form.reverse_charge}
+                    onChange={(e) => setForm((f) => ({ ...f, reverse_charge: e.target.checked }))}
+                    className="h-4 w-4 rounded border-[#c4c4cc]"
+                  />
+                  Reverse Charge Applicable?
+                </label>
+                {customFields.map((field) => (
+                  <div
+                    key={field.id}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-[#e8e8ee] bg-[#fafafa] px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-[#1a1a1f]">
+                        {field.label}
+                      </p>
+                      {field.value ? (
+                        <p className="mt-0.5 truncate text-[12px] text-[#6b6b76]">{field.value}</p>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCustomFields((rows) => rows.filter((x) => x.id !== field.id))
+                      }
+                      className="rounded p-1 text-[#9a9aa5] hover:bg-[#f0f0f4] hover:text-[#e11d48]"
+                      aria-label={`Remove ${field.label}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCustomFieldOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#c4b5fd] bg-white px-3 py-2 text-[13px] font-semibold"
+                  style={{ color: PURPLE }}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Custom Field
+                </button>
+              </div>
+              ) : null}
+            </section>
           </div>
 
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", paddingTop: 16 }}>
-            <button type="submit" disabled={saving} style={{ padding: "10px 24px", background: "#4b5563", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>Save</button>
-            <button type="button" onClick={() => navigate("/sales/invoices")} style={{ padding: "10px 24px", background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>Close</button>
-          </div>
-        </form>
+          {/* Bank */}
+          <section className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-white">
+            <SectionHeader icon={Building2} title="Bank / Payment Details (Optional)">
+              <button
+                type="button"
+                onClick={() => setBankModalOpen(true)}
+                className="rounded-lg border border-[#d8d8e0] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#4a4a55]"
+              >
+                {bankAccount ? "Edit Bank Details" : "+ Add New Bank Details"}
+              </button>
+            </SectionHeader>
+            {bankAccount ? (
+              <div className="space-y-1 border-t border-[#ececf0] p-4 text-[13px] text-[#4a4a55]">
+                <p className="font-semibold text-[#1a1a1f]">{bankAccount.bank_name}</p>
+                {bankAccount.account_holder ? <p>{bankAccount.account_holder}</p> : null}
+                {bankAccount.account_number ? (
+                  <p className="tabular-nums">A/C: {bankAccount.account_number}</p>
+                ) : null}
+                <p>
+                  {[bankAccount.ifsc, bankAccount.branch_name].filter(Boolean).join(" · ")}
+                </p>
+                {bankAccount.upi_id ? (
+                  <p>
+                    UPI: {bankAccount.upi_id}
+                    {bankAccount.show_upi_qr ? " · QR on invoice" : ""}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+
+          {/* Terms */}
+          <section className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-white">
+            <SectionHeader
+              icon={FileText}
+              title="Terms and Conditions"
+              collapsible
+              open={termsOpen}
+              onToggle={() => setTermsOpen((v) => !v)}
+            >
+              {termsAttached ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setTermsAttached(false);
+                    setForm((f) => ({ ...f, notes: "" }));
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12px] font-semibold text-white"
+                  style={{ background: PURPLE }}
+                >
+                  <X className="h-3.5 w-3.5" /> Remove
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setTermsPickerOpen(true);
+                }}
+                className="inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12px] font-semibold text-white"
+                style={{ background: PURPLE }}
+              >
+                <User className="h-3.5 w-3.5" /> Select Terms and Conditions
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setTermsAddOpen(true);
+                }}
+                className="rounded-full border border-[#d8d8e0] bg-white px-3.5 py-1.5 text-[12px] font-semibold text-[#4a4a55]"
+              >
+                + Add New Terms and Conditions
+              </button>
+            </SectionHeader>
+            {termsOpen && termsAttached && form.notes ? (
+              <div className="p-4">
+                <textarea
+                  rows={3}
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  className="w-full rounded-lg border border-[#e4e4ea] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1a1a1f] focus:border-[#c4b5fd] focus:outline-none focus:ring-1 focus:ring-[#c4b5fd]"
+                />
+              </div>
+            ) : null}
+          </section>
+
+          {/* Signature */}
+          <section className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-white">
+            <SectionHeader icon={User} title="Signature and Stamp">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={signatureOn}
+                onClick={() => setSignatureOn((v) => !v)}
+                className={`relative h-6 w-11 rounded-full transition ${
+                  signatureOn ? "bg-[#F5C518]" : "bg-[#d4d4d8]"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+                    signatureOn ? "left-[22px]" : "left-0.5"
+                  }`}
+                />
+              </button>
+            </SectionHeader>
+            <SignatureAndStampPanel
+              companyName={companyName}
+              enabled={signatureOn}
+              signatureDataUrl={signatureDataUrl}
+              stampDataUrl={stampDataUrl}
+              onSignatureChange={setSignatureDataUrl}
+              onStampChange={setStampDataUrl}
+            />
+          </section>
+        </div>
+        </div>
       </div>
-    </div>
+
+      <EditCompanyDetailsModal
+        open={editCompanyOpen}
+        onClose={() => setEditCompanyOpen(false)}
+        onSaved={(data) => setCompany(data)}
+      />
+      <AddNewPartyModal
+        open={addBuyerOpen}
+        onClose={() => setAddBuyerOpen(false)}
+        onSaved={(buyer) => {
+          if (!buyer) return;
+          setCustomers((rows) => [buyer, ...rows.filter((c) => c.id !== buyer.id)]);
+          setForm((f) => ({
+            ...f,
+            customer_id: buyer.id,
+            ...customerToConsigneeFields(buyer),
+          }));
+          setShowBuyerPicker(false);
+        }}
+      />
+      <AddNewItemModal
+        open={addItemOpen}
+        onClose={() => setAddItemOpen(false)}
+        onSaved={(line) => {
+          if (!line) return;
+          const withAmount = {
+            ...emptyItem(),
+            ...line,
+            amount: lineTotals(line).total,
+          };
+          setItems((prev) => {
+            const blankIdx = prev.findIndex((r) => !r.item_description?.trim());
+            if (blankIdx >= 0) {
+              const next = [...prev];
+              next[blankIdx] = withAmount;
+              return next;
+            }
+            return [...prev, withAmount];
+          });
+        }}
+      />
+      <AddOtherChargesModal
+        open={otherChargeOpen}
+        onClose={() => setOtherChargeOpen(false)}
+        initial={otherChargeMeta}
+        onSave={(charge) => {
+          setOtherChargeMeta(charge);
+          setForm((f) => ({
+            ...f,
+            other_charge: computeOtherChargeTotal(charge),
+          }));
+        }}
+      />
+      <AddInvoiceDiscountModal
+        open={discountOpen}
+        onClose={() => setDiscountOpen(false)}
+        initial={discountMeta}
+        baseAmount={itemsTotal}
+        onSave={(disc) => {
+          setDiscountMeta(disc);
+          setForm((f) => ({ ...f, discount: disc.amount || 0 }));
+        }}
+      />
+      <AddTransporterDetailsModal
+        open={transporterModalOpen}
+        onClose={() => setTransporterModalOpen(false)}
+        initial={{
+          transporter_name: form.transporter_name,
+          transporter_id: form.transporter_id,
+        }}
+        onSave={(data) => {
+          setForm((f) => ({
+            ...f,
+            transporter_name: data.transporter_name || "",
+            transporter_id: data.transporter_id || "",
+          }));
+        }}
+      />
+      <AddCustomFieldModal
+        open={customFieldOpen}
+        onClose={() => setCustomFieldOpen(false)}
+        onSave={(field) => setCustomFields((rows) => [...rows, field])}
+      />
+      <AddBankAccountModal
+        open={bankModalOpen}
+        onClose={() => setBankModalOpen(false)}
+        initial={bankAccount}
+        onSave={(data) => {
+          setBankAccount(data);
+          updateCompanySettings({
+            bank_name: data.bank_name || null,
+            bank_account_number: data.account_number || null,
+            bank_ifsc: data.ifsc || null,
+            bank_branch: data.branch_name || null,
+          }).catch(() => {});
+        }}
+      />
+      <TermsAndConditionsPicker
+        open={termsPickerOpen}
+        onClose={() => setTermsPickerOpen(false)}
+        value={form.notes}
+        onChange={(body) => {
+          setTermsAttached(true);
+          setTermsOpen(true);
+          setForm((f) => ({ ...f, notes: body }));
+        }}
+        onRemove={() => {
+          setTermsAttached(false);
+          setForm((f) => ({ ...f, notes: "" }));
+        }}
+      />
+      <AddTermsAndConditionsModal
+        open={termsAddOpen}
+        onClose={() => setTermsAddOpen(false)}
+        onSave={(item) => {
+          try {
+            const raw = localStorage.getItem("gns_invoice_terms_templates");
+            const list = raw ? JSON.parse(raw) : [];
+            const next = Array.isArray(list) ? [...list, item] : [item];
+            localStorage.setItem("gns_invoice_terms_templates", JSON.stringify(next));
+          } catch {
+            /* ignore */
+          }
+          setTermsAttached(true);
+          setTermsOpen(true);
+          setForm((f) => ({ ...f, notes: item.body }));
+        }}
+      />
+      <AddPrefixModal
+        open={prefixModalOpen}
+        onClose={() => setPrefixModalOpen(false)}
+        onSubmit={(value) => {
+          setCustomPrefixes((prev) => {
+            const next = prev.includes(value) ? prev : [...prev, value];
+            saveCustomPrefixes(next);
+            return next;
+          });
+          setForm((f) => ({ ...f, invoice_prefix: value }));
+          if (company && !company.invoice_prefix) {
+            updateCompanySettings({ invoice_prefix: value }).catch(() => {});
+          }
+        }}
+      />
+      <ChangeInvoiceTypeModal
+        open={Boolean(pendingInvoiceType)}
+        onClose={() => setPendingInvoiceType(null)}
+        onConfirm={() => {
+          if (pendingInvoiceType) resetInvoiceData(pendingInvoiceType);
+        }}
+      />
+    </form>
   );
 }

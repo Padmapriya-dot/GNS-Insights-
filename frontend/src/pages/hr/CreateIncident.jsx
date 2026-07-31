@@ -4,7 +4,8 @@ import { ArrowLeft, Save } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
-import { getEmployees } from "../../api/hrApi";
+import { createSafetyIncident, getEmployees } from "../../api/hrApi";
+import { apiErrorMessage } from "../../utils/apiError";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
@@ -39,7 +40,7 @@ export default function CreateIncident() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title || !form.reporter || !form.description) {
       setError("Please fill in all required fields (Title, Reporter, Description).");
@@ -49,20 +50,21 @@ export default function CreateIncident() {
     setError("");
 
     try {
-      const stored = localStorage.getItem("smrt_incidents");
-      const currentIncidents = stored ? JSON.parse(stored) : [];
-      const newIncident = {
-        id: Date.now(),
-        ...form,
-      };
-      const updatedIncidents = [newIncident, ...currentIncidents];
-      localStorage.setItem("smrt_incidents", JSON.stringify(updatedIncidents));
-
+      await createSafetyIncident({
+        incident_code: form.incident_code,
+        title: form.title,
+        type: form.type,
+        reporter: form.reporter,
+        incident_date: form.date,
+        severity: form.severity,
+        status: form.status,
+        description: form.description,
+      });
       addToast("Safety incident reported successfully", "success");
       navigate("/hr/incidents");
     } catch (err) {
-      setError("Failed to save incident report.");
-      addToast("Failed to save report", "error");
+      setError(apiErrorMessage(err, "Failed to save incident report."));
+      addToast(apiErrorMessage(err, "Failed to save report"), "error");
     } finally {
       setSaving(false);
     }

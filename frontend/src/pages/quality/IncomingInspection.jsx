@@ -63,6 +63,18 @@ export default function IncomingInspection() {
     });
   }, [rows, search, resultFilter]);
 
+  const handleInspect = (row) => {
+    const key = row.id ?? row.inspection_number;
+    setRows((prev) =>
+      prev.map((r) =>
+        (r.id ?? r.inspection_number) === key
+          ? { ...r, status: "inspected", result: r.result === "pending" || !r.result ? "passed" : r.result }
+          : r
+      )
+    );
+    addToast(`Inspection ${row.inspection_number || ""} marked as inspected`, "success");
+  };
+
   const columns = [
     { key: "inspection_number", label: "Inspection No" },
     { key: "po_reference", label: "Purchase Order (PO)" },
@@ -73,7 +85,18 @@ export default function IncomingInspection() {
     { key: "inspector", label: "Inspector" },
     { key: "result", label: "Result", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcStatusColor(r.result)}`}>{r.result}</span> },
     { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcStatusColor(r.status)}`}>{r.status}</span> },
-    { key: "actions", label: "Action", render: (r) => r.attachment ? <span className="text-xs text-[#2563EB]">{r.attachment}</span> : <button type="button" className="text-xs font-semibold text-[#2563EB] hover:underline">Inspect</button> },
+    {
+      key: "actions",
+      label: "Action",
+      render: (r) =>
+        r.attachment ? (
+          <span className="text-xs text-[#2563EB]">{r.attachment}</span>
+        ) : (
+          <button type="button" onClick={() => handleInspect(r)} className="text-xs font-semibold text-[#2563EB] hover:underline">
+            Inspect
+          </button>
+        ),
+    },
   ];
 
   if (loading) return <Loader label="Loading incoming inspections..." />;

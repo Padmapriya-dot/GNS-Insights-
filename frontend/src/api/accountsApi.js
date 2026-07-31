@@ -42,8 +42,13 @@ export const listExpenses = (_tenantId, year = null) =>
     params: { year },
   });
 
-export const createIncome = (payload) => api.post("/accounts/income", payload);
+export const getExpense = (expenseId) => api.get(`/accounts/expenses/${expenseId}`);
 export const createExpense = (payload) => api.post("/accounts/expenses", payload);
+export const updateExpense = (expenseId, payload) =>
+  api.put(`/accounts/expenses/${expenseId}`, payload);
+export const deleteExpense = (expenseId) => api.delete(`/accounts/expenses/${expenseId}`);
+
+export const createIncome = (payload) => api.post("/accounts/income", payload);
 
 /** Extended finance reports (Balance Sheet, Trial Balance, Journals, Assets, etc.). */
 export const getExtendedReports = (financialYear, month, branch) =>
@@ -55,11 +60,40 @@ export const getExtendedReports = (financialYear, month, branch) =>
     },
   });
 
+export const listJournalEntries = () => api.get("/accounts/journal-entries");
+
+export const getJournalEntry = (entryId) => api.get(`/accounts/journal-entries/${entryId}`);
+
 export const createJournalEntry = (payload) =>
   api.post("/accounts/journal-entries", payload);
+
+export const updateJournalEntry = (entryId, payload) =>
+  api.put(`/accounts/journal-entries/${entryId}`, payload);
+
+export const deleteJournalEntry = (entryId) =>
+  api.delete(`/accounts/journal-entries/${entryId}`);
+
+export const listGLAccounts = () => api.get("/accounts/gl-accounts");
+
+export const getGLAccount = (accountId) => api.get(`/accounts/gl-accounts/${accountId}`);
 
 export const createGLAccount = (payload) =>
   api.post("/accounts/gl-accounts", payload);
 
+export const updateGLAccount = (accountId, payload) =>
+  api.put(`/accounts/gl-accounts/${accountId}`, payload);
+
+export const deleteGLAccount = (accountId) =>
+  api.delete(`/accounts/gl-accounts/${accountId}`);
+
+export const seedGLAccounts = () => api.post("/accounts/gl-accounts/seed");
+
+export const listFixedAssets = () => api.get("/accounts/fixed-assets");
+
 export const createFixedAsset = (payload) =>
   api.post("/accounts/fixed-assets", payload);
+
+export const getTenantPref = (key) => api.get(`/accounts/tenant-prefs/${key}`);
+
+export const putTenantPref = (key, value) =>
+  api.put(`/accounts/tenant-prefs/${key}`, { value });

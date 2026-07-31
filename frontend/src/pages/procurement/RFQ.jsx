@@ -9,6 +9,7 @@ import {
   addVendorQuotation,
   awardRFQ,
   createRFQ,
+  deleteRFQ,
   getMREnriched,
   getRFQComparison,
   getRFQList,
@@ -462,6 +463,18 @@ export default function RFQ() {
     load();
   }, [load]);
 
+  const handleDelete = async (row) => {
+    if (!row?.id) return;
+    if (!window.confirm(`Delete RFQ ${row.rfq_number || row.id}?`)) return;
+    try {
+      await deleteRFQ(row.id);
+      addToast("RFQ deleted", "success");
+      await load();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Failed to delete RFQ", "error");
+    }
+  };
+
   const fetchComparison = useCallback(() => {
     if (!selectedRfq?.id) {
       setComparison([]);
@@ -497,13 +510,22 @@ export default function RFQ() {
       key: "actions",
       label: "Actions",
       render: (r) => (
-        <button
-          type="button"
-          onClick={() => setSelectedRfq(r)}
-          className={`text-xs font-semibold ${selectedRfq?.id === r.id ? "text-emerald-700 font-bold" : "text-[#2563EB] hover:underline"}`}
-        >
-          {selectedRfq?.id === r.id ? "Viewing Quotes" : "Compare Quotes"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedRfq(r)}
+            className={`text-xs font-semibold ${selectedRfq?.id === r.id ? "text-emerald-700 font-bold" : "text-[#2563EB] hover:underline"}`}
+          >
+            {selectedRfq?.id === r.id ? "Viewing Quotes" : "Compare Quotes"}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDelete(r)}
+            className="text-xs font-semibold text-red-600 hover:underline"
+          >
+            Delete
+          </button>
+        </div>
       ),
     },
   ];

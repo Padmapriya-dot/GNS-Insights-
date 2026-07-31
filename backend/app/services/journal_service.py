@@ -71,6 +71,86 @@ def post_journal_entry(
     return entry
 
 
+def get_journal_entry(
+    db: Session, tenant_id: int, entry_id: int
+) -> JournalEntry | None:
+    from sqlalchemy.orm import joinedload
+
+    return db.scalar(
+        select(JournalEntry)
+        .where(JournalEntry.id == entry_id, JournalEntry.tenant_id == tenant_id)
+        .options(joinedload(JournalEntry.legs))
+    )
+
+
+def update_journal_entry(
+    db: Session,
+    tenant_id: int,
+    entry_id: int,
+    *,
+    entry_date: date | None = None,
+    reference: str | None = None,
+    description: str | None = None,
+    status: str | None = None,
+    branch: str | None = None,
+    legs: list[dict] | None = None,
+) -> JournalEntry | None:
+    entry = db.scalar(
+        select(JournalEntry).where(
+            JournalEntry.id == entry_id, JournalEntry.tenant_id == tenant_id
+        )
+    )
+    if not entry:
+        return None
+    if entry_date is not None:
+        entry.entry_date = entry_date
+    if reference is not None:
+        entry.reference = reference
+    if description is not None:
+        entry.description = description
+    if status is not None:
+        entry.status = status
+    if branch is not None:
+        entry.branch = branch
+    if legs is not None:
+        total_debit = sum(float(l.get("debit") or 0) for l in legs)
+        total_credit = sum(float(l.get("credit") or 0) for l in legs)
+        if round(total_debit, 2) != round(total_credit, 2):
+            raise ValueError(
+                f"Unbalanced journal: debit={total_debit} credit={total_credit}"
+            )
+        if total_debit <= 0:
+            raise ValueError("Journal must have positive amounts")
+        for existing in list(entry.legs or []):
+            db.delete(existing)
+        db.flush()
+        for leg in legs:
+            db.add(
+                JournalLeg(
+                    entry_id=entry.id,
+                    account=str(leg.get("account") or "General"),
+                    debit=float(leg.get("debit") or 0),
+                    credit=float(leg.get("credit") or 0),
+                )
+            )
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+def delete_journal_entry(db: Session, tenant_id: int, entry_id: int) -> bool:
+    entry = db.scalar(
+        select(JournalEntry).where(
+            JournalEntry.id == entry_id, JournalEntry.tenant_id == tenant_id
+        )
+    )
+    if not entry:
+        return False
+    db.delete(entry)
+    db.commit()
+    return True
+
+
 def post_sales_invoice_journal(
     db: Session,
     tenant_id: int,

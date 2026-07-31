@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -7,44 +9,51 @@ from app.models.user import User
 from app.schemas.sales import (
     CustomerCreate,
     CustomerRead,
-    InvoiceCreate,
-    InvoiceListRead,
-    InvoiceRead,
-    InvoiceItemRead,
+    CustomerUpdate,
     LeadCreate,
     LeadRead,
     PaymentCreate,
     PaymentRead,
+    PaymentUpdate,
     QuotationConvertRequest,
     QuotationCreate,
     QuotationRead,
+    QuotationUpdate,
     SalesOrderCreate,
     SalesOrderListRead,
     SalesOrderRead,
 )
+from app.schemas.invoice_v2 import (
+    InvoiceV2Create,
+    InvoiceV2ListResponse,
+    InvoiceV2Read,
+    InvoiceV2SummaryRead,
+)
 from app.services.sales_service import (
     create_customer,
-    create_invoice,
     create_lead,
     create_payment,
     create_quotation,
     create_sales_order,
-    get_invoice_with_items,
+    delete_payment,
+    delete_quotation,
+    get_payment,
+    get_quotation,
     list_customers,
-    list_invoices,
     list_leads,
     list_payments,
     list_quotations,
     list_sales_orders,
+    update_customer,
     update_lead_status,
+    update_payment,
+    update_quotation,
     update_quotation_status,
     update_sales_order_dispatch,
 )
 from app.schemas.sales_extended import (
     DispatchListRead,
     DispatchSummaryRead,
-    InvoiceListEnrichedRead,
-    InvoiceSummaryRead,
     LeadListRead,
     LeadSummaryRead,
     QuotationListRead,
@@ -55,16 +64,22 @@ from app.schemas.sales_extended import (
 )
 from app.services.sales_extended_service import (
     get_dispatch_summary,
-    get_invoice_summary,
     get_lead_summary,
     get_quotation_summary,
     get_sales_hub,
     get_so_summary,
     list_dispatch_enriched,
-    list_invoices_enriched,
     list_leads_enriched,
     list_quotations_enriched,
     list_so_enriched,
+)
+from app.services.invoice_v2_service import (
+    cancel_invoice_v2,
+    create_invoice_v2,
+    get_invoice_v2,
+    get_invoice_v2_summary,
+    list_invoices_v2,
+    update_invoice_v2,
 )
 
 router = APIRouter(prefix="/sales", tags=["sales"])
@@ -87,6 +102,31 @@ def list_customers_endpoint(
     tenant_id: int = Depends(tenant_scope_any(MODULE, "masters")), db: Session = Depends(get_db)
 ):
     return list_customers(db, tenant_id)
+
+
+@router.put("/customers/{customer_id}", response_model=CustomerRead)
+def update_customer_endpoint(
+    customer_id: int,
+    payload: CustomerUpdate,
+    user: User = Depends(require_any_permission(MODULE, "masters")),
+    db: Session = Depends(get_db),
+):
+    customer = update_customer(db, user.tenant_id, customer_id, payload)
+    if not customer:
+        raise HTTPException(404, "Customer not found")
+    return customer
+
+
+@router.delete("/customers/{customer_id}")
+def delete_customer_endpoint(
+    customer_id: int,
+    user: User = Depends(require_any_permission(MODULE, "masters")),
+    db: Session = Depends(get_db),
+):
+    customer = update_customer(db, user.tenant_id, customer_id, CustomerUpdate(status="inactive"))
+    if not customer:
+        raise HTTPException(404, "Customer not found")
+    return {"ok": True, "id": customer.id, "status": customer.status}
 
 
 @router.post("/leads", response_model=LeadRead)
@@ -388,30 +428,124 @@ def get_sales_order_detail_endpoint(
     }
 
 
-@router.post("/invoices", response_model=InvoiceRead)
+@router.post("/invoices", response_model=InvoiceV2Read)
 def create_invoice_endpoint(
-    payload: InvoiceCreate,
+    payload: InvoiceV2Create,
     user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ):
+    """Invoice v2 create — Tax Invoice / Bill of Supply / Export + optional fields."""
     payload.tenant_id = user.tenant_id
-    return create_invoice(db, payload)
+    inv = create_invoice_v2(db, payload)
+    return get_invoice_v2(db, user.tenant_id, inv.id)
 
 
-@router.get("/invoices", response_model=list[InvoiceListRead])
-def list_invoices_endpoint(
+@router.get("/invoices/summary", response_model=InvoiceV2SummaryRead)
+def invoices_summary(
     tenant_id: int = Depends(tenant_scope(MODULE)),
-    status: str | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    invs = list_invoices(db, tenant_id, status)
-    return [
-        InvoiceListRead(
-            **InvoiceRead.model_validate(i).model_dump(),
-            customer_name=i.customer.name if i.customer else None,
-        )
-        for i in invs
-    ]
+    """KPI tabs: Total Sales / Unpaid / Paid / Partially Paid."""
+    return get_invoice_v2_summary(db, tenant_id, date_from=date_from, date_to=date_to)
+
+
+@router.get("/invoices/v2", response_model=InvoiceV2ListResponse)
+def list_invoices_v2_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    payment_filter: str | None = Query("all", description="all|unpaid|paid|partial|partially_paid"),
+    sort_by: str = Query("date_desc"),
+    due: str | None = Query(None, description="overdue|today|tomorrow|custom"),
+    custom_due_date: date | None = Query(None),
+    invoice_status: str | None = Query(None, description="active|cancelled"),
+    e_invoice_status: str | None = Query(None),
+    e_waybill_status: str | None = Query(None),
+    export_status: str | None = Query(None),
+    document_type: str | None = Query(None, description="sale|bos|export"),
+    amount_band: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Paginated Invoice v2 list with filters + sort."""
+    return list_invoices_v2(
+        db,
+        tenant_id,
+        page=page,
+        page_size=page_size,
+        search=search,
+        date_from=date_from,
+        date_to=date_to,
+        payment_filter=payment_filter,
+        sort_by=sort_by,
+        due=due,
+        custom_due_date=custom_due_date,
+        invoice_status=invoice_status,
+        e_invoice_status=e_invoice_status,
+        e_waybill_status=e_waybill_status,
+        export_status=export_status,
+        document_type=document_type,
+        amount_band=amount_band,
+    )
+
+
+@router.get("/invoices/enriched", response_model=InvoiceV2ListResponse)
+def invoices_enriched(
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=500),
+    search: str | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    payment_filter: str | None = Query("all"),
+    sort_by: str = Query("date_desc"),
+    db: Session = Depends(get_db),
+):
+    """Alias for v2 list (replaces legacy enriched endpoint)."""
+    return list_invoices_v2(
+        db,
+        tenant_id,
+        page=page,
+        page_size=page_size,
+        search=search,
+        date_from=date_from,
+        date_to=date_to,
+        payment_filter=payment_filter,
+        sort_by=sort_by,
+    )
+
+
+@router.get("/invoices", response_model=InvoiceV2ListResponse)
+def list_invoices_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
+    status: str | None = Query(None, description="Legacy; prefer payment_filter"),
+    payment_filter: str | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    sort_by: str = Query("date_desc"),
+    db: Session = Depends(get_db),
+):
+    pf = payment_filter or status or "all"
+    if pf in ("sent", "issued", "pending"):
+        pf = "unpaid"
+    return list_invoices_v2(
+        db,
+        tenant_id,
+        page=page,
+        page_size=page_size,
+        search=search,
+        date_from=date_from,
+        date_to=date_to,
+        payment_filter=pf,
+        sort_by=sort_by,
+    )
 
 
 @router.get("/invoices/{invoice_id}")
@@ -420,13 +554,45 @@ def get_invoice_detail_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)),
     db: Session = Depends(get_db),
 ):
-    inv = get_invoice_with_items(db, invoice_id)
-    if not inv or inv.tenant_id != tenant_id:
+    inv = get_invoice_v2(db, tenant_id, invoice_id)
+    if not inv:
         raise HTTPException(404, "Invoice not found")
-    data = InvoiceRead.model_validate(inv)
-    items = [InvoiceItemRead.model_validate(i) for i in inv.items]
-    cust = CustomerRead.model_validate(inv.customer) if inv.customer else None
-    return {"found": True, "invoice": data, "items": items, "customer": cust}
+    # Compatibility wrapper for BillDetail / InvoiceCopy pages
+    return {
+        "found": True,
+        "invoice": inv,
+        "items": inv.items,
+        "customer": {"id": inv.customer_id, "name": inv.buyer_name} if inv.buyer_name else None,
+    }
+
+
+@router.put("/invoices/{invoice_id}", response_model=InvoiceV2Read)
+def update_invoice_endpoint(
+    invoice_id: int,
+    payload: InvoiceV2Create,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    payload.tenant_id = user.tenant_id
+    try:
+        inv = update_invoice_v2(db, user.tenant_id, invoice_id, payload)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    return get_invoice_v2(db, user.tenant_id, inv.id)
+
+
+@router.delete("/invoices/{invoice_id}")
+def cancel_invoice_endpoint(
+    invoice_id: int,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    inv = cancel_invoice_v2(db, user.tenant_id, invoice_id)
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    return {"ok": True, "id": inv.id, "invoice_status": inv.invoice_status}
 
 
 @router.post("/payments", response_model=PaymentRead)
@@ -446,6 +612,44 @@ def list_payments_endpoint(
     db: Session = Depends(get_db),
 ):
     return list_payments(db, tenant_id, invoice_id)
+
+
+@router.get("/payments/{payment_id}", response_model=PaymentRead)
+def get_payment_endpoint(
+    payment_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    payment = get_payment(db, tenant_id, payment_id)
+    if not payment:
+        raise HTTPException(404, "Payment not found")
+    return payment
+
+
+@router.put("/payments/{payment_id}", response_model=PaymentRead)
+def update_payment_endpoint(
+    payment_id: int,
+    payload: PaymentUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    payment = update_payment(
+        db, tenant_id, payment_id, payload.model_dump(exclude_unset=True)
+    )
+    if not payment:
+        raise HTTPException(404, "Payment not found")
+    return payment
+
+
+@router.delete("/payments/{payment_id}")
+def delete_payment_endpoint(
+    payment_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_payment(db, tenant_id, payment_id):
+        raise HTTPException(404, "Payment not found")
+    return {"ok": True, "id": payment_id}
 
 
 @router.get("/leads/summary", response_model=LeadSummaryRead)
@@ -468,6 +672,44 @@ def quotations_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Sess
     return list_quotations_enriched(db, tenant_id)
 
 
+@router.get("/quotations/{quote_id}", response_model=QuotationRead)
+def get_quotation_endpoint(
+    quote_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    quote = get_quotation(db, tenant_id, quote_id)
+    if not quote:
+        raise HTTPException(404, "Quotation not found")
+    return quote
+
+
+@router.put("/quotations/{quote_id}", response_model=QuotationRead)
+def update_quotation_endpoint(
+    quote_id: int,
+    payload: QuotationUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    quote = update_quotation(
+        db, tenant_id, quote_id, payload.model_dump(exclude_unset=True)
+    )
+    if not quote:
+        raise HTTPException(404, "Quotation not found")
+    return quote
+
+
+@router.delete("/quotations/{quote_id}")
+def delete_quotation_endpoint(
+    quote_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    if not delete_quotation(db, tenant_id, quote_id):
+        raise HTTPException(404, "Quotation not found")
+    return {"ok": True, "id": quote_id}
+
+
 @router.get("/sales-orders/summary", response_model=SOSummaryRead)
 def so_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
     return get_so_summary(db, tenant_id)
@@ -476,16 +718,6 @@ def so_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Dep
 @router.get("/sales-orders/enriched", response_model=list[SOListRead])
 def so_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
     return list_so_enriched(db, tenant_id)
-
-
-@router.get("/invoices/summary", response_model=InvoiceSummaryRead)
-def invoices_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
-    return get_invoice_summary(db, tenant_id)
-
-
-@router.get("/invoices/enriched", response_model=list[InvoiceListEnrichedRead])
-def invoices_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
-    return list_invoices_enriched(db, tenant_id)
 
 
 @router.get("/hub", response_model=SalesHubRead)

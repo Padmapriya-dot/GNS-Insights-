@@ -5,9 +5,11 @@ import { CheckCircle, Package, Plus, RefreshCw, X } from "lucide-react";
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
+import StoreManagerNav from "../../components/inventory/StoreManagerNav";
 import { useToast } from "../../context/ToastContext";
 import {
   approveGoodsReceiptQC,
+  deleteGoodsReceipt,
   getGRNEnriched,
   getGRNSummary,
 } from "../../api/procurementApi";
@@ -17,6 +19,8 @@ import {
   MANUFACTURING_EVENTS,
   notifyManufacturingSpine,
 } from "../../utils/manufacturingEvents";
+import useAuth from "../../hooks/useAuth";
+import { isStoreManager } from "../../config/permissions";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
@@ -138,6 +142,8 @@ const emptySummary = {
 
 export default function GoodsReceipt() {
   const { addToast } = useToast();
+  const { user } = useAuth();
+  const storeMode = isStoreManager(user);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(emptySummary);
   const [rows, setRows] = useState([]);
@@ -167,6 +173,18 @@ export default function GoodsReceipt() {
   }, [load]);
 
   useManufacturingRefresh(load);
+
+  const handleDelete = async (row) => {
+    if (!row?.id) return;
+    if (!window.confirm(`Delete GRN ${row.grn_number || row.id}?`)) return;
+    try {
+      await deleteGoodsReceipt(row.id);
+      addToast("Goods receipt deleted", "success");
+      await load();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Failed to delete GRN", "error");
+    }
+  };
 
   const handleQC = async (row, result) => {
     if (qcBusy) return;
@@ -235,26 +253,43 @@ export default function GoodsReceipt() {
       key: "actions",
       label: "Actions",
       render: (r) => (
-        <button
-          type="button"
-          onClick={() => setSelected(r)}
-          className="text-xs font-semibold text-[#2563EB] hover:underline"
-        >
-          View
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setSelected(r)}
+            className="text-xs font-semibold text-[#2563EB] hover:underline"
+          >
+            View
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDelete(r)}
+            className="text-xs font-semibold text-red-600 hover:underline"
+          >
+            Delete
+          </button>
+        </div>
       ),
     },
   ];
 
-  if (loading) return <Loader label="Loading goods receipts..." />;
+  if (loading) {
+    return (
+      <div className="space-y-6 p-4 sm:p-6">
+        {storeMode ? <StoreManagerNav /> : null}
+        <Loader label="Loading goods receipts..." />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
+      {storeMode ? <StoreManagerNav /> : null}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Goods Receipt Note (GRN)</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Stock In (GRN)</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Receive against PO, run incoming QC, then post accepted qty to raw material inventory.
+            Receive materials against purchase orders and post accepted quantity to inventory.
           </p>
         </div>
         <div className="flex gap-2">
@@ -271,7 +306,7 @@ export default function GoodsReceipt() {
         </div>
       </header>
 
-      <ManufacturingWorkflowBar currentStepId="grn" />
+      {!storeMode ? <ManufacturingWorkflowBar currentStepId="grn" /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard label="Today's GRN" value={summary.todays_grn} icon={Package} color="bg-blue-600" />
