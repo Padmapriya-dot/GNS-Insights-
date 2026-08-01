@@ -1,348 +1,505 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import {
-  ChevronLeft,
-  ChevronRight,
-  FileSpreadsheet,
-  Pencil,
+  AlertCircle,
+  Building2,
+  Download,
+  FileText,
   Plus,
+  Printer,
   RefreshCw,
-  Search,
-  Trash2,
+  Star,
   Upload,
+  UserCheck,
+  UserX,
+  Wallet,
 } from "lucide-react";
-import { createPortal } from "react-dom";
 
-import AddLedgerVendorModal from "../../components/accounts/AddLedgerVendorModal";
+import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
+import VendorDetailModal, { VendorFormModal } from "../../components/procurement/VendorDetailModal";
 import { useToast } from "../../context/ToastContext";
-import { deleteVendor, getVendors } from "../../api/procurementApi";
-import { enrichApiVendor } from "../../data/vendorsMasterData";
-import { exportToExcel } from "../../utils/exportUtils";
-import { apiErrorMessage } from "../../utils/apiError";
+import usePermissions from "../../hooks/usePermissions";
+import useTenantId from "../../hooks/useTenantId";
+import {
+  createVendor,
+  deactivateVendor,
+  getVendorDetail,
+  getVendorSummary,
+  getVendors,
+  updateVendor,
+  updateVendorApproval,
+} from "../../api/procurementApi";
+import {
+  DEMO_VENDORS,
+  IMPORT_TEMPLATE_HEADERS,
+  INDIAN_STATES,
+  MATERIAL_TYPES,
+  PAYMENT_TERMS,
+  VENDOR_CATEGORIES,
+  VENDOR_STATUSES,
+  WORKFLOW_STEPS,
+  computeVendorSummary,
+  enrichApiVendor,
+  starRating,
+} from "../../data/vendorsMasterData";
+import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 
-const PAGE_BG = "#F5F5F5";
-const YELLOW = "#F5C518";
-const PAGE_SIZES = [20, 50, 100];
-
-function blankOr(value) {
-  if (value == null) return "";
-  const s = String(value).trim();
-  return !s || s === "—" ? "" : s;
-}
-
-function DeleteConfirmModal({ open, onClose, onConfirm, busy }) {
-  if (!open) return null;
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4"
-      onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose?.()}
-    >
-      <div className="w-full max-w-[420px] rounded-2xl bg-white px-8 py-8 text-center shadow-2xl">
-        <div className="mx-auto mb-5 grid h-[72px] w-[72px] place-items-center rounded-full bg-[#fee2e2]">
-          <Trash2 className="h-9 w-9 text-[#ef4444]" strokeWidth={1.75} />
+function SummaryCard({ label, value, icon: Icon, color, format }) {
+  const display = format === "currency" ? `₹${Number(value || 0).toLocaleString("en-IN")}` : value;
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-500">{label}</p>
+          <p className="mt-1 truncate text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{display}</p>
         </div>
-        <h3 className="text-[28px] font-bold leading-tight text-[#1a1a1f]">Delete Vendor?</h3>
-        <p className="mt-3 text-[14px] leading-relaxed text-[#5a5a66]">
-          Are you sure you want to delete this Vendor?
-          <br />
-          This action is not reversible.
-        </p>
-        <div className="mt-7 grid grid-cols-2 gap-4">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onClose}
-            className="rounded-xl bg-[#eceef4] py-3 text-[15px] font-semibold text-[#1a1a1f] disabled:opacity-60"
-          >
-            No
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onConfirm}
-            className="rounded-xl bg-[#ef5350] py-3 text-[15px] font-semibold text-white disabled:opacity-60"
-          >
-            {busy ? "Deleting…" : "Delete"}
-          </button>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${color}`}>
+          <Icon className="h-5 w-5 text-white" />
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
 
+function StatusPill({ status, approval }) {
+  if (approval === "pending") {
+    return <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Pending Approval</span>;
+  }
+  const active = status === "active";
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
+      active ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
+    }`}>
+      {status}
+    </span>
+  );
+}
+
+const defaultFilters = {
+  vendor_code: "",
+  name: "",
+  gstin: "",
+  category: "",
+  state: "",
+  city: "",
+  status: "",
+  payment_terms: "",
+  rating: "",
+  material_type: "",
+  date_from: "",
+  date_to: "",
+};
+
 export default function VendorManagement() {
+  const tenantId = useTenantId();
+  const { isAdmin } = usePermissions();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [vendors, setVendors] = useState([]);
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [deleting, setDeleting] = useState(null);
-  const [deletingBusy, setDeletingBusy] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [vendorModalOpen, setVendorModalOpen] = useState(false);
+  const [apiSummary, setApiSummary] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [formVendor, setFormVendor] = useState(null);
+  const [filters, setFilters] = useState(defaultFilters);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const loadVendors = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getVendors();
-      const rows = Array.isArray(res.data) ? res.data : [];
-      setVendors(rows.map((row, i) => enrichApiVendor(row, i)));
+      const [vRes, sRes] = await Promise.all([
+        getVendors().catch(() => ({ data: [] })),
+        getVendorSummary().catch(() => ({ data: null })),
+      ]);
+      const apiRows = vRes.data || [];
+      setVendors(apiRows.map((row, i) => enrichApiVendor(row, i)));
+      setApiSummary(sRes.data);
     } catch {
       setVendors([]);
-      addToast("Could not load vendors", "error");
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
+
 
   useEffect(() => {
     loadVendors();
   }, [loadVendors]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return vendors;
-    return vendors.filter((v) =>
-      [v.name, v.email, v.gstin, v.phone, v.address_line1, v.city, v.state, v.pincode]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(q)
-    );
-  }, [vendors, query]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [query, pageSize]);
-
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
-  const rows = filtered.slice((page - 1) * pageSize, page * pageSize);
-  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const to = Math.min(page * pageSize, total);
-
-  const onExport = () => {
-    exportToExcel(
-      filtered,
-      [
-        { key: "name", label: "Vendor Name" },
-        { key: "email", label: "Email" },
-        { key: "gstin", label: "GSTIN" },
-        { key: "phone", label: "Mobile No." },
-        { key: "address_line1", label: "Address" },
-        { key: "city", label: "City" },
-        { key: "state", label: "State" },
-        { key: "pincode", label: "Pincode" },
-      ],
-      "vendors"
-    );
-    addToast("Exported to Excel", "success");
-  };
-
-  const confirmDelete = async () => {
-    if (!deleting) return;
-    setDeletingBusy(true);
-    try {
-      if (typeof deleting.id === "number") await deleteVendor(deleting.id);
-      setVendors((prev) => prev.filter((v) => v.id !== deleting.id));
-      setDeleting(null);
-      addToast("Vendor deleted", "success");
-    } catch (err) {
-      addToast(apiErrorMessage(err, "Could not delete vendor."), "error");
-    } finally {
-      setDeletingBusy(false);
+  const openVendor = async (vendor) => {
+    setSelected(vendor);
+    setDetail(null);
+    if (typeof vendor.id === "number") {
+      try {
+        const res = await getVendorDetail(vendor.id);
+        setDetail(res.data);
+      } catch {
+        /* use list data */
+      }
     }
   };
+
+  const filteredVendors = useMemo(() => {
+    return vendors.filter((v) => {
+      if (filters.vendor_code && !String(v.vendor_code).toLowerCase().includes(filters.vendor_code.toLowerCase())) return false;
+      if (filters.name && !v.name.toLowerCase().includes(filters.name.toLowerCase())) return false;
+      if (filters.gstin && !String(v.gstin).toLowerCase().includes(filters.gstin.toLowerCase())) return false;
+      if (filters.category && v.category !== filters.category) return false;
+      if (filters.state && v.state !== filters.state) return false;
+      if (filters.city && !String(v.city).toLowerCase().includes(filters.city.toLowerCase())) return false;
+      if (filters.status && v.status !== filters.status) return false;
+      if (filters.payment_terms && v.payment_terms !== filters.payment_terms) return false;
+      if (filters.material_type && v.material_type !== filters.material_type) return false;
+      if (filters.rating && Math.floor(Number(v.rating)) < Number(filters.rating)) return false;
+      if (filters.date_from && v.created_at && v.created_at < filters.date_from) return false;
+      if (filters.date_to && v.created_at && v.created_at > filters.date_to) return false;
+      return true;
+    });
+  }, [vendors, filters]);
+
+  const summary = useMemo(() => {
+    if (apiSummary && !Object.values(filters).some(Boolean)) {
+      return {
+        total: apiSummary.total_vendors,
+        active: apiSummary.active_vendors,
+        inactive: apiSummary.inactive_vendors,
+        pendingApproval: apiSummary.pending_approval,
+        outstandingPayables: apiSummary.outstanding_payables,
+        newThisMonth: apiSummary.new_this_month,
+      };
+    }
+    return computeVendorSummary(filteredVendors);
+  }, [apiSummary, filteredVendors, filters]);
+
+  const cities = useMemo(() => [...new Set(vendors.map((v) => v.city).filter((c) => c && c !== "—"))], [vendors]);
+
+  const exportColumns = [
+    { key: "vendor_code", label: "Vendor Code" },
+    { key: "name", label: "Vendor Name" },
+    { key: "contact", label: "Contact" },
+    { key: "gstin", label: "GSTIN" },
+    { key: "city", label: "City" },
+    { key: "payment_terms", label: "Payment Terms" },
+    { key: "outstanding", label: "Outstanding" },
+    { key: "rating", label: "Rating" },
+    { key: "status", label: "Status" },
+  ];
+
+  const handleExportExcel = () => {
+    exportToExcel(filteredVendors, exportColumns, "vendors");
+    addToast("Exported to Excel");
+  };
+
+  const handleExportPdf = () => {
+    exportToPdf(filteredVendors, exportColumns, "Vendor Master", "vendors");
+    addToast("Exported to PDF");
+  };
+
+  const handlePrint = () => handleExportPdf();
+
+  const handleDownloadTemplate = () => {
+    const header = IMPORT_TEMPLATE_HEADERS.join(",");
+    const blob = new Blob([`${header}\nVEN006,Sample Vendor,John,+919999999999,john@vendor.com,36AABCS1234A1Z1,Hyderabad,Telangana,Net 30,active,Raw Material,Steel`], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "vendors_import_template.csv";
+    a.click();
+    addToast("Template downloaded");
+  };
+
+  const handleSave = async (form) => {
+    const payload = {
+      tenant_id: tenantId,
+      name: form.name,
+      contact: form.contact,
+      phone: form.phone,
+      email: form.email,
+      gstin: form.gstin,
+      pan: form.pan,
+      city: form.city,
+      state: form.state,
+      payment_terms: form.payment_terms,
+      category: form.category,
+      material_type: form.material_type,
+      vendor_type: form.vendor_type,
+      billing_address: form.billing_address,
+      status: form.status,
+      vendor_code: form.vendor_code || `VEN${String(vendors.length + 1).padStart(3, "0")}`,
+      outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
+      rating: form.rating != null && form.rating !== "" ? Number(form.rating) : 4.0,
+      approval_status: "pending",
+    };
+    try {
+      if (formVendor?.id && typeof formVendor.id === "number") {
+        await updateVendor(formVendor.id, payload);
+        addToast("Vendor updated");
+        loadVendors();
+        setFormVendor(null);
+        return;
+      }
+      await createVendor(payload);
+      addToast("Vendor created");
+      loadVendors();
+      setFormVendor(null);
+      return;
+    } catch {
+      /* local fallback */
+    }
+    if (formVendor?.id) {
+      setVendors((prev) => prev.map((v) => (v.id === formVendor.id ? { ...v, ...form } : v)));
+      addToast("Vendor updated locally");
+    } else {
+      const venCode = form.vendor_code?.trim() || `VEN${String(vendors.length + 1).padStart(3, "0")}`;
+      const newV = {
+        ...enrichApiVendor({ id: `new-${Date.now()}`, ...payload }, vendors.length),
+        id: `new-${Date.now()}`,
+        ...form,
+        vendor_code: venCode,
+        outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
+        rating: form.rating != null && form.rating !== "" ? Number(form.rating) : 4.0,
+        created_at: new Date().toISOString().slice(0, 10),
+      };
+      setVendors((prev) => [...prev, newV]);
+      addToast("Vendor added");
+    }
+    setFormVendor(null);
+  };
+
+  const handleDeactivate = async (vendor) => {
+    if (!window.confirm(`Deactivate ${vendor.name}?`)) return;
+    if (typeof vendor.id === "number") {
+      try {
+        await deactivateVendor(vendor.id);
+        addToast("Vendor deactivated");
+        loadVendors();
+        setSelected(null);
+        return;
+      } catch {
+        addToast("Could not deactivate", "error");
+        return;
+      }
+    }
+    setVendors((prev) => prev.map((v) => (v.id === vendor.id ? { ...v, status: "inactive" } : v)));
+    setSelected(null);
+    addToast("Vendor deactivated");
+  };
+
+  const handleApprove = async (vendor, status) => {
+    if (typeof vendor.id !== "number") {
+      setVendors((prev) => prev.map((v) => (v.id === vendor.id ? { ...v, approval_status: status } : v)));
+      addToast(`Vendor ${status}`);
+      return;
+    }
+    try {
+      await updateVendorApproval(vendor.id, status);
+      addToast(`Vendor ${status}`);
+      loadVendors();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Approval failed", "error");
+    }
+  };
+
+  const columns = [
+    { key: "vendor_code", label: "Vendor Code" },
+    { key: "name", label: "Vendor Name" },
+    { key: "contact", label: "Contact" },
+    { key: "gstin", label: "GSTIN" },
+    { key: "city", label: "City" },
+    { key: "payment_terms", label: "Payment Terms" },
+    {
+      key: "outstanding",
+      label: "Outstanding",
+      render: (r) => `₹${Number(r.outstanding || 0).toLocaleString("en-IN")}`,
+    },
+    {
+      key: "rating",
+      label: "Rating",
+      render: (r) => <span className="text-amber-500 text-xs">{starRating(r.rating)}</span>,
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (r) => <StatusPill status={r.status} approval={r.approval_status} />,
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      render: (r) => (
+        <div className="flex flex-wrap gap-1 text-xs">
+          <button type="button" onClick={() => openVendor(r)} className="font-semibold text-[#2563EB] hover:underline">View</button>
+          <button type="button" onClick={() => setFormVendor(r)} className="font-semibold text-slate-600 hover:underline">Edit</button>
+          {isAdmin && r.approval_status === "pending" && (
+            <button type="button" onClick={() => handleApprove(r, "approved")} className="font-semibold text-teal-600 hover:underline">Approve</button>
+          )}
+          {r.status === "active" && (
+            <button type="button" onClick={() => handleDeactivate(r)} className="font-semibold text-red-600 hover:underline">Deactivate</button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  const emptyState = (
+    <div className="py-12 text-center">
+      <Building2 className="mx-auto h-12 w-12 text-slate-300" />
+      <p className="mt-4 text-sm font-medium text-slate-600">No vendors found.</p>
+      <p className="mt-1 text-sm text-slate-400">
+        Click &quot;Add Vendor&quot; to add your first vendor.
+      </p>
+      <button type="button" onClick={() => setFormVendor({})} className="ui-btn-primary mt-4">
+        <Plus className="h-4 w-4" /> Add Vendor
+      </button>
+    </div>
+  );
 
   if (loading) return <Loader label="Loading vendors..." />;
 
   return (
-    <div className="min-h-full" style={{ background: PAGE_BG }}>
-      <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8">
-        <h1 className="mb-4 text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Vendors</h1>
+    <div className="space-y-6 pb-8">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Vendor Management</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Manage vendors, purchase history, outstanding payables, and performance ratings.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setFormVendor({})} className="ui-btn-primary">
+            <Plus className="h-4 w-4" /> Add Vendor
+          </button>
+          <button type="button" onClick={handleDownloadTemplate} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <Upload className="h-4 w-4" /> Import
+          </button>
+          <button type="button" onClick={handleExportExcel} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <Download className="h-4 w-4" /> Export Excel
+          </button>
+          <button type="button" onClick={handleExportPdf} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <FileText className="h-4 w-4" /> Export PDF
+          </button>
+          <button type="button" onClick={handlePrint} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <Printer className="h-4 w-4" /> Print
+          </button>
+          <button type="button" onClick={loadVendors} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <RefreshCw className="h-4 w-4" /> Refresh
+          </button>
+        </div>
+      </header>
 
-        <div className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5">
-          <div className="mb-4 flex flex-wrap items-center gap-2.5">
-            <div className="relative min-w-[220px] flex-1">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search"
-                className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] py-2.5 pl-10 pr-4 text-[13px] outline-none placeholder:text-[#a0a0ab] focus:border-[#d0d0d8] focus:bg-white"
-              />
-            </div>
-            <Link
-              to="/procurement/vendors/bulk-import"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
-            >
-              <Upload className="h-4 w-4" />
-              Bulk Import
-            </Link>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+        <SummaryCard label="Total Vendors" value={summary.total} icon={Building2} color="bg-[#2563EB]" />
+        <SummaryCard label="Active Vendors" value={summary.active} icon={UserCheck} color="bg-green-500" />
+        <SummaryCard label="Inactive Vendors" value={summary.inactive} icon={UserX} color="bg-slate-500" />
+        <SummaryCard label="Pending Approval" value={summary.pendingApproval} icon={AlertCircle} color="bg-amber-500" />
+        <SummaryCard label="Outstanding Payables" value={summary.outstandingPayables} icon={Wallet} color="bg-red-500" format="currency" />
+        <SummaryCard label="New Vendors (This Month)" value={summary.newThisMonth} icon={Star} color="bg-purple-500" />
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="search"
+              placeholder="Search vendors..."
+              value={filters.name}
+              onChange={(e) => setFilters((f) => ({ ...f, name: e.target.value }))}
+              className="min-w-[200px] rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
             <button
               type="button"
-              onClick={onExport}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
             >
-              <FileSpreadsheet className="h-4 w-4" />
-              Export (xlsx)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(null);
-                setVendorModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
-              style={{ background: YELLOW }}
-            >
-              <Plus className="h-4 w-4" />
-              Create Vendor
+              {showAdvanced ? "Hide Filters" : "Advanced Filters"}
             </button>
           </div>
-
-          <div className="overflow-hidden rounded-lg border border-[#ececf0]">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] border-collapse text-left text-[13px]">
-                <thead>
-                  <tr className="border-b border-[#e8e8ee] bg-[#f5f5f5] text-[12px] font-medium text-[#6b6b76]">
-                    <th className="px-4 py-3 font-medium">Vendor Name</th>
-                    <th className="px-4 py-3 font-medium">Email</th>
-                    <th className="px-4 py-3 font-medium">GSTIN</th>
-                    <th className="px-4 py-3 font-medium">Mobile No.</th>
-                    <th className="px-4 py-3 font-medium">Address</th>
-                    <th className="px-4 py-3 font-medium">City</th>
-                    <th className="px-4 py-3 font-medium">State</th>
-                    <th className="px-4 py-3 font-medium">Pincode</th>
-                    <th className="px-4 py-3 text-right font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((v) => (
-                    <tr key={v.id} className="border-b border-[#f0f0f4] text-[#1a1a1f] last:border-b-0">
-                      <td className="px-4 py-3.5">{v.name || ""}</td>
-                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(v.email)}</td>
-                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(v.gstin)}</td>
-                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(v.phone)}</td>
-                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(v.address_line1)}</td>
-                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(v.city)}</td>
-                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(v.state)}</td>
-                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(v.pincode)}</td>
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditing(v);
-                              setVendorModalOpen(true);
-                            }}
-                            className="grid h-8 w-8 place-items-center rounded-full bg-[#eef0ff] text-[#5b5bd6] hover:bg-[#e4e6fc]"
-                            title="Edit"
-                            aria-label="Edit vendor"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleting(v)}
-                            className="grid h-8 w-8 place-items-center rounded-full bg-[#fde8e8] text-[#ef4444] hover:bg-[#fcdada]"
-                            title="Delete"
-                            aria-label="Delete vendor"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {rows.length === 0 ? (
-              <div className="px-4 py-16 text-center text-[13px] text-[#8a8a96]">No data available</div>
-            ) : null}
+          <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+            <button type="button" onClick={handleExportExcel} className="hover:text-[#2563EB]">Export</button>
+            <span>·</span>
+            <button type="button" onClick={handleDownloadTemplate} className="hover:text-[#2563EB]">Import</button>
+            <span>·</span>
+            <button type="button" onClick={loadVendors} className="hover:text-[#2563EB]">Refresh</button>
           </div>
+        </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[12px] text-[#6b6b76]">
-            <div className="flex items-center gap-2">
-              <span>Rows per page:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-                className="rounded border border-[#e2e2e8] bg-white px-2 py-1 outline-none"
-              >
-                {PAGE_SIZES.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-              <span>{total === 0 ? "0-0 of 0" : `${from}-${to} of ${total}`}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="grid h-8 min-w-8 place-items-center rounded border border-[#e0b400] px-2 text-[13px] font-semibold"
-                style={{ background: "#fff2b8" }}
-              >
-                {page}
-              </button>
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
-                aria-label="Next page"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+        {showAdvanced && (
+          <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+            <input placeholder="Vendor Code" value={filters.vendor_code} onChange={(e) => setFilters((f) => ({ ...f, vendor_code: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <input placeholder="GSTIN" value={filters.gstin} onChange={(e) => setFilters((f) => ({ ...f, gstin: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <select value={filters.category} onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="">Category</option>
+              {VENDOR_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select value={filters.state} onChange={(e) => setFilters((f) => ({ ...f, state: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="">State</option>
+              {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select value={filters.city} onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="">City</option>
+              {cities.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="">Status</option>
+              {VENDOR_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select value={filters.payment_terms} onChange={(e) => setFilters((f) => ({ ...f, payment_terms: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="">Payment Terms</option>
+              {PAYMENT_TERMS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <select value={filters.material_type} onChange={(e) => setFilters((f) => ({ ...f, material_type: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="">Material Type</option>
+              {MATERIAL_TYPES.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <select value={filters.rating} onChange={(e) => setFilters((f) => ({ ...f, rating: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="">Min Rating</option>
+              {[5, 4, 3, 2, 1].map((r) => <option key={r} value={r}>{r}+ stars</option>)}
+            </select>
+            <input type="date" value={filters.date_from} onChange={(e) => setFilters((f) => ({ ...f, date_from: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <input type="date" value={filters.date_to} onChange={(e) => setFilters((f) => ({ ...f, date_to: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <button type="button" onClick={() => setFilters(defaultFilters)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+              Clear filters
+            </button>
           </div>
+        )}
+
+        <DataTable
+          columns={columns}
+          data={filteredVendors}
+          searchPlaceholder="Quick search in table..."
+          searchKeys={["vendor_code", "name", "contact", "gstin", "city"]}
+          emptyState={emptyState}
+        />
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        <h3 className="mb-3 text-sm font-bold text-slate-800">Procurement Workflow</h3>
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-600">
+          {WORKFLOW_STEPS.map((step, i) => (
+            <span key={step} className="flex items-center gap-2">
+              <span className="rounded-lg bg-white px-2.5 py-1.5 shadow-sm">{step}</span>
+              {i < WORKFLOW_STEPS.length - 1 && <span className="text-slate-300">→</span>}
+            </span>
+          ))}
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={loadVendors}
-        className="fixed bottom-20 right-6 z-30 grid h-11 w-11 place-items-center rounded-xl border border-[#d0d0d8] bg-white shadow-lg hover:bg-[#f7f7f9] md:bottom-6"
-        aria-label="Refresh vendors"
-        title="Refresh"
-      >
-        <RefreshCw className="h-5 w-5 text-[#2563eb]" />
-      </button>
+      {selected && (
+        <VendorDetailModal
+          vendor={selected}
+          detail={detail}
+          onClose={() => { setSelected(null); setDetail(null); }}
+          onEdit={(v) => { setFormVendor(v); setSelected(null); }}
+          onDeactivate={handleDeactivate}
+          onApprove={isAdmin ? handleApprove : undefined}
+        />
+      )}
 
-      <DeleteConfirmModal
-        open={Boolean(deleting)}
-        busy={deletingBusy}
-        onClose={() => !deletingBusy && setDeleting(null)}
-        onConfirm={confirmDelete}
-      />
-
-      <AddLedgerVendorModal
-        open={vendorModalOpen}
-        vendor={editing}
-        onClose={() => {
-          setVendorModalOpen(false);
-          setEditing(null);
-        }}
-        onSaved={() => {
-          setVendorModalOpen(false);
-          setEditing(null);
-          loadVendors();
-        }}
-      />
+      {formVendor && (
+        <VendorFormModal
+          vendor={formVendor}
+          onClose={() => setFormVendor(null)}
+          onSave={handleSave}
+        />
+      )}
     </div>
   );
 }

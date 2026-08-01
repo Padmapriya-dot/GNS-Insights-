@@ -2,7 +2,7 @@ import React, { Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import "./i18n";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, useLocation } from "react-router-dom";
 
 import App from "./App.jsx";
 import BrandLogo from "./components/common/BrandLogo";
@@ -34,10 +34,31 @@ const LoadingFallback = () => (
 
 function SessionGate({ children }) {
   const { sessionExpired, clearSessionExpired } = useAuth();
+  const location = useLocation();
+
+  React.useEffect(() => {
+    if (
+      sessionExpired &&
+      (location.pathname === "/login" ||
+        location.pathname.startsWith("/gns-admin") ||
+        location.pathname.startsWith("/register") ||
+        location.pathname === "/landing")
+    ) {
+      clearSessionExpired();
+    }
+  }, [location.pathname, sessionExpired, clearSessionExpired]);
+
+  const showModal =
+    Boolean(sessionExpired) &&
+    location.pathname !== "/login" &&
+    !location.pathname.startsWith("/gns-admin") &&
+    !location.pathname.startsWith("/register") &&
+    location.pathname !== "/landing";
+
   return (
     <>
       {children}
-      <SessionExpiredModal open={Boolean(sessionExpired)} onLogin={clearSessionExpired} />
+      <SessionExpiredModal open={showModal} onLogin={clearSessionExpired} />
     </>
   );
 }

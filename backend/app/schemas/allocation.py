@@ -35,5 +35,6 @@ class MachineAvailabilityRead(BaseModel):
 class AllocationAssignRequest(BaseModel):
     work_order_id: int
     machine_id: int
+    operator_name: str | None = None
     shift: str | None = None
     supervisor: str | None = None

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import AdminModal from "../admin/AdminModal";
 import DataTable from "./DataTable";
@@ -58,23 +58,29 @@ export default function ResourcePage({
     return f;
   }, [fields]);
 
+  // Keep latest fetcher and fallbackData in refs so reload() never changes identity
+  const fetcherRef = useRef(fetcher);
+  const fallbackRef = useRef(fallbackData);
+  useEffect(() => { fetcherRef.current = fetcher; }, [fetcher]);
+  useEffect(() => { fallbackRef.current = fallbackData; }, [fallbackData]);
+
   const reload = useCallback(async () => {
     setLoading(true);
     setLoadError("");
     markRequestStart();
     try {
-      const res = await fetcher();
-      const fetched = Array.isArray(res.data) ? res.data : res.data?.items || [];
-      if (fetched.length > 0) {
+      const res = await fetcherRef.current();
+      if (res && res.data !== undefined) {
+        const fetched = Array.isArray(res.data) ? res.data : res.data?.items || [];
         setRows(fetched);
-      } else if (fallbackData?.length > 0) {
-        setRows(fallbackData);
+      } else if (fallbackRef.current?.length > 0) {
+        setRows(fallbackRef.current);
       } else {
         setRows([]);
       }
     } catch (err) {
-      if (fallbackData?.length > 0) {
-        setRows(fallbackData);
+      if (fallbackRef.current?.length > 0) {
+        setRows(fallbackRef.current);
         setLoadError("");
       } else {
         const detail = err.response?.data?.detail;
@@ -91,11 +97,14 @@ export default function ResourcePage({
       markRequestEnd();
       setLoading(false);
     }
-  }, [fetcher, fallbackData, markRequestStart, markRequestEnd]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markRequestStart, markRequestEnd]);
 
   useEffect(() => {
     reload();
-  }, [reload]);
+  // only run on mount (reload is stable)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => registerRetry(reload), [registerRetry, reload]);
 
@@ -123,6 +132,8 @@ export default function ResourcePage({
         values[field.name] = v === "" || v == null ? null : Number(v);
       } else if (field.type === "datetime") {
         values[field.name] = v ? new Date(v).toISOString() : new Date().toISOString();
+      } else if (field.type === "date") {
+        values[field.name] = v === "" || v == null ? null : v;
       } else if (v === "") {
         values[field.name] = field.required ? v : null;
       }

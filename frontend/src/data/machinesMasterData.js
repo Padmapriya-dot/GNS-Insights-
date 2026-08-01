@@ -6,14 +6,7 @@ export const DEPARTMENTS = ["Machining", "Assembly", "Fabrication", "Quality", "
 export const PRODUCTION_LINES = ["Line A", "Line B", "Line C", "Line D", "Line E"];
 export const WORK_CENTERS = ["WC-01", "WC-02", "WC-03", "WC-04", "WC-05", "WC-06"];
 export const SHIFTS = ["Shift A", "Shift B", "Shift C"];
-export const OPERATORS = [
-  "Ravi Kumar",
-  "Suresh Patel",
-  "Anil Sharma",
-  "Priya Nair",
-  "Vikram Singh",
-  "Meena Reddy",
-];
+export const OPERATORS = [];
 export const STATUS_COLORS = {
   running: { dot: "🟢", bg: "bg-green-100", text: "text-green-800", border: "border-green-200", ring: "bg-green-500" },
   idle: { dot: "🟡", bg: "bg-yellow-100", text: "text-yellow-800", border: "border-yellow-200", ring: "bg-yellow-500" },
@@ -37,68 +30,7 @@ export const IMPORT_TEMPLATE_HEADERS = [
   "status", "assigned_operator", "current_shift", "manufacturer", "model_name",
 ];
 
-export const DEMO_MACHINES = [
-  {
-    id: "mac-101",
-    machine_code: "MAC-CNC-01",
-    name: "5-Axis CNC Milling Machine",
-    machine_type: "CNC Milling",
-    model_no: "VF-2SS",
-    serial_no: "SN-2024-8891",
-    department: "Production & Assembly",
-    plant: "Plant-1 Hyderabad",
-    work_center: "Machining Cell 1",
-    location: "Bay A3",
-    capacity_per_hour: 50,
-    power_rating_kw: 22.5,
-    operator_name: "Ramesh Pawar",
-    status: "running",
-    running_hours: 1420,
-    last_maintenance: "2026-06-15",
-    next_maintenance: "2026-08-15",
-    created_at: new Date().toISOString().slice(0, 10),
-  },
-  {
-    id: "mac-102",
-    machine_code: "MAC-CUT-02",
-    name: "High Precision Fiber Laser Cutter 3KW",
-    machine_type: "Laser Cutting",
-    model_no: "LC-3015",
-    serial_no: "SN-2024-9912",
-    department: "Production & Assembly",
-    plant: "Plant-1 Hyderabad",
-    work_center: "Cutting Cell",
-    location: "Bay B1",
-    capacity_per_hour: 120,
-    power_rating_kw: 18.0,
-    operator_name: "Suresh Kumar",
-    status: "running",
-    running_hours: 980,
-    last_maintenance: "2026-07-01",
-    next_maintenance: "2026-09-01",
-    created_at: new Date().toISOString().slice(0, 10),
-  },
-  {
-    id: "mac-103",
-    machine_code: "MAC-PRESS-03",
-    name: "Hydraulic Brake Press Machine 150T",
-    machine_type: "Bending / Press",
-    model_no: "HP-150T",
-    serial_no: "SN-2023-4410",
-    department: "Production & Assembly",
-    plant: "Plant-1 Hyderabad",
-    work_center: "Bending Cell",
-    location: "Bay B2",
-    capacity_per_hour: 80,
-    power_rating_kw: 15.0,
-    operator_name: "Mahesh Babu",
-    status: "idle",
-    running_hours: 2150,
-    last_maintenance: "2026-05-20",
-    next_maintenance: "2026-07-20",
-    created_at: new Date().toISOString().slice(0, 10),
-  },
-];
+export const DEMO_MACHINES = [];
 
 
 export function normalizeStatus(machine) {
@@ -122,7 +54,7 @@ export function enrichApiMachine(row, index = 0) {
     display_status: status,
     status,
     assigned_operator: row.assigned_operator || "—",
-    current_shift: row.current_shift || "Shift A",
+    current_shift: typeof row.current_shift === "object" ? (row.current_shift?.label || row.current_shift?.id || "Shift A") : (row.current_shift || "Shift A"),
     current_work_order: row.current_work_order || null,
     current_product: row.current_product || null,
     health_score: row.health_score ?? 85,

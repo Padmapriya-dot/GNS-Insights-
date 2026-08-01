@@ -170,14 +170,10 @@ export default function MachineStatus() {
         getMachineSummary().catch(() => ({ data: null })),
       ]);
       const apiRows = mRes.data || [];
-      if (apiRows.length > 0) {
-        setMachines(apiRows.map((row, i) => enrichApiMachine(row, i)));
-      } else {
-        setMachines(DEMO_MACHINES);
-      }
+      setMachines(apiRows.map((row, i) => enrichApiMachine(row, i)));
       setApiSummary(sRes.data);
     } catch {
-      setMachines(DEMO_MACHINES);
+      setMachines([]);
     } finally {
       setLoading(false);
     }
@@ -418,7 +414,11 @@ export default function MachineStatus() {
             <input placeholder="Operator" value={filters.operator} onChange={(e) => setFilters((f) => ({ ...f, operator: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
             <select value={filters.shift} onChange={(e) => setFilters((f) => ({ ...f, shift: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
               <option value="">All Shifts</option>
-              {SHIFTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              {SHIFTS.map((s) => {
+                const id = typeof s === "object" ? s.id : s;
+                const label = typeof s === "object" ? s.label : s;
+                return <option key={id} value={id}>{label}</option>;
+              })}
             </select>
             <select value={filters.work_center} onChange={(e) => setFilters((f) => ({ ...f, work_center: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
               <option value="">All Work Centers</option>

@@ -22,6 +22,7 @@ class ProductionOrderListRead(BaseModel):
     department: str | None = None
     shift: str | None = None
     product_name: str | None = None
+    product_code: str | None = None
     work_order_number: str | None = None
     machine_name: str | None = None
     machine_code: str | None = None

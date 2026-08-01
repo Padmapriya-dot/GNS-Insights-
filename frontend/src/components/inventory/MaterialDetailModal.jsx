@@ -13,7 +13,7 @@ export default function MaterialDetailModal({ material, onClose }) {
         <div className="flex items-center justify-between border-b px-6 py-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900">{material.name}</h2>
-            <p className="text-sm text-slate-500">{material.category || material.warehouse_name || "Raw material"}</p>
+            <p className="text-sm text-slate-500">{material.sku}</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-2 hover:bg-slate-100"><X className="h-5 w-5" /></button>
         </div>
@@ -25,7 +25,7 @@ export default function MaterialDetailModal({ material, onClose }) {
         <div className="overflow-y-auto p-6">
           {tab === "General" && (
             <dl className="grid gap-3 sm:grid-cols-2">
-              {[["Barcode", material.barcode], ["Category", material.category], ["Unit", material.unit], ["Unit Cost", material.unit_cost], ["Reorder Level", material.reorder_level], ["Description", material.description]].map(([k, v]) => (
+              {[["Stock Keeping Unit (SKU)", material.sku], ["Barcode", material.barcode], ["Category", material.category], ["Unit", material.unit], ["Unit Cost", material.unit_cost], ["Reorder Level", material.reorder_level], ["Description", material.description]].map(([k, v]) => (
                 <div key={k} className="rounded-lg border bg-slate-50 p-3"><dt className="text-xs text-slate-500">{k}</dt><dd className="font-semibold text-slate-800">{v ?? "—"}</dd></div>
               ))}
             </dl>

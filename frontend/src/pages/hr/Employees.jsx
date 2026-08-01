@@ -173,7 +173,7 @@ export default function Employees() {
     { key: "full_name", label: "Name", render: (r) => <span className="font-medium text-slate-900">{r.full_name}</span> },
     { key: "department", label: "Department", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${deptColor(r.department)}`}>{r.department}</span> },
     { key: "designation", label: "Designation" },
-    { key: "shift", label: "Shift" },
+    { key: "shift", label: "Shift", render: (r) => typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "—") : (r.shift || "—") },
     { key: "reporting_manager", label: "Manager", render: (r) => r.reporting_manager || "—" },
     { key: "employment_type", label: "Type", render: (r) => <span className="capitalize">{r.employment_type}</span> },
     { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
@@ -230,7 +230,7 @@ export default function Employees() {
           <div className="mb-4 grid gap-3 sm:grid-cols-3">
             <select value={filters.department} onChange={(e) => setFilters({ ...filters, department: e.target.value })} className="rounded-lg border px-3 py-2 text-sm">
               <option value="">All Departments</option>
-              {["Production", "Quality", "Maintenance", "Stores", "HR"].map((d) => <option key={d} value={d}>{d}</option>)}
+              {["Production", "Quality", "Maintenance", "Stores", "Human Resources (HR)"].map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
             <select value={filters.employment_type} onChange={(e) => setFilters({ ...filters, employment_type: e.target.value })} className="rounded-lg border px-3 py-2 text-sm">
               <option value="">All Types</option>
@@ -327,7 +327,7 @@ export default function Employees() {
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100"
                   >
                     <option value="">Select Department</option>
-                    {["Production", "Quality", "Maintenance", "Stores", "HR"].map((d) => (
+                    {["Production", "Quality", "Maintenance", "Stores", "Human Resources (HR)"].map((d) => (
                       <option key={d} value={d}>{d}</option>
                     ))}
                   </select>

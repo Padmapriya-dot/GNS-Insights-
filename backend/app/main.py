@@ -441,6 +441,9 @@ def on_startup():
             pass
     _customer_columns = [
         "ALTER TABLE customers ADD COLUMN customer_code VARCHAR(64)",
+        "ALTER TABLE customers ADD COLUMN city VARCHAR(128)",
+        "ALTER TABLE customers ADD COLUMN state VARCHAR(128)",
+        "ALTER TABLE customers ADD COLUMN state_code VARCHAR(16)",
         "ALTER TABLE customers ADD COLUMN credit_limit NUMERIC(14, 2) DEFAULT 0",
         "ALTER TABLE customers ADD COLUMN outstanding NUMERIC(14, 2) DEFAULT 0",
         "ALTER TABLE customers ADD COLUMN status VARCHAR(32) DEFAULT 'active'",
@@ -478,6 +481,16 @@ def on_startup():
             conn.execute(text("UPDATE access_logs SET company_id = tenant_id WHERE company_id IS NULL"))
     except Exception:
         pass
+    _production_columns = [
+        "ALTER TABLE production_orders ADD COLUMN actual_quantity NUMERIC(12, 2)",
+        "ALTER TABLE work_orders ADD COLUMN actual_quantity NUMERIC(12, 2)",
+    ]
+    for ddl in _production_columns:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
     _rbac_columns = [
         "ALTER TABLE users ADD COLUMN plant_code VARCHAR(64)",
         "ALTER TABLE users ADD COLUMN department VARCHAR(128)",
@@ -668,6 +681,11 @@ def on_startup():
     from app.core.seed_super_admin import seed_super_admin
     from app.core.seed_tenant import seed_tenant
     from app.core.seed_users import seed_admin_user
+    from app.core.seed_finance import seed_finance_data
+
+    from app.models.tenant import Tenant as TenantModel
+
+    from sqlalchemy import select as sa_select, func
 
     db = SessionLocal()
     try:
@@ -682,6 +700,15 @@ def on_startup():
         for tid in tenant_ids:
             seed_roles(db, tenant_id=tid)
         seed_admin_user(db)  # Seeds default demo accounts (Operator, Admin, HR)
+
+        # Seed finance data for every tenant that has no invoices yet
+        from app.models.sales import Invoice as InvoiceModel
+
+        all_tenants = db.scalars(sa_select(TenantModel)).all()
+        for t in all_tenants:
+            inv_count = db.scalar(sa_select(func.count(InvoiceModel.id)).where(InvoiceModel.tenant_id == t.id))
+            if not inv_count:
+                seed_finance_data(db, tenant_id=t.id)
     except Exception:
         logger.exception("Seed warning during startup")
     finally:

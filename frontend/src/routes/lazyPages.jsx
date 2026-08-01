@@ -140,7 +140,7 @@ export const MultiBranchLedger = lazy(() => import("../pages/accounts/MultiBranc
 export const YearClosing = lazy(() => import("../pages/accounts/YearClosing"));
 export const PurchaseOrders = lazy(() => import("../pages/procurement/PurchaseOrders"));
 export const CreatePurchaseOrder = lazy(() => import("../pages/procurement/CreatePurchaseOrder"));
-export const VendorManagement = lazy(() => import("../pages/procurement/VendorManagement"));
+export const VendorManagement = lazy(() => import("../pages/masters/VendorsMaster"));
 export const CreateVendor = lazy(() => import("../pages/procurement/CreateVendor"));
 export const BulkImportSeller = lazy(() => import("../pages/procurement/BulkImportSeller"));
 export const VendorDetail = lazy(() => import("../pages/procurement/VendorDetail"));

@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -18,8 +17,9 @@ import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import BomDetailModal, { BomFormModal } from "../../components/masters/BomDetailModal";
 import { useToast } from "../../context/ToastContext";
-import { getBillOfMaterials } from "../../api/bomApi";
+import { addBomItem, deleteBomItem, getBillOfMaterials } from "../../api/bomApi";
 import { getProducts } from "../../api/productsApi";
+import useTenantId from "../../hooks/useTenantId";
 import {
   BOM_STATUSES,
   BOM_VERSIONS,
@@ -64,8 +64,7 @@ function StatusPill({ status }) {
 
 export default function BomMaster() {
   const { addToast } = useToast();
-  const navigate = useNavigate();
-  const importInputRef = useRef(null);
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [boms, setBoms] = useState([]);
   const [totalProducts, setTotalProducts] = useState(0);
@@ -85,18 +84,47 @@ export default function BomMaster() {
     try {
       const [bomRes, prodRes] = await Promise.all([getBillOfMaterials(), getProducts()]);
       const apiRows = bomRes.data || [];
-      const grouped = groupApiBomRows(apiRows);
-      setBoms(grouped.length > 0 ? grouped : DEMO_BOMS);
-      setTotalProducts((prodRes.data || []).length || DEMO_BOMS.length);
+      const apiProducts = Array.isArray(prodRes) ? prodRes : (prodRes.data || []);
+      const groupedApi = groupApiBomRows(apiRows);
+
+      let customBoms = [];
+      try {
+        const storedKey = `gns_custom_boms_${tenantId}`;
+        const stored = localStorage.getItem(storedKey);
+        if (stored) customBoms = JSON.parse(stored);
+      } catch (e) {
+        console.error(e);
+      }
+
+      const combined = [...groupedApi];
+      for (const cb of customBoms) {
+        if (!combined.some((b) => b.id === cb.id || b.bom_number === cb.bom_number)) {
+          combined.push(cb);
+        }
+      }
+
+      setBoms(combined);
+      setTotalProducts(Math.max(apiProducts.length, combined.length));
     } catch {
-      setBoms(DEMO_BOMS);
+      let customBoms = [];
+      try {
+        const storedKey = `gns_custom_boms_${tenantId}`;
+        const stored = localStorage.getItem(storedKey);
+        if (stored) customBoms = JSON.parse(stored);
+      } catch (e) {}
+
+      setBoms(customBoms);
+      setTotalProducts(Math.max(0, customBoms.length));
     } finally {
       setLoading(false);
     }
-  }, []);
-
+  }, [tenantId]);
 
   useEffect(() => {
+    try {
+      localStorage.removeItem("gns_custom_boms");
+      localStorage.removeItem("gns_deleted_demo_boms");
+    } catch {}
     loadBoms();
   }, [loadBoms]);
 
@@ -118,7 +146,7 @@ export default function BomMaster() {
   const creators = useMemo(() => [...new Set(boms.map((b) => b.created_by).filter(Boolean))], [boms]);
 
   const exportColumns = [
-    { key: "bom_number", label: "BOM No" },
+    { key: "bom_number", label: "Bill of Materials (BOM) Number" },
     { key: "product_name", label: "Product" },
     { key: "version", label: "Version" },
     { key: "product_code", label: "Product Code" },
@@ -130,13 +158,21 @@ export default function BomMaster() {
     addToast("BOM list exported");
   };
 
+  const handleImport = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".csv,.xlsx";
+    input.onchange = () => addToast("Import queued — map file columns in a future release", "info");
+    input.click();
+  };
+
   const handlePrintPdf = (bom) => {
     const target = bom || filteredBoms[0];
     if (!target) return;
     exportToPdf(
       [{ ...target, components_count: target.components?.length, total_cost: target.costing?.total_cost }],
       [
-        { key: "bom_number", label: "BOM No" },
+        { key: "bom_number", label: "Bill of Materials (BOM) Number" },
         { key: "product_name", label: "Product" },
         { key: "version", label: "Version" },
         { key: "components_count", label: "Components" },
@@ -159,173 +195,73 @@ export default function BomMaster() {
     addToast("Template downloaded");
   };
 
-  const handleMaterialRequirement = () => {
-    const source = selected || filteredBoms[0];
-    if (!source) {
-      addToast("No BOM available for material requirement", "error");
-      return;
-    }
-    const comps = source.components || [];
-    const lines = comps.map((c) => `${c.component || c.item_code || "Item"}: ${c.qty ?? 0} ${c.unit || ""}`.trim());
-    const summary = lines.length
-      ? `${source.bom_number} — ${comps.length} component(s):\n${lines.join("\n")}`
-      : `${source.bom_number} has no components listed.`;
-    addToast(summary.replace(/\n/g, " · "), "info");
-    window.alert(summary);
-  };
-
-  const handleReportClick = (reportName) => {
-    if (filteredBoms.length === 0) {
-      navigate("/reports");
-      addToast(`Opened reports for ${reportName}`, "info");
-      return;
-    }
-    const header = ["bom_number", "product_name", "version", "product_code", "status", "components_count", "total_cost"].join(",");
-    const rows = filteredBoms.map((b) =>
-      [
-        b.bom_number,
-        `"${(b.product_name || "").replace(/"/g, '""')}"`,
-        b.version,
-        b.product_code,
-        b.status,
-        b.components?.length ?? 0,
-        b.costing?.total_cost ?? 0,
-      ].join(",")
-    );
-    const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${reportName.replace(/\s+/g, "_").toLowerCase()}_bom_export.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    addToast(`${reportName}: exported ${filteredBoms.length} BOM row(s) as CSV`);
-  };
-
-  const handleImportClick = () => importInputRef.current?.click();
-
-  const handleImportFile = (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".csv")) {
-      addToast("Please select a CSV file matching the BOM import template", "error");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const text = String(reader.result || "");
-        const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-        if (lines.length < 2) {
-          addToast("CSV has no data rows. Use the download template format.", "error");
-          return;
-        }
-        const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-        const idx = (name) => headers.indexOf(name);
-        const byBom = new Map();
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(",");
-          const bomNumber = (cols[idx("bom_number")] || cols[0] || "").trim();
-          if (!bomNumber) continue;
-          const component = {
-            id: `imp-c-${Date.now()}-${i}`,
-            component: (cols[idx("component")] || "").trim() || "Component",
-            item_code: (cols[idx("item_code")] || "").trim(),
-            qty: Number(cols[idx("qty")] || 0) || 0,
-            unit: (cols[idx("unit")] || "").trim() || "Nos",
-            unit_cost: Number(cols[idx("unit_cost")] || 0) || 0,
-            total_cost: (Number(cols[idx("qty")] || 0) || 0) * (Number(cols[idx("unit_cost")] || 0) || 0),
-            category: "Imported",
-          };
-          if (!byBom.has(bomNumber)) {
-            byBom.set(bomNumber, {
-              id: `imp-${Date.now()}-${bomNumber}`,
-              bom_number: bomNumber,
-              product_name: (cols[idx("product_name")] || "").trim() || bomNumber,
-              product_code: (cols[idx("product_code")] || "").trim(),
-              version: (cols[idx("version")] || "").trim() || "V1.0",
-              status: "draft",
-              components: [],
-              costing: { material_cost: 0, labour_cost: 0, machine_cost: 0, electricity_cost: 0, overhead_cost: 0, total_cost: 0 },
-              created_by: "Import",
-              last_updated: "Just now",
-              created_date: new Date().toISOString().slice(0, 10),
-            });
-          }
-          const bom = byBom.get(bomNumber);
-          bom.components.push(component);
-          bom.costing.material_cost += component.total_cost;
-          bom.costing.total_cost = bom.costing.material_cost;
-        }
-        const imported = [...byBom.values()];
-        if (imported.length === 0) {
-          addToast("Could not parse BOM rows from CSV. Check headers match the template.", "error");
-          return;
-        }
-        setBoms((prev) => [...imported, ...prev]);
-        addToast(`Imported ${imported.length} BOM(s) from ${file.name}`);
-      } catch {
-        addToast("Failed to read CSV. Ensure it matches the BOM import template.", "error");
-      }
-    };
-    reader.onerror = () => addToast("Could not read the selected file", "error");
-    reader.readAsText(file);
-  };
-
   const handleCopy = (bom) => {
     const copy = {
       ...bom,
-      id: `new-${Date.now()}`,
-      bom_number: `BOM${String(boms.length + 1).padStart(3, "0")}`,
-      product_name: `${bom.product_name} (Copy)`,
+      id: `bom-copy-${Date.now()}`,
+      bom_number: `BOM-COPY-${String(Date.now()).slice(-4)}`,
+      product_name: `${bom.product_name || bom.product} (Copy)`,
       status: "draft",
       version: "V1.0",
+      created_date: new Date().toISOString().slice(0, 10),
     };
-    setBoms((prev) => [...prev, copy]);
-    setSelected(null);
+    handleSave(copy);
     addToast("BOM copied");
   };
 
-  const handleDelete = (bom) => {
-    if (!window.confirm(`Delete ${bom.bom_number}?`)) return;
-    setBoms((prev) => prev.filter((b) => b.id !== bom.id));
+  const handleDelete = async (bom) => {
+    if (!window.confirm(`Delete BOM "${bom.bom_number || bom.product_name}"?`)) return;
+    try {
+      const storedKey = `gns_custom_boms_${tenantId}`;
+      const stored = localStorage.getItem(storedKey);
+      if (stored) {
+        let list = JSON.parse(stored);
+        list = list.filter((b) => b.id !== bom.id && b.bom_number !== bom.bom_number);
+        localStorage.setItem(storedKey, JSON.stringify(list));
+      }
+
+      const lineIds = (bom.components || []).map((c) => c.id).filter((id) => typeof id === "number");
+      if (lineIds.length > 0) {
+        await Promise.all(lineIds.map((id) => deleteBomItem(id)));
+      }
+    } catch (e) {
+      console.error(e);
+    }
     setSelected(null);
+    await loadBoms();
     addToast("BOM deleted");
   };
 
-  const handleSave = (form) => {
-    const costVal = form.total_cost != null && form.total_cost !== "" ? Number(form.total_cost) : 0;
-    if (formBom?.id) {
-      setBoms((prev) =>
-        prev.map((b) =>
-          b.id === formBom.id
-            ? {
-                ...b,
-                ...form,
-                costing: { ...(b.costing || {}), total_cost: costVal },
-                last_updated: "Just now",
-              }
-            : b
-        )
-      );
-      addToast("BOM updated");
-    } else {
-      const bomNum = form.bom_number?.trim() || `BOM${String(boms.length + 1).padStart(3, "0")}`;
-      const newBom = {
-        id: `new-${Date.now()}`,
-        bom_number: bomNum,
-        ...form,
-        components: form.components || [],
-        costing: { material_cost: costVal, labour_cost: 0, machine_cost: 0, electricity_cost: 0, overhead_cost: 0, total_cost: costVal },
-        status: form.status || "active",
-        created_by: "Current User",
-        last_updated: "Just now",
-        created_date: new Date().toISOString().slice(0, 10),
-      };
-      setBoms((prev) => [newBom, ...prev]);
-      addToast("BOM created");
+  const handleSave = async (savedBom) => {
+    if (savedBom && savedBom.id) {
+      try {
+        const storedKey = `gns_custom_boms_${tenantId}`;
+        const stored = localStorage.getItem(storedKey);
+        let list = stored ? JSON.parse(stored) : [];
+
+        // Uniqueness check: reject if another BOM (different id) already has this bom_number
+        const duplicate = boms.find(
+          (b) => b.bom_number && b.bom_number === savedBom.bom_number && b.id !== savedBom.id
+        );
+        if (duplicate) {
+          addToast(`BOM No "${savedBom.bom_number}" already exists. Please use a unique BOM No.`, "error");
+          return;
+        }
+
+        const idx = list.findIndex((b) => b.id === savedBom.id || b.bom_number === savedBom.bom_number);
+        if (idx >= 0) {
+          list[idx] = savedBom;
+        } else {
+          list.unshift(savedBom);
+        }
+        localStorage.setItem(storedKey, JSON.stringify(list));
+      } catch (e) {
+        console.error("LocalStorage save error:", e);
+      }
     }
     setFormBom(null);
+    await loadBoms();
+    addToast("BOM saved successfully");
   };
 
   const clearFilters = () =>
@@ -334,12 +270,6 @@ export default function BomMaster() {
   const columns = [
     { key: "bom_number", label: "BOM No" },
     { key: "product_name", label: "Product" },
-    { key: "version", label: "Version" },
-    {
-      key: "components",
-      label: "Components",
-      render: (r) => r.components?.length ?? 0,
-    },
     {
       key: "costing",
       label: "Cost",
@@ -363,57 +293,56 @@ export default function BomMaster() {
     },
   ];
 
-  if (loading) return <Loader label="Loading BOMs..." />;
+  if (loading) return <Loader label="Loading Bill of Materials (BOM)s..." />;
 
   return (
     <div className="space-y-6 pb-8">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Bill of Materials</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Bill of Materials (BOM)</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500">
             Manage product structures, components, production routing, and manufacturing costs.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setFormBom({})} className="ui-btn-primary">
-            <Plus className="h-4 w-4" /> Create BOM
+          <button type="button" onClick={() => setFormBom({ _existingBoms: boms })} className="ui-btn-primary">
+            <Plus className="h-4 w-4" /> Create Bill of Materials (BOM)
           </button>
           <button type="button" onClick={() => selected && setFormBom(selected)} disabled={!selected} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40">
-            Edit BOM
+            Edit Bill of Materials (BOM)
           </button>
           <button type="button" onClick={() => selected && handleCopy(selected)} disabled={!selected} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40">
-            <Copy className="h-4 w-4" /> Copy BOM
+            <Copy className="h-4 w-4" /> Copy Bill of Materials (BOM)
           </button>
-          <button type="button" onClick={handleImportClick} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <Upload className="h-4 w-4" /> Import BOM
+          <button type="button" onClick={handleImport} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <Upload className="h-4 w-4" /> Import Bill of Materials (BOM)
           </button>
-          <input ref={importInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleImportFile} />
           <button type="button" onClick={handleExport} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <Download className="h-4 w-4" /> Export BOM
+            <Download className="h-4 w-4" /> Export Bill of Materials (BOM)
           </button>
           <button type="button" onClick={() => handlePrintPdf(selected)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <FileText className="h-4 w-4" /> Print PDF
           </button>
           <button type="button" onClick={() => selected && handleDelete(selected)} disabled={!selected} className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40">
-            <Trash2 className="h-4 w-4" /> Delete BOM
+            <Trash2 className="h-4 w-4" /> Delete Bill of Materials (BOM)
           </button>
         </div>
       </header>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <SummaryCard label="Total BOMs" value={summary.total} icon={Layers} color="bg-[#2563EB]" />
-        <SummaryCard label="Active BOMs" value={summary.active} icon={CheckCircle2} color="bg-green-500" />
-        <SummaryCard label="Draft BOMs" value={summary.draft} icon={ClipboardList} color="bg-amber-500" />
-        <SummaryCard label="Inactive BOMs" value={summary.inactive} icon={FileText} color="bg-slate-500" />
-        <SummaryCard label="Products Without BOM" value={summary.withoutBom} icon={AlertTriangle} color="bg-orange-500" />
+        <SummaryCard label="Total Bill of Materials (BOM)" value={summary.total} icon={Layers} color="bg-[#2563EB]" />
+        <SummaryCard label="Active Bill of Materials (BOM)" value={summary.active} icon={CheckCircle2} color="bg-green-500" />
+        <SummaryCard label="Draft Bill of Materials (BOM)" value={summary.draft} icon={ClipboardList} color="bg-amber-500" />
+        <SummaryCard label="Inactive Bill of Materials (BOM)" value={summary.inactive} icon={FileText} color="bg-slate-500" />
+        <SummaryCard label="Products Without Bill of Materials (BOM)" value={summary.withoutBom} icon={AlertTriangle} color="bg-orange-500" />
         <SummaryCard label="Pending Approval" value={summary.pendingApproval} icon={AlertTriangle} color="bg-purple-500" />
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
           <input
             type="search"
-            placeholder="Search Product / BOM No"
+            placeholder="Search Product / Bill of Materials (BOM) Number"
             value={filters.bom_number}
             onChange={(e) => setFilters((f) => ({ ...f, bom_number: e.target.value }))}
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -421,10 +350,6 @@ export default function BomMaster() {
           <select value={filters.category} onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
             <option value="">Product Category</option>
             {PRODUCT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select value={filters.version} onChange={(e) => setFilters((f) => ({ ...f, version: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            <option value="">Version</option>
-            {BOM_VERSIONS.map((v) => <option key={v} value={v}>{v}</option>)}
           </select>
           <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
             <option value="">Status</option>
@@ -457,7 +382,7 @@ export default function BomMaster() {
           <h3 className="mb-3 text-sm font-bold text-slate-800">Quick Actions</h3>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => setFormBom({})} className="rounded-lg bg-[#2563EB] px-3 py-2 text-xs font-semibold text-white">Create Production Order</button>
-            <button type="button" onClick={handleMaterialRequirement} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">Generate Material Requirement</button>
+            <button type="button" className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">Generate Material Requirement</button>
             <button type="button" onClick={() => handlePrintPdf(selected)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">Print BOM</button>
             <button type="button" onClick={handleDownloadTemplate} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">
               <FileDown className="h-3.5 w-3.5" /> Download Template
@@ -471,7 +396,7 @@ export default function BomMaster() {
           <ul className="space-y-2">
             {REPORT_TYPES.map((r) => (
               <li key={r}>
-                <button type="button" onClick={() => handleReportClick(r)} className="text-sm font-medium text-[#2563EB] hover:underline">
+                <button type="button" onClick={() => addToast(`${r} — coming soon`, "info")} className="text-sm font-medium text-[#2563EB] hover:underline">
                   {r}
                 </button>
               </li>
@@ -501,6 +426,7 @@ export default function BomMaster() {
           onCopy={handleCopy}
           onDelete={handleDelete}
           onPrint={handlePrintPdf}
+          onRefresh={loadBoms}
         />
       )}
 

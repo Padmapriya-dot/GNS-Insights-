@@ -12,7 +12,7 @@ class ProductRepository(BaseRepository):
             self.db.scalars(
                 select(Product)
                 .where(Product.tenant_id == self.tenant_id)
-                .order_by(Product.name)
+                .order_by(Product.id.desc())
             ).all()
         )
 

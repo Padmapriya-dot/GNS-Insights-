@@ -27,7 +27,13 @@ export const STATUS_COLORS = {
   pending: "bg-blue-100 text-blue-800",
 };
 
-export const SHIFTS = ["Shift A", "Shift B", "Shift C"];
+export const SHIFTS = [
+  { id: "General", label: "General Shift", timing: "9:00 AM – 6:00 PM" },
+  { id: "Shift A", label: "Shift A",       timing: "6:00 AM – 2:00 PM" },
+  { id: "Shift B", label: "Shift B",       timing: "2:00 PM – 10:00 PM" },
+  { id: "Shift C", label: "Shift C",       timing: "10:00 PM – 6:00 AM" },
+];
+
 export const DEPARTMENTS = ["Production", "Packing", "Assembly", "Quality Control"];
 
 export const WORKFLOW_STEPS = [
@@ -71,40 +77,99 @@ export function calculateProgressPct(row) {
   if (row.status === "completed" || row.status === "closed" || row.status === "done") {
     return 100;
   }
-  const now = Date.now();
-  const startRaw = row.start_date || row.planned_start;
-  const dueRaw = row.due_date || row.planned_end;
-
-  const start = startRaw ? new Date(startRaw).getTime() : null;
-  const due = dueRaw ? new Date(dueRaw).getTime() : null;
-
-  if (due && !isNaN(due) && now >= due) {
-    return 100;
-  }
-
-  let timePct = 0;
-  if (start && due && !isNaN(start) && !isNaN(due) && due > start && now > start) {
-    timePct = ((now - start) / (due - start)) * 100;
-  }
 
   const planned = Number(row.planned_quantity || 0);
-  const produced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
-  const qtyPct = planned > 0 ? (produced / planned) * 100 : 0;
+  let produced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
 
-  const calcPct = Math.max(qtyPct, timePct);
-
-  if (row.progress_pct != null && row.progress_pct > 0) {
-    return Math.min(100, Math.max(0, Math.round(Math.max(Number(row.progress_pct), calcPct))));
+  if (Array.isArray(row.work_orders) && row.work_orders.length > 0) {
+    const woProduced = row.work_orders.reduce((sum, wo) => sum + Number(wo.actual_quantity ?? wo.produced_quantity ?? 0), 0);
+    if (woProduced > 0) {
+      produced = woProduced;
+    }
   }
 
-  return Math.min(100, Math.max(0, Math.round(calcPct)));
+  const isStarted = ["in_progress", "running", "quality_check"].includes(row.status);
+  if (!isStarted && produced <= 0) {
+    return 0;
+  }
+
+  const qtyPct = planned > 0 ? (produced / planned) * 100 : 0;
+
+  if (row.progress_pct != null && Number(row.progress_pct) > 0 && isStarted) {
+    return Math.min(100, Math.max(0, Math.round(Math.max(Number(row.progress_pct), qtyPct))));
+  }
+
+  if (isStarted) {
+    const now = Date.now();
+    const startRaw = row.start_date || row.planned_start;
+    const dueRaw = row.due_date || row.planned_end;
+
+    const start = startRaw ? new Date(startRaw).getTime() : null;
+    const due = dueRaw ? new Date(dueRaw).getTime() : null;
+
+    let timePct = 0;
+    if (start && due && !isNaN(start) && !isNaN(due) && due > start && now > start) {
+      timePct = ((now - start) / (due - start)) * 100;
+    }
+    const calcPct = Math.max(qtyPct, timePct);
+    return Math.min(100, Math.max(0, Math.round(calcPct)));
+  }
+
+  return Math.min(100, Math.max(0, Math.round(qtyPct)));
 }
 
 export function enrichApiOrder(row, index = 0) {
   const planned = Number(row.planned_quantity || 0);
-  const produced = Number(row.produced_quantity ?? 0);
-  const balance = Number(row.balance_quantity ?? Math.max(planned - produced, 0));
-  const progress = calculateProgressPct(row);
+
+  const good = Number(row.good_qty ?? row.good_quantity ?? row.accepted_quantity ?? 0);
+  const reject = Number(row.reject_qty ?? row.rejected_quantity ?? row.scrap_quantity ?? row.scrap ?? 0);
+  let rawProduced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
+  if (rawProduced <= 0 && (good > 0 || reject > 0)) {
+    rawProduced = good + reject;
+  }
+
+  let woGoodTotal = 0;
+  let woRejectTotal = 0;
+
+  if (Array.isArray(row.work_orders) && row.work_orders.length > 0) {
+    let woProduced = 0;
+    row.work_orders.forEach((wo) => {
+      const woGood = Number(wo.good_qty ?? wo.good_quantity ?? wo.accepted_quantity ?? 0);
+      const woReject = Number(wo.reject_qty ?? wo.rejected_quantity ?? wo.scrap_quantity ?? wo.scrap ?? 0);
+      const woAct = Number(wo.actual_quantity ?? wo.produced_quantity ?? 0);
+      const woTotal = woAct > 0 ? woAct : (woGood + woReject);
+      woProduced += woTotal;
+      woGoodTotal += woGood;
+      woRejectTotal += woReject;
+    });
+    if (woProduced > 0) {
+      rawProduced = woProduced;
+    }
+  }
+
+  // Use aggregated work order good/reject if PO-level values are 0
+  const finalGood = woGoodTotal > 0 ? woGoodTotal : (good > 0 ? good : 0);
+  const finalReject = woRejectTotal > 0 ? woRejectTotal : (reject > 0 ? reject : 0);
+
+  // If produced is still 0 but we have good+reject from work orders, use that
+  if (rawProduced <= 0 && (finalGood > 0 || finalReject > 0)) {
+    rawProduced = finalGood + finalReject;
+  }
+
+  let status = row.status || "planned";
+  const progress = calculateProgressPct({ ...row, produced_quantity: rawProduced, status });
+
+  let produced = rawProduced;
+  if (status === "completed" || status === "closed" || status === "done" || progress >= 100 || (planned > 0 && produced >= planned)) {
+    status = "completed";
+    produced = Math.max(rawProduced, planned);
+  } else if (rawProduced <= 0 && progress > 0 && planned > 0) {
+    produced = Math.round((planned * progress) / 100);
+  }
+
+  const finalProgress = status === "completed" ? 100 : progress;
+  const balance = Math.max(planned - produced, 0);
+
   return {
     ...row,
     order_number: row.order_number || `PO-${row.id || index + 1}`,
@@ -115,14 +180,26 @@ export function enrichApiOrder(row, index = 0) {
     work_order_number: row.work_order_number || null,
     machine_name: row.machine_name || "—",
     department: row.department || "Production",
-    shift: row.shift || "Shift A",
+    shift: typeof row.shift === "object" ? (row.shift?.label || row.shift?.id || "General") : (row.shift || "General"),
+    status: status,
     planned_quantity: planned,
     produced_quantity: produced,
     balance_quantity: balance,
-    progress_pct: progress,
+    progress_pct: finalProgress,
+    good_qty: finalGood,
+    reject_qty: finalReject,
+    buyer_company: row.buyer_company || row.customer_name || "",
+    operator_name: row.operator_name || "",
+    operator_id: row.operator_id || "",
+    size: row.size || "",
     is_delayed: row.is_delayed ?? false,
     materials: row.materials || [],
-    work_orders: row.work_orders || [],
+    work_orders: Array.isArray(row.work_orders)
+      ? row.work_orders.map((wo) => ({
+          ...wo,
+          shift: typeof wo.shift === "object" ? (wo.shift?.label || wo.shift?.id || "Shift A") : (wo.shift || "Shift A"),
+        }))
+      : [],
     documents: row.documents || [],
     audit_logs: row.audit_logs || [],
   };

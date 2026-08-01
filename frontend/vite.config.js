@@ -23,6 +23,7 @@ export default defineConfig({
         },
       },
       "/api": { target: "http://127.0.0.1:8000", changeOrigin: true },
+      "/tasks": { target: "http://127.0.0.1:8000", changeOrigin: true },
       "/sidebar": { target: "http://127.0.0.1:8000", changeOrigin: true },
       "/platform": { target: "http://127.0.0.1:8000", changeOrigin: true },
       "/health": { target: "http://127.0.0.1:8000", changeOrigin: true },

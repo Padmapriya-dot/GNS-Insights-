@@ -25,7 +25,7 @@ const MODULES = [
   "Production",
   "Quality",
   "Maintenance",
-  "HR",
+  "Human Resources (HR)",
   "Finance",
   "Sales",
   "Purchase",

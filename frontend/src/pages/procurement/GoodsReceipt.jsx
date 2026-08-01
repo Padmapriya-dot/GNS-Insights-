@@ -221,14 +221,14 @@ export default function GoodsReceipt() {
   };
 
   const columns = [
-    { key: "grn_number", label: "GRN" },
-    { key: "po_number", label: "PO" },
+    { key: "grn_number", label: "Goods Receipt Note (GRN) Number" },
+    { key: "po_number", label: "Purchase Order Number" },
     { key: "vendor_name", label: "Vendor" },
     { key: "warehouse_name", label: "Warehouse" },
-    { key: "quantity", label: "Qty" },
+    { key: "quantity", label: "Quantity" },
     {
       key: "qc_status",
-      label: "QC",
+      label: "Quality Control (QC)",
       render: (r) => (
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcColor(r.qc_status)}`}

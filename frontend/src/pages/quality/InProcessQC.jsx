@@ -30,20 +30,20 @@ export default function InProcessQC() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sumRes, listRes] = await Promise.allSettled([getProcessSummary(), getProcessEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0 && sumRes.value.data.production_running > 0) {
-        setSummary({ ...DEMO_PROCESS_SUMMARY, ...sumRes.value.data });
+      const emptySummary = { production_running: 0, active_inspections: 0, pending_samples: 0, first_piece_approved: 0, process_compliance: "0%" };
+      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0) {
+        setSummary({ ...emptySummary, ...sumRes.value.data });
       } else {
-        setSummary(DEMO_PROCESS_SUMMARY);
+        setSummary(emptySummary);
       }
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length > 0) {
+      if (listRes.status === "fulfilled" && listRes.value?.data) {
         setRows(listRes.value.data);
       } else {
-        setRows(DEMO_PROCESS_LIST);
+        setRows([]);
       }
     } catch {
-      setSummary(DEMO_PROCESS_SUMMARY);
-      setRows(DEMO_PROCESS_LIST);
+      setSummary({ production_running: 0, active_inspections: 0, pending_samples: 0, first_piece_approved: 0, process_compliance: "0%" });
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -63,22 +63,22 @@ export default function InProcessQC() {
   const columns = [
     { key: "work_order_number", label: "Work Order" },
     { key: "machine_name", label: "Machine" },
-    { key: "shift", label: "Shift" },
+    { key: "shift", label: "Shift", render: (r) => typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "—") : (r.shift || "—") },
     { key: "operator_name", label: "Operator" },
     { key: "inspection_time", label: "Inspection Time" },
-    { key: "qc_status", label: "QC Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcStatusColor(r.qc_status)}`}>{r.qc_status}</span> },
+    { key: "qc_status", label: "Quality Control (QC) Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcStatusColor(r.qc_status)}`}>{r.qc_status}</span> },
     { key: "remarks", label: "Remarks" },
     { key: "product_name", label: "Product" },
     { key: "batch_code", label: "Batch" },
   ];
 
-  if (loading) return <Loader label="Loading in-process QC..." />;
+  if (loading) return <Loader label="Loading in-process Quality Control (QC)..." />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">In Process QC</h1>
+          <h1 className="text-2xl font-bold text-slate-900">In-Process Quality Control (QC)</h1>
           <p className="mt-1 text-sm text-slate-500">Real-time quality checks during manufacturing — work order, machine, shift, operator.</p>
         </div>
         <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
@@ -86,7 +86,7 @@ export default function InProcessQC() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiCard label="Production Running" value={summary.production_running} icon={Cog} color="bg-blue-600" />
-        <KpiCard label="QC Pending" value={summary.qc_pending} icon={Clock} color="bg-orange-500" />
+        <KpiCard label="Quality Control (QC) Pending" value={summary.qc_pending} icon={Clock} color="bg-orange-500" />
         <KpiCard label="Passed" value={summary.passed} icon={CheckCircle} color="bg-green-600" />
         <KpiCard label="Failed" value={summary.failed} icon={XCircle} color="bg-red-500" />
         <KpiCard label="Rework" value={summary.rework} icon={RotateCcw} color="bg-amber-500" />

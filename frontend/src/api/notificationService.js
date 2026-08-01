@@ -33,3 +33,7 @@ export async function deleteNotification(notificationId) {
 export async function clearAllNotifications() {
   return unwrap(await api.delete("/api/notifications/clear"));
 }
+
+export async function createNotification(payload) {
+  return unwrap(await api.post("/api/notifications", payload));
+}

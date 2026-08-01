@@ -4,8 +4,8 @@ export const MR_PRIORITIES = ["low", "medium", "high", "urgent"];
 export const MR_DEPARTMENTS = ["Production", "Maintenance", "Quality", "Stores", "Engineering"];
 export const PROCUREMENT_FLOW = [
   "Production", "Material Requirement", "Material Request", "Manager Approval",
-  "RFQ", "Vendor Quotations", "Quotation Comparison", "Purchase Order",
-  "Vendor Delivery", "GRN", "Quality Inspection", "Raw Material Inventory",
+  "Request for Quotation (RFQ)", "Vendor Quotations", "Quotation Comparison", "Purchase Order",
+  "Vendor Delivery", "Goods Receipt Note (GRN)", "Quality Inspection", "Raw Material Inventory",
   "Vendor Invoice", "Payment", "Ledger",
 ];
 

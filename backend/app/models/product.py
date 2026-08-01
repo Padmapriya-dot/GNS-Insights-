@@ -11,9 +11,10 @@ class Product(Base, TimestampMixin):
     tenant_id: Mapped[int] = mapped_column(
         ForeignKey("tenants.id"), nullable=False, index=True
     )
-    sku: Mapped[str] = mapped_column(String(64), nullable=False)
+    sku: Mapped[str | None] = mapped_column(String(64), nullable=True, default="")
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str | None] = mapped_column(String(128), default="Finished Goods")
     unit_cost: Mapped[float | None] = mapped_column(Numeric(12, 2))
     unit_price: Mapped[float | None] = mapped_column(Numeric(12, 2))
     wholesale_price: Mapped[float | None] = mapped_column(Numeric(12, 2))
@@ -22,7 +23,6 @@ class Product(Base, TimestampMixin):
     current_stock: Mapped[float] = mapped_column(Numeric(14, 3), default=0, nullable=False)
     unit: Mapped[str | None] = mapped_column(String(32), default="Pcs")
     hsn_code: Mapped[str | None] = mapped_column(String(32))
-    category: Mapped[str | None] = mapped_column(String(128))
     gst_percent: Mapped[float | None] = mapped_column(Numeric(5, 2), default=0)
     cess_percent: Mapped[float | None] = mapped_column(Numeric(5, 2), default=0)
 

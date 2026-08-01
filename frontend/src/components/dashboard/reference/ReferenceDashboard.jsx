@@ -36,7 +36,7 @@ import { quickActionsRef } from "../../../data/referenceDashboardData";
 import { getErpDashboard } from "../../../api/dashboardApi";
 import useAuth from "../../../hooks/useAuth";
 import useManufacturingRefresh from "../../../hooks/useManufacturingRefresh";
-import { userCanAccess, isOperator, isStoreManager } from "../../../config/permissions";
+import { userCanAccess, isOperator } from "../../../config/permissions";
 import { CardShell, KpiIcon, StatusBadge, TrendBadge } from "./ReferenceParts";
 
 const tooltipStyle = {
@@ -53,21 +53,12 @@ const KPI_TITLE_KEYS = {
   "pending-orders": "pendingOrders",
   "good-qty": "goodQtyToday",
   "reject-qty": "rejectQtyToday",
-  "inventory-value": "inventoryValue",
-  "low-stock": "lowStockItems",
-  "raw-materials": "rawMaterials",
-  "finished-goods": "finishedGoods",
-  "warehouses": "warehouses",
-  "stock-movements": "stockMovesToday",
 };
 
 const TREND_LABEL_KEYS = {
   "vs last 7 days": "vsLast7Days",
   "vs yesterday": "vsYesterday",
   "vs total machines": "vsTotalMachines",
-  "units on hand": "unitsOnHand",
-  "active locations": "activeLocations",
-  "GRNs today": "grnsToday",
 };
 
 const SHOP_FLOOR_KEYS = {
@@ -82,16 +73,6 @@ const INVENTORY_KEYS = ["rawMaterials", "wipItems", "finishedGoods", "lowStockIt
 const WAREHOUSE_KEYS = ["mainStore", "productionStore", "fgStore", "others"];
 const QUICK_ACTION_KEYS = ["newWorkOrder", "productionEntry", "materialIssue", "stockTransfer", "qcEntry", "reports"];
 const QUICK_ACTION_MODULES = ["production", "production", "inventory", "inventory", "quality", "analytics"];
-
-const STORE_QUICK_ACTIONS = [
-  { label: "Goods Receipt", to: "/procurement/goods-receipt", bg: "#2563EB", labelKey: "grnEntry", module: "procurement" },
-  { label: "Stock Transfer", to: "/inventory/stock-transfer", bg: "#A855F7", labelKey: "stockTransfer", module: "inventory" },
-  { label: "Stock Adjustment", to: "/inventory/stock-adjustment", bg: "#F97316", labelKey: "stockAdjustment", module: "inventory" },
-  { label: "Warehouses", to: "/inventory/warehouses", bg: "#0EA5E9", labelKey: "warehouses", module: "inventory" },
-  { label: "Dispatch", to: "/sales/dispatch", bg: "#22C55E", labelKey: "dispatch", module: "sales" },
-  { label: "Low Stock", to: "/alerts/low-stock", bg: "#EF4444", labelKey: "lowStockItems", module: "alerts" },
-];
-
 const SUMMARY_KEYS = ["manPower", "workingHours", "powerConsumption", "productionEfficiency", "targetAchievement"];
 
 const KPI_STYLE = {
@@ -101,16 +82,10 @@ const KPI_STYLE = {
   "pending-orders": { gradient: "from-orange-600 to-orange-500", iconBg: "bg-white/20" },
   "good-qty": { gradient: "from-teal-600 to-teal-500", iconBg: "bg-white/20" },
   "reject-qty": { gradient: "from-red-600 to-red-500", iconBg: "bg-white/20" },
-  "inventory-value": { gradient: "from-blue-600 to-blue-500", iconBg: "bg-white/20" },
-  "low-stock": { gradient: "from-amber-600 to-amber-500", iconBg: "bg-white/20" },
-  "raw-materials": { gradient: "from-indigo-600 to-indigo-500", iconBg: "bg-white/20" },
-  "finished-goods": { gradient: "from-emerald-600 to-emerald-500", iconBg: "bg-white/20" },
-  "warehouses": { gradient: "from-cyan-600 to-cyan-500", iconBg: "bg-white/20" },
-  "stock-movements": { gradient: "from-violet-600 to-violet-500", iconBg: "bg-white/20" },
 };
 
 const EMPTY_ORDERS = { total: 0, inProgress: 0, completed: 0, onHold: 0, progress: 0 };
-const PERIOD_KEYS = { Daily: "daily", Weekly: "weekly", Monthly: "monthly" };
+const PERIOD_KEYS = { Daily: "daily", Weekly: "weekly", Monthly: "monthly", Yearly: "yearly" };
 
 const summaryIcons = { users: Users, clock: Clock, zap: Zap, gauge: Gauge, target: Target };
 const alertIcons = { alert: AlertTriangle, wrench: Wrench, box: Package, check: CheckCircle2, cart: ShoppingCart };
@@ -126,7 +101,7 @@ function KpiStrip({ cards = [] }) {
     );
   }
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {cards.map((card) => {
         const titleKey = KPI_TITLE_KEYS[card.id];
         const trendKey = TREND_LABEL_KEYS[card.trendLabel];
@@ -182,7 +157,7 @@ function ProductionOverview({ chartSets }) {
               onClick={() => setPeriod(label)}
               className={`rounded-md px-2.5 py-1 transition-colors ${period === label ? "bg-white text-[#2563EB] shadow-sm" : "text-slate-500"}`}
             >
-              {t(`refDashboard.${key}`)}
+              {t(`refDashboard.${key}`, label)}
             </button>
           ))}
         </div>
@@ -289,45 +264,33 @@ function TopMachines({ machines = [] }) {
   );
 }
 
-function OrdersOverview({ overview = EMPTY_ORDERS, storeMode = false }) {
+function OrdersOverview({ overview = EMPTY_ORDERS }) {
   const { t } = useTranslation();
-  const labels = overview.labels || {};
-  const stats = storeMode
-    ? [
-        { label: labels.total || t("refDashboard.pendingDispatch", "Pending Dispatch"), value: overview.total, color: "text-[#2563EB]" },
-        { label: labels.inProgress || t("refDashboard.pendingGrnQc", "Pending GRN QC"), value: overview.inProgress, color: "text-orange-500" },
-        { label: labels.completed || t("refDashboard.grnsToday", "GRNs Today"), value: overview.completed, color: "text-green-600" },
-        { label: labels.onHold || t("refDashboard.lowStockItems", "Low Stock"), value: overview.onHold, color: "text-red-500" },
-      ]
-    : [
-        { labelKey: "totalOrders", value: overview.total, color: "text-[#2563EB]" },
-        { labelKey: "inProgress", value: overview.inProgress, color: "text-orange-500" },
-        { labelKey: "completed", value: overview.completed, color: "text-green-600" },
-        { labelKey: "onHold", value: overview.onHold, color: "text-red-500" },
-      ];
+  const stats = [
+    { labelKey: "totalOrders", value: overview.total, color: "text-[#2563EB]" },
+    { labelKey: "inProgress", value: overview.inProgress, color: "text-orange-500" },
+    { labelKey: "completed", value: overview.completed, color: "text-green-600" },
+    { labelKey: "onHold", value: overview.onHold, color: "text-red-500" },
+  ];
   return (
-    <CardShell title={storeMode ? t("refDashboard.storeOperations", "Store Operations") : t("refDashboard.ordersOverview")}>
+    <CardShell title={t("refDashboard.ordersOverview")}>
       <div className="grid grid-cols-2 gap-3 mb-4">
         {stats.map((s) => (
-          <div key={s.labelKey || s.label} className="rounded-xl bg-slate-50 px-3 py-2.5 text-center">
-            <p className="text-[10px] font-medium text-slate-500">
-              {s.labelKey ? t(`refDashboard.${s.labelKey}`) : s.label}
-            </p>
+          <div key={s.labelKey} className="rounded-xl bg-slate-50 px-3 py-2.5 text-center">
+            <p className="text-[10px] font-medium text-slate-500">{t(`refDashboard.${s.labelKey}`)}</p>
             <p className={`text-xl font-bold tabular-nums ${s.color}`}>{Number(s.value ?? 0).toLocaleString()}</p>
           </div>
         ))}
       </div>
-      {!storeMode && (
-        <div>
-          <div className="mb-1 flex justify-between text-xs">
-            <span className="font-medium text-slate-600">{t("refDashboard.overallProgress")}</span>
-            <span className="font-bold text-[#2563EB]">{overview.progress}%</span>
-          </div>
-          <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-            <div className="h-full rounded-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]" style={{ width: `${overview.progress}%` }} />
-          </div>
+      <div>
+        <div className="mb-1 flex justify-between text-xs">
+          <span className="font-medium text-slate-600">{t("refDashboard.overallProgress")}</span>
+          <span className="font-bold text-[#2563EB]">{overview.progress}%</span>
         </div>
-      )}
+        <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full rounded-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]" style={{ width: `${overview.progress}%` }} />
+        </div>
+      </div>
     </CardShell>
   );
 }
@@ -423,35 +386,10 @@ function AlertsNotifications({ alerts = [] }) {
   );
 }
 
-function QuickActions({ storeMode = false }) {
+function QuickActions() {
   const { t } = useTranslation();
   const { user } = useAuth();
   if (isOperator(user)) return null;
-
-  if (storeMode) {
-    const visible = STORE_QUICK_ACTIONS.filter((a) => userCanAccess(user, a.module));
-    if (!visible.length) return null;
-    return (
-      <CardShell title={t("refDashboard.quickActions")}>
-        <div className="grid grid-cols-2 gap-3">
-          {visible.map((a) => (
-            <Link
-              key={a.label}
-              to={a.to}
-              className="flex flex-col items-center justify-center gap-2 rounded-xl p-4 text-center text-white shadow-md transition-transform hover:-translate-y-0.5 hover:shadow-lg"
-              style={{ backgroundColor: a.bg }}
-            >
-              <Plus className="h-5 w-5" />
-              <span className="text-[11px] font-semibold leading-tight">
-                {t(`refDashboard.${a.labelKey}`, a.label)}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </CardShell>
-    );
-  }
-
   const visible = quickActionsRef.filter((_, i) => userCanAccess(user, QUICK_ACTION_MODULES[i]));
   if (!visible.length) return null;
   return (
@@ -518,9 +456,49 @@ function RecentWorkOrders({ workOrders = [] }) {
   );
 }
 
+function isProductionManagerUser(user) {
+  if (!user) return false;
+  const roles = Array.isArray(user.roles)
+    ? user.roles.map((r) => (typeof r === "object" ? r.name : String(r)))
+    : [];
+  const roleStr = String(user.role || user.role_name || (typeof user.roles === "string" ? user.roles : "")).toLowerCase();
+  const allRoles = [...roles.map((r) => String(r).toLowerCase()), roleStr];
+  if (allRoles.some((r) => r.includes("admin"))) return false;
+  return allRoles.some((r) => r.includes("production manager") || r.includes("production_manager"));
+}
+
 function TodaysSummary({ items = [] }) {
   const { t } = useTranslation();
-  if (!items.length) {
+  const { user } = useAuth();
+  const isPM = isProductionManagerUser(user);
+  const isOp = isOperator(user);
+  const filteredItems = useMemo(() => {
+    if (isOp) {
+      return items.filter(
+        (item) =>
+          item.key !== "manPower" &&
+          item.key !== "manpower" &&
+          item.key !== "powerConsumption" &&
+          item.key !== "stockMovements" &&
+          item.label !== "Man Power" &&
+          item.label !== "Manpower" &&
+          item.label !== "Power Consumption" &&
+          item.label !== "Stock Movements"
+      );
+    }
+    if (isPM) {
+      return items.filter(
+        (item) =>
+          item.key !== "powerConsumption" &&
+          item.key !== "stockMovements" &&
+          item.label !== "Power Consumption" &&
+          item.label !== "Stock Movements"
+      );
+    }
+    return items;
+  }, [items, isPM, isOp]);
+
+  if (!filteredItems.length) {
     return (
       <CardShell title={t("refDashboard.todaysSummary")}>
         <p className="py-8 text-center text-sm text-slate-500">{t("common.noData", "No data available.")}</p>
@@ -530,7 +508,7 @@ function TodaysSummary({ items = [] }) {
   return (
     <CardShell title={t("refDashboard.todaysSummary")}>
       <ul className="space-y-3">
-        {items.map((item, i) => {
+        {filteredItems.map((item, i) => {
           const Icon = summaryIcons[item.icon] || BarChart3;
           const label = item.key ? t(`refDashboard.${item.key}`, item.label) : (SUMMARY_KEYS[i] ? t(`refDashboard.${SUMMARY_KEYS[i]}`) : item.label);
           return (
@@ -551,6 +529,7 @@ function TodaysSummary({ items = [] }) {
 export default function ReferenceDashboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const isOp = isOperator(user);
   const [apiData, setApiData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -572,7 +551,47 @@ export default function ReferenceDashboard() {
 
   const kpiCardsLive = useMemo(() => {
     if (!apiData?.kpi_cards?.length) return [];
-    return apiData.kpi_cards.map((k) => ({ ...k, value: k.value ?? "0" }));
+    let localGood = 0;
+    let localReject = 0;
+    let hasLocalOrders = false;
+    const COMPLETED_STATUSES = ["completed", "closed", "done", "cancelled", "rejected"];
+    try {
+      const stored = localStorage.getItem("smrt_local_production_orders");
+      if (stored) {
+        const orders = JSON.parse(stored);
+        if (orders.length > 0) hasLocalOrders = true;
+        orders.forEach((o) => {
+          // Good qty: prefer explicit good_qty fields, then fall back to produced_quantity
+          const g = Number(o.good_qty ?? o.good_quantity ?? o.accepted_quantity ?? 0);
+          // Reject qty: prefer explicit reject_qty, then scrap fields
+          const r = Number(o.reject_qty ?? o.rejected_quantity ?? o.scrap_quantity ?? o.scrap ?? 0);
+          // produced_quantity fallback: if good_qty is 0, treat produced as good
+          const p = Number(o.produced_quantity ?? o.actual_quantity ?? 0);
+          // Good qty = explicit good_qty OR (produced - reject) OR produced
+          const effectiveGood = g > 0 ? g : (p > 0 ? Math.max(p - r, p) : 0);
+          localGood += effectiveGood;
+          localReject += r;
+        });
+      }
+    } catch (e) {}
+
+    return apiData.kpi_cards.map((k) => {
+      let val = k.value ?? "0";
+      if (k.id === "good-qty" || k.title?.toLowerCase().includes("good")) {
+        // Always use local sum if we have local orders (local is ground truth for good qty)
+        if (hasLocalOrders) {
+          val = String(localGood);
+        } else if (val === "0" || !val) {
+          val = String(localGood);
+        }
+      }
+      if ((k.id === "reject-qty" || k.title?.toLowerCase().includes("reject") || k.title?.toLowerCase().includes("scrap")) && (val === "0" || !val) && localReject > 0) {
+        val = String(localReject);
+      }
+      // pending-orders: always trust the backend value (counts non-completed Work Orders from DB)
+      // No localStorage override — backend is the single source of truth for this count
+      return { ...k, value: val };
+    });
   }, [apiData]);
 
   const chartSets = useMemo(() => {
@@ -581,6 +600,7 @@ export default function ReferenceDashboard() {
       Daily: apiData.production_overview || [],
       Weekly: apiData.production_overview_weekly || [],
       Monthly: apiData.production_overview_monthly || [],
+      Yearly: apiData.production_overview_yearly || [],
     };
   }, [apiData]);
 
@@ -597,32 +617,6 @@ export default function ReferenceDashboard() {
     }));
   }, [apiData]);
 
-  const storeMode =
-    apiData?.dashboard_profile === "store" ||
-    (isStoreManager(user) && !(apiData?.dashboard_profile === "full"));
-
-  const sections = useMemo(() => {
-    const fromApi = apiData?.visible_sections;
-    if (Array.isArray(fromApi) && fromApi.length) return new Set(fromApi);
-    if (storeMode) {
-      return new Set(["kpi", "orders_overview", "inventory", "alerts", "quick_actions", "todays_summary"]);
-    }
-    return new Set([
-      "kpi",
-      "production_overview",
-      "shop_floor",
-      "top_machines",
-      "orders_overview",
-      "inventory",
-      "alerts",
-      "quick_actions",
-      "recent_work_orders",
-      "todays_summary",
-    ]);
-  }, [apiData, storeMode]);
-
-  const show = (key) => sections.has(key);
-
   if (loading) {
     return <div className="py-16 text-center text-sm text-slate-500">{t("common.loading", "Loading...")}</div>;
   }
@@ -638,57 +632,44 @@ export default function ReferenceDashboard() {
 
   return (
     <div className="space-y-5 pb-4">
-      {show("kpi") && <KpiStrip cards={kpiCardsLive} />}
+      <KpiStrip cards={kpiCardsLive} />
 
-      {(show("production_overview") || show("shop_floor") || show("top_machines")) && (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-          {show("production_overview") && (
-            <div className="xl:col-span-5">
-              <ProductionOverview chartSets={chartSets} />
-            </div>
-          )}
-          {show("shop_floor") && (
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <div className={isOp ? "xl:col-span-12" : "xl:col-span-5"}>
+          <ProductionOverview chartSets={chartSets} />
+        </div>
+        {!isOp && (
+          <>
             <div className="xl:col-span-3">
               <ShopFloorStatus statusData={apiData?.shop_floor_status || []} />
             </div>
-          )}
-          {show("top_machines") && (
             <div className="xl:col-span-4">
               <TopMachines machines={apiData?.top_machines || []} />
             </div>
-          )}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {show("orders_overview") && (
-          <OrdersOverview
-            overview={{ ...EMPTY_ORDERS, ...(apiData?.orders_overview || {}) }}
-            storeMode={storeMode}
-          />
+          </>
         )}
-        {show("inventory") && (
+      </div>
+
+      <div className={`grid grid-cols-1 gap-5 ${isOp ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
+        <OrdersOverview overview={{ ...EMPTY_ORDERS, ...(apiData?.orders_overview || {}) }} />
+        {!isOp && (
           <InventorySummary blocks={apiData?.inventory_blocks || []} warehouses={apiData?.warehouse_locations || []} />
         )}
-        {show("alerts") && <AlertsNotifications alerts={alertsLive} />}
+        <AlertsNotifications alerts={alertsLive} />
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-        {show("quick_actions") && !isOperator(user) && (
-          <div className={storeMode ? "xl:col-span-4" : "xl:col-span-3"}>
-            <QuickActions storeMode={storeMode} />
+        {!isOp && (
+          <div className="xl:col-span-3">
+            <QuickActions />
           </div>
         )}
-        {show("recent_work_orders") && (
-          <div className={isOperator(user) ? "xl:col-span-7" : "xl:col-span-5"}>
-            <RecentWorkOrders workOrders={workOrdersLive} />
-          </div>
-        )}
-        {show("todays_summary") && (
-          <div className={storeMode ? "xl:col-span-8" : isOperator(user) ? "xl:col-span-5" : "xl:col-span-4"}>
-            <TodaysSummary items={apiData?.todays_summary || []} />
-          </div>
-        )}
+        <div className={isOp ? "xl:col-span-7" : "xl:col-span-5"}>
+          <RecentWorkOrders workOrders={workOrdersLive} />
+        </div>
+        <div className={isOp ? "xl:col-span-5" : "xl:col-span-4"}>
+          <TodaysSummary items={apiData?.todays_summary || []} />
+        </div>
       </div>
 
       <footer className="flex flex-col items-center justify-between gap-2 border-t border-slate-200 pt-4 text-center text-[11px] text-slate-500 sm:flex-row sm:text-left">

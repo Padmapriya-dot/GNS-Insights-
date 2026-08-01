@@ -88,17 +88,16 @@ def _order_context(db: Session, tenant_id: int, order: ProductionOrder) -> dict:
             ) or 0
         )
     planned = float(order.planned_quantity or 0)
-    balance = max(planned - produced, 0)
-    qty_progress = round(produced / planned * 100, 1) if planned else 0.0
-
     now = datetime.now(timezone.utc)
     time_progress = 0.0
     if order.status in ("completed", "closed", "done"):
         progress = 100.0
-    elif order.due_date and (order.due_date if order.due_date.tzinfo else order.due_date.replace(tzinfo=timezone.utc)) <= now:
-        progress = 100.0
-    else:
-        if order.start_date and order.due_date:
+        produced = max(produced, planned)
+    elif order.status in ("in_progress", "running", "quality_check"):
+        qty_progress = round(produced / planned * 100, 1) if planned else 0.0
+        if order.due_date and (order.due_date if order.due_date.tzinfo else order.due_date.replace(tzinfo=timezone.utc)) <= now:
+            time_progress = 100.0
+        elif order.start_date and order.due_date:
             s_dt = order.start_date if order.start_date.tzinfo else order.start_date.replace(tzinfo=timezone.utc)
             d_dt = order.due_date if order.due_date.tzinfo else order.due_date.replace(tzinfo=timezone.utc)
             tot_sec = (d_dt - s_dt).total_seconds()
@@ -106,6 +105,23 @@ def _order_context(db: Session, tenant_id: int, order: ProductionOrder) -> dict:
             if tot_sec > 0 and elap_sec > 0:
                 time_progress = round(min(100.0, (elap_sec / tot_sec) * 100.0), 1)
         progress = round(max(qty_progress, time_progress), 1)
+        if produced <= 0 and progress > 0 and planned > 0:
+            produced = float(round((planned * progress) / 100.0, 1))
+
+        if progress >= 100.0 or (planned > 0 and produced >= planned):
+            order.status = "completed"
+            db.commit()
+            progress = 100.0
+            produced = max(produced, planned)
+    else:
+        progress = round(produced / planned * 100, 1) if (planned and produced > 0) else 0.0
+        if progress >= 100.0 or (planned > 0 and produced >= planned):
+            order.status = "completed"
+            db.commit()
+            progress = 100.0
+            produced = max(produced, planned)
+
+    balance = max(planned - produced, 0)
 
     batch = None
     if active_wo:
@@ -152,6 +168,7 @@ def _to_list_read(db: Session, tenant_id: int, order: ProductionOrder) -> Produc
         department=order.department,
         shift=order.shift,
         product_name=product.name if product else None,
+        product_code=product.sku or (f"PRD{str(product.id).zfill(3)}" if product and product.id else None) if product else None,
         work_order_number=wo.work_order_number if wo else None,
         machine_name=machine.name if machine else None,
         machine_code=machine.code if machine else None,
@@ -338,7 +355,7 @@ def _run_start_checks(
     materials = _materials_for_order(db, tenant_id, order)
     material_ok = all(m.available_qty >= m.required_qty for m in materials) if materials else True
     machine = ctx["machine"]
-    machine_ok = machine is not None and machine.is_active and machine.status in ("idle", "running")
+    machine_ok = machine is not None and machine.is_active
     wo = ctx["active_wo"]
     operator_ok = wo is not None and (wo.assigned_user_id is not None or machine is not None)
 
@@ -353,13 +370,13 @@ def _run_start_checks(
             check_type="machine",
             label="Machine Availability",
             ready=machine_ok,
-            message="Machine ready" if machine_ok else "No machine assigned or machine unavailable",
+            message=f"Machine ready ({machine.name})" if machine_ok else "No machine assigned",
         ),
         ProductionStartCheckRead(
             check_type="operator",
             label="Operator Availability",
             ready=operator_ok,
-            message="Operator assigned" if operator_ok else "No operator assigned to work order",
+            message="Operator assigned" if operator_ok else "No operator assigned",
         ),
     ]
 

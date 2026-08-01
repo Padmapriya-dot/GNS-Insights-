@@ -164,7 +164,7 @@ export default function WorkOrderDetailModal({
                   <Field label="Production Order" value={w.production_order_number} />
                   <Field label="Product" value={w.product_name} />
                   <Field label="Customer" value={w.customer_name} />
-                  <Field label="BOM Version" value={w.bom_version} />
+                  <Field label="Bill of Materials (BOM) Version" value={w.bom_version} />
                   <Field label="Batch Number" value={w.batch_number} />
                   <Field label="Priority" value={w.priority} />
                 </div>
@@ -172,11 +172,11 @@ export default function WorkOrderDetailModal({
               <div>
                 <h3 className="mb-3 text-sm font-bold">Production</h3>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <Field label="Planned Qty" value={w.planned_quantity} />
-                  <Field label="Produced Qty" value={w.produced_quantity} />
-                  <Field label="Remaining Qty" value={w.remaining_quantity} />
-                  <Field label="Scrap Qty" value={w.scrap_quantity} />
-                  <Field label="Rework Qty" value={w.rework_quantity} />
+                  <Field label="Planned Quantity" value={w.planned_quantity} />
+                  <Field label="Produced Quantity" value={w.produced_quantity} />
+                  <Field label="Remaining Quantity" value={w.remaining_quantity} />
+                  <Field label="Scrap Quantity" value={w.scrap_quantity} />
+                  <Field label="Rework Quantity" value={w.rework_quantity} />
                 </div>
               </div>
               <div>
@@ -187,7 +187,7 @@ export default function WorkOrderDetailModal({
                   <Field label="Efficiency" value={w.machine_efficiency_pct != null ? `${w.machine_efficiency_pct}%` : "—"} />
                   <Field label="Operator" value={w.operator_name} />
                   <Field label="Supervisor" value={w.supervisor} />
-                  <Field label="Shift" value={w.shift} />
+                  <Field label="Shift" value={typeof w.shift === "object" ? (w.shift?.label || w.shift?.id || "—") : (w.shift || "—")} />
                 </div>
               </div>
               <div>
@@ -241,7 +241,7 @@ export default function WorkOrderDetailModal({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Field label="Assigned Operator" value={w.operator_name} />
               <Field label="Supervisor" value={w.supervisor} />
-              <Field label="Shift" value={w.shift} />
+              <Field label="Shift" value={typeof w.shift === "object" ? (w.shift?.label || w.shift?.id || "—") : (w.shift || "—")} />
               <Field label="Department" value={w.department} />
               <Field label="Efficiency" value={w.operator_efficiency_pct != null ? `${w.operator_efficiency_pct}%` : "—"} />
             </div>
@@ -313,7 +313,6 @@ export default function WorkOrderDetailModal({
           {onStart && <button type="button" onClick={() => onStart(w)} className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white">▶ Start</button>}
           {onPause && <button type="button" onClick={() => onPause(w)} className="rounded-lg border px-3 py-1.5 text-xs font-semibold">⏸ Pause</button>}
           {onStop && <button type="button" onClick={() => onStop(w)} className="rounded-lg border px-3 py-1.5 text-xs font-semibold">⏹ Stop</button>}
-          {onComplete && <button type="button" onClick={() => onComplete(w)} className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white">✅ Complete</button>}
           <button type="button" onClick={() => printWorkOrder(w, user)} className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold"><Printer className="h-3 w-3" /> Job Card</button>
           <Link to="/production/batches" className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700">Batch Tracking</Link>
         </div>

@@ -17,6 +17,7 @@ FORBIDDEN_MODULES = frozenset()
 MODULE_MAP = {
     "dashboard": "dashboard",
     "products": "sales",
+    "vendors": "masters",
     "bom": "production",
     "machines": "production",
     "production": "production",
@@ -30,9 +31,9 @@ MODULE_MAP = {
 
 
 def _check_operator_restrictions(user: User, module_key: str) -> None:
-    if module_key in ("notifications", "products", "bom", "masters", "machines"):
+    if module_key in ("notifications", "products", "bom", "masters", "machines", "vendors"):
         if user_has_any_permission(
-            user, "masters", "production", "inventory", "sales", "admin"
+            user, "masters", "production", "inventory", "sales", "admin", "procurement"
         ):
             return
     rbac_module = MODULE_MAP.get(module_key, module_key)

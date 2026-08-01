@@ -93,13 +93,15 @@ PERMISSION_MATRIX = {
             "dashboard",
             "inventory",
             "procurement",
+            "sales",
             "masters",
             "alerts",
             "documents",
             "settings",
+            "analytics",
         ],
         "description": (
-            "Store operations: inventory, warehouses, GRN, stock movements, and product master."
+            "Store operations: inventory, warehouses, GRN, finished goods, and dispatch."
         ),
     },
     "Purchase Manager": {
@@ -169,32 +171,26 @@ PERMISSION_MATRIX = {
     },
 }
 
-# Sidebar / route paths Store Manager may see (inventory & warehouse only).
+# Sidebar / route paths Store Manager may see.
+# Module grants stay broader so GRN/dispatch APIs still authorize; UI is narrowed here.
 STORE_MANAGER_ALLOWED_PATHS = frozenset({
     "/",
+    "/manufacturing/workflow",
     "/inventory",
     "/inventory/raw-materials",
     "/inventory/finished-goods",
     "/inventory/stock-transfer",
     "/inventory/stock-adjustment",
     "/inventory/stock-ledger",
-    "/inventory/stock-movement",
-    "/inventory/stock-in",
-    "/inventory/material-requests",
-    "/inventory/issue-materials",
-    "/inventory/stock-return",
-    "/inventory/history",
     "/inventory/warehouses",
     "/procurement/goods-receipt",
-    "/procurement/material-requests",
     "/procurement/vendors",
+    "/sales/dispatch",
     "/masters/products",
-    "/settings",
-    "/settings/subscription",
-    "/settings/my-account",
     "/alerts/low-stock",
     "/documents",
     "/documents/purchase",
+    "/analytics/inventory",
 })
 
 
@@ -211,11 +207,9 @@ def store_manager_path_allowed(path: str | None) -> bool:
         return True
     if normalized.startswith("/procurement/goods-receipt"):
         return True
-    if normalized.startswith("/procurement/material-requests"):
-        return True
     if normalized.startswith("/procurement/vendors"):
         return True
-    if normalized.startswith("/settings"):
+    if normalized.startswith("/sales/dispatch"):
         return True
     return False
 
@@ -242,9 +236,13 @@ SIDEBAR_MENU_CATALOG = [
         "path": None,
         "module": "masters",
         "children": [
+            {"label": "Materials", "path": "/masters/products", "module": "masters"},
+            {"label": "BOM", "path": "/masters/bom", "module": "masters"},
             {"label": "Customers", "path": "/sales/customers", "module": "masters"},
             {"label": "Vendors", "path": "/procurement/vendors", "module": "masters"},
-            {"label": "Products", "path": "/masters/products", "module": "masters"},
+            {"label": "Warehouses", "path": "/inventory/warehouses", "module": "masters"},
+            {"label": "Machines", "path": "/production/machines", "module": "masters"},
+            {"label": "Departments", "path": "/masters/departments", "module": "masters"},
         ],
     },
     {
@@ -261,6 +259,7 @@ SIDEBAR_MENU_CATALOG = [
             {"label": "Machine Allocation", "path": "/production/tasks", "module": "production"},
             {"label": "Assign Tasks", "path": "/production/assign-tasks", "module": "production"},
             {"label": "Batch Tracking", "path": "/production/batches", "module": "production"},
+            {"label": "Daily Production Reports", "path": "/production/reports", "module": "production"},
             {"label": "Machine Status", "path": "/production/machines", "module": "production"},
         ],
     },
@@ -270,27 +269,25 @@ SIDEBAR_MENU_CATALOG = [
         "path": None,
         "module": "inventory",
         "children": [
-            {"label": "Inventory", "path": "/inventory", "module": "inventory"},
-            {"label": "Store Dashboard", "path": "/inventory/dashboard", "module": "inventory"},
             {"label": "Raw Materials", "path": "/inventory/raw-materials", "module": "inventory"},
             {"label": "Finished Goods", "path": "/inventory/finished-goods", "module": "inventory"},
             {"label": "Stock Transfer", "path": "/inventory/stock-transfer", "module": "inventory"},
             {"label": "Stock Adjustment", "path": "/inventory/stock-adjustment", "module": "inventory"},
             {"label": "Stock Ledger", "path": "/inventory/stock-ledger", "module": "inventory"},
             {"label": "Warehouse", "path": "/inventory/warehouses", "module": "inventory"},
-            {"label": "Inventory Settings", "path": "/inventory/settings", "module": "inventory"},
         ],
     },
     {
         "key": "procurement",
-        "label": "Purchases",
+        "label": "Procurement",
         "path": None,
         "module": "procurement",
         "children": [
-            {"label": "Purchase", "path": "/purchases", "module": "procurement"},
-            {"label": "Payments Made", "path": "/purchases/payments-made", "module": "procurement"},
-            {"label": "Debit Note", "path": "/purchases/debit-notes", "module": "procurement"},
-            {"label": "Purchase Order", "path": "/procurement/purchase-orders", "module": "procurement"},
+            {"label": "Material Request", "path": "/procurement/material-requests", "module": "procurement"},
+            {"label": "RFQ", "path": "/procurement/rfq", "module": "procurement"},
+            {"label": "Purchase Orders", "path": "/procurement/purchase-orders", "module": "procurement"},
+            {"label": "Goods Receipt", "path": "/procurement/goods-receipt", "module": "procurement"},
+            {"label": "Vendor Bills", "path": "/procurement/supplier-payments", "module": "procurement"},
         ],
     },
     {
@@ -299,19 +296,12 @@ SIDEBAR_MENU_CATALOG = [
         "path": None,
         "module": "sales",
         "children": [
-            {"label": "Invoices", "path": "/sales/invoices", "module": "sales"},
+            {"label": "Leads", "path": "/sales/leads", "module": "sales"},
             {"label": "Quotations", "path": "/sales/quotations", "module": "sales"},
-            {"label": "Payment Receipts", "path": "/sales/payment-receipts", "module": "sales"},
-            {"label": "Refund Vouchers", "path": "/sales/refund-vouchers", "module": "sales"},
-            {"label": "Proforma Invoice", "path": "/sales/proforma-invoices", "module": "sales"},
-            {"label": "Export Invoice", "path": "/sales/export-invoices", "module": "sales"},
-            {"label": "Export Proforma Invoice", "path": "/sales/export-proforma-invoices", "module": "sales"},
-            {"label": "Delivery Challans", "path": "/sales/delivery-challans", "module": "sales"},
-            {"label": "Credit Note", "path": "/sales/credit-notes", "module": "sales"},
-            {"label": "e-Invoice", "path": "/sales/e-invoice", "module": "sales"},
-            {"label": "Sales Debit Note", "path": "/sales/debit-notes", "module": "sales"},
-            {"label": "E-Waybill Login", "path": "/ewaybill/login", "module": "sales"},
-            {"label": "Digital Signature", "path": "/digital-signature", "module": "sales"},
+            {"label": "Sales Orders", "path": "/sales/orders", "module": "sales"},
+            {"label": "Dispatch", "path": "/sales/dispatch", "module": "sales"},
+            {"label": "Invoices", "path": "/sales/invoices", "module": "sales"},
+            {"label": "Bills", "path": "/sales/bills", "module": "sales"},
         ],
     },
     {
@@ -334,17 +324,27 @@ SIDEBAR_MENU_CATALOG = [
     },
     {
         "key": "finance",
-        "label": "Accounting",
+        "label": "Finance",
         "path": None,
         "module": "accounts",
         "children": [
-            {"label": "Ledger", "path": "/accounts/ledger", "module": "accounts"},
-            {"label": "Expense", "path": "/accounts/expenses", "module": "accounts"},
-            {"label": "Chart of Accounts", "path": "/accounts/chart-of-accounts", "module": "accounts"},
-            {"label": "Manual Journal Entry", "path": "/accounts/journal-entries", "module": "accounts"},
+            {"label": "Finance Dashboard", "path": "/accounts", "module": "accounts"},
+            {"label": "Accounts Payable", "path": "/finance/accounts-payable", "module": "accounts"},
+            {"label": "Accounts Receivable", "path": "/finance/accounts-receivable", "module": "accounts"},
+            {"label": "Payment Tracking", "path": "/finance/payment-tracking", "module": "accounts"},
+            {"label": "General Ledger", "path": "/finance/general-ledger", "module": "accounts"},
+            {"label": "GST Reports", "path": "/accounts/tax-reports", "module": "accounts"},
+            {"label": "Profit & Loss", "path": "/accounts/profit-loss", "module": "accounts"},
             {"label": "Balance Sheet", "path": "/accounts/balance-sheet", "module": "accounts"},
-            {"label": "Profit & Loss Report", "path": "/accounts/profit-loss", "module": "accounts"},
-            {"label": "Accounting Reports", "path": "/accounts/reports", "module": "accounts"},
+            {"label": "Trial Balance", "path": "/accounts/trial-balance", "module": "accounts"},
+            {"label": "Journal Entries", "path": "/accounts/journal-entries", "module": "accounts"},
+            {"label": "Chart of Accounts", "path": "/accounts/chart-of-accounts", "module": "accounts"},
+            {"label": "Fixed Assets", "path": "/accounts/fixed-assets", "module": "accounts"},
+            {"label": "Bank Reconciliation", "path": "/accounts/bank-reconciliation", "module": "accounts"},
+            {"label": "Budget vs Actual", "path": "/accounts/budget-actual", "module": "accounts"},
+            {"label": "Cost Allocation", "path": "/accounts/cost-allocation", "module": "accounts"},
+            {"label": "Multi-Branch Ledger", "path": "/accounts/multi-branch-ledger", "module": "accounts"},
+            {"label": "Year Closing", "path": "/accounts/year-closing", "module": "accounts"},
         ],
     },
     {
@@ -416,20 +416,9 @@ SIDEBAR_MENU_CATALOG = [
     {
         "key": "settings",
         "label": "Settings",
-        "path": None,
+        "path": "/settings",
         "module": "settings",
-        "children": [
-            {"label": "Change Template", "path": "/settings/change-template", "module": "settings"},
-            {"label": "Invoice Template", "path": "/settings/invoice-template", "module": "settings"},
-            {"label": "Quotation Template", "path": "/settings/quotation-template", "module": "settings"},
-            {"label": "Purchase Template", "path": "/settings/purchase-template", "module": "settings"},
-            {"label": "Change Format", "path": "/settings/change-format", "module": "settings"},
-            {"label": "Invoice Settings", "path": "/settings/invoice-settings", "module": "settings"},
-            {"label": "Expense Settings", "path": "/accounts/expenses/settings", "module": "accounts"},
-            {"label": "Sector Settings", "path": "/settings/sector-settings", "module": "settings"},
-            {"label": "Inventory Settings", "path": "/settings/inventory-settings", "module": "settings"},
-            {"label": "Sequence Reset Setting", "path": "/settings/sequence-reset", "module": "settings"},
-        ],
+        "children": [],
     },
     {
         "key": "admin",

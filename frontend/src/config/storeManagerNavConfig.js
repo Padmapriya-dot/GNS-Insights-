@@ -36,7 +36,6 @@ export const STORE_MANAGER_NAV_ITEMS = [
     label: "Purchases",
     icon: ShoppingCart,
     children: [
-      { key: "vendors", label: "Vendors", to: "/procurement/vendors", icon: Building2 },
       { key: "stockIn", label: "Stock In", to: "/inventory/stock-in", icon: PackagePlus },
       {
         key: "purchaseRequisitions",

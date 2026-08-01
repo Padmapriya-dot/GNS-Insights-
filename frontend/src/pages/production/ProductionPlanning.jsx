@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
+  CheckCircle,
   CheckCircle2,
   ClipboardList,
   Download,
@@ -12,7 +13,9 @@ import {
   Plus,
   Printer,
   RefreshCw,
+  Send,
   Upload,
+  X,
 } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
@@ -57,6 +60,7 @@ import {
 } from "../../data/productionPlanningMasterData";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import { printProductionOrder } from "../../utils/printUtils";
+import QuickWorkOrderModal from "../../components/production/QuickWorkOrderModal";
 
 function SummaryCard({ label, value, icon: Icon, color, onClick }) {
   return (
@@ -90,10 +94,17 @@ function PriorityPill({ priority }) {
 
 function ProgressCell({ row }) {
   const pct = calculateProgressPct(row);
+  const planned = Number(row.planned_quantity || 0);
+  const rawProduced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
+  const produced = (row.status === "completed" || row.status === "closed" || row.status === "done")
+    ? Math.max(rawProduced, planned)
+    : rawProduced > 0
+    ? rawProduced
+    : Math.round((planned * pct) / 100);
   return (
     <div className="min-w-[100px]">
       <div className="mb-0.5 flex justify-between text-[10px] text-slate-500 print:text-black">
-        <span>{row.produced_quantity ?? 0}/{row.planned_quantity}</span>
+        <span>{produced}/{planned}</span>
         <span>{pct}%</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 print:border print:border-slate-300">
@@ -123,6 +134,64 @@ function formatDate(val) {
   return isNaN(d.getTime()) ? String(val).slice(0, 10) : d.toLocaleDateString(undefined, { dateStyle: "short" });
 }
 
+/* ─── Bottom-Right Yellow Order Created Toast Popup ───────────────────────── */
+function OrderCreatedToast({ order, onClose }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 7000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  if (!order) return null;
+
+  return (
+    <div className="fixed bottom-6 right-6 z-[9999] w-full max-w-sm animate-in slide-in-from-bottom-5 duration-300 print:hidden">
+      <div className="relative overflow-hidden rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-yellow-400/40 border-l-6 border-[#F5C518]">
+        {/* close */}
+        <button
+          onClick={onClose}
+          type="button"
+          className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-yellow-100 hover:text-gray-900 transition-colors"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        {/* Icon & Title */}
+        <div className="flex items-start gap-3.5 mb-3 pr-6">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F5C518] shadow-sm text-gray-900">
+            <CheckCircle className="h-6 w-6 text-gray-900" />
+          </div>
+          <div>
+            <h4 className="text-base font-extrabold text-gray-900">
+              Production Order Created!
+            </h4>
+            <p className="text-xs font-medium text-gray-600 mt-0.5">
+              Order <strong className="text-gray-900 font-bold">#{order.order_number || order.id}</strong> has been saved.
+            </p>
+          </div>
+        </div>
+
+        {/* Operator card if present with Yellow/Amber accent */}
+        {order.operator_name && (
+          <div className="flex items-center justify-between rounded-xl bg-amber-50/90 border border-amber-200 px-3.5 py-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Send className="h-4 w-4 text-amber-700 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Sent to Operator</p>
+                <p className="truncate text-xs font-bold text-gray-900">{order.operator_name}</p>
+              </div>
+            </div>
+            {order.operator_id && order.operator_id !== "—" && (
+              <span className="text-[11px] font-bold text-gray-900 bg-[#F5C518] px-2 py-0.5 rounded-md shrink-0 shadow-xs">
+                ID: {order.operator_id}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ProductionPlanning() {
   const { user } = useAuth();
   const { addToast } = useToast();
@@ -139,6 +208,16 @@ export default function ProductionPlanning() {
   const [completeModal, setCompleteModal] = useState(null);
   const [completeSteps, setCompleteSteps] = useState([]);
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const [createdToastOrder, setCreatedToastOrder] = useState(null);
+  const [quickWoOrder, setQuickWoOrder] = useState(null);
+
+  useEffect(() => {
+    if (location.state?.createdOrder) {
+      setCreatedToastOrder(location.state.createdOrder);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const [machines, setMachines] = useState([]);
   // State to track which single order is being printed
@@ -155,13 +234,43 @@ export default function ProductionPlanning() {
         getMachines().catch(() => ({ data: [] })),
       ]);
       setMachines(mRes?.data || []);
-      const rawList = Array.isArray(oRes.data) ? oRes.data.map(enrichApiOrder) : [];
+      const apiOrders = Array.isArray(oRes.data) ? oRes.data.map(enrichApiOrder) : [];
+      let localOrders = [];
+      try {
+        const stored = localStorage.getItem("smrt_local_production_orders");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          let modified = false;
+          localOrders = parsed.map((r, i) => {
+            if (r && typeof r.shift === "object" && r.shift !== null) {
+              r.shift = r.shift.label || r.shift.id || "General";
+              modified = true;
+            }
+            return enrichApiOrder(r, i);
+          });
+          if (modified) {
+            try {
+              localStorage.setItem("smrt_local_production_orders", JSON.stringify(localOrders));
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+      const rawList = [...localOrders, ...apiOrders];
       const seen = new Set();
       const list = rawList.filter((o) => {
-        const key = o.id || o.order_number || o.product_id || o.product_name;
+        const key = o.id ? `id-${o.id}` : o.order_number ? `num-${o.order_number}` : null;
+        if (!key) return true;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
+      });
+      list.sort((a, b) => {
+        const idA = typeof a.id === "number" ? a.id : Number(String(a.id).replace(/\D/g, "")) || 0;
+        const idB = typeof b.id === "number" ? b.id : Number(String(b.id).replace(/\D/g, "")) || 0;
+        if (idA && idB && idA !== idB) return idB - idA;
+        const dateA = a.created_at || a.start_date || "";
+        const dateB = b.created_at || b.start_date || "";
+        return dateB.localeCompare(dateA);
       });
       setOrders(list);
       setApiSummary(sRes.data || null);
@@ -209,10 +318,17 @@ export default function ProductionPlanning() {
   }, [orders, filters]);
 
   const summary = useMemo(() => {
+    // Always compute from the actual merged orders list (local + API)
+    // so status changes (e.g. completed) are reflected immediately
+    const computed = computePlanningSummary(filteredOrders);
     if (apiSummary && !Object.values(filters).some(Boolean)) {
-      return apiSummary;
+      // Use API values only for fields not derivable from local orders (e.g. todays_target from backend)
+      return {
+        ...computed,
+        todays_target: apiSummary.todays_target ?? computed.todays_target,
+      };
     }
-    return computePlanningSummary(filteredOrders);
+    return computed;
   }, [apiSummary, filteredOrders, filters]);
 
   const showTodayStartOrders = () => {
@@ -282,10 +398,12 @@ export default function ProductionPlanning() {
         return;
       }
     }
+    const hasMachine = Boolean(order.machine_name && order.machine_name !== "—");
+    const hasOperator = Boolean(order.operator_name && order.operator_name !== "—");
     setStartChecks([
       { check_type: "material", label: "Material Availability", ready: true, message: "All required materials available" },
-      { check_type: "machine", label: "Machine Availability", ready: !!order.machine_name, message: order.machine_name ? "Machine ready" : "No machine assigned" },
-      { check_type: "operator", label: "Operator Availability", ready: !!order.operator_name, message: order.operator_name ? "Operator assigned" : "No operator" },
+      { check_type: "machine", label: "Machine Availability", ready: hasMachine, message: hasMachine ? `Machine ready (${order.machine_name})` : "No machine assigned" },
+      { check_type: "operator", label: "Operator Availability", ready: hasOperator, message: hasOperator ? `Operator assigned (${order.operator_name})` : "No operator assigned" },
     ]);
     setStartModal(order);
   };
@@ -358,6 +476,19 @@ export default function ProductionPlanning() {
       "Order marked completed",
     ]);
     setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: "completed", produced_quantity: o.planned_quantity, progress_pct: 100 } : o)));
+    // Persist the completed status to localStorage so summary counts update correctly
+    try {
+      const stored = localStorage.getItem("smrt_local_production_orders");
+      if (stored) {
+        const localOrders = JSON.parse(stored);
+        const updated = localOrders.map((o) =>
+          (o.id === order.id || o.order_number === order.order_number)
+            ? { ...o, status: "completed", produced_quantity: o.planned_quantity, progress_pct: 100 }
+            : o
+        );
+        localStorage.setItem("smrt_local_production_orders", JSON.stringify(updated));
+      }
+    } catch (e) {}
     setCompleteModal(order);
     addToast("Order completed");
   };
@@ -407,7 +538,15 @@ export default function ProductionPlanning() {
           });
         });
 
-        setOrders((prev) => [...importedRows, ...prev]);
+        setOrders((prev) => {
+          const updated = [...importedRows, ...prev];
+          try {
+            const stored = localStorage.getItem("smrt_local_production_orders");
+            const existing = stored ? JSON.parse(stored) : [];
+            localStorage.setItem("smrt_local_production_orders", JSON.stringify([...importedRows, ...existing]));
+          } catch (e) {}
+          return updated;
+        });
         addToast(`Successfully imported ${importedRows.length} production orders`);
       } catch (err) {
         addToast("Error parsing file. Please check CSV format.", "error");
@@ -421,7 +560,8 @@ export default function ProductionPlanning() {
   const exportColumns = [
     { key: "order_number", label: "Order No" },
     { key: "product_name", label: "Product" },
-    { key: "customer_name", label: "Customer" },
+    { key: "buyer_company", label: "Buyer Company" },
+    { key: "size", label: "Size" },
     { key: "planned_quantity", label: "Planned" },
     { key: "produced_quantity", label: "Produced" },
     { key: "priority", label: "Priority" },
@@ -444,7 +584,11 @@ export default function ProductionPlanning() {
   };
 
   const handleIndividualPrint = (order) => {
-    printProductionOrder(order, user);
+    setPrintDetailOrder(order);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => setPrintDetailOrder(null), 500);
+    }, 150);
   };
 
   const columns = [
@@ -458,9 +602,17 @@ export default function ProductionPlanning() {
         </span>
       )
     },
-    { key: "customer_name", label: "Customer" },
-    { key: "bom_version", label: "BOM" },
-    { key: "planned_quantity", label: "Planned Qty" },
+    {
+      key: "buyer_company",
+      label: "Buyer Company",
+      render: (r) => r.buyer_company || r.customer_name || "—",
+    },
+    {
+      key: "size",
+      label: "Size",
+      render: (r) => r.size || "—",
+    },
+    { key: "planned_quantity", label: "Planned Quantity" },
     {
       key: "produced_quantity",
       label: "Produced",
@@ -469,7 +621,7 @@ export default function ProductionPlanning() {
     {
       key: "balance_quantity",
       label: "Balance",
-      render: (r) => r.balance_quantity ?? Math.max((r.planned_quantity || 0) - (r.produced_quantity || 0), 0),
+      render: (r) => Math.max((r.planned_quantity || 0) - (r.produced_quantity || 0), 0),
     },
     {
       key: "priority",
@@ -481,7 +633,7 @@ export default function ProductionPlanning() {
       label: "Machine",
       render: (r) => <span className="text-slate-700 font-medium">{r.machine_name || "—"}</span>,
     },
-    { key: "shift", label: "Shift" },
+    { key: "shift", label: "Shift", render: (r) => typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "—") : (r.shift || "—") },
     {
       key: "start_date",
       label: "Start",
@@ -496,6 +648,7 @@ export default function ProductionPlanning() {
       key: "progress",
       label: "Progress",
       sortable: false,
+      printHidden: true,
       render: (r) => <ProgressCell row={r} />,
     },
     {
@@ -513,23 +666,26 @@ export default function ProductionPlanning() {
       key: "actions",
       label: "Actions",
       sortable: false,
-      render: (r) => (
-        <div className="flex flex-wrap gap-1 text-xs print:hidden">
-          <button type="button" title="View" onClick={() => openOrder(r)} className="font-semibold text-[#2563EB] hover:underline">👁 View</button>
-          <Link to="/production/create" className="font-semibold text-slate-600 hover:underline">✏ Edit</Link>
-          {canStart(r.status) && (
-            <button type="button" onClick={() => handleStartClick(r)} className="font-semibold text-green-700 hover:underline">▶ Start</button>
-          )}
-          {canPause(r.status) && (
-            <button type="button" onClick={() => handlePause(r)} className="font-semibold text-amber-700 hover:underline">⏸ Pause</button>
-          )}
-          {canComplete(r.status) && (
-            <button type="button" onClick={() => handleComplete(r)} className="font-semibold text-teal-700 hover:underline">✅ Complete</button>
-          )}
-          <button type="button" onClick={() => handleIndividualPrint(r)} className="font-semibold text-slate-500 hover:underline">🖨 Print</button>
-          <Link to="/production/work-orders" className="font-semibold text-slate-500 hover:underline">📄 WO</Link>
-        </div>
-      ),
+      printHidden: true,
+      render: (r) => {
+        const shiftStr = typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "General") : (r.shift || "General");
+        return (
+          <div className="flex flex-wrap gap-1 text-xs print:hidden">
+            <button type="button" title="View" onClick={() => openOrder(r)} className="font-semibold text-[#2563EB] hover:underline">👁 View</button>
+            <Link to={`/production/create?id=${r.id}&product_id=${r.product_id || ""}&order_number=${encodeURIComponent(r.order_number || "")}&buyer_company=${encodeURIComponent(r.buyer_company || r.customer_name || "")}&operator_name=${encodeURIComponent(r.operator_name || "")}&operator_id=${encodeURIComponent(r.operator_id || "")}&bom_version=${encodeURIComponent(r.bom_version || "BOM v1.0")}&planned_quantity=${r.planned_quantity || ""}&produced_quantity=${r.produced_quantity ?? 0}&priority=${r.priority || "medium"}&shift=${encodeURIComponent(shiftStr)}&machine_id=${r.machine_id || ""}&start_date=${r.start_date || ""}&due_date=${r.due_date || ""}&size=${encodeURIComponent(r.size || "")}&status=${encodeURIComponent(r.status || "planned")}&progress=${calculateProgressPct(r)}`} className="font-semibold text-slate-600 hover:underline">✏ Edit</Link>
+            <button type="button" onClick={() => handleIndividualPrint(r)} className="font-semibold text-slate-500 hover:underline">🖨 Print</button>
+            {canStart(r.status) && (
+              <button type="button" onClick={() => handleStartClick(r)} className="font-semibold text-green-700 hover:underline">▶ Start</button>
+            )}
+            {canPause(r.status) && (
+              <button type="button" onClick={() => handlePause(r)} className="font-semibold text-amber-700 hover:underline">⏸ Pause</button>
+            )}
+            {(!r.machine_name || r.machine_name === "—") && (
+              <button type="button" onClick={() => setQuickWoOrder(r)} className="font-semibold text-slate-500 hover:underline">📄 Work Order</button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -638,7 +794,11 @@ export default function ProductionPlanning() {
               </select>
               <select value={filters.shift} onChange={(e) => setFilters((f) => ({ ...f, shift: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
                 <option value="">Shift</option>
-                {SHIFTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                {SHIFTS.map((s) => {
+                  const id = typeof s === "object" ? s.id : s;
+                  const label = typeof s === "object" ? s.label : s;
+                  return <option key={id} value={id}>{label}</option>;
+                })}
               </select>
               <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
                 <option value="">Priority</option>
@@ -698,7 +858,7 @@ export default function ProductionPlanning() {
             <span className="font-bold text-blue-600 text-xs tracking-wide">GNS Insights</span>
           </div>
           <div className="border-b-2 border-slate-900 pb-4 mb-6">
-            <h1 className="text-3xl font-bold uppercase tracking-wide">Production Order Details</h1>
+            <h1 className="print-title text-4xl font-black uppercase tracking-wide text-black">Production Order Details</h1>
             <p className="text-sm text-slate-500 mt-1">Order # {printDetailOrder.order_number} | Printed on {new Date().toLocaleDateString()} {(user?.full_name || user?.name) ? `| By: ${user.full_name || user.name}` : ""}</p>
           </div>
 
@@ -754,7 +914,7 @@ export default function ProductionPlanning() {
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Assignment</p>
               <p className="text-sm"><span className="font-medium">Machine:</span> {printDetailOrder.machine_name || "Unassigned"}</p>
-              <p className="text-sm mt-1"><span className="font-medium">Shift:</span> {printDetailOrder.shift || "—"}</p>
+              <p className="text-sm mt-1"><span className="font-medium">Shift:</span> {typeof printDetailOrder.shift === "object" ? (printDetailOrder.shift?.label || printDetailOrder.shift?.id || "—") : (printDetailOrder.shift || "—")}</p>
             </div>
           </div>
         </div>
@@ -768,6 +928,7 @@ export default function ProductionPlanning() {
           onStart={handleStartClick}
           onPause={handlePause}
           onComplete={handleComplete}
+          onQuickWorkOrder={(o) => setQuickWoOrder(o)}
         />
       )}
 
@@ -789,28 +950,104 @@ export default function ProductionPlanning() {
         />
       )}
 
+      {quickWoOrder && (
+        <QuickWorkOrderModal
+          order={quickWoOrder}
+          onClose={() => setQuickWoOrder(null)}
+          onSuccess={() => load()}
+          addToast={addToast}
+        />
+      )}
+
+      {createdToastOrder && (
+        <OrderCreatedToast
+          order={createdToastOrder}
+          onClose={() => setCreatedToastOrder(null)}
+        />
+      )}
+
       {/* Global CSS for Print Optimization */}
       <style>{`
         @media print {
-          body {
+          @page {
+            size: landscape;
+            margin: 4mm;
+          }
+          *, *::before, *::after {
+            box-shadow: none !important;
+            text-shadow: none !important;
+            scrollbar-width: none !important;
+          }
+          *::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+          }
+          html, body, #root {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
             background-color: #fff !important;
             color: #000 !important;
-            font-size: 11px !important;
+          }
+          div, section, article, main, table, .overflow-x-auto {
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+          }
+          body * {
+            background-color: #fff !important;
+            background: transparent !important;
+            color: #000 !important;
+            font-size: 10px !important;
+            font-weight: 400 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           table {
             width: 100% !important;
+            max-width: 100% !important;
             border-collapse: collapse !important;
+            font-size: 10px !important;
+            table-layout: auto !important;
+            margin: 0 !important;
           }
-          th, td {
+          th {
             border: 1px solid #cbd5e1 !important;
-            padding: 6px 8px !important;
+            padding: 4px 6px !important;
             white-space: normal !important;
             word-break: break-word !important;
+            background-color: #f8fafc !important;
+            font-size: 10px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            text-align: left !important;
+          }
+          td {
+            border: 1px solid #cbd5e1 !important;
+            padding: 4px 6px !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            font-size: 10px !important;
+            vertical-align: middle !important;
           }
           tr {
             page-break-inside: avoid !important;
           }
-          .print\\:hidden {
+          h1, .print-title, .title {
+            font-size: 28px !important;
+            font-weight: 900 !important;
+            text-transform: uppercase !important;
+            line-height: 1.2 !important;
+            margin-bottom: 4px !important;
+          }
+          .print\\:hidden, th.print\\:hidden, td.print\\:hidden, [class*="print:hidden"] {
             display: none !important;
           }
           .print\\:block {

@@ -24,7 +24,7 @@ const TABS = [
   { id: "work_orders", label: "Work Orders" },
   { id: "history", label: "History" },
   { id: "documents", label: "Documents" },
-  { id: "iot", label: "IoT" },
+  { id: "iot", label: "Internet of Things (IoT)" },
   { id: "audit", label: "Audit Logs" },
 ];
 
@@ -178,7 +178,7 @@ export default function MachineDetailModal({ machine, detail, onClose, onStatusC
                   <Field label="Quantity Produced" value={m.todays_output} />
                   <Field label="Target Quantity" value={m.target_quantity} />
                   <Field label="Remaining" value={remaining} />
-                  <Field label="Shift" value={m.current_shift} />
+                  <Field label="Shift" value={typeof m.current_shift === "object" ? (m.current_shift?.label || m.current_shift?.id || "—") : (m.current_shift || "—")} />
                 </div>
               </div>
               <div>
@@ -195,7 +195,7 @@ export default function MachineDetailModal({ machine, detail, onClose, onStatusC
                 <h3 className="mb-3 text-sm font-bold text-slate-800">Operator</h3>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <Field label="Assigned Operator" value={m.assigned_operator} />
-                  <Field label="Shift" value={m.current_shift} />
+                  <Field label="Shift" value={typeof m.current_shift === "object" ? (m.current_shift?.label || m.current_shift?.id || "—") : (m.current_shift || "—")} />
                   <Field label="Login Time" value={m.login_time} />
                 </div>
               </div>
@@ -214,7 +214,7 @@ export default function MachineDetailModal({ machine, detail, onClose, onStatusC
                 <Field label="Today's Output" value={m.todays_output} />
                 <Field label="Target" value={m.target_quantity} />
                 <Field label="Efficiency" value={m.efficiency_pct != null ? `${m.efficiency_pct}%` : "—"} />
-                <Field label="Current WO" value={m.current_work_order} />
+                <Field label="Current Work Order (WO)" value={m.current_work_order} />
               </div>
               <ChartPlaceholder title="Production Trend" subtitle="Hourly output chart — connect to daily reports API" />
             </div>
@@ -262,7 +262,7 @@ export default function MachineDetailModal({ machine, detail, onClose, onStatusC
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b text-xs uppercase text-slate-400">
-                    <th className="py-2">WO Number</th>
+                    <th className="py-2">Work Order (WO) Number</th>
                     <th className="py-2">Status</th>
                     <th className="py-2 text-right">Planned</th>
                     <th className="py-2 text-right">Actual</th>
@@ -336,7 +336,7 @@ export default function MachineDetailModal({ machine, detail, onClose, onStatusC
           {tab === "iot" && (
             <div className="space-y-4">
               <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
-                IoT sensors — real-time data will appear here when connected.
+                Internet of Things (IoT) sensors — real-time data will appear here when connected.
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <Field label="Temperature" value={iot.temperature != null ? `${iot.temperature} °C` : m.temperature_c != null ? `${m.temperature_c} °C` : "—"} />
@@ -348,7 +348,7 @@ export default function MachineDetailModal({ machine, detail, onClose, onStatusC
                 <Field label="Downtime" value={iot.downtime_hrs != null ? `${iot.downtime_hrs} hrs` : "—"} />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <ChartPlaceholder title="Temperature Trend" subtitle="Live IoT feed" />
+                <ChartPlaceholder title="Temperature Trend" subtitle="Live Internet of Things (IoT) feed" />
                 <ChartPlaceholder title="Energy Consumption" subtitle="kWh per shift" />
               </div>
             </div>

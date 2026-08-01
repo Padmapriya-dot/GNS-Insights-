@@ -191,7 +191,7 @@ export function InventoryTrendChart() {
             <Tooltip contentStyle={tooltipStyle} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Line type="monotone" dataKey="raw" stroke="#2563EB" strokeWidth={2} dot={{ r: 3 }} name="Raw Materials" />
-            <Line type="monotone" dataKey="wip" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3 }} name="WIP" />
+            <Line type="monotone" dataKey="wip" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3 }} name="Work in Progress (WIP)" />
             <Line type="monotone" dataKey="fg" stroke="#22C55E" strokeWidth={2} dot={{ r: 3 }} name="Finished Goods" />
           </LineChart>
         </ResponsiveContainer>

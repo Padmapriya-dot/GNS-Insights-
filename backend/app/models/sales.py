@@ -64,6 +64,7 @@ class Customer(Base, TimestampMixin):
     contact_name: Mapped[str | None] = mapped_column(String(255))
     address_line1: Mapped[str | None] = mapped_column(String(512))
     address_line2: Mapped[str | None] = mapped_column(String(512))
+    city: Mapped[str | None] = mapped_column(String(128))
     state: Mapped[str | None] = mapped_column(String(128))
     state_code: Mapped[str | None] = mapped_column(String(16))
     gstin: Mapped[str | None] = mapped_column(String(64))

@@ -58,7 +58,9 @@ def get_allocation_list(db: Session, tenant_id: int) -> list[AllocationRowRead]:
         po = db.get(ProductionOrder, wo.production_order_id)
         product = db.get(Product, po.product_id) if po else None
         machine = db.get(Machine, wo.machine_id) if wo.machine_id else None
-        operator = db.get(User, wo.assigned_user_id) if wo.assigned_user_id else None
+        user = db.get(User, wo.assigned_user_id) if wo.assigned_user_id else None
+        op_name = wo.operator_name or (user.full_name if user else None) or (machine.assigned_operator if machine else None)
+        shift_name = wo.shift or (machine.current_shift if machine else None)
         planned = float(wo.planned_quantity or 0)
         actual = float(wo.actual_quantity or 0)
         cap = round(actual / planned * 100, 1) if planned else 0
@@ -70,8 +72,8 @@ def get_allocation_list(db: Session, tenant_id: int) -> list[AllocationRowRead]:
                 product_name=product.name if product else "—",
                 machine_id=wo.machine_id,
                 machine_name=machine.name if machine else None,
-                operator_name=operator.full_name if operator else None,
-                shift=wo.shift,
+                operator_name=op_name,
+                shift=shift_name,
                 supervisor=wo.supervisor,
                 capacity_pct=cap,
                 status=status,
@@ -120,8 +122,12 @@ def assign_allocation(db: Session, tenant_id: int, payload: AllocationAssignRequ
     if machine.status in ("maintenance", "breakdown"):
         return {"success": False, "message": "Machine under maintenance"}
     wo.machine_id = payload.machine_id
+    if payload.operator_name:
+        wo.operator_name = payload.operator_name
+        machine.assigned_operator = payload.operator_name
     if payload.shift:
         wo.shift = payload.shift
+        machine.current_shift = payload.shift
     if payload.supervisor:
         wo.supervisor = payload.supervisor
     if wo.status == "released":

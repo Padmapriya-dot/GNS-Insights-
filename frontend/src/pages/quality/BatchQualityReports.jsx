@@ -20,11 +20,7 @@ function KpiCard({ label, value, icon: Icon, color }) {
   );
 }
 
-const monthlyYield = [
-  { month: "Jan", yield: 92, failures: 8 }, { month: "Feb", yield: 93, failures: 7 },
-  { month: "Mar", yield: 93.5, failures: 6 }, { month: "Apr", yield: 94, failures: 6 },
-  { month: "May", yield: 94.5, failures: 5 }, { month: "Jun", yield: 95, failures: 5 },
-];
+const monthlyYield = [];
 
 export default function BatchQualityReports() {
   const { addToast } = useToast();
@@ -37,20 +33,20 @@ export default function BatchQualityReports() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sumRes, listRes] = await Promise.allSettled([getBatchSummary(), getBatchEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0 && sumRes.value.data.total_batches > 0) {
-        setSummary({ ...DEMO_BATCH_SUMMARY, ...sumRes.value.data });
+      const emptySummary = { total_batches: 0, passed_batches: 0, failed_batches: 0, retested: 0, avg_pass_rate: "0%", quarantine: 0 };
+      if (sumRes.status === "fulfilled" && sumRes.value?.data && Object.keys(sumRes.value.data).length > 0) {
+        setSummary({ ...emptySummary, ...sumRes.value.data });
       } else {
-        setSummary(DEMO_BATCH_SUMMARY);
+        setSummary(emptySummary);
       }
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length > 0) {
+      if (listRes.status === "fulfilled" && listRes.value?.data) {
         setRows(listRes.value.data);
       } else {
-        setRows(DEMO_BATCH_LIST);
+        setRows([]);
       }
     } catch {
-      setSummary(DEMO_BATCH_SUMMARY);
-      setRows(DEMO_BATCH_LIST);
+      setSummary({ total_batches: 0, passed_batches: 0, failed_batches: 0, retested: 0, avg_pass_rate: "0%", quarantine: 0 });
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -71,7 +67,7 @@ export default function BatchQualityReports() {
   const columns = [
     { key: "batch_code", label: "Batch" },
     { key: "product_name", label: "Product" },
-    { key: "shift", label: "Shift" },
+    { key: "shift", label: "Shift", render: (r) => typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "—") : (r.shift || "—") },
     { key: "production_qty", label: "Production Qty" },
     { key: "pass_qty", label: "Pass Qty" },
     { key: "reject_qty", label: "Reject Qty" },

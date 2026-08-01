@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { LogIn } from "lucide-react";
 
 /**
@@ -6,7 +6,15 @@ import { LogIn } from "lucide-react";
  */
 export default function SessionExpiredModal({ open, onLogin }) {
   const navigate = useNavigate();
-  if (!open) return null;
+  const location = useLocation();
+
+  const isAuthPage =
+    location.pathname === "/login" ||
+    location.pathname.startsWith("/gns-admin") ||
+    location.pathname.startsWith("/register") ||
+    location.pathname === "/landing";
+
+  if (!open || isAuthPage) return null;
 
   const handleLogin = () => {
     if (typeof onLogin === "function") onLogin();

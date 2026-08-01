@@ -16,6 +16,8 @@ class ProductionOrderBase(BaseModel):
     product_id: int
     order_number: str
     planned_quantity: float
+    actual_quantity: float | None = None
+    produced_quantity: float | None = None
     start_date: datetime | None = None
     due_date: datetime | None = None
     status: str = "planned"
@@ -50,12 +52,15 @@ class WorkOrderBase(BaseModel):
     machine_id: int | None = None
     assigned_user_id: int | None = None
     plant_code: str | None = None
-    work_order_number: str
+    work_order_number: str | None = None
     planned_quantity: float
     actual_quantity: float | None = None
     planned_start: datetime | None = None
     planned_end: datetime | None = None
     status: str = "planned"
+    priority: str = "medium"
+    shift: str | None = None
+    operator_name: str | None = None
 
 
 class WorkOrderCreate(WorkOrderBase):
@@ -72,18 +77,25 @@ class WorkOrderUpdate(BaseModel):
     actual_quantity: float | None = None
     status: str | None = None
     machine_id: int | None = None
+    shift: str | None = None
+    operator_name: str | None = None
+    priority: str | None = None
 
 
 class WorkOrderQuickCreate(BaseModel):
     tenant_id: int | None = None
+    production_order_id: int | None = None
     product_id: int
     planned_quantity: float
+    actual_quantity: float | None = None
+    produced_quantity: float | None = None
     machine_id: int | None = None
     work_order_number: str | None = None
     customer_name: str | None = None
     assigned_user_id: int | None = None
     operator_name: str | None = None
     priority: str | None = "medium"
+    shift: str | None = None
     planned_start: datetime | None = None
     planned_end: datetime | None = None
 

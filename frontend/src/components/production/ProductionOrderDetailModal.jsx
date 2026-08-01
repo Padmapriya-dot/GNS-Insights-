@@ -58,10 +58,11 @@ function StatusBadge({ status }) {
 
 function ProgressBar({ produced, planned, pct }) {
   const p = pct ?? (planned ? Math.round((produced / planned) * 100) : 0);
+  const actualProduced = Number(produced) > 0 ? Number(produced) : Math.round(((planned || 0) * p) / 100);
   return (
     <div>
       <div className="mb-1 flex justify-between text-xs text-slate-500">
-        <span>Produced {produced} / {planned}</span>
+        <span>Produced {actualProduced} / {planned}</span>
         <span className="font-bold text-slate-700">{p}%</span>
       </div>
       <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
@@ -154,7 +155,7 @@ export default function ProductionOrderDetailModal({ order, detail, onClose, onS
               {o.is_delayed && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Delayed</span>}
             </div>
             <h2 className="text-xl font-bold text-slate-900">{o.product_name}</h2>
-            <p className="text-sm text-slate-500">{o.customer_name} · {o.department} · {o.shift}</p>
+            <p className="text-sm text-slate-500">{o.customer_name} · {o.department} · {typeof o.shift === "object" ? (o.shift?.label || o.shift?.id || "—") : (o.shift || "—")}</p>
             <div className="mt-3 max-w-md">
               <ProgressBar produced={o.produced_quantity ?? 0} planned={o.planned_quantity} pct={o.progress_pct} />
             </div>
@@ -190,7 +191,7 @@ export default function ProductionOrderDetailModal({ order, detail, onClose, onS
                   <Field label="Production Order No." value={o.order_number} />
                   <Field label="Product" value={o.product_name} />
                   <Field label="Customer" value={o.customer_name} />
-                  <Field label="BOM Version" value={o.bom_version} />
+                  <Field label="Bill of Materials (BOM) Version" value={o.bom_version} />
                   <Field label="Work Order" value={o.work_order_number} />
                   <Field label="Batch No." value={o.batch_number} />
                   <Field label="Priority" value={o.priority} />
@@ -200,10 +201,10 @@ export default function ProductionOrderDetailModal({ order, detail, onClose, onS
               <div>
                 <h3 className="mb-3 text-sm font-bold text-slate-800">Planning</h3>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <Field label="Planned Qty" value={o.planned_quantity} />
-                  <Field label="Produced Qty" value={o.produced_quantity} />
-                  <Field label="Remaining Qty" value={o.balance_quantity} />
-                  <Field label="Scrap Qty" value={o.scrap_quantity} />
+                  <Field label="Planned Quantity" value={o.planned_quantity} />
+                  <Field label="Produced Quantity" value={o.produced_quantity} />
+                  <Field label="Remaining Quantity" value={o.balance_quantity} />
+                  <Field label="Scrap Quantity" value={o.scrap_quantity} />
                   <Field label="Start Date" value={o.start_date?.slice?.(0, 10) || o.start_date} />
                   <Field label="Due Date" value={o.due_date?.slice?.(0, 10) || o.due_date} />
                 </div>
@@ -215,7 +216,7 @@ export default function ProductionOrderDetailModal({ order, detail, onClose, onS
                   <Field label="Machine Status" value={o.machine_status} />
                   <Field label="Utilization" value={o.machine_utilization_pct != null ? `${o.machine_utilization_pct}%` : "—"} />
                   <Field label="Operator" value={o.operator_name} />
-                  <Field label="Shift" value={o.shift} />
+                  <Field label="Shift" value={typeof o.shift === "object" ? (o.shift?.label || o.shift?.id || "—") : (o.shift || "—")} />
                   <Field label="Supervisor" value={o.supervisor} />
                 </div>
               </div>
@@ -227,7 +228,7 @@ export default function ProductionOrderDetailModal({ order, detail, onClose, onS
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b text-xs uppercase text-slate-400">
-                    <th className="py-2">WO Number</th>
+                    <th className="py-2">Work Order Number</th>
                     <th className="py-2">Machine</th>
                     <th className="py-2">Status</th>
                     <th className="py-2 text-right">Planned</th>
@@ -300,7 +301,7 @@ export default function ProductionOrderDetailModal({ order, detail, onClose, onS
           {tab === "operators" && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Field label="Operator Name" value={o.operator_name} />
-              <Field label="Shift" value={o.shift} />
+              <Field label="Shift" value={typeof o.shift === "object" ? (o.shift?.label || o.shift?.id || "—") : (o.shift || "—")} />
               <Field label="Supervisor" value={o.supervisor} />
               <Field label="Efficiency" value={o.operator_efficiency_pct != null ? `${o.operator_efficiency_pct}%` : "—"} />
             </div>
@@ -350,11 +351,12 @@ export default function ProductionOrderDetailModal({ order, detail, onClose, onS
         <div className="flex flex-wrap gap-2 border-t px-5 py-3">
           {onStart && <button type="button" onClick={() => onStart(o)} className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">▶ Start</button>}
           {onPause && <button type="button" onClick={() => onPause(o)} className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">⏸ Pause</button>}
-          {onComplete && <button type="button" onClick={() => onComplete(o)} className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">✅ Complete</button>}
           <button type="button" onClick={() => printProductionOrder(o, user)} className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
             <Printer className="h-3 w-3" /> Print Job Card
           </button>
-          <Link to="/production/work-orders" className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">📄 Work Orders</Link>
+          {(!o.machine_name || o.machine_name === "—") && (
+            <button type="button" onClick={() => { if (onQuickWorkOrder) onQuickWorkOrder(o); onClose(); }} className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">📄 Create WO</button>
+          )}
         </div>
       </div>
     </div>

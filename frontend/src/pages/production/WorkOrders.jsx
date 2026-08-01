@@ -22,6 +22,7 @@ import WorkOrderDetailModal, {
   WorkOrderCompleteModal,
   WorkOrderStartModal,
 } from "../../components/production/WorkOrderDetailModal";
+import QuickWorkOrderModal from "../../components/production/QuickWorkOrderModal";
 import { useToast } from "../../context/ToastContext";
 import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
 import useAuth from "../../hooks/useAuth";
@@ -31,7 +32,6 @@ import {
   getWorkOrderDetail,
   getWorkOrders,
   getWorkOrderStartChecks,
-  getWorkOrderSummary,
   issueWorkOrderMaterials,
   pauseWorkOrder,
   startWorkOrder,
@@ -86,9 +86,14 @@ function PriorityPill({ priority }) {
 }
 
 function ProgressCell({ row }) {
-  const produced = row.produced_quantity ?? row.actual_quantity ?? 0;
-  const planned = row.planned_quantity || 0;
   const pct = calculateProgressPct(row);
+  const planned = Number(row.planned_quantity || 0);
+  const rawProduced = Number(row.produced_quantity ?? row.actual_quantity ?? 0);
+  const produced = (row.status === "completed" || row.status === "closed" || row.status === "done")
+    ? Math.max(rawProduced, planned)
+    : rawProduced > 0
+    ? rawProduced
+    : Math.round((planned * pct) / 100);
   return (
     <div className="min-w-[110px]">
       <div className="mb-0.5 flex justify-between text-[10px] text-slate-500">
@@ -132,14 +137,21 @@ function formatDate(val) {
   return isNaN(d.getTime()) ? String(val).slice(0, 10) : d.toLocaleDateString(undefined, { dateStyle: "short" });
 }
 
+// Statuses that count as "pending" (i.e. not yet completed)
+const PENDING_VIEW_STATUSES = new Set([
+  "planned", "draft", "released", "material_ready", "machine_ready",
+  "running", "in_progress", "paused", "quality_check",
+]);
+
 export default function WorkOrders() {
   const { user } = useAuth();
   const { addToast } = useToast();
   const [searchParams] = useSearchParams();
   const poFilter = searchParams.get("production_order_id");
+  // view=pending → show only non-completed orders (from Pending Orders dashboard widget)
+  const pendingView = searchParams.get("view") === "pending";
   const [loading, setLoading] = useState(true);
   const [workOrders, setWorkOrders] = useState([]);
-  const [apiSummary, setApiSummary] = useState(null);
   const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
   const [filters, setFilters] = useState(defaultFilters);
@@ -150,21 +162,46 @@ export default function WorkOrders() {
   const [completeModal, setCompleteModal] = useState(null);
   const [completeSteps, setCompleteSteps] = useState([]);
   const [issuingId, setIssuingId] = useState(null);
+  const [showQuickModal, setShowQuickModal] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      let localWOs = [];
+      try {
+        const stored = localStorage.getItem("smrt_local_work_orders");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          localWOs = parsed.map((r, i) => enrichApiWorkOrder(r, i));
+        }
+      } catch (e) {}
+
       const poId = poFilter ? Number(poFilter) : undefined;
-      const [wRes, sRes] = await Promise.all([
-        getWorkOrders(poId).catch(() => ({ data: [] })),
-        getWorkOrderSummary(poId).catch(() => ({ data: null })),
-      ]);
+      const wRes = await getWorkOrders(poId).catch(() => ({ data: [] }));
       const apiRows = wRes.data || [];
-      setWorkOrders(apiRows.map((r, i) => enrichApiWorkOrder(r, i)));
-      setApiSummary(sRes.data);
+      const apiEnriched = apiRows.map((r, i) => enrichApiWorkOrder(r, i));
+
+      const combined = [...localWOs, ...apiEnriched];
+      const seen = new Set();
+      const enriched = combined.filter((w) => {
+        const key = w.id ? `id-${w.id}` : w.work_order_number ? `num-${w.work_order_number}` : null;
+        if (!key) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      enriched.sort((a, b) => {
+        const idA = typeof a.id === "number" ? a.id : Number(String(a.id).replace(/\D/g, "")) || 0;
+        const idB = typeof b.id === "number" ? b.id : Number(String(b.id).replace(/\D/g, "")) || 0;
+        if (idA && idB && idA !== idB) return idB - idA;
+        const dateA = a.created_at || a.created_date || a.planned_start || "";
+        const dateB = b.created_at || b.created_date || b.planned_start || "";
+        return dateB.localeCompare(dateA);
+      });
+      setWorkOrders(enriched);
     } catch {
       setWorkOrders([]);
-      setApiSummary(null);
     } finally {
       setLoading(false);
     }
@@ -175,6 +212,8 @@ export default function WorkOrders() {
 
   const filtered = useMemo(() => {
     return workOrders.filter((w) => {
+      // When navigated from Pending Orders widget, only show non-completed orders
+      if (pendingView && !PENDING_VIEW_STATUSES.has(w.status)) return false;
       if (poFilter && String(w.production_order_id) !== poFilter) return false;
       if (filters.work_order_number && !w.work_order_number.toLowerCase().includes(filters.work_order_number.toLowerCase())) return false;
       if (filters.production_order && !String(w.production_order_number || "").toLowerCase().includes(filters.production_order.toLowerCase())) return false;
@@ -188,12 +227,14 @@ export default function WorkOrders() {
       if (filters.status && w.status !== filters.status) return false;
       return true;
     });
-  }, [workOrders, filters, poFilter]);
+  }, [workOrders, filters, poFilter, pendingView]);
 
-  const summary = useMemo(() => {
-    if (apiSummary && !Object.values(filters).some(Boolean) && !poFilter) return apiSummary;
-    return computeWorkOrderSummary(filtered);
-  }, [apiSummary, filtered, filters, poFilter]);
+  // Always use the locally-enriched list to compute summary counts.
+  // The backend API summary uses raw DB status (e.g. "running") which can
+  // differ from the enriched status on the frontend (e.g. "completed" when
+  // produced >= planned). Using the enriched list keeps the summary cards
+  // in sync with what is shown in the table.
+  const summary = useMemo(() => computeWorkOrderSummary(filtered), [filtered]);
 
   const openWo = async (wo) => {
     setSelected(wo);
@@ -219,9 +260,10 @@ export default function WorkOrders() {
       }
     }
     setStartChecks([
-      { check_type: "material", label: "Material Issued", ready: true, message: "Materials issued" },
-      { check_type: "machine", label: "Machine Ready", ready: !!wo.machine_name, message: wo.machine_name ? "Machine ready" : "No machine" },
-      { check_type: "operator", label: "Operator Assigned", ready: !!wo.operator_name, message: wo.operator_name ? "Operator ready" : "No operator" },
+      { check_type: "production_order", label: "Production Order Ready", ready: true, message: "Production Order linked & ready" },
+      { check_type: "material", label: "Material Issued", ready: true, message: "Materials ready" },
+      { check_type: "machine", label: "Machine Ready", ready: !!wo.machine_name && wo.machine_name !== "—", message: wo.machine_name && wo.machine_name !== "—" ? `Machine: ${wo.machine_name}` : "No machine assigned" },
+      { check_type: "operator", label: "Operator Assigned", ready: !!wo.operator_name && wo.operator_name !== "—", message: wo.operator_name && wo.operator_name !== "—" ? `Operator: ${wo.operator_name}` : "No operator assigned" },
     ]);
     setStartModal(wo);
   };
@@ -340,9 +382,9 @@ export default function WorkOrders() {
   };
 
   const exportCols = [
-    { key: "work_order_number", label: "WO No" },
+    { key: "work_order_number", label: "Work Order Number" },
     { key: "product_name", label: "Product" },
-    { key: "production_order_number", label: "PO" },
+    { key: "production_order_number", label: "Production Order" },
     { key: "customer_name", label: "Customer" },
     { key: "machine_name", label: "Machine" },
     { key: "planned_quantity", label: "Planned" },
@@ -352,7 +394,7 @@ export default function WorkOrders() {
   ];
 
   const columns = [
-    { key: "work_order_number", label: "WO No" },
+    { key: "work_order_number", label: "Work Order Number" },
     { key: "product_name", label: "Product" },
     { key: "production_order_number", label: "Production Order" },
     { key: "customer_name", label: "Customer" },
@@ -362,7 +404,7 @@ export default function WorkOrders() {
       render: (r) => <MachineCell row={r} />,
     },
     { key: "operator_name", label: "Operator" },
-    { key: "planned_quantity", label: "Planned Qty" },
+    { key: "planned_quantity", label: "Planned Quantity" },
     {
       key: "progress",
       label: "Produced",
@@ -422,7 +464,6 @@ export default function WorkOrders() {
           {canWoStart(r.status) && <button type="button" onClick={() => handleStartClick(r)} className="font-semibold text-green-700 hover:underline">▶ Start</button>}
           {canWoPause(r.status) && <button type="button" onClick={() => handlePause(r)} className="font-semibold text-amber-700 hover:underline">⏸ Pause</button>}
           {canWoStop(r.status) && <button type="button" onClick={() => handleStop(r)} className="font-semibold text-slate-600 hover:underline">⏹ Stop</button>}
-          {canWoComplete(r.status) && <button type="button" onClick={() => handleComplete(r)} className="font-semibold text-teal-700 hover:underline">✅ Complete</button>}
           <button type="button" onClick={() => handlePrintRow(r)} className="font-semibold text-slate-500 hover:underline">🖨 Print</button>
           <button type="button" onClick={() => exportToPdf([r], exportCols, `WO ${r.work_order_number}`, r.work_order_number)} className="font-semibold text-slate-500 hover:underline">📄 PDF</button>
         </div>
@@ -449,15 +490,33 @@ export default function WorkOrders() {
         </div>
         <div className="flex flex-wrap gap-2">
           {!isOperator(user) && (
-            <Link to="/production/work-orders/create-quick" className="ui-btn-primary">
+            <button type="button" onClick={() => setShowQuickModal(true)} className="ui-btn-primary">
               <Plus className="h-4 w-4" /> New Work Order
-            </Link>
+            </button>
           )}
           <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
       </header>
+
+      {pendingView && (
+        <div className="flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-white text-xs font-bold">
+              {filtered.length}
+            </span>
+            <span className="font-semibold text-orange-800">Pending Orders</span>
+            <span className="text-orange-600">— showing only <strong>Planned</strong> and <strong>In Progress</strong> work orders</span>
+          </div>
+          <Link
+            to="/production/work-orders"
+            className="rounded-lg border border-orange-300 bg-white px-3 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-100 transition-colors"
+          >
+            View All Orders
+          </Link>
+        </div>
+      )}
 
       <ManufacturingWorkflowBar currentStepId="work_order" />
 
@@ -501,7 +560,11 @@ export default function WorkOrders() {
             </select>
             <select value={filters.shift} onChange={(e) => setFilters((f) => ({ ...f, shift: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
               <option value="">Shift</option>
-              {SHIFTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              {SHIFTS.map((s) => {
+                const id = typeof s === "object" ? s.id : s;
+                const label = typeof s === "object" ? s.label : s;
+                return <option key={id} value={id}>{label}</option>;
+              })}
             </select>
             <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
               <option value="">Priority</option>
@@ -558,6 +621,14 @@ export default function WorkOrders() {
 
       {completeModal && (
         <WorkOrderCompleteModal workOrder={completeModal} steps={completeSteps} onClose={() => setCompleteModal(null)} />
+      )}
+
+      {showQuickModal && (
+        <QuickWorkOrderModal
+          onClose={() => setShowQuickModal(false)}
+          onSuccess={() => load()}
+          addToast={addToast}
+        />
       )}
     </div>
   );

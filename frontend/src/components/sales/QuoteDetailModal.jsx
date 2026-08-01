@@ -65,12 +65,18 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
     }
   };
 
-  const handleEmail = () => {
-    const subject = encodeURIComponent(`Quotation ${quote.quote_number || ""}`);
+  const handleSendEmail = () => {
+    const companyEmail = "sales@gnsinsights.com";
+    const customerEmail = `${(quote.customer_name || "client").toLowerCase().replace(/[^a-z0-9]/g, "")}@company.com`;
+    const subject = encodeURIComponent(`Commercial Quotation ${quote.quote_number} - GNS Insights`);
     const body = encodeURIComponent(
-      `Dear ${quote.customer_name || "Customer"},\n\nPlease find quotation ${quote.quote_number} for ${formatInr(amount)}.\nValid until: ${quote.valid_until || "—"}.\n\nRegards`
+      `Dear ${quote.customer_name || "Customer"},\n\nPlease find attached Commercial Quotation ${quote.quote_number} for total amount ${formatInr(amount)}.\n\nQuote Date: ${quote.quote_date || "—"}\nValid Until: ${quote.valid_until || "—"}\nSales Representative: ${quote.sales_person || "Vikram Sharma"}\n\nTerms & Notes:\n${quote.notes || "30% advance deposit, 70% upon dispatch. Validity: 30 days."}\n\nBest regards,\nGNS Insights Sales Team\nCompany Email: ${companyEmail}`
     );
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=${customerEmail}&cc=${companyEmail}&su=${subject}&body=${body}`;
+    window.open(gmailUrl, "_blank");
+
+    if (addToast) addToast(`Opening Gmail compose from Company Mail (${companyEmail}) to ${quote.customer_name}!`, "success");
   };
 
   const loadProducts = async () => {
@@ -126,7 +132,7 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
               Sales Person: {quote.sales_person || "—"} · Valid until {quote.valid_until || "—"}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 print:hidden">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -150,7 +156,7 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
             </span>
           </div>
 
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4">
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 print:hidden">
             <p className="mb-2 text-sm font-semibold text-slate-800">Convert to Sales Order</p>
             <p className="mb-3 text-xs text-slate-500">
               Creates a draft SO linked to this quotation. Optionally attach a product line for MRP / production.
@@ -189,14 +195,14 @@ export default function QuoteDetailModal({ quote, onClose, onStatusChange, onCon
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 border-t px-5 py-4">
-          <button type="button" onClick={handlePreview} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700">
+        <div className="flex flex-wrap gap-2 border-t px-5 py-4 print:hidden">
+          <button type="button" onClick={handlePreview} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <Printer className="h-4 w-4" /> Preview
           </button>
-          <button type="button" onClick={handlePdf} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700">
+          <button type="button" onClick={handlePdf} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <Download className="h-4 w-4" /> PDF
           </button>
-          <button type="button" onClick={handleEmail} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700">
+          <button type="button" onClick={handleSendEmail} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <Mail className="h-4 w-4" /> Email
           </button>
           <button

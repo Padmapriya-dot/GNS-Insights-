@@ -542,3 +542,9 @@ class VendorBulkStatusUpdate(BaseModel):
         if status not in ("active", "inactive"):
             raise ValueError("Bulk status must be active or inactive")
         return status
+
+
+class VendorBulkImportRequest(BaseModel):
+    """Bulk seller import from Masters → Vendors upload page."""
+
+    rows: list[VendorCreate] = Field(default_factory=list, min_length=1)

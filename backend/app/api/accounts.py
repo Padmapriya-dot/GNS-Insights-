@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_db
-from app.core.permissions import require_permission, tenant_scope
+from app.core.permissions import require_permission, tenant_scope, user_has_permission
 from app.models.accounts import FixedAsset, GLAccount, JournalEntry
 from app.models.user import User
 from app.schemas.accounts import (

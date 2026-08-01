@@ -39,6 +39,8 @@ def _format_inr(value: float) -> str:
 
 def _trend_pct(current: float, previous: float) -> tuple[float, bool]:
     if previous <= 0:
+        if current > 0:
+            return 100.0, True
         return 0.0, True
     pct = round((current - previous) / previous * 100, 1)
     return abs(pct), pct >= 0
@@ -197,6 +199,32 @@ def _monthly_overview(db: Session, tenant_id: int) -> list[dict]:
     return rows
 
 
+def _yearly_overview(db: Session, tenant_id: int) -> list[dict]:
+    today = date.today()
+    rows = []
+    for year_offset in range(4, -1, -1):
+        year_val = today.year - year_offset
+        year_start = date(year_val, 1, 1)
+        year_end = date(year_val, 12, 31)
+        reports = list(
+            db.scalars(
+                select(DailyProductionReport).where(
+                    DailyProductionReport.tenant_id == tenant_id,
+                    DailyProductionReport.report_date >= year_start,
+                    DailyProductionReport.report_date <= year_end,
+                )
+            ).all()
+        )
+        actual = int(sum(float(r.produced_quantity or 0) for r in reports))
+        planned = int(sum(float(r.planned_quantity or 0) for r in reports))
+        rows.append({
+            "date": str(year_val),
+            "planned": planned,
+            "actual": actual,
+        })
+    return rows
+
+
 def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> dict:
     today = date.today()
     yesterday = today - timedelta(days=1)
@@ -206,31 +234,20 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
             select(func.count(ProductionOrder.id)).where(ProductionOrder.tenant_id == tenant_id)
         ) or 0
     )
+    # Count pending Work Orders: any WO that is NOT completed/closed/done/cancelled
     pending_orders = int(
         db.scalar(
             select(func.count(WorkOrder.id)).where(
                 WorkOrder.tenant_id == tenant_id,
-                WorkOrder.status.in_(("planned", "pending", "released", "material_ready", "in_progress", "running")),
+                WorkOrder.status.notin_(("completed", "closed", "done", "cancelled", "rejected")),
             )
         ) or 0
     )
 
-    today_reports = list(
-        db.scalars(
-            select(DailyProductionReport).where(
-                DailyProductionReport.tenant_id == tenant_id,
-                DailyProductionReport.report_date == today,
-            )
-        ).all()
-    )
-    yesterday_reports = list(
-        db.scalars(
-            select(DailyProductionReport).where(
-                DailyProductionReport.tenant_id == tenant_id,
-                DailyProductionReport.report_date == yesterday,
-            )
-        ).all()
-    )
+    from app.services.production_service import list_daily_production_reports
+
+    today_reports = list_daily_production_reports(db, tenant_id, date_from=today, date_to=today, user=user)
+    yesterday_reports = list_daily_production_reports(db, tenant_id, date_from=yesterday, date_to=yesterday, user=user)
 
     today_started_orders = int(
         db.scalar(
@@ -254,13 +271,28 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
     )
     today_production = today_started_orders
     yesterday_production = yesterday_started_orders
-    good_qty = int(sum(float(r.produced_quantity or 0) for r in today_reports))
-    reject_qty = int(sum(float(r.scrap_quantity or 0) for r in today_reports))
+    good_qty = int(sum(float(r.get("produced_quantity", 0) or 0) for r in today_reports))
+    reject_qty = int(sum(float(r.get("scrap_quantity", 0) or 0) for r in today_reports))
+
+    if good_qty <= 0:
+        po_stmt = select(ProductionOrder).where(ProductionOrder.tenant_id == tenant_id)
+        prod_orders = list(db.scalars(po_stmt).all())
+        from app.services.production_planning_service import _order_context
+        for po in prod_orders:
+            ctx = _order_context(db, tenant_id, po)
+            good_qty += int(ctx.get("produced_quantity") or 0)
 
     machines = list(db.scalars(select(Machine).where(Machine.tenant_id == tenant_id)).all())
     total_machines = len(machines)
     running_machines = sum(1 for m in machines if (m.status or "").lower() in ("running", "active"))
 
+    total_work_orders = int(
+        db.scalar(
+            select(func.count(WorkOrder.id)).where(
+                WorkOrder.tenant_id == tenant_id,
+            )
+        ) or 0
+    )
     completed_orders = int(
         db.scalar(
             select(func.count(WorkOrder.id)).where(
@@ -287,8 +319,9 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
     )
 
     prod_trend, prod_up = _trend_pct(today_production, yesterday_production)
-    good_trend, good_up = prod_trend, prod_up
-    yesterday_reject = int(sum(float(r.scrap_quantity or 0) for r in yesterday_reports))
+    yesterday_good = int(sum(float(r.get("produced_quantity", 0) or 0) for r in yesterday_reports))
+    good_trend, good_up = _trend_pct(good_qty, yesterday_good)
+    yesterday_reject = int(sum(float(r.get("scrap_quantity", 0) or 0) for r in yesterday_reports))
     reject_trend, reject_up = _trend_pct(reject_qty, yesterday_reject)
 
     shop = get_shop_floor_summary(db, tenant_id)
@@ -400,7 +433,7 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
         )
 
     users_count = int(db.scalar(select(func.count(User.id)).where(User.tenant_id == tenant_id)) or 0)
-    total_planned_today = int(sum(float(r.planned_quantity or 0) for r in today_reports))
+    total_planned_today = int(sum(float(r.get("planned_quantity", 0) or 0) for r in today_reports))
     eff_pct = round((good_qty / (good_qty + reject_qty) * 100), 1) if (good_qty + reject_qty) > 0 else 0.0
     target_pct = round((good_qty / total_planned_today * 100), 1) if total_planned_today > 0 else 0.0
 
@@ -412,6 +445,23 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
         {"key": "targetAchievement", "label": "Target Achievement", "value": f"{target_pct}%", "icon": "target", "unit": "%"},
         {"key": "stockMovements", "label": "Stock Movements", "value": str(stock_moves_today), "icon": "boxes", "unit": "moves"},
     ]
+
+    if user:
+        from app.core.permissions import get_role_names
+        user_roles_list = [r.lower() for r in get_role_names(user)]
+        is_admin = any("admin" in r for r in user_roles_list)
+        is_operator = not is_admin and any("operator" in r for r in user_roles_list)
+        is_prod_manager = not is_admin and not is_operator and any(
+            "production manager" in r or "production_manager" in r for r in user_roles_list
+        )
+        if is_operator:
+            todays_summary = [
+                item for item in todays_summary if item["key"] not in ("manPower", "powerConsumption", "stockMovements") and item.get("label") not in ("Man Power", "Manpower", "Power Consumption", "Stock Movements")
+            ]
+        elif is_prod_manager:
+            todays_summary = [
+                item for item in todays_summary if item["key"] not in ("powerConsumption", "stockMovements")
+            ]
 
     production_orders = list(
         db.scalars(
@@ -480,7 +530,7 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
     except Exception:
         alerts_feed = []
 
-    total_wo = total_orders or (completed_orders + in_progress_orders + on_hold_orders + pending_orders)
+    total_wo = total_work_orders
     progress_pct = round((completed_orders / total_wo) * 100) if total_wo else 0
     machine_pct = round(running_machines / total_machines * 100) if total_machines else 0
 
@@ -560,17 +610,9 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
                 "trend": "0%",
                 "trendUp": False,
                 "trendLabel": "vs last 7 days",
-                "link": "/production/work-orders",
+                "link": "/production/work-orders?view=pending",
             },
-            {
-                "id": "good-qty",
-                "title": "Good Qty (Today)",
-                "value": str(good_qty),
-                "trend": f"{good_trend}%",
-                "trendUp": good_up,
-                "trendLabel": "vs yesterday",
-                "link": "/production/reports",
-            },
+
             {
                 "id": "reject-qty",
                 "title": "Reject Qty (Today)",
@@ -584,6 +626,7 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
         "production_overview": overview,
         "production_overview_weekly": _weekly_overview(db, tenant_id),
         "production_overview_monthly": _monthly_overview(db, tenant_id),
+        "production_overview_yearly": _yearly_overview(db, tenant_id),
         "shop_floor_status": _machine_status_breakdown(machines),
         "top_machines": _top_machines(db, tenant_id, machines),
         "orders_overview": {

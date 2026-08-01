@@ -12,27 +12,27 @@ export const DEMO_BATCH_SUMMARY = {
 export const DEMO_BATCHES = [];
 
 export const BATCH_TRACE_STEPS = [
-  "Raw Material", "BOM", "Production", "QC", "Packing", "Dispatch", "Customer",
+  "Raw Material", "Bill of Materials (BOM)", "Production", "Quality Control (QC)", "Packing", "Dispatch", "Customer",
 ];
 
 export const DEMO_BATCH_DETAIL = {
-  id: "demo-b1",
-  batch_code: "BATCH-2026-001",
-  product_name: "Chair",
-  customer_name: "Tata Motors",
-  production_order_number: "PO-2026-1001",
-  work_order_number: "WO-1001",
-  machine_name: "CNC-01",
-  operator_name: "Ravi Kumar",
-  shift: "Morning",
-  material_lot: "RM-LOT-2026-441",
-  qc_status: "pending",
-  dispatch_status: "pending",
+  id: null,
+  batch_code: null,
+  product_name: null,
+  customer_name: null,
+  production_order_number: null,
+  work_order_number: null,
+  machine_name: null,
+  operator_name: null,
+  shift: null,
+  material_lot: null,
+  qc_status: null,
+  dispatch_status: null,
   invoice_number: null,
   quantity: 0,
   good_qty: 0,
   scrap_qty: 0,
-  status: "running",
+  status: null,
   traceability: [],
 };
 

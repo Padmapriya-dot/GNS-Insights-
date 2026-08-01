@@ -692,7 +692,9 @@ export default function AppRoutes() {
       <Route path="/procurement/purchase-orders/create" element={<ProtectedRoute><P.CreatePurchaseOrder /></ProtectedRoute>} />
       <Route path="/procurement/purchase-orders/:id/edit" element={<ProtectedRoute><P.CreatePurchaseOrder /></ProtectedRoute>} />
       <Route path="/procurement/vendors" element={<ProtectedRoute><P.VendorManagement /></ProtectedRoute>} />
+      <Route path="/masters/vendors" element={<ProtectedRoute><P.VendorManagement /></ProtectedRoute>} />
       <Route path="/procurement/vendors/bulk-import" element={<ProtectedRoute><P.BulkImportSeller /></ProtectedRoute>} />
+      <Route path="/masters/vendors/bulk-import" element={<ProtectedRoute><P.BulkImportSeller /></ProtectedRoute>} />
       <Route path="/procurement/vendors/create" element={<ProtectedRoute><P.CreateVendor /></ProtectedRoute>} />
       <Route path="/procurement/vendors/:vendorId/edit" element={<ProtectedRoute><P.CreateVendor /></ProtectedRoute>} />
       <Route path="/procurement/vendors/:vendorId" element={<ProtectedRoute><P.VendorDetail /></ProtectedRoute>} />
