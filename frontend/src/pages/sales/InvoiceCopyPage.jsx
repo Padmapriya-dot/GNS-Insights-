@@ -5,7 +5,7 @@ import Loader from "../../components/common/Loader";
 import Invoice from "../../components/sales/Invoice";
 import { getInvoiceDetail } from "../../api/salesApi";
 import { useCompanySettings } from "../../hooks/useCompanySettings";
-import { SAMPLE_INVOICE_COPY, mapDetailToInvoiceCopy, mergeWithSampleIfEmpty } from "../../utils/invoiceCopyData";
+import { mapDetailToInvoiceCopy } from "../../utils/invoiceCopyData";
 
 export default function InvoiceCopyPage() {
   const { id } = useParams();
@@ -41,9 +41,7 @@ export default function InvoiceCopyPage() {
   }, [id]);
 
   const copyData = useMemo(() => {
-    if (!id) return SAMPLE_INVOICE_COPY;
-    const mapped = mapDetailToInvoiceCopy(detail, settings || {});
-    return mapDetailToInvoiceCopy(detail, settings || {});
+    return id ? mapDetailToInvoiceCopy(detail, settings || {}) : null;
   }, [id, detail, settings]);
 
   if (loading) return <Loader label="Loading invoice..." />;
@@ -54,11 +52,14 @@ export default function InvoiceCopyPage() {
         <Link to="/sales/invoices" className="text-sm font-semibold text-[#2563EB] hover:underline">
           ← Back to Invoices
         </Link>
-        {!id && (
-          <span className="text-sm text-slate-500">Sample GST Tax Invoice copy</span>
-        )}
       </div>
-      <Invoice data={copyData} />
+      {copyData ? (
+        <Invoice data={copyData} />
+      ) : (
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500">
+          Select an invoice to view its copy.
+        </div>
+      )}
     </div>
   );
 }

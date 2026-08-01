@@ -201,10 +201,10 @@ export default function Leave() {
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 2xl:grid-cols-7">
-        <KpiCard label="Pending" value={summary.pending_leave} icon={Clock} color="bg-amber-500" />
+        <KpiCard label="Pending Requests" value={summary.pending_leave} icon={Clock} color="bg-amber-500" />
         <KpiCard label="Approved" value={summary.approved} icon={CheckCircle} color="bg-green-600" />
         <KpiCard label="Rejected" value={summary.rejected} icon={XCircle} color="bg-red-500" />
-        <KpiCard label="Available" value={summary.available_leave} icon={Calendar} color="bg-blue-600" />
+        <KpiCard label="Pending Leave Days" value={summary.available_leave} icon={Calendar} color="bg-blue-600" />
         <KpiCard label="Sick Leave" value={summary.sick_leave} icon={HeartPulse} color="bg-orange-500" />
         <KpiCard label="Casual" value={summary.casual_leave} icon={Coffee} color="bg-indigo-600" />
         <KpiCard label="Earned" value={summary.earned_leave} icon={Award} color="bg-teal-600" />

@@ -379,6 +379,8 @@ export default function AddNewPartyModal({
         address_line2:
           [address.city, address.state, address.pincode, extraNotes].filter(Boolean).join(", ") ||
           null,
+        city: address.city || null,
+        pincode: address.pincode || null,
         state: address.state || null,
         credit_limit: Number(party?.credit_limit || 0),
         outstanding: Number.isFinite(opening) ? opening : 0,

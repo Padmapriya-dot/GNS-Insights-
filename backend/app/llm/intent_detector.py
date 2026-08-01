@@ -17,12 +17,18 @@ INTENT_RULES: list[tuple[str, str, dict]] = [
     (r"clock\s*out\b|clockout|punch\s*out|check\s*out\b|clocking\s*out", "clock_out", {}),
     (r"ela.*clock\s*in|clock\s*in.*(?:ela|cheyali|cheyandi)", "clock_in", {}),
 
+    # Work-order actions must be checked before generic WO lookups.
+    (r"start\s+(WO-[\w]+|[\w]+-[\w]+)|start\s+production\s+(?:of\s+)?(WO-[\w]+)", "work_order_action", {"action": "start"}),
+    (r"pause\s+(WO-[\w]+|[\w]+-[\w]+)|pause\s+work\s*order", "work_order_action", {"action": "pause"}),
+    (r"resume\s+(WO-[\w]+|[\w]+-[\w]+)|resume\s+work\s*order", "work_order_action", {"action": "resume"}),
+    (r"complete\s+(?:the\s+)?(?:work\s*order\s+)?(WO-[\w]+|[\w]+-[\w]+)|mark\s+.*\bcomplete\b", "work_order_action", {"action": "complete"}),
+
     # ════════════════════════════════════════════════════════════════════════
     # 1. MACHINE BREAKDOWN REPORT
     # ════════════════════════════════════════════════════════════════════════
     (r"report\s+breakdown|machine\s+(?:broken|failure|fault|error)\b|breakdown\s+report|machine\s+down\b", "report_machine_breakdown", {}),
-    (r"break\s*down\s+machine|machine\s+break\s*down|machine\s+not\s+working|machine\s+stopped", "get_machine_status_deep", {}),
-    (r"which\s+machine\s+(?:is\s+)?(?:broken|down|failed|fault)|machines?\s+(?:in\s+)?breakdown", "get_machine_status_deep", {}),
+    (r"break\s*down\s+machine|machine\s+break\s*down|machine\s+not\s+working|machine\s+stopped", "get_machine_deep_status", {}),
+    (r"which\s+machine\s+(?:is\s+)?(?:broken|down|failed|fault)|machines?\s+(?:in\s+)?breakdown", "get_machine_deep_status", {}),
 
     # ════════════════════════════════════════════════════════════════════════
     # 2. TODAY'S WORK ORDERS  (very specific — before generic WO rules)
@@ -40,6 +46,8 @@ INTENT_RULES: list[tuple[str, str, dict]] = [
     # 4. PENDING / ASSIGNED WORK ORDERS  (specific — before generic)
     # ════════════════════════════════════════════════════════════════════════
     (r"pending\s+work\s*orders?|open\s+work\s*orders?|not\s+started\s+work\s*orders?", "get_pending_work_orders", {}),
+    (r"(?:planned|scheduled|in\s*progress|completed|finished|paused|cancelled)\s+work\s*orders?", "get_work_order_stats_deep", {}),
+    (r"planned\s+(?:production\s+)?orders?|scheduled\s+orders?", "get_production_overview_deep", {}),
     (r"assigned\s+(?:work\s*orders?|jobs?)|my\s+assigned\s+(?:work\s*orders?|jobs?)", "get_assigned_work_orders", {}),
     (r"(?:open|show|find|get|detail\s+of)\s+(?:work\s*order\s+)?(WO-[\w]+)|WO-(\d+)", "get_work_order_by_number", {}),
 
@@ -49,6 +57,12 @@ INTENT_RULES: list[tuple[str, str, dict]] = [
     (r"\bmrp\b|material\s+requirement|material\s+planning|bom\s+material|bill\s+of\s+material", "get_mrp_deep", {}),
     (r"material\s+shortage\s+in\s+schedule|shortage\s+in\s+schedule|schedule\s+shortage|schedule.*material.*shortage", "get_production_schedule_stats_deep", {}),
     (r"material\s+(?:shortage|short|miss|lack|need|check|status|availab)|shortage.*material|which.*material.*(?:short|miss|need|lack)", "get_mrp_deep", {}),
+
+    # ════════════════════════════════════════════════════════════════════════
+    # 5A. PRODUCT DETAIL (time, BOM, raw materials, machine, manpower)
+    # ════════════════════════════════════════════════════════════════════════
+    (r"(?:raw\s+materials?|bom|production\s+time|how\s+much\s+material|manpower|which\s+machine|machine\s+used|full\s+details?|complete\s+details?).*(?:for|of|about)\s+(.+)$", "get_product_detail_deep", {}),
+    (r"how\s+long\s+(?:does|will)\s+(.+?)\s+(?:take|to\s+(?:make|complete|produce))$", "get_product_detail_deep", {}),
 
     # ════════════════════════════════════════════════════════════════════════
     # 6. PRODUCT OVERVIEW DEEP
@@ -70,6 +84,11 @@ INTENT_RULES: list[tuple[str, str, dict]] = [
     (r"production\s+overview|overall\s+production|production\s+summar|production\s+status\s+overview", "get_production_overview_deep", {}),
     (r"how\s+many\s+(?:job|batch|operator)s?\s+(?:running|active|pending|done|completed)", "get_production_overview_deep", {}),
     (r"production\s*(?:ela|undi|cheppu|status\s*enti)|ela.*production\s+(?:undi|enta|ela)", "get_production_overview_deep", {}),
+
+    # ════════════════════════════════════════════════════════════════════════
+    # 7A. GENERAL OPERATOR MODULE QUESTIONS
+    # ════════════════════════════════════════════════════════════════════════
+    (r"operator\s+module|factory\s+(?:status|overview|report)|plant\s+(?:status|overview|report)|manufacturing\s+(?:status|overview|report)|overall\s+(?:operator|factory|plant|shop\s*floor)\s+(?:status|overview|report)|what(?:'s|\s+is)\s+happening", "get_shopfloor_deep", {}),
 
     # ════════════════════════════════════════════════════════════════════════
     # 8. WORK ORDER STATS DEEP  (total WOs, high-priority, all WOs stats)
@@ -101,6 +120,7 @@ INTENT_RULES: list[tuple[str, str, dict]] = [
     # 11. BATCH SUMMARY DEEP  (total/running/completed/hold/rejected/expired)
     # ════════════════════════════════════════════════════════════════════════
     (r"total\s+batches?|how\s+many\s+batches?|batch\s+(?:summar|overview|count|total|all)|all\s+batches?", "get_batch_summary_deep", {}),
+    (r"batch\s+tracking|track\s+batches?", "get_batch_summary_deep", {}),
     (r"\bbatches?\s+(?:running|completed|hold|rejected|expired)\b|running\s+batches?|completed\s+batches?|hold\s+batches?", "get_batch_summary_deep", {}),
     (r"rejected\s+batches?|batches?\s+rejected|expired\s+batches?|batches?\s+expired", "get_batch_summary_deep", {}),
 
@@ -108,9 +128,10 @@ INTENT_RULES: list[tuple[str, str, dict]] = [
     # 12. MACHINE STATUS DEEP  (total/running/idle/maintenance/breakdown/offline)
     # ════════════════════════════════════════════════════════════════════════
     (r"machine\s+status\s+(?:overview|summar|all|total|detail|report)|all\s+machine\s+status", "get_machine_status_deep", {}),
-    (r"(?:how\s+many|total)\s+machines?\s+(?:running|idle|maintenance|breakdown|offline)|machines?\s+(?:running|idle|maintenance|breakdown|offline)\s+(?:count|total)", "get_machine_status_deep", {}),
-    (r"idle\s+machines?|machines?\s+idle\b|breakdown\s+machines?|machines?\s+breakdown\b|offline\s+machines?", "get_machine_status_deep", {}),
-    (r"machines?\s+(?:in\s+)?maintenance\b|maintenance\s+machines?", "get_machine_status_deep", {}),
+    (r"(?:total|all|how\s+many)\s+machines?\b|machines?\s+(?:total|overview|summary|list)\b", "get_machine_status_deep", {}),
+    (r"(?:how\s+many|total)\s+machines?\s+(?:running|idle|maintenance|breakdown|offline)|machines?\s+(?:running|idle|maintenance|breakdown|offline)\s+(?:count|total)", "get_machine_deep_status", {}),
+    (r"idle\s+machines?|machines?\s+idle\b|breakdown\s+machines?|machines?\s+breakdown\b|offline\s+machines?", "get_machine_deep_status", {}),
+    (r"machines?\s+(?:in\s+)?maintenance\b|maintenance\s+machines?", "get_machine_deep_status", {}),
 
     # ════════════════════════════════════════════════════════════════════════
     # 13. SCHEDULE DEEP  (before generic production schedule)
@@ -125,7 +146,8 @@ INTENT_RULES: list[tuple[str, str, dict]] = [
     # ════════════════════════════════════════════════════════════════════════
     # 14. SHOP FLOOR DEEP  (running jobs, operators working, downtime, scrap)
     # ════════════════════════════════════════════════════════════════════════
-    (r"shop\s*floor\s+(?:live|summar|overview|status|report|snapshot)|floor\s+(?:status|overview|live|snapshot|report)", "get_shopfloor_deep", {}),
+    (r"shop\s*floor(?:\s+(?:live|summar|overview|status|report|snapshot))?|floor\s+(?:status|overview|live|snapshot|report)", "get_shopfloor_deep", {}),
+    (r"daily\s+production\s+reports?|production\s+reports?", "get_todays_production", {}),
     (r"running\s+jobs?\s+(?:today|now|on\s+floor)|jobs?\s+running\s+(?:today|now)", "get_shopfloor_deep", {}),
     (r"operators?\s+working\s+(?:today|now|on\s+floor|currently)|how\s+many\s+operators?\s+(?:working|on\s+floor|present)", "get_shopfloor_deep", {}),
     (r"downtime\s+(?:today|report|floor|minutes?)|today.*downtime|floor.*downtime", "get_shopfloor_deep", {}),
@@ -201,7 +223,7 @@ INTENT_RULES: list[tuple[str, str, dict]] = [
     # ════════════════════════════════════════════════════════════════════════
     # 23. STANDARD: MY ATTENDANCE
     # ════════════════════════════════════════════════════════════════════════
-    (r"\bmy\s+attendance\b|\battendance\b|\bpresent\b|\babsent\b|\bshift\s+crew\b", "get_my_attendance", {}),
+    (r"\bmy\s+attendance\b|\battendance\b|\bpresent\b|\babsent\b|\bshift\s+crew\b", "get_attendance_deep", {}),
 
     # ════════════════════════════════════════════════════════════════════════
     # 24. STANDARD: PRODUCTION SCHEDULE / PLAN
@@ -243,6 +265,7 @@ def detect_intent(message: str) -> tuple[str, dict] | None:
     # Normalize common aliases
     text = re.sub(r"\bjob\s+cards?\b", "work orders", text)
     text = re.sub(r"\bjc-?\d+\b", "work order", text)
+    text = re.sub(r"shop\s+fllor", "shop floor", text)
 
     for pattern, tool, extra in INTENT_RULES:
         m = re.search(pattern, text, re.IGNORECASE)
@@ -260,6 +283,9 @@ def detect_intent(message: str) -> tuple[str, dict] | None:
                         break
                 except IndexError:
                     pass
+
+        elif tool == "get_product_detail_deep":
+            args["product_name"] = m.group(1).strip(" ?.") if m.lastindex else message.strip()
 
         elif tool in (
             "get_machine_deep_status", "get_work_order_deep", "get_batch_deep",

@@ -61,7 +61,7 @@ export default function CreateProduction() {
       getMachines().catch(() => ({ data: [] })),
     ])
       .then(([pRes, mRes]) => {
-        const rawProducts = pRes?.data || [];
+        const rawProducts = Array.isArray(pRes) ? pRes : (pRes?.data || []);
         const sortedProducts = [...rawProducts].sort((a, b) => (b.id || 0) - (a.id || 0));
         setProducts(sortedProducts);        setMachines(mRes?.data || []);
       })

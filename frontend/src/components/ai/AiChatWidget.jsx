@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bot, ChevronDown, History, Loader2, Send, Sparkles, X,
+  Bot, ChevronDown, Download, History, Loader2, Printer, Send, Sparkles, X,
 } from "lucide-react";
+import { jsPDF } from "jspdf";
 
 import { useToast } from "../../context/ToastContext";
 import {
@@ -27,6 +28,147 @@ const OPERATION_CARDS = [
   { title: "Attendance", prompt: "my attendance", description: "Shift attendance" },
 ];
 
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Build a standalone print-ready HTML page from the markdown content element. */
+function buildPrintHtml(contentHtml, title = "GNS Insights — AI Reply") {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>${title}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1e293b; padding: 32px 40px; }
+    h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; color: #1d4ed8; }
+    .meta { font-size: 11px; color: #64748b; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
+    .content { line-height: 1.7; }
+    .content p, .content li { margin-bottom: 4px; }
+    .content strong { font-weight: 700; }
+    .content ul { padding-left: 18px; }
+    .content code { background: #f1f5f9; border-radius: 4px; padding: 1px 5px; font-size: 11px; font-family: monospace; }
+    .footer { margin-top: 32px; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+    @media print { @page { margin: 20mm 15mm; } }
+  </style>
+</head>
+<body>
+  <h1>GNS Insights — AI Assistant</h1>
+  <div class="meta">Generated on ${new Date().toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" })}</div>
+  <div class="content">${contentHtml}</div>
+  <div class="footer">Confidential · GNS Insights ERP · Operator AI Assistant</div>
+</body>
+</html>`;
+}
+
+/** Open browser print dialog for a specific message. */
+function handlePrint(html) {
+  const win = window.open("", "_blank", "width=800,height=600");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => {
+    win.print();
+    win.close();
+  }, 300);
+}
+
+/**
+ * Automatically download a PDF using jsPDF — no print dialog needed.
+ * Parses the plain markdown text and renders each line into the PDF.
+ */
+function downloadAsPdf(plainText) {
+  const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentW = pageW - margin * 2;
+  let y = margin;
+
+  // ── Header band ──
+  doc.setFillColor(29, 78, 216); // blue-700
+  doc.rect(0, 0, pageW, 22, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.text("GNS Insights — AI Assistant", margin, 14);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  const now = new Date().toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" });
+  doc.text(`Generated: ${now}`, pageW - margin, 14, { align: "right" });
+  y = 30;
+
+  // ── Content ──
+  const lines = plainText.split("\n");
+  lines.forEach((rawLine) => {
+    if (y > pageH - 20) {
+      doc.addPage();
+      y = margin;
+    }
+
+    // Strip markdown syntax for clean text
+    const line = rawLine
+      .replace(/^###?#?\s*/, "")
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .trim();
+
+    if (!line) { y += 3; return; }
+
+    const isHeading = /^###?#?\s/.test(rawLine);
+    const isBullet = /^[-*]\s/.test(rawLine);
+
+    if (isHeading) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(29, 78, 216);
+      const wrapped = doc.splitTextToSize(line, contentW);
+      doc.text(wrapped, margin, y);
+      y += wrapped.length * 6 + 2;
+      // underline
+      doc.setDrawColor(29, 78, 216);
+      doc.setLineWidth(0.3);
+      doc.line(margin, y - 2, margin + contentW, y - 2);
+      y += 2;
+    } else if (isBullet) {
+      const bulletText = line.replace(/^[-*]\s/, "");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(30, 41, 59);
+      doc.text("•", margin, y);
+      const wrapped = doc.splitTextToSize(bulletText, contentW - 6);
+      doc.text(wrapped, margin + 5, y);
+      y += wrapped.length * 5 + 1;
+    } else {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(30, 41, 59);
+      const wrapped = doc.splitTextToSize(line, contentW);
+      doc.text(wrapped, margin, y);
+      y += wrapped.length * 5 + 1;
+    }
+  });
+
+  // ── Footer on every page ──
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `Confidential · GNS Insights ERP · Operator AI Assistant  |  Page ${p} of ${totalPages}`,
+      pageW / 2,
+      pageH - 6,
+      { align: "center" }
+    );
+  }
+
+  const filename = `GNS_AI_Reply_${new Date().toISOString().slice(0, 10)}.pdf`;
+  doc.save(filename);
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
 export default function AiChatWidget() {
   const navigate = useNavigate();
   const { addToast } = useToast();
@@ -39,6 +181,9 @@ export default function AiChatWidget() {
   const [showHistory, setShowHistory] = useState(false);
   const [conversations, setConversations] = useState([]);
   const bottomRef = useRef(null);
+
+  // Refs map: msgIndex → DOM node (for capturing rendered HTML)
+  const msgRefs = useRef({});
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -117,6 +262,24 @@ export default function AiChatWidget() {
     }
   };
 
+  /** Get the rendered inner HTML of a message bubble by its index. */
+  const getMessageHtml = (index) => {
+    const node = msgRefs.current[index];
+    return node ? node.innerHTML : "";
+  };
+
+  /** Print a specific assistant message. */
+  const onPrint = (index) => {
+    const html = buildPrintHtml(getMessageHtml(index));
+    handlePrint(html);
+  };
+
+  /** Automatically download the AI reply as a PDF file. */
+  const onDownloadPdf = (index, content) => {
+    downloadAsPdf(content || "");
+    addToast("PDF downloaded!", "success");
+  };
+
   return (
     <>
       {!open && (
@@ -131,7 +294,7 @@ export default function AiChatWidget() {
       )}
 
       {open && (
-        <div className="fixed inset-x-3 bottom-3 z-50 flex max-h-[min(640px,calc(100vh-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[400px]">
+        <div className="fixed inset-x-3 bottom-3 z-50 flex max-h-[min(640px,calc(100vh-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[420px]">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-white">
             <div className="flex items-center gap-2">
@@ -205,18 +368,18 @@ export default function AiChatWidget() {
 
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${
-                    m.role === "user"
-                      ? "bg-blue-600 text-white"
-                      : "border border-slate-100 bg-slate-50 text-slate-800"
-                  }`}
-                >
-                  {m.role === "user" ? (
+                {m.role === "user" ? (
+                  <div className="max-w-[85%] rounded-2xl bg-blue-600 px-3.5 py-2.5 text-white">
                     <p className="text-sm">{m.content}</p>
-                  ) : (
-                    <>
-                      <AiMessageContent content={m.content} />
+                  </div>
+                ) : (
+                  <div className="max-w-[90%] flex flex-col gap-1.5">
+                    {/* AI reply bubble */}
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 px-3.5 py-2.5 text-slate-800">
+                      <AiMessageContent
+                        content={m.content}
+                        contentRef={(el) => { msgRefs.current[i] = el; }}
+                      />
                       {m.navigation && (
                         <button
                           type="button"
@@ -226,9 +389,31 @@ export default function AiChatWidget() {
                           Open Page <ChevronDown className="h-3 w-3 -rotate-90" />
                         </button>
                       )}
-                    </>
-                  )}
-                </div>
+                    </div>
+
+                    {/* ── Print / PDF action bar ── */}
+                    <div className="flex items-center gap-2 px-1">
+                      <button
+                        type="button"
+                        onClick={() => onPrint(i)}
+                        title="Print this reply"
+                        className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 active:scale-95"
+                      >
+                        <Printer className="h-3 w-3" />
+                        Print
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDownloadPdf(i, m.content)}
+                        title="Download as PDF"
+                        className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 active:scale-95"
+                      >
+                        <Download className="h-3 w-3" />
+                        PDF
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 

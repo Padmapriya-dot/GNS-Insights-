@@ -479,8 +479,18 @@ class OperatorService:
         machines = self.machines.list_all()
         result = []
         for m in machines:
-            # filter by query (machine code, name, or product)
             q = query.strip().lower()
+            status_aliases = {
+                "running": {"running", "active", "in_progress"},
+                "idle": {"idle", "available", "free"},
+                "maintenance": {"maintenance", "under_maintenance"},
+                "breakdown": {"breakdown", "broken", "failed", "fault"},
+                "offline": {"offline", "off_line"},
+            }
+            requested_status = next(
+                (status for status, aliases in status_aliases.items() if status in q or any(alias in q for alias in aliases)),
+                None,
+            )
 
             # get active work order on this machine
             wo = self.db.scalars(
@@ -499,8 +509,12 @@ class OperatorService:
                 product = self.db.get(Product, po.product_id) if po else None
                 product_name = product.name if product else None
 
-            # filter by query
-            if q:
+            machine_status = (m.status or "idle").strip().lower().replace(" ", "_")
+            if requested_status:
+                status_matches = machine_status in status_aliases[requested_status]
+                if not status_matches:
+                    continue
+            elif q:
                 searchable = " ".join(filter(None, [
                     m.code, m.name, m.status, product_name,
                     m.department, m.location, m.machine_type,
@@ -509,7 +523,7 @@ class OperatorService:
                     continue
 
             if not wo:
-                if q:
+                if q and not requested_status:
                     continue
                 # include idle machines only if no filter
                 result.append({
@@ -727,6 +741,7 @@ class OperatorService:
                     "bom_version": po.bom_version if po else None,
                 },
                 "machine": {
+                    "id": machine.id if machine else None,
                     "code": machine.code if machine else None,
                     "name": machine.name if machine else None,
                     "status": machine.status if machine else None,
@@ -808,6 +823,136 @@ class OperatorService:
                 ],
             })
         return result
+
+    def get_product_detail_deep(self, product_name: str = "") -> dict:
+        """Return full product details: BOM raw materials, machines, time estimate, manpower."""
+        from sqlalchemy import select, func
+        from app.models.production import WorkOrder, ProductionOrder, DailyProductionReport
+        from app.models.machine import Machine
+        from app.models.user import User as UserModel
+
+        q = product_name.strip().lower()
+
+        # Find matching products
+        products_found = self.products.search(q) if q else self.products.list_all()[:10]
+        if not products_found:
+            return {"found": False, "product_name": product_name, "message": f"No product found matching '{product_name}'."}
+
+        results = []
+        for product in products_found[:3]:  # limit to 3 matches
+            # BOM — raw materials
+            bom_items = [self.bom.enrich_item(b) for b in self.bom.list_by_product(product.id)]
+            total_bom_cost = round(sum(b.get("total_cost", 0) for b in bom_items), 2)
+
+            # Latest production order for this product
+            latest_po = self.db.scalars(
+                select(ProductionOrder)
+                .where(
+                    ProductionOrder.tenant_id == self.tenant_id,
+                    ProductionOrder.product_id == product.id,
+                )
+                .order_by(ProductionOrder.id.desc())
+            ).first()
+
+            # Latest work order for this product (via production order)
+            latest_wo = None
+            machine = None
+            operator = None
+            if latest_po:
+                latest_wo = self.db.scalars(
+                    select(WorkOrder)
+                    .where(
+                        WorkOrder.production_order_id == latest_po.id,
+                        WorkOrder.tenant_id == self.tenant_id,
+                    )
+                    .order_by(WorkOrder.id.desc())
+                ).first()
+                if latest_wo:
+                    if latest_wo.machine_id:
+                        machine = self.db.get(Machine, latest_wo.machine_id)
+                    if latest_wo.assigned_user_id:
+                        operator = self.db.get(UserModel, latest_wo.assigned_user_id)
+
+            # Time estimate from work order dates
+            time_estimate_hours = None
+            time_estimate_days = None
+            time_start = latest_wo.planned_start if latest_wo else None
+            time_end = latest_wo.planned_end if latest_wo else None
+            if not time_start and latest_po:
+                time_start = latest_po.start_date
+            if not time_end and latest_po:
+                time_end = latest_po.due_date
+            if time_start and time_end:
+                delta = time_end - time_start
+                time_estimate_hours = round(delta.total_seconds() / 3600, 1)
+                time_estimate_days = round(delta.total_seconds() / 86400, 1)
+
+            # Actual avg cycle time from daily reports
+            avg_cycle = None
+            if latest_wo:
+                report_count = self.db.scalar(
+                    select(func.count(DailyProductionReport.id))
+                    .where(DailyProductionReport.work_order_id == latest_wo.id,
+                           DailyProductionReport.tenant_id == self.tenant_id)
+                ) or 0
+                if report_count > 0:
+                    total_produced = float(self.db.scalar(
+                        select(func.coalesce(func.sum(DailyProductionReport.produced_quantity), 0))
+                        .where(DailyProductionReport.work_order_id == latest_wo.id,
+                               DailyProductionReport.tenant_id == self.tenant_id)
+                    ) or 0)
+                    if total_produced > 0 and time_estimate_hours:
+                        avg_cycle = round(time_estimate_hours / total_produced * 60, 2)  # min/unit
+
+            # Manpower from work order
+            manpower = {"operator_name": None, "supervisor": None, "shift": None, "department": None}
+            if latest_wo:
+                manpower = {
+                    "operator_name": latest_wo.operator_name or (operator.full_name if operator else None),
+                    "supervisor": latest_wo.supervisor,
+                    "shift": latest_wo.shift,
+                    "department": latest_wo.department,
+                }
+
+            results.append({
+                "product_id": product.id,
+                "product_name": product.name,
+                "sku": product.sku,
+                "description": product.description,
+                "unit_cost": float(product.unit_cost) if product.unit_cost else None,
+                "unit_price": float(product.unit_price) if product.unit_price else None,
+                "raw_materials": bom_items,
+                "total_raw_material_cost": total_bom_cost,
+                "machine": {
+                    "code": machine.code if machine else None,
+                    "name": machine.name if machine else None,
+                    "type": getattr(machine, "machine_type", None) if machine else None,
+                    "status": machine.status if machine else None,
+                    "location": getattr(machine, "location", None) if machine else None,
+                    "department": getattr(machine, "department", None) if machine else None,
+                    "oee_pct": float(machine.oee_pct) if machine and machine.oee_pct else None,
+                    "efficiency_pct": float(machine.efficiency_pct) if machine and machine.efficiency_pct else None,
+                } if machine else None,
+                "time_estimate": {
+                    "planned_hours": time_estimate_hours,
+                    "planned_days": time_estimate_days,
+                    "avg_cycle_time_min_per_unit": avg_cycle,
+                    "planned_start": time_start.isoformat() if time_start else None,
+                    "planned_end": time_end.isoformat() if time_end else None,
+                },
+                "manpower": manpower,
+                "latest_production_order": {
+                    "order_number": latest_po.order_number if latest_po else None,
+                    "status": latest_po.status if latest_po else None,
+                    "planned_quantity": float(latest_po.planned_quantity) if latest_po else None,
+                    "customer": latest_po.customer_name if latest_po else None,
+                    "due_date": latest_po.due_date.isoformat() if latest_po and latest_po.due_date else None,
+                    "priority": latest_po.priority if latest_po else None,
+                } if latest_po else None,
+                "latest_work_order": latest_wo.work_order_number if latest_wo else None,
+            })
+
+        return {"found": True, "query": product_name, "count": len(results), "products": results}
 
     def get_production_plan_deep(self, query: str = "") -> list[dict]:
         """Return enriched production plan data for AI deep answers."""
@@ -985,35 +1130,55 @@ class OperatorService:
     def get_attendance_deep(self, user) -> dict:
         """Return deep attendance data for AI answers."""
         from datetime import date
-        from sqlalchemy import select, func
-        from app.models.hr import Attendance
+        from sqlalchemy import func, or_, select
+        from app.models.hr import AttendanceRecord, Employee
 
         today = date.today()
-        try:
-            all_att = list(self.db.scalars(
-                select(Attendance).where(
-                    Attendance.tenant_id == self.tenant_id,
-                    Attendance.employee_id == user.id,
-                ).order_by(Attendance.date.desc()).limit(30)
-            ).all())
-        except Exception:
-            all_att = []
+        employee_match = [
+            func.lower(Employee.email) == (user.email or "").lower(),
+            func.lower(Employee.full_name) == (user.full_name or "").lower(),
+            Employee.id == user.id,
+        ]
+        first_name = (user.full_name or "").strip().split(" ", 1)[0]
+        if len(first_name) >= 3:
+            employee_match.append(func.lower(Employee.full_name).like(f"{first_name.lower()}%"))
+        if str(user.employee_id or "").isdigit():
+            employee_match.append(Employee.id == int(user.employee_id))
+        if user.employee_id:
+            employee_match.append(Employee.employee_code == user.employee_id)
+        employee = self.db.scalar(
+            select(Employee).where(
+                Employee.tenant_id == self.tenant_id,
+                or_(*employee_match),
+            )
+        )
+        employee_id = employee.id if employee else None
+        attendance_employee_ids = [employee_id] if employee_id is not None else [user.id]
+        all_att = []
+        all_att = list(self.db.scalars(
+            select(AttendanceRecord).where(
+                AttendanceRecord.tenant_id == self.tenant_id,
+                AttendanceRecord.employee_id.in_(attendance_employee_ids),
+            ).order_by(AttendanceRecord.record_date.desc()).limit(30)
+        ).all())
 
-        present_days = sum(1 for a in all_att if getattr(a, "status", "") in ("present", "on_duty"))
-        absent_days = sum(1 for a in all_att if getattr(a, "status", "") == "absent")
-        late_days = sum(1 for a in all_att if getattr(a, "status", "") in ("late", "late_in"))
-        total_hours = sum(float(getattr(a, "hours_worked", 0) or 0) for a in all_att)
+        present_days = sum(1 for a in all_att if (a.status or "").lower() in ("present", "on_duty"))
+        absent_days = sum(1 for a in all_att if (a.status or "").lower() == "absent")
+        late_days = sum(1 for a in all_att if (a.status or "").lower() in ("late", "late_in"))
+        total_hours = sum(float(a.work_hours or 0) for a in all_att)
 
-        today_att = next((a for a in all_att if getattr(a, "date", None) == today), None)
+        today_att = next((a for a in all_att if a.record_date == today), None)
 
         return {
             "operator_name": user.full_name,
-            "employee_id": user.id,
+            "employee_id": employee_id or user.id,
+            "matched_employee_name": employee.full_name if employee else None,
+            "matched_employee_code": employee.employee_code if employee else None,
             "today": {
-                "status": getattr(today_att, "status", "Not recorded") if today_att else "Not clocked in",
-                "clock_in": str(getattr(today_att, "clock_in_time", None)) if today_att else None,
-                "clock_out": str(getattr(today_att, "clock_out_time", None)) if today_att else None,
-                "hours_worked": float(getattr(today_att, "hours_worked", 0) or 0) if today_att else 0,
+                "status": today_att.status if today_att else "Not clocked in",
+                "clock_in": today_att.clock_in.isoformat() if today_att and today_att.clock_in else None,
+                "clock_out": today_att.clock_out.isoformat() if today_att and today_att.clock_out else None,
+                "hours_worked": float(today_att.work_hours or 0) if today_att else 0,
             },
             "last_30_days": {
                 "present": present_days,
@@ -1054,11 +1219,14 @@ class OperatorService:
 
     # ── Extra Deep Intelligence Methods ──────────────────────────────────────
 
-    def get_production_overview_deep(self) -> dict:
-        """Total/planned/in_progress/completed/pending/delayed orders + today production stats."""
+    def get_production_overview_deep(self, query: str = "") -> dict:
+        """Return order counts/details, optionally filtered by requested order status."""
         from sqlalchemy import select, func
         from app.models.production import ProductionOrder, DailyProductionReport
         from app.models.product import Product
+        from app.models.machine import Machine
+        from app.models.user import User
+        from app.services.manufacturing_workflow_service import get_bom_requirements
         from datetime import datetime, timezone
 
         orders = list(self.db.scalars(
@@ -1069,6 +1237,17 @@ class OperatorService:
         IN_PROG = {"in_progress", "running", "quality_check"}
         DONE    = {"completed", "closed", "done"}
         now = datetime.now(timezone.utc)
+        query_text = (query or "").lower()
+        status_filter = None
+        if any(word in query_text for word in ("completed", "finished", "closed", "done")):
+            status_filter = DONE
+        elif any(word in query_text for word in ("in progress", "running", "active")):
+            status_filter = IN_PROG
+        elif any(word in query_text for word in ("planned", "scheduled", "pending", "open")):
+            status_filter = PLANNED
+        elif "cancelled" in query_text or "canceled" in query_text:
+            status_filter = {"cancelled"}
+        report_orders = [o for o in orders if status_filter is None or o.status in status_filter]
 
         def is_del(o):
             if o.status in DONE or o.status == "cancelled": return False
@@ -1088,20 +1267,77 @@ class OperatorService:
                 DailyProductionReport.report_date == today,
             )) or 0)
 
-        active_orders = [o for o in orders if o.status in IN_PROG][:10]
         order_details = []
-        for o in active_orders:
+        for o in report_orders:
             product = self.db.get(Product, o.product_id)
-            wo = self.db.scalars(
+            work_orders = list(self.db.scalars(
                 select(WorkOrder).where(WorkOrder.production_order_id == o.id,
                                         WorkOrder.tenant_id == self.tenant_id)
                 .order_by(WorkOrder.id.desc())
-            ).first()
-            produced = float(wo.actual_quantity or 0) if wo else 0.0
+            ).all())
             planned  = float(o.planned_quantity or 0)
+            produced = sum(float(wo.actual_quantity or 0) for wo in work_orders)
+            raw_materials = []
+            try:
+                raw_materials = get_bom_requirements(
+                    self.db, self.tenant_id, o.product_id, planned
+                )
+            except Exception:
+                logger.exception("Could not load BOM for production order %s", o.id)
+
+            work_order_details = []
+            manpower = set()
+            for wo in work_orders:
+                machine = self.db.get(Machine, wo.machine_id) if wo.machine_id else None
+                operator = self.db.get(User, wo.assigned_user_id) if wo.assigned_user_id else None
+                operator_name = wo.operator_name or (operator.full_name if operator else None)
+                if operator_name:
+                    manpower.add(operator_name)
+                if wo.supervisor:
+                    manpower.add(wo.supervisor)
+
+                start = wo.planned_start
+                end = wo.planned_end
+                end_for_duration = end
+                if start and not end_for_duration and wo.status in IN_PROG:
+                    end_for_duration = now
+                elapsed_hours = None
+                planned_hours = None
+                if start and end_for_duration:
+                    start_dt = start if start.tzinfo else start.replace(tzinfo=timezone.utc)
+                    end_dt = end_for_duration if end_for_duration.tzinfo else end_for_duration.replace(tzinfo=timezone.utc)
+                    elapsed_hours = round(max((end_dt - start_dt).total_seconds() / 3600, 0), 2)
+                if start and end:
+                    start_dt = start if start.tzinfo else start.replace(tzinfo=timezone.utc)
+                    end_dt = end if end.tzinfo else end.replace(tzinfo=timezone.utc)
+                    planned_hours = round(max((end_dt - start_dt).total_seconds() / 3600, 0), 2)
+
+                work_order_details.append({
+                    "work_order_id": wo.id,
+                    "work_order_number": wo.work_order_number,
+                    "status": wo.status,
+                    "machine_id": wo.machine_id,
+                    "machine_code": machine.code if machine else None,
+                    "machine_name": machine.name if machine else None,
+                    "operator": operator_name,
+                    "supervisor": wo.supervisor,
+                    "shift": wo.shift,
+                    "department": wo.department,
+                    "planned_quantity": float(wo.planned_quantity or 0),
+                    "produced_quantity": float(wo.actual_quantity or 0),
+                    "planned_start": start.isoformat() if start else None,
+                    "planned_end": end.isoformat() if end else None,
+                    "planned_hours": planned_hours,
+                    "time_taken_hours": elapsed_hours,
+                    "materials_issued": bool(wo.materials_issued),
+                })
+
             order_details.append({
+                "production_order_id": o.id,
                 "order_number": o.order_number,
+                "product_id": o.product_id,
                 "product": product.name if product else "—",
+                "product_sku": product.sku if product else None,
                 "customer": o.customer_name or "—",
                 "status": o.status,
                 "priority": o.priority or "medium",
@@ -1110,20 +1346,26 @@ class OperatorService:
                 "progress_pct": round(produced / planned * 100, 1) if planned else 0.0,
                 "due_date": str(o.due_date)[:10] if o.due_date else "—",
                 "is_delayed": is_del(o),
+                "machine_ids": sorted({wo["machine_id"] for wo in work_order_details if wo["machine_id"]}),
+                "manpower_count": len(manpower),
+                "manpower": sorted(manpower),
+                "work_orders": work_order_details,
+                "raw_materials": raw_materials,
             })
 
         return {
             "summary": {
-                "total_orders": len(orders),
-                "planned": sum(1 for o in orders if o.status in PLANNED),
-                "in_progress": sum(1 for o in orders if o.status in IN_PROG),
-                "completed": sum(1 for o in orders if o.status in DONE),
-                "pending": sum(1 for o in orders if o.status in PLANNED),
-                "delayed": sum(1 for o in orders if is_del(o)),
-                "cancelled": sum(1 for o in orders if o.status == "cancelled"),
+                "total_orders": len(report_orders),
+                "planned": sum(1 for o in report_orders if o.status in PLANNED),
+                "in_progress": sum(1 for o in report_orders if o.status in IN_PROG),
+                "completed": sum(1 for o in report_orders if o.status in DONE),
+                "pending": sum(1 for o in report_orders if o.status in PLANNED),
+                "delayed": sum(1 for o in report_orders if is_del(o)),
+                "cancelled": sum(1 for o in report_orders if o.status == "cancelled"),
             },
             "today": {"output": todays_output, "scrap": todays_scrap, "date": str(today)},
-            "active_orders": order_details,
+            "orders": order_details,
+            "active_orders": [o for o in order_details if o["status"] in IN_PROG],
         }
 
     def get_schedule_deep(self, query: str = "") -> list[dict]:
@@ -1364,8 +1606,8 @@ class OperatorService:
             "products": product_stats,
         }
 
-    def get_work_order_stats_deep(self) -> dict:
-        """Work order statistics: total, planned, in-progress, completed, delayed, high-priority."""
+    def get_work_order_stats_deep(self, query: str = "") -> dict:
+        """Work-order statistics, optionally filtered by the requested status."""
         from sqlalchemy import select, func
         from app.models.production import WorkOrder as WO, ProductionOrder
         from app.models.product import Product
@@ -1380,6 +1622,19 @@ class OperatorService:
         IN_PROG = {"in_progress", "running"}
         DONE    = {"completed", "closed", "done"}
         now = datetime.now(timezone.utc)
+        query_text = (query or "").lower()
+        status_filter = None
+        if any(word in query_text for word in ("completed", "finished", "closed", "done")):
+            status_filter = DONE
+        elif any(word in query_text for word in ("in progress", "running", "active")):
+            status_filter = IN_PROG
+        elif any(word in query_text for word in ("planned", "scheduled", "pending", "open")):
+            status_filter = PLANNED
+        elif "paused" in query_text or "on hold" in query_text:
+            status_filter = {"paused", "on_hold", "hold"}
+        elif "cancelled" in query_text or "canceled" in query_text:
+            status_filter = {"cancelled", "canceled"}
+        report_wos = [w for w in wos if status_filter is None or w.status in status_filter]
 
         def is_del(wo):
             if wo.status in DONE or wo.status == "cancelled": return False
@@ -1397,7 +1652,7 @@ class OperatorService:
 
         # per-status breakdown
         active_wos = []
-        for wo in [w for w in wos if w.status in IN_PROG][:10]:
+        for wo in [w for w in report_wos if w.status in IN_PROG][:10]:
             po = self.db.get(ProductionOrder, wo.production_order_id) if wo.production_order_id else None
             product = self.db.get(Product, po.product_id) if po else None
             machine = self.machines.get_by_id(wo.machine_id) if wo.machine_id else None
@@ -1420,15 +1675,15 @@ class OperatorService:
 
         return {
             "summary": {
-                "total_work_orders": len(wos),
-                "today_work_orders": len(today_wos),
-                "planned": sum(1 for w in wos if w.status in PLANNED),
-                "in_progress": sum(1 for w in wos if w.status in IN_PROG),
-                "completed": sum(1 for w in wos if w.status in DONE),
-                "delayed": sum(1 for w in wos if is_del(w)),
-                "high_priority": sum(1 for w in wos if (w.priority or "").lower() == "high"),
-                "paused": sum(1 for w in wos if w.status == "paused"),
-                "cancelled": sum(1 for w in wos if w.status == "cancelled"),
+                "total_work_orders": len(report_wos),
+                "today_work_orders": sum(1 for w in report_wos if w in today_wos),
+                "planned": sum(1 for w in report_wos if w.status in PLANNED),
+                "in_progress": sum(1 for w in report_wos if w.status in IN_PROG),
+                "completed": sum(1 for w in report_wos if w.status in DONE),
+                "delayed": sum(1 for w in report_wos if is_del(w)),
+                "high_priority": sum(1 for w in report_wos if (w.priority or "").lower() == "high"),
+                "paused": sum(1 for w in report_wos if w.status == "paused"),
+                "cancelled": sum(1 for w in report_wos if w.status == "cancelled"),
             },
             "active_work_orders": active_wos,
         }

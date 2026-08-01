@@ -36,71 +36,6 @@ export function numberToWordsInr(amount) {
   return `${words} Only`;
 }
 
-/** Demo invoice matching STIC-ON tax invoice layout. */
-export const SAMPLE_INVOICE_COPY = {
-  title: "Tax Invoice",
-  eInvoice: true,
-  irn: "448c3052ce650817608ddafb90d9817fc28ea01d1ebf8acb810a4affec0a5a54",
-  ackNo: "112631145034957",
-  ackDate: "27-Jun-26",
-  seller: {
-    name: "STIC-ON PAPERS PVT LTD - 2025-26",
-    tagline: "Let's Stick Together.",
-    address: "PLOT NO.: 178 C AND D, IDA MALLAPUR, HYDERABAD, TELANGANA - 500076.",
-    udyam: "UDYAM-TS-20-0001122",
-    gstin: "36AAFCS1039P1Z0",
-    state: "Telangana, Code: 36",
-    cin: "U21020TG1999PTC032393",
-    email: "sales@sticonpapers.com",
-  },
-  meta: {
-    invoiceNo: "1541/26-27",
-    date: "27-Jun-26",
-    deliveryNote: "",
-    modeTerms: "Advance",
-    referenceNo: "",
-    buyersOrderNo: "",
-    dispatchDocNo: "",
-    dispatchedThrough: "Dtdc",
-    destination: "Pune",
-    eWayBillNo: "142470234096",
-    termsOfDelivery: "",
-  },
-  consignee: {
-    name: "ABHANG ENTERPRISES-Pune",
-    address: "G.NO. 162/2, Katavi, Talegaon MIDC Road, Near Z P SCHOOL, Maval, Katavi, Pune, Maharashtra-410507",
-    contact: "Mob: 9689100973 / Tel: 08600772020",
-    gstin: "27ACIFA1810E1ZW",
-    state: "Maharashtra, Code: 27",
-  },
-  buyer: {
-    name: "ABHANG ENTERPRISES-Pune",
-    address: "G.NO. 162/2, Katavi, Talegaon MIDC Road, Near Z P SCHOOL, Maval, Katavi, Pune, Maharashtra-410507",
-    contact: "Mob: 9689100973 / Tel: 08600772020",
-    gstin: "27ACIFA1810E1ZW",
-    state: "Maharashtra, Code: 27",
-  },
-  placeOfSupply: "Maharashtra",
-  items: [
-    {
-      si: 1,
-      description: "RELEASE PAPER -60Y\n(107mm-1 Roll)",
-      hsn: "48114100",
-      qty: "17.00",
-      unit: "SQM",
-      rate: "2.000",
-      amount: 34.0,
-      igstPct: 18,
-      igstAmount: 6.12,
-    },
-  ],
-  roundOff: -0.12,
-  grandTotal: 40.0,
-  taxableTotal: 34.0,
-  igstTotal: 6.12,
-  remarks: "Being material sold vide Invoice No : 1541/26-27",
-};
-
 export function mapDetailToInvoiceCopy(detail, companySettings = {}) {
   if (!detail?.invoice) return null;
 
@@ -227,7 +162,3 @@ export function mapDetailToInvoiceCopy(detail, companySettings = {}) {
   };
 }
 
-export function mergeWithSampleIfEmpty(copy) {
-  if (!copy || !copy.items?.length) return SAMPLE_INVOICE_COPY;
-  return copy;
-}

@@ -123,6 +123,23 @@ export default function Attendance() {
     }));
   }, [employees, rows, shifts]);
 
+  const shiftCardValues = useMemo(() => {
+    const matchesShift = (value, names) => names.includes(String(value || "").trim().toLowerCase());
+    const presentFor = (names) => rows.filter((row) =>
+      matchesShift(row.shift || row.shift_name, names) &&
+      row.status !== "absent" && (row.check_in || row.status === "present")
+    ).length;
+    const totalFor = (names) => employees.filter((employee) =>
+      matchesShift(employee.shift || employee.shift_name, names)
+    ).length;
+    const valueFor = (apiValue, names) => apiValue != null ? apiValue : (presentFor(names) || totalFor(names));
+
+    return {
+      day: valueFor(summary.day_shift ?? summary.dayshift, ["day", "day shift", "morning", "morning shift"]),
+      afternoon: valueFor(summary.afternoon_shift ?? summary.afternoonshift, ["afternoon", "afternoon shift", "evening", "evening shift"]),
+    };
+  }, [employees, rows, summary]);
+
   const handleClock = async (e) => {
     e.preventDefault();
     if (!clockEmployee) return;
@@ -164,6 +181,8 @@ export default function Attendance() {
         <KpiCard label="Late" value={summary.late} icon={Clock} color="bg-amber-500" />
         <KpiCard label="Half Day" value={summary.half_day} icon={UserX} color="bg-orange-500" />
         <KpiCard label="Overtime (h)" value={summary.overtime} icon={Clock} color="bg-indigo-600" />
+        <KpiCard label="Day Shift" value={shiftCardValues.day} icon={Clock} color="bg-blue-600" />
+        <KpiCard label="Afternoon Shift" value={shiftCardValues.afternoon} icon={Clock} color="bg-orange-600" />
         <KpiCard label="Night Shift" value={summary.night_shift} icon={Moon} color="bg-purple-600" />
         <KpiCard label="Total Hours" value={summary.total_working_hours} icon={Timer} color="bg-teal-600" suffix="h" />
       </div>
