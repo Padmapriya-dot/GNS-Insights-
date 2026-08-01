@@ -26,7 +26,7 @@ import BrandLogo from "../common/BrandLogo";
 import LogoutConfirmModal from "../common/LogoutConfirmModal";
 import useAuth from "../../hooks/useAuth";
 import { getSidebarMenus } from "../../api/authApi";
-import { userCanAccess, isStoreManager, storeManagerPathAllowed } from "../../config/permissions";
+import { userCanAccess, isStoreManager, isProductionManager, storeManagerPathAllowed } from "../../config/permissions";
 import { SIDEBAR_NAV, sectionHasActiveChild } from "../../config/sidebarNav";
 import { STORE_MANAGER_NAV_ITEMS } from "../../config/storeManagerNavConfig";
 
@@ -144,20 +144,26 @@ const PROD_MANAGER_ALLOWED_SECTIONS = new Set([
 const PROD_MANAGER_ALLOWED_CHILDREN = new Set([
   "/masters/products",
   "/masters/bom",
+  "/production",
+  "/production/dashboard",
+  "/production/create",
   "/production/machines",
   "/production/planning",
   "/production/mrp",
   "/production/work-orders",
+  "/production/work-orders/create-quick",
   "/production/schedule",
   "/factory-monitor/live-production",
   "/production/tasks",
   "/production/assign-tasks",
   "/production/batches",
   "/production/reports",
+  "/inventory",
   "/inventory/raw-materials",
   "/inventory/finished-goods",
   "/inventory/stock-transfer",
-  "/procurement/vendors",
+  "/sales",
+  "/sales/orders",
   "/procurement/material-requests",
   "/quality/in-process",
   "/quality/final",
@@ -181,17 +187,6 @@ const PROD_MANAGER_ALLOWED_CHILDREN = new Set([
   "/analytics/inventory",
   "/analytics/live",
 ]);
-
-function isProductionManager(user) {
-  if (!user) return false;
-  const roles = Array.isArray(user.roles)
-    ? user.roles.map((r) => (typeof r === "object" ? r.name : String(r)))
-    : [];
-  const roleStr = String(user.role || user.role_name || (typeof user.roles === "string" ? user.roles : "")).toLowerCase();
-  const allRoles = [...roles.map((r) => String(r).toLowerCase()), roleStr];
-  if (allRoles.some((r) => r.includes("admin"))) return false;
-  return allRoles.some((r) => r.includes("production manager") || r.includes("production_manager"));
-}
 
 function filterStaticNav(user) {
   const storeMgr = isStoreManager(user);

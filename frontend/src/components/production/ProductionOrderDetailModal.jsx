@@ -155,7 +155,7 @@ export default function ProductionOrderDetailModal({ order, detail, onClose, onS
               {o.is_delayed && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Delayed</span>}
             </div>
             <h2 className="text-xl font-bold text-slate-900">{o.product_name}</h2>
-            <p className="text-sm text-slate-500">{o.customer_name} · {o.department} · {o.shift}</p>
+            <p className="text-sm text-slate-500">{o.customer_name} · {o.department} · {typeof o.shift === "object" ? (o.shift?.label || o.shift?.id || "—") : (o.shift || "—")}</p>
             <div className="mt-3 max-w-md">
               <ProgressBar produced={o.produced_quantity ?? 0} planned={o.planned_quantity} pct={o.progress_pct} />
             </div>
@@ -216,7 +216,7 @@ export default function ProductionOrderDetailModal({ order, detail, onClose, onS
                   <Field label="Machine Status" value={o.machine_status} />
                   <Field label="Utilization" value={o.machine_utilization_pct != null ? `${o.machine_utilization_pct}%` : "—"} />
                   <Field label="Operator" value={o.operator_name} />
-                  <Field label="Shift" value={o.shift} />
+                  <Field label="Shift" value={typeof o.shift === "object" ? (o.shift?.label || o.shift?.id || "—") : (o.shift || "—")} />
                   <Field label="Supervisor" value={o.supervisor} />
                 </div>
               </div>
@@ -301,7 +301,7 @@ export default function ProductionOrderDetailModal({ order, detail, onClose, onS
           {tab === "operators" && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Field label="Operator Name" value={o.operator_name} />
-              <Field label="Shift" value={o.shift} />
+              <Field label="Shift" value={typeof o.shift === "object" ? (o.shift?.label || o.shift?.id || "—") : (o.shift || "—")} />
               <Field label="Supervisor" value={o.supervisor} />
               <Field label="Efficiency" value={o.operator_efficiency_pct != null ? `${o.operator_efficiency_pct}%` : "—"} />
             </div>
@@ -355,7 +355,7 @@ export default function ProductionOrderDetailModal({ order, detail, onClose, onS
             <Printer className="h-3 w-3" /> Print Job Card
           </button>
           {(!o.machine_name || o.machine_name === "—") && (
-            <Link to={`/production/work-orders/create-quick?production_order_id=${o.id}&product_id=${o.product_id || ""}&planned_quantity=${o.planned_quantity || ""}&order_number=${encodeURIComponent(o.order_number || "")}&customer_name=${encodeURIComponent(o.customer_name || "")}&shift=${encodeURIComponent(o.shift || "")}&priority=${o.priority || "medium"}&start_date=${o.start_date || ""}&due_date=${o.due_date || ""}`} className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">📄 Create WO</Link>
+            <button type="button" onClick={() => { if (onQuickWorkOrder) onQuickWorkOrder(o); onClose(); }} className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">📄 Create WO</button>
           )}
         </div>
       </div>

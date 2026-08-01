@@ -96,7 +96,7 @@ export default function CreateEmployee() {
           </label>
 
           <label className="block text-sm font-medium text-slate-700 sm:col-span-1">
-            Full Name <span className="text-red-500">*</span>
+            Full Name (as per Aadhar)<span className="text-red-500">*</span>
             <input
               type="text"
               value={form.full_name}
@@ -142,7 +142,7 @@ export default function CreateEmployee() {
           </label>
 
           <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
-            Hourly Rate ($)
+            Hourly Rate (₹)
             <input
               type="number"
               min="0"

@@ -22,23 +22,47 @@ export const MODULES = [
 /** Static fallback matrix — API permissions take precedence when present. */
 export const ROLE_PERMISSIONS = {
   Admin: MODULES,
-  "Sales Manager": ["dashboard", "sales", "masters", "alerts", "documents", "analytics"],
+  admin: MODULES,
   "Production Manager": [
     "dashboard", "production", "quality", "analytics", "factoryMonitor", "alerts", "documents",
-    "masters", "inventory", "maintenance", "procurement", "settings", "iot",
+    "masters", "inventory", "maintenance", "procurement", "settings", "iot", "sales", "accounts",
   ],
+  production_manager: [
+    "dashboard", "production", "quality", "analytics", "factoryMonitor", "alerts", "documents",
+    "masters", "inventory", "maintenance", "procurement", "settings", "iot", "sales", "accounts",
+  ],
+  "Sales Manager": ["dashboard", "sales", "masters", "alerts", "documents", "analytics"],
+  sales_manager: ["dashboard", "sales", "masters", "alerts", "documents", "analytics"],
   "Store Manager": [
+    "dashboard", "inventory", "procurement", "masters", "alerts", "documents", "settings",
+  ],
+  store_manager: [
     "dashboard", "inventory", "procurement", "masters", "alerts", "documents", "settings",
   ],
   "Purchase Manager": [
     "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "analytics",
   ],
+  purchase_manager: [
+    "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "analytics",
+  ],
   "Procurement Manager": [
     "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "analytics",
   ],
+  procurement_manager: [
+    "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "analytics",
+  ],
   "HR Manager": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents", "masters"],
+  hr_manager: ["dashboard", "hr", "attendance", "analytics", "alerts", "documents", "masters"],
   Accountant: ["dashboard", "accounts", "sales", "documents", "analytics", "alerts", "masters"],
-  Operator: ["dashboard", "production", "factoryMonitor", "attendance", "documents", "alerts", "masters"],
+  accountant: ["dashboard", "accounts", "sales", "documents", "analytics", "alerts", "masters"],
+  Operator: [
+    "dashboard", "production", "factoryMonitor", "attendance", "documents", "alerts", "masters",
+    "quality", "maintenance", "inventory",
+  ],
+  operator: [
+    "dashboard", "production", "factoryMonitor", "attendance", "documents", "alerts", "masters",
+    "quality", "maintenance", "inventory",
+  ],
 };
 
 export const RESTRICTED_ACTION_ROLES = new Set();
@@ -207,27 +231,36 @@ export const STORE_MANAGER_ALLOWED_PATHS = new Set([
   "/documents/purchase",
 ]);
 
+export function isProductionManager(user) {
+  if (!user || isAdmin(user)) return false;
+  const roles = (Array.isArray(user.roles) && user.roles.length
+    ? user.roles
+    : [user.role, user.role_name]).filter(Boolean).map((r) => (typeof r === "object" ? r?.name || "" : String(r)).toLowerCase());
+  return roles.some((r) => r === "production manager" || r === "production_manager" || r.includes("production manager") || r.includes("production_manager"));
+}
+
 export function isStoreManager(user) {
   if (!user || isAdmin(user)) return false;
-  const roles = Array.isArray(user.roles) && user.roles.length
+  const roles = (Array.isArray(user.roles) && user.roles.length
     ? user.roles
-    : [user.role, user.role_name].filter(Boolean);
-  return roles.includes("Store Manager");
+    : [user.role, user.role_name]).filter(Boolean).map((r) => String(r).toLowerCase());
+  return roles.some((r) => r === "store manager" || r === "store_manager" || r.includes("store manager"));
 }
 
 export function storeManagerPathAllowed(pathname) {
   if (!pathname) return false;
   const path = pathname.replace(/\/$/, "") || "/";
+  if (path === "/") return true;
   if (STORE_MANAGER_ALLOWED_PATHS.has(path)) return true;
-  if (path.startsWith("/inventory/")) return true;
+  if (path.startsWith("/inventory")) return true;
+  if (path.startsWith("/procurement")) return true;
   if (path.startsWith("/accounts/ledger")) return true;
   if (path.startsWith("/accounts/expenses")) return true;
   if (path.startsWith("/masters/products")) return true;
-  if (path.startsWith("/procurement/goods-receipt")) return true;
-  if (path.startsWith("/procurement/material-requests")) return true;
-  if (path.startsWith("/procurement/vendors")) return true;
   if (path.startsWith("/masters/vendors")) return true;
   if (path.startsWith("/settings")) return true;
+  if (path.startsWith("/alerts")) return true;
+  if (path.startsWith("/documents")) return true;
   return false;
 }
 
@@ -236,6 +269,7 @@ export function userCanAccessPath(user, pathname) {
   if (isAdmin(user)) return true;
   const path = (pathname || "").replace(/\/$/, "") || "/";
   if (path.startsWith("/procurement/vendors") || path.startsWith("/masters/vendors")) {
+    if (isProductionManager(user)) return false;
     if (!userCanAccess(user, "masters") && !userCanAccess(user, "procurement")) return false;
     if (isStoreManager(user) && !storeManagerPathAllowed(pathname)) return false;
     return true;

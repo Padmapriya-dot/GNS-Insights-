@@ -613,7 +613,7 @@ export default function ProductionSchedule() {
     { key: "product_name", label: "Product" },
     { key: "machine_name", label: "Machine" },
     { key: "operator_name", label: "Operator" },
-    { key: "shift", label: "Shift" },
+    { key: "shift", label: "Shift", render: (r) => typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "—") : (r.shift || "—") },
     { key: "start", label: "Start" },
     { key: "end", label: "End" },
     { key: "quantity", label: "Qty" },

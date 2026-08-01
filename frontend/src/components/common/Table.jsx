@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 function StatusBadge({ status }) {
+  const val = typeof status === "object" && status !== null ? (status.label || status.id || status.name || "—") : (status || "—");
   const styles = {
     completed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
     running: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -13,12 +14,12 @@ function StatusBadge({ status }) {
     idle: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400",
     cancelled: "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400",
   };
-  const style = styles[status] || "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300";
+  const style = styles[val] || "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300";
   return (
     <span
       className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${style}`}
     >
-      {status}
+      {val}
     </span>
   );
 }
@@ -45,23 +46,28 @@ export default function Table({ columns, data, emptyState, sortable }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 print:overflow-visible print:border-none print:rounded-none print:shadow-none">
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-slate-50 dark:bg-slate-800/50">
-            {columns.map((col) => (
-              <th
-                key={col.key}
-                className={`text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700 ${
-                  sortable && col.sortable !== false ? "cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-slate-700/50" : ""
-                }`}
-                onClick={() => (col.sortable !== false && sortable) && handleSort(col.key)}
-              >
-                <span className="flex items-center gap-1.5">
-                  {col.label}
-                </span>
-              </th>
-            ))}
+            {columns.map((col) => {
+              const isActionsCol = col.key === "actions" || col.printHidden;
+              return (
+                <th
+                  key={col.key}
+                  className={`text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700 ${
+                    isActionsCol ? "print:hidden" : ""
+                  } ${
+                    sortable && col.sortable !== false ? "cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-slate-700/50" : ""
+                  }`}
+                  onClick={() => (col.sortable !== false && sortable) && handleSort(col.key)}
+                >
+                  <span className="flex items-center gap-1.5">
+                    {col.label}
+                  </span>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
@@ -70,18 +76,25 @@ export default function Table({ columns, data, emptyState, sortable }) {
               key={row.id ?? idx}
               className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors"
             >
-              {columns.map((col) => (
-                <td
-                  key={col.key}
-                  className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300"
-                >
-                  {col.render
-                    ? col.render(row)
-                    : col.statusBadge
-                    ? <StatusBadge status={row[col.key]} />
-                    : (row[col.key] ?? "—")}
-                </td>
-              ))}
+              {columns.map((col) => {
+                const isActionsCol = col.key === "actions" || col.printHidden;
+                return (
+                  <td
+                    key={col.key}
+                    className={`py-3 px-4 text-sm text-slate-700 dark:text-slate-300 ${
+                      isActionsCol ? "print:hidden" : ""
+                    }`}
+                  >
+                    {col.render
+                      ? col.render(row)
+                      : col.statusBadge
+                      ? <StatusBadge status={row[col.key]} />
+                      : typeof row[col.key] === "object" && row[col.key] !== null
+                      ? (row[col.key].label || row[col.key].name || row[col.key].title || row[col.key].id || JSON.stringify(row[col.key]))
+                      : (row[col.key] ?? "—")}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>

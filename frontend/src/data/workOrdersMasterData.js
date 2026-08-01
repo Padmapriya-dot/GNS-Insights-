@@ -94,6 +94,7 @@ export function enrichApiWorkOrder(row, index = 0) {
     machine_status: row.machine_status || "—",
     operator_name: row.operator_name || "—",
     priority: row.priority || "medium",
+    shift: typeof row.shift === "object" ? (row.shift?.label || row.shift?.id || "Shift A") : (row.shift || "Shift A"),
     status: status,
     planned_quantity: planned,
     produced_quantity: produced,

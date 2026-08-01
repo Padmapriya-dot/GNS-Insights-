@@ -85,7 +85,7 @@ const KPI_STYLE = {
 };
 
 const EMPTY_ORDERS = { total: 0, inProgress: 0, completed: 0, onHold: 0, progress: 0 };
-const PERIOD_KEYS = { Daily: "daily", Weekly: "weekly", Monthly: "monthly" };
+const PERIOD_KEYS = { Daily: "daily", Weekly: "weekly", Monthly: "monthly", Yearly: "yearly" };
 
 const summaryIcons = { users: Users, clock: Clock, zap: Zap, gauge: Gauge, target: Target };
 const alertIcons = { alert: AlertTriangle, wrench: Wrench, box: Package, check: CheckCircle2, cart: ShoppingCart };
@@ -157,7 +157,7 @@ function ProductionOverview({ chartSets }) {
               onClick={() => setPeriod(label)}
               className={`rounded-md px-2.5 py-1 transition-colors ${period === label ? "bg-white text-[#2563EB] shadow-sm" : "text-slate-500"}`}
             >
-              {t(`refDashboard.${key}`)}
+              {t(`refDashboard.${key}`, label)}
             </button>
           ))}
         </div>
@@ -600,6 +600,7 @@ export default function ReferenceDashboard() {
       Daily: apiData.production_overview || [],
       Weekly: apiData.production_overview_weekly || [],
       Monthly: apiData.production_overview_monthly || [],
+      Yearly: apiData.production_overview_yearly || [],
     };
   }, [apiData]);
 

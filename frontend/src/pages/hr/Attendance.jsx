@@ -156,7 +156,7 @@ export default function Attendance() {
 
   const columns = [
     { key: "employee_name", label: "Employee" },
-    { key: "shift", label: "Shift" },
+    { key: "shift", label: "Shift", render: (r) => typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "—") : (r.shift || "—") },
     { key: "check_in", label: "Check In" },
     { key: "check_out", label: "Check Out" },
     { key: "break_minutes", label: "Break", render: (r) => `${r.break_minutes || 0}m` },

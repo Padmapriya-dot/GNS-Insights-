@@ -178,7 +178,7 @@ export default function MachineDetailModal({ machine, detail, onClose, onStatusC
                   <Field label="Quantity Produced" value={m.todays_output} />
                   <Field label="Target Quantity" value={m.target_quantity} />
                   <Field label="Remaining" value={remaining} />
-                  <Field label="Shift" value={m.current_shift} />
+                  <Field label="Shift" value={typeof m.current_shift === "object" ? (m.current_shift?.label || m.current_shift?.id || "—") : (m.current_shift || "—")} />
                 </div>
               </div>
               <div>
@@ -195,7 +195,7 @@ export default function MachineDetailModal({ machine, detail, onClose, onStatusC
                 <h3 className="mb-3 text-sm font-bold text-slate-800">Operator</h3>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <Field label="Assigned Operator" value={m.assigned_operator} />
-                  <Field label="Shift" value={m.current_shift} />
+                  <Field label="Shift" value={typeof m.current_shift === "object" ? (m.current_shift?.label || m.current_shift?.id || "—") : (m.current_shift || "—")} />
                   <Field label="Login Time" value={m.login_time} />
                 </div>
               </div>

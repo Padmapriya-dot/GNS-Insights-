@@ -302,21 +302,12 @@ export default function InventoryV2() {
         listInventoryV2Categories(),
       ]);
       const rows = Array.isArray(itemsRes.data) ? itemsRes.data : [];
-      const hasDemo = rows.some(
-        (r) => String(r.id) === "demo-product" || String(r.name).toLowerCase() === "demo product"
-      );
-      setProducts(hasDemo ? rows : [DEMO_INVENTORY_ITEM, ...rows]);
+      setProducts(rows);
       const cats = Array.isArray(catsRes.data) ? catsRes.data : [];
-      setCategories(cats.length ? cats : [{ id: 0, name: "No Category", stock: 0 }]);
+      setCategories(cats);
     } catch {
-      setProducts([DEMO_INVENTORY_ITEM]);
-      setCategories(
-        ["No Category", ...PRODUCT_CATEGORIES].map((name, i) => ({
-          id: i,
-          name,
-          stock: 0,
-        }))
-      );
+      setProducts([]);
+      setCategories([]);
       addToast("Could not load inventory from API.", "error");
     } finally {
       setLoading(false);
@@ -399,10 +390,7 @@ export default function InventoryV2() {
       if (!isDemo) {
         await deleteInventoryV2Item(rawId);
       }
-      setProducts((prev) => {
-        const next = prev.filter((p) => String(p.id) !== String(rawId));
-        return next.length > 0 ? next : [DEMO_INVENTORY_ITEM];
-      });
+      setProducts((prev) => prev.filter((p) => String(p.id) !== String(rawId)));
       setDeleting(null);
       addToast("Product deleted.");
     } catch (err) {

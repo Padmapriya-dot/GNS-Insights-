@@ -99,7 +99,7 @@ export default function LiveProduction() {
     { key: "work_order_number", label: "Work Order", render: (r) => r.work_order_number || "—" },
     { key: "product_name", label: "Product", render: (r) => r.product_name || "—" },
     { key: "operator_name", label: "Operator", render: (r) => r.operator_name || r.assigned_operator || r.operator || "—" },
-    { key: "shift", label: "Shift", render: (r) => r.shift || r.current_shift || "—" },
+    { key: "shift", label: "Shift", render: (r) => typeof (r.shift || r.current_shift) === "object" ? (r.shift?.label || r.shift?.id || r.current_shift?.label || r.current_shift?.id || "—") : (r.shift || r.current_shift || "—") },
     {
       key: "progress_pct",
       label: "Progress",

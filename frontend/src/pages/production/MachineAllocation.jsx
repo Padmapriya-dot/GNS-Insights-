@@ -129,7 +129,7 @@ export default function MachineAllocation() {
     { key: "product_name", label: "Product" },
     { key: "machine_name", label: "Machine", render: (r) => r.machine_name || "—" },
     { key: "operator_name", label: "Operator", render: (r) => r.operator_name || r.assigned_operator || r.operator || "—" },
-    { key: "shift", label: "Shift", render: (r) => r.shift || r.current_shift || "—" },
+    { key: "shift", label: "Shift", render: (r) => typeof (r.shift || r.current_shift) === "object" ? (r.shift?.label || r.shift?.id || r.current_shift?.label || r.current_shift?.id || "—") : (r.shift || r.current_shift || "—") },
     { key: "supervisor", label: "Supervisor", render: (r) => r.supervisor || "—" },
     {
       key: "capacity_pct",

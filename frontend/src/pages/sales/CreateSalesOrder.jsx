@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Trash2, X } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
+import { createProduct } from "../../api/productsApi";
 import { createSalesOrder } from "../../api/salesApi";
 import { fetchCustomersWithFallback, resolveCustomerId } from "../../utils/customerOptions";
 import { fetchProductsWithFallback } from "../../utils/productOptions";
@@ -19,30 +20,44 @@ function emptyLine() {
   return { product_id: "", item_description: "", quantity: "1", unit: "pcs", unit_price: "" };
 }
 
-/** Inline quick-add product modal — saves to localStorage smrt_products */
+/** Inline quick-add product modal — saves to backend API for tenant */
 function QuickAddProductModal({ onClose, onAdded }) {
+  const tenantId = useTenantId();
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [unit_price, setUnitPrice] = useState("");
   const [unit, setUnit] = useState("pcs");
   const [quantity, setQuantity] = useState("1");
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    if (!name.trim()) return;
-    const newProduct = {
-      id: `local-${Date.now()}`,
-      name: name.trim(),
-      sku: sku.trim(),
-      product_code: sku.trim(),
-      unit_price: Number(unit_price) || 0,
-      unit,
-      quantity: Number(quantity) || 1,
-    };
-    const stored = localStorage.getItem("smrt_products");
-    const existing = stored ? JSON.parse(stored) : [];
-    localStorage.setItem("smrt_products", JSON.stringify([newProduct, ...existing]));
-    onAdded(newProduct);
-    onClose();
+  const handleSave = async () => {
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    try {
+      const generatedSku = sku.trim() || `SKU-${Date.now()}`;
+      const res = await createProduct({
+        tenant_id: Number(tenantId) || 1,
+        name: name.trim(),
+        sku: generatedSku,
+        product_code: generatedSku,
+        unit_price: Number(unit_price) || 0,
+        unit,
+      }).catch(() => null);
+
+      const newProduct = res?.data || {
+        id: `local-${Date.now()}`,
+        name: name.trim(),
+        sku: generatedSku,
+        product_code: generatedSku,
+        unit_price: Number(unit_price) || 0,
+        unit,
+        quantity: Number(quantity) || 1,
+      };
+      onAdded(newProduct);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

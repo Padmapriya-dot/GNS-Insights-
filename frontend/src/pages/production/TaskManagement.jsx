@@ -1,6 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ClipboardList, CheckCircle, Clock, XCircle, Loader2 } from "lucide-react";
 
-import ResourcePage from "../../components/common/ResourcePage";
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
 import { getTasks, createTask, updateTask } from "../../api/tasksApi";
@@ -21,129 +21,284 @@ const PRIORITIES = [
   { value: "urgent", label: "Urgent" },
 ];
 
-const MODULES = [
-  { value: "production", label: "Production" },
-  { value: "quality", label: "Quality" },
-  { value: "maintenance", label: "Maintenance" },
-  { value: "procurement", label: "Procurement" },
-  { value: "inventory", label: "Inventory" },
-  { value: "sales", label: "Sales" },
-  { value: "hr", label: "Human Resources (HR)" },
-  { value: "accounts", label: "Accounts" },
-  { value: "general", label: "General" },
-];
+const STATUS_STYLES = {
+  open:        "bg-blue-100 text-blue-800",
+  in_progress: "bg-amber-100 text-amber-800",
+  completed:   "bg-green-100 text-green-800",
+  cancelled:   "bg-red-100 text-red-800",
+  closed:      "bg-gray-100 text-gray-600",
+  on_hold:     "bg-purple-100 text-purple-800",
+};
+
+const PRIORITY_STYLES = {
+  low:    "bg-green-100 text-green-700",
+  medium: "bg-yellow-100 text-yellow-800",
+  high:   "bg-orange-100 text-orange-800",
+  urgent: "bg-red-100 text-red-800",
+};
+
+function Badge({ value, map }) {
+  const cls = map[value] || "bg-gray-100 text-gray-600";
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize ${cls}`}>
+      {value?.replace(/_/g, " ") || "—"}
+    </span>
+  );
+}
 
 export default function TaskManagement() {
   const { addToast } = useToast();
   const tenantId = useTenantId();
 
-  const rowActions = useCallback(
-    (row, reload) => {
-      if (
-        row.status === "completed" ||
-        row.status === "cancelled" ||
-        row.status === "closed"
-      ) {
-        return <span className="text-xs text-slate-400">Closed</span>;
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
+  const [updatingId, setUpdatingId] = useState(null);
+
+  /* ── load tasks: API + localStorage merged ──────────────────── */
+  const loadTasks = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await getTasks();
+      const apiTasks = Array.isArray(res?.data) ? res.data : [];
+
+      /* merge local tasks that are not already returned by API */
+      const storedRaw = localStorage.getItem("smrt_local_tasks");
+      const localTasks = storedRaw ? JSON.parse(storedRaw) : [];
+      const apiIds = new Set(apiTasks.map((t) => String(t.id)));
+      const uniqueLocal = localTasks.filter((t) => !apiIds.has(String(t.id)));
+
+      setTasks([...uniqueLocal, ...apiTasks]);
+    } catch {
+      /* fallback to localStorage only */
+      const storedRaw = localStorage.getItem("smrt_local_tasks");
+      setTasks(storedRaw ? JSON.parse(storedRaw) : []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  /* ── status advance ─────────────────────────────────────────── */
+  const advanceStatus = async (task) => {
+    const next =
+      task.status === "open"
+        ? "in_progress"
+        : task.status === "in_progress"
+        ? "completed"
+        : null;
+    if (!next) return;
+    setUpdatingId(task.id);
+    try {
+      if (!String(task.id).startsWith("task-")) {
+        await updateTask(task.id, { status: next });
       }
-      const next =
-        row.status === "open"
-          ? { status: "in_progress", label: "Start" }
-          : { status: "completed", label: "Complete" };
-      return (
-        <button
-          type="button"
-          onClick={async () => {
-            try {
-              await updateTask(row.id, { status: next.status });
-              addToast("Task updated");
-              await reload();
-            } catch (err) {
-              addToast(err.response?.data?.detail || "Update failed", "error");
-            }
-          }}
-          className="rounded-lg border border-teal-200 px-2 py-1 text-xs font-medium text-teal-700 hover:bg-teal-50"
-        >
-          {next.label}
-        </button>
+      /* update local list */
+      setTasks((prev) =>
+        prev.map((t) => (String(t.id) === String(task.id) ? { ...t, status: next } : t))
       );
-    },
-    [addToast]
-  );
+      /* update localStorage */
+      const storedRaw = localStorage.getItem("smrt_local_tasks");
+      if (storedRaw) {
+        const local = JSON.parse(storedRaw).map((t) =>
+          String(t.id) === String(task.id) ? { ...t, status: next } : t
+        );
+        localStorage.setItem("smrt_local_tasks", JSON.stringify(local));
+      }
+      addToast(`Task marked as ${next.replace(/_/g, " ")}`, "success");
+    } catch (err) {
+      addToast(err?.response?.data?.detail || "Update failed", "error");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  /* ── filtered view ──────────────────────────────────────────── */
+  const filtered = tasks.filter((t) => {
+    const q = search.toLowerCase();
+    const matchSearch =
+      !q ||
+      String(t.title || "").toLowerCase().includes(q) ||
+      String(t.assigned_to_name || "").toLowerCase().includes(q) ||
+      String(t.reference_id || "").toLowerCase().includes(q);
+    const matchStatus = !filterStatus || t.status === filterStatus;
+    const matchPriority = !filterPriority || t.priority === filterPriority;
+    return matchSearch && matchStatus && matchPriority;
+  });
+
+  const counts = {
+    open: tasks.filter((t) => t.status === "open").length,
+    in_progress: tasks.filter((t) => t.status === "in_progress").length,
+    completed: tasks.filter((t) => t.status === "completed").length,
+  };
 
   return (
-    <ResourcePage
-      title="Task Management"
-      subtitle="Assign and track production and operations tasks."
-      fetcher={getTasks}
-      createFn={(payload) => createTask({ ...payload, tenant_id: tenantId })}
-      createLabel="+ New Task"
-      emptyTitle="No tasks yet"
-      emptyDescription="Create tasks to assign work across your team."
-      searchKeys={["title", "status", "priority", "assigned_to_name", "module"]}
-      filters={[
-        { key: "status", label: "Status", placeholder: "All statuses", options: STATUSES },
-        { key: "priority", label: "Priority", placeholder: "All priorities", options: PRIORITIES },
-        { key: "module", label: "Module", placeholder: "All modules", options: MODULES },
-      ]}
-      columns={[
-        { key: "title", label: "Title" },
-        {
-          key: "assigned_to_name",
-          label: "Assigned To",
-          render: (r) => r.assigned_to_name || "—",
-        },
-        {
-          key: "module",
-          label: "Module",
-          render: (r) =>
-            r.module
-              ? r.module.charAt(0).toUpperCase() + r.module.slice(1)
-              : "—",
-        },
-        { key: "priority", label: "Priority", statusBadge: true },
-        { key: "status", label: "Status", statusBadge: true },
-        {
-          key: "start_date",
-          label: "Start Date",
-          render: (r) => (r.start_date ? String(r.start_date).slice(0, 10) : "—"),
-        },
-        {
-          key: "due_date",
-          label: "Due Date",
-          render: (r) => (r.due_date ? String(r.due_date).slice(0, 10) : "—"),
-        },
-      ]}
-      fields={[
-        { name: "title", label: "Title", required: true },
-        { name: "description", label: "Description", type: "textarea", full: true },
-        { name: "assigned_to_name", label: "Assigned To" },
-        {
-          name: "module",
-          label: "Module / Department",
-          type: "select",
-          options: MODULES,
-          defaultValue: "general",
-        },
-        {
-          name: "priority",
-          label: "Priority",
-          type: "select",
-          options: PRIORITIES,
-          defaultValue: "medium",
-        },
-        {
-          name: "status",
-          label: "Status",
-          type: "select",
-          options: STATUSES,
-          defaultValue: "open",
-        },
-        { name: "start_date", label: "Start Date", type: "date" },
-        { name: "due_date", label: "Due Date", type: "date" },
-      ]}
-      rowActions={rowActions}
-    />
+    <div className="space-y-5">
+      {/* ── Page Header ──────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Assign Tasks</h1>
+          <p className="mt-0.5 text-sm text-gray-500">
+            Production tasks auto-created from orders, plus manual assignments.
+          </p>
+        </div>
+        <button
+          onClick={loadTasks}
+          className="flex items-center gap-1.5 rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+        >
+          <Loader2 className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
+      </div>
+
+      {/* ── Summary Cards ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: "Open", count: counts.open, icon: Clock, color: "text-blue-600 bg-blue-50" },
+          { label: "In Progress", count: counts.in_progress, icon: Loader2, color: "text-amber-600 bg-amber-50" },
+          { label: "Completed", count: counts.completed, icon: CheckCircle, color: "text-green-600 bg-green-50" },
+        ].map(({ label, count, icon: Icon, color }) => (
+          <div key={label} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-gray-500">{label}</p>
+              <div className={`rounded-full p-1.5 ${color}`}>
+                <Icon className="h-4 w-4" />
+              </div>
+            </div>
+            <p className="mt-1 text-2xl font-bold text-gray-900">{count}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Filters ───────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-3">
+        <input
+          type="text"
+          placeholder="Search task, operator, order no…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-9 min-w-[220px] flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 text-sm outline-none focus:border-gray-400 focus:bg-white"
+        />
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="h-9 rounded-full border border-gray-200 bg-gray-50 px-4 text-sm outline-none focus:border-gray-400 focus:bg-white"
+        >
+          <option value="">All Statuses</option>
+          {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+        <select
+          value={filterPriority}
+          onChange={(e) => setFilterPriority(e.target.value)}
+          className="h-9 rounded-full border border-gray-200 bg-gray-50 px-4 text-sm outline-none focus:border-gray-400 focus:bg-white"
+        >
+          <option value="">All Priorities</option>
+          {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+      </div>
+
+      {/* ── Task Table ────────────────────────────────────────────── */}
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-gray-400">
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            Loading tasks…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-3 rounded-full bg-gray-100 p-4">
+              <ClipboardList className="h-8 w-8 text-gray-400" />
+            </div>
+            <p className="font-semibold text-gray-700">No tasks found</p>
+            <p className="mt-1 text-sm text-gray-400">
+              Create a production order to auto-generate a task here.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  {["Task / Order", "Assigned To", "Priority", "Status", "Start", "Due", "Action"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map((task) => {
+                  const isClosed = ["completed", "cancelled", "closed"].includes(task.status);
+                  const nextLabel =
+                    task.status === "open"
+                      ? "Start"
+                      : task.status === "in_progress"
+                      ? "Complete"
+                      : null;
+
+                  return (
+                    <tr key={task.id} className="hover:bg-gray-50/60 transition-colors">
+                      <td className="max-w-[280px] px-4 py-3">
+                        <p className="font-medium text-gray-900 leading-snug line-clamp-2">
+                          {task.title}
+                        </p>
+                        {task.reference_id && (
+                          <p className="mt-0.5 text-[11px] text-gray-400">
+                            Ref: {task.reference_id}
+                          </p>
+                        )}
+                        {task.description && (
+                          <p className="mt-0.5 text-[11px] text-gray-400 line-clamp-2 whitespace-pre-line">
+                            {task.description}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {task.assigned_to_name || <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge value={task.priority} map={PRIORITY_STYLES} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge value={task.status} map={STATUS_STYLES} />
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {task.start_date ? String(task.start_date).slice(0, 10) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {task.due_date ? String(task.due_date).slice(0, 10) : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isClosed ? (
+                          <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                            <XCircle className="h-3.5 w-3.5" /> Closed
+                          </span>
+                        ) : nextLabel ? (
+                          <button
+                            disabled={updatingId === task.id}
+                            onClick={() => advanceStatus(task)}
+                            className="flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-[12px] font-semibold text-teal-700 hover:bg-teal-100 disabled:opacity-50 transition-colors"
+                          >
+                            {updatingId === task.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-3 w-3" />
+                            )}
+                            {nextLabel}
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
-
