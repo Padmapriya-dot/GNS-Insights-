@@ -5,7 +5,6 @@ import AppRoutes from "./routes/AppRoutes";
 import RouteFallback from "./components/common/RouteFallback";
 import Navbar from "./components/layout/Navbar";
 import Sidebar from "./components/layout/Sidebar";
-import Breadcrumbs from "./components/common/Breadcrumbs";
 import AiChatWidget from "./components/ai/AiChatWidget";
 import useAuth from "./hooks/useAuth";
 
@@ -180,7 +179,7 @@ export default function App() {
   }
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-[#F4F7FE]">
+    <div className="relative flex h-screen overflow-hidden bg-[#F4F7FE] dark:bg-slate-950">
       <a
         href="#main-content"
         className="absolute left-4 top-4 z-[100] -translate-y-[200%] rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-lg outline-none ring-2 ring-teal-500 ring-offset-2 transition-transform focus:translate-y-0 dark:ring-offset-slate-900"
@@ -194,7 +193,7 @@ export default function App() {
       />
       <aside
         className={`fixed left-0 top-0 z-50 h-full transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 ${
-          sidebarCollapsed ? "w-[72px]" : "w-60"
+          sidebarCollapsed ? "w-[72px] overflow-visible" : "w-60 overflow-hidden"
         } ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
         <Sidebar
@@ -213,7 +212,7 @@ export default function App() {
               ? "overflow-hidden bg-[#F5F5F5]"
               : isSalesDocList
                 ? "overflow-y-auto bg-[#F5F5F5]"
-                : "overflow-y-auto bg-[#F4F7FE] p-4 pb-8 sm:p-5 lg:p-6"
+                : "overflow-y-auto bg-[#F4F7FE] p-4 pb-8 sm:p-5 lg:p-6 dark:bg-slate-950"
           }`}
         >
           {isFullBleedSales ? (
@@ -224,7 +223,6 @@ export default function App() {
             </div>
           ) : (
             <div className="ui-page ui-stack">
-              <Breadcrumbs />
               <Suspense fallback={<RouteFallback />}>
                 <AppRoutes />
               </Suspense>

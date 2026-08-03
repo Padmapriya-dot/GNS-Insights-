@@ -99,9 +99,12 @@ export default function SettingsHome() {
     <div className="mx-auto max-w-5xl space-y-7">
       <header className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-400">
+            System
+          </p>
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-slate-100">
             Settings
-          </h1>
+          </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Company, users, security, and system preferences.
           </p>
@@ -114,7 +117,7 @@ export default function SettingsHome() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search settings…"
-            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-900 shadow-sm placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+            className="ui-input w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-900 shadow-sm placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             autoFocus
           />
           {query && (
@@ -131,7 +134,7 @@ export default function SettingsHome() {
       </header>
 
       {groups.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center dark:border-slate-600 dark:bg-slate-800/40">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-600 dark:bg-slate-800/40">
           <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
             No settings match “{query}”
           </p>
@@ -139,7 +142,7 @@ export default function SettingsHome() {
           <button
             type="button"
             onClick={() => setQuery("")}
-            className="mt-3 text-sm font-semibold text-teal-600 hover:underline"
+            className="mt-3 text-sm font-semibold text-teal-700 hover:underline"
           >
             Clear search
           </button>
@@ -148,7 +151,7 @@ export default function SettingsHome() {
         <div className="space-y-7">
           {groups.map((group) => (
             <section key={group.id} className="space-y-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-teal-700/80 dark:text-teal-400/80">
                 {group.title}
               </h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

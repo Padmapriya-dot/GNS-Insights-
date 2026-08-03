@@ -5,8 +5,8 @@ import { Check, Settings2 } from "lucide-react";
 
 import { useToast } from "../../context/ToastContext";
 
-const PAGE_BG = "#F5F5F5";
-const YELLOW = "#F5C518";
+const PAGE_BG = "#F4F7FE";
+const ACCENT = "#0f6d84";
 const BTN_DARK = "#2f323a";
 const STORAGE_KEY = "gns_template_settings_v2";
 
@@ -96,7 +96,7 @@ function TaxInvoicePreview({ accent }) {
       <div className="relative border-b border-black px-1.5 pb-1 pt-1.5 text-center">
         <div
           className="absolute left-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full text-[5px] font-bold text-white"
-          style={{ background: YELLOW }}
+          style={{ background: ACCENT }}
         >
           GB
         </div>
@@ -306,7 +306,7 @@ function ModernProformaPreview({ accent }) {
           <div className="mb-0.5 flex items-center gap-1">
             <span
               className="grid h-4 w-4 place-items-center rounded-full text-[4px] font-bold text-white"
-              style={{ background: YELLOW }}
+              style={{ background: ACCENT }}
             >
               GB
             </span>
@@ -1307,7 +1307,7 @@ function PurchaseModernPreview({ accent }) {
   const blue = accent && accent !== "#AED6F1" ? accent : "#2B6CB0";
   const teal = "#0D9488";
   const headBg = "#3F3F46";
-  const zebra = "#F3F4F6";
+  const zebra = "#F4F7FE";
 
   const IconLine = ({ icon, children }) => (
     <div className="flex items-start gap-0.5 text-[2.6px] text-[#333]">
@@ -1815,7 +1815,7 @@ export default function TemplateSettingsV2() {
                 className={`rounded-lg px-5 py-2.5 text-[13px] font-bold tracking-wide ${
                   active ? "text-[#1a1a1f]" : "bg-[#ececf0] text-[#4a4a55]"
                 }`}
-                style={active ? { background: YELLOW } : undefined}
+                style={active ? { background: ACCENT } : undefined}
               >
                 {t.label}
               </button>

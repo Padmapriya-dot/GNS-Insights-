@@ -286,15 +286,16 @@ export default function UserManagement() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-4">
       <PageHeader
+        eyebrow="Admin"
         title="User Management"
         subtitle="Create, view, and manage all user accounts and their assigned roles."
         action={
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
+            className="ui-btn-primary"
           >
             <Plus className="h-4 w-4" />
             Add User
@@ -302,7 +303,7 @@ export default function UserManagement() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-3">
         <StatCard label="Total Users" value={users.length} icon={UserCog} />
         <StatCard
           label="Active"
@@ -316,7 +317,7 @@ export default function UserManagement() {
         />
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-6">
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800 sm:p-6">
         {loading ? (
           <p className="py-10 text-center text-sm text-slate-500">Loading users…</p>
         ) : (
@@ -478,13 +479,13 @@ export default function UserManagement() {
 
 function StatCard({ label, value, icon: Icon }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400">
-        <Icon className="h-5 w-5" />
+    <div className="flex items-center gap-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-700 text-white">
+        <Icon className="h-4 w-4" />
       </div>
       <div>
         <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</div>
-        <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{label}</div>
       </div>
     </div>
   );

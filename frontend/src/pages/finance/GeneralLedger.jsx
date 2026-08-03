@@ -10,10 +10,17 @@ import { COST_CENTERS, GL_PLANNED_FEATURES, formatInr } from "../../data/finance
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p></div>
-        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-medium text-slate-500">{label}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p>
+        </div>
+        {Icon && (
+          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${color}`}>
+            <Icon className="h-4 w-4 text-white" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -109,32 +116,33 @@ export default function GeneralLedger() {
   const hasData = rows.length > 0;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-5 pb-4">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">General Ledger</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Finance</p>
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">General Ledger</h2>
           <p className="mt-1 text-sm text-slate-500">Central accounting ledger — vouchers, journal entries, and cost center allocation.</p>
         </div>
-        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Total Assets" value={formatInr(summary.total_assets)} icon={Building2} color="bg-blue-600" />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Total Assets" value={formatInr(summary.total_assets)} icon={Building2} color="bg-teal-700" />
         <KpiCard label="Total Liabilities" value={formatInr(summary.total_liabilities)} icon={Scale} color="bg-amber-500" />
         <KpiCard label="Equity" value={formatInr(summary.equity)} icon={Landmark} color="bg-indigo-600" />
-        <KpiCard label="Revenue" value={formatInr(summary.revenue)} icon={TrendingUp} color="bg-green-600" />
-        <KpiCard label="Expenses" value={formatInr(summary.expenses)} icon={IndianRupee} color="bg-red-500" />
-        <KpiCard label="Cash Balance" value={formatInr(summary.cash_balance)} icon={BookOpen} color="bg-teal-600" />
+        <KpiCard label="Revenue" value={formatInr(summary.revenue)} icon={TrendingUp} color="bg-emerald-600" />
+        <KpiCard label="Expenses" value={formatInr(summary.expenses)} icon={IndianRupee} color="bg-rose-600" />
+        <KpiCard label="Cash Balance" value={formatInr(summary.cash_balance)} icon={BookOpen} color="bg-cyan-600" />
       </div>
 
       {!hasData && (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
           <BookOpen className="mx-auto h-12 w-12 text-slate-400" />
           <h2 className="mt-4 text-lg font-semibold text-slate-900">Coming Soon — Full GL Module</h2>
           <p className="mt-2 text-sm text-slate-500">Journal entries will auto-post from AP, AR, and payment workflows.</p>
           <ul className="mx-auto mt-6 grid max-w-lg gap-2 text-left text-sm text-slate-600 sm:grid-cols-2">
             {GL_PLANNED_FEATURES.map((f) => (
-              <li key={f} className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]" />{f}</li>
+              <li key={f} className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-teal-700" />{f}</li>
             ))}
           </ul>
         </div>
@@ -153,14 +161,14 @@ export default function GeneralLedger() {
       >
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-500">Cost Center</label>
-          <select value={costCenter} onChange={(e) => setCostCenter(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+          <select value={costCenter} onChange={(e) => setCostCenter(e.target.value)} className="ui-input w-full">
             <option value="">All</option>
             {COST_CENTERS.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
       </FinanceFilters>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <DataTable columns={columns} data={filtered} searchPlaceholder="" searchKeys={[]} />
       </div>
     </div>

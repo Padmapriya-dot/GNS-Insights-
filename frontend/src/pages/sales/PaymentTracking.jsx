@@ -38,10 +38,11 @@ export default function PaymentTracking() {
   if (loading) return <Loader label="Loading payments..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-5 pb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Payment Tracking</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Sales</p>
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Payment Tracking</h2>
           <p className="mt-1 text-sm text-slate-500">
             Payments update invoice balances, income, and AR journal entries.
           </p>
@@ -53,7 +54,7 @@ export default function PaymentTracking() {
           <button
             type="button"
             onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
           >
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>
@@ -62,7 +63,7 @@ export default function PaymentTracking() {
 
       <ManufacturingWorkflowBar currentStepId="payment" />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <Table
           columns={[
             { key: "id", label: "Payment#" },

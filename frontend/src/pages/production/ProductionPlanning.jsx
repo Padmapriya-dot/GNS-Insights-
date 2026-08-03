@@ -62,17 +62,17 @@ function SummaryCard({ label, value, icon: Icon, color, onClick }) {
   return (
     <div
       onClick={onClick}
-      className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ${
-        onClick ? "cursor-pointer hover:shadow-md" : ""
+      className={`rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ${
+        onClick ? "cursor-pointer transition hover:shadow-md" : ""
       }`}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs font-medium text-slate-500">{label}</p>
+          <p className="text-[11px] font-medium text-slate-500">{label}</p>
           <p className="mt-1 truncate text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{value}</p>
         </div>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${color}`}>
-          <Icon className="h-5 w-5 text-white" />
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${color}`}>
+          <Icon className="h-4 w-4 text-white" />
         </div>
       </div>
     </div>
@@ -104,7 +104,7 @@ function ProgressCell({ row }) {
         <span>{pct}%</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 print:border print:border-slate-300">
-        <div className="h-full rounded-full bg-[#2563EB] print:bg-slate-700" style={{ width: `${Math.min(pct, 100)}%` }} />
+        <div className="h-full rounded-full bg-teal-600 print:bg-slate-700" style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
     </div>
   );
@@ -568,7 +568,7 @@ export default function ProductionPlanning() {
       sortable: false,
       render: (r) => (
         <div className="flex flex-wrap gap-1 text-xs print:hidden">
-          <button type="button" title="View" onClick={() => openOrder(r)} className="font-semibold text-[#2563EB] hover:underline">👁 View</button>
+          <button type="button" title="View" onClick={() => openOrder(r)} className="font-semibold text-teal-800 hover:underline">View</button>
           <Link to={`/production/create?id=${r.id}&product_id=${r.product_id || ""}&order_number=${encodeURIComponent(r.order_number || "")}&customer_name=${encodeURIComponent(r.customer_name || "")}&bom_version=${encodeURIComponent(r.bom_version || "BOM v1.0")}&planned_quantity=${r.planned_quantity || ""}&priority=${r.priority || "medium"}&shift=${encodeURIComponent(r.shift || "Shift A")}&machine_id=${r.machine_id || ""}&start_date=${r.start_date || ""}&due_date=${r.due_date || ""}`} className="font-semibold text-slate-600 hover:underline">✏ Edit</Link>
           {canStart(r.status) && (
             <button type="button" onClick={() => handleStartClick(r)} className="font-semibold text-green-700 hover:underline">▶ Start</button>
@@ -606,9 +606,10 @@ export default function ProductionPlanning() {
           className="hidden"
         />
 
-        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between print:hidden">
+        <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between print:hidden">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Production Planning</h1>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Production</p>
+            <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Production Planning</h2>
             <p className="mt-1 text-sm text-slate-500">
               Plan, schedule, and monitor production orders across machines, materials, and operators.
             </p>
@@ -647,18 +648,18 @@ export default function ProductionPlanning() {
         </div>
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-8 print:hidden">
-          <SummaryCard label="Total Orders" value={summary.total_orders} icon={ClipboardList} color="bg-[#2563EB]" />
-          <SummaryCard label="Planned" value={summary.planned_orders} icon={FileText} color="bg-blue-500" />
+          <SummaryCard label="Total Orders" value={summary.total_orders} icon={ClipboardList} color="bg-teal-700" />
+          <SummaryCard label="Planned" value={summary.planned_orders} icon={FileText} color="bg-sky-600" />
           <SummaryCard label="In Progress" value={summary.in_progress_orders} icon={Play} color="bg-amber-500" />
-          <SummaryCard label="Completed" value={summary.completed_orders} icon={CheckCircle2} color="bg-green-500" />
-          <SummaryCard label="Delayed" value={summary.delayed_orders} icon={AlertTriangle} color="bg-red-500" />
+          <SummaryCard label="Completed" value={summary.completed_orders} icon={CheckCircle2} color="bg-emerald-600" />
+          <SummaryCard label="Delayed" value={summary.delayed_orders} icon={AlertTriangle} color="bg-rose-600" />
           <SummaryCard label="Cancelled" value={summary.cancelled_orders} icon={Pause} color="bg-slate-500" />
-          <SummaryCard label="Today's Target" value={summary.todays_target?.toLocaleString?.() ?? summary.todays_target} icon={ClipboardList} color="bg-indigo-500" />
+          <SummaryCard label="Today's Target" value={summary.todays_target?.toLocaleString?.() ?? summary.todays_target} icon={ClipboardList} color="bg-indigo-600" />
           <SummaryCard
             label="Today's Production"
             value={summary.todays_production?.toLocaleString?.() ?? summary.todays_production}
             icon={CheckCircle2}
-            color="bg-teal-500"
+            color="bg-teal-600"
             onClick={showTodayStartOrders}
           />
         </div>

@@ -10,12 +10,12 @@ import {
 import { useToast } from "../../context/ToastContext";
 import useSettings from "../../context/SettingsContext";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 const HEADER_YELLOW = "#fff8e1";
 const COL_HEADER = "#f0edff";
 const CR = "#b91c1c";
 const DR = "#0f766e";
-const YELLOW = "#F5C518";
+const ACCENT = "#0f6d84";
 
 /** Screenshot order for liabilities / assets (balances filled from chart). */
 const LIABILITY_STRUCTURE = [
@@ -269,7 +269,7 @@ function GenerateModal({ open, onClose, onGenerate, defaultFrom, defaultTo }) {
             type="button"
             onClick={() => onGenerate({ reportName: reportName.trim(), from, to })}
             className="rounded-lg px-4 py-2.5 text-[14px] font-bold text-[#1a1a1f]"
-            style={{ background: YELLOW }}
+            style={{ background: ACCENT }}
           >
             Generate Report
           </button>

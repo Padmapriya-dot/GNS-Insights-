@@ -120,7 +120,7 @@ export default function SalesBills() {
     {
       key: "invoice_number",
       label: "Bill No.",
-      render: (r) => <span className="font-semibold text-[#2563EB]">{r.invoice_number || r.bill_number}</span>,
+      render: (r) => <span className="font-semibold text-teal-800">{r.invoice_number || r.bill_number}</span>,
     },
     { key: "customer_name", label: "Customer" },
     {
@@ -214,7 +214,7 @@ export default function SalesBills() {
       label: "Actions",
       render: (r) => (
         <div className="flex gap-2">
-          <Link to={`/sales/bills/${r.id}`} className="text-xs font-semibold text-[#2563EB] hover:underline">View</Link>
+          <Link to={`/sales/bills/${r.id}`} className="text-xs font-semibold text-teal-800 hover:underline">View</Link>
           {String(r.status || "").toLowerCase() !== "paid" && (
             <button type="button" onClick={() => handleUpdateBillStatus(r.id, "paid")}
               className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100">
@@ -231,15 +231,15 @@ export default function SalesBills() {
   const pendingCount = bills.length - paidCount;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-5 pb-4">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Bills</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Sales</p>
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Bills</h2>
           <p className="mt-1 text-sm text-slate-500">Manage your billing records.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/sales/bills/create"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm">
+          <Link to="/sales/bills/create" className="ui-btn-primary">
             <Plus className="h-4 w-4" /> Create Bill
           </Link>
           <button type="button" onClick={() => exportToExcel(
@@ -274,18 +274,18 @@ export default function SalesBills() {
       </header>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between">
-          <div><p className="text-xs font-medium text-slate-500">Total Bills</p><p className="mt-1 text-xl font-bold text-slate-900">{bills.length}</p></div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600"><FileText className="h-5 w-5 text-white" /></div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="flex items-center justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div><p className="text-[11px] font-medium text-slate-500">Total Bills</p><p className="mt-1 text-xl font-bold text-slate-900">{bills.length}</p></div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-700"><FileText className="h-4 w-4 text-white" /></div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between">
-          <div><p className="text-xs font-medium text-slate-500">Paid / Pending</p><p className="mt-1 text-xl font-bold text-slate-900">{paidCount} <span className="text-base font-normal text-slate-400">/ {pendingCount}</span></p></div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600"><CheckCircle className="h-5 w-5 text-white" /></div>
+        <div className="flex items-center justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div><p className="text-[11px] font-medium text-slate-500">Paid / Pending</p><p className="mt-1 text-xl font-bold text-slate-900">{paidCount} <span className="text-base font-normal text-slate-400">/ {pendingCount}</span></p></div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600"><CheckCircle className="h-4 w-4 text-white" /></div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center justify-between">
-          <div><p className="text-xs font-medium text-slate-500">Combined Total</p><p className="mt-1 text-xl font-bold text-[#2563EB]">{fmt(totalAmount)}</p></div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600"><TrendingUp className="h-5 w-5 text-white" /></div>
+        <div className="flex items-center justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div><p className="text-[11px] font-medium text-slate-500">Combined Total</p><p className="mt-1 text-xl font-bold text-teal-800">{fmt(totalAmount)}</p></div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600"><TrendingUp className="h-4 w-4 text-white" /></div>
         </div>
       </div>
 
@@ -293,21 +293,20 @@ export default function SalesBills() {
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input type="text" placeholder="Search by Bill No. or Customer..."
               value={search} onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 py-2 text-sm focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              className="ui-input w-full pl-10" />
           </div>
           <span className="text-xs text-slate-400 font-medium">Showing {filteredBills.length} of {bills.length} bills</span>
         </div>
 
         {bills.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 rounded-2xl border border-slate-200 bg-white shadow-sm text-center">
+          <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200/90 bg-white py-20 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             <FileText className="mx-auto mb-4 h-12 w-12 text-slate-300" />
             <p className="text-lg font-semibold text-slate-700">No bills yet</p>
             <p className="mt-1 text-sm text-slate-500">Create your first bill to get started.</p>
-            <Link to="/sales/bills/create"
-              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            <Link to="/sales/bills/create" className="ui-btn-primary mt-6">
               <Plus className="h-4 w-4" /> Create Bill
             </Link>
           </div>

@@ -86,15 +86,16 @@ export default function AccessLogs() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-4">
       <PageHeader
+        eyebrow="Admin"
         title="Audit Logs"
         subtitle="Audit trail of administrative actions across users, roles, and permissions."
         action={
           <button
             type="button"
             onClick={load}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
@@ -102,7 +103,7 @@ export default function AccessLogs() {
         }
       />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-6">
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800 sm:p-6">
         {loading ? (
           <p className="py-10 text-center text-sm text-slate-500">Loading activity…</p>
         ) : (

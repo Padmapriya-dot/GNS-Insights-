@@ -21,15 +21,15 @@ import {
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
+    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium text-slate-500">{label}</p>
+          <p className="text-[11px] font-medium text-slate-500">{label}</p>
           <p className="mt-1 text-xl font-bold text-slate-900">{value ?? 0}</p>
         </div>
         {Icon && (
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
+          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${color}`}>
+            <Icon className="h-4 w-4 text-white" />
           </div>
         )}
       </div>
@@ -130,7 +130,7 @@ function TrackingModal({ row, onClose, onPrintChallan, onShip }) {
           {row.shipped && !row.invoiced && (
             <Link
               to={`/sales/invoices/create?sales_order_id=${soId}`}
-              className="rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white"
+              className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800"
             >
               Create Invoice
             </Link>
@@ -257,7 +257,7 @@ export default function Dispatch() {
           <button
             type="button"
             onClick={() => setSelected(r)}
-            className="text-xs font-semibold text-[#2563EB] hover:underline"
+            className="text-xs font-semibold text-teal-800 hover:underline"
           >
             Track
           </button>
@@ -278,10 +278,11 @@ export default function Dispatch() {
   if (loading) return <Loader label="Loading dispatch..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-5 pb-4">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dispatch & Logistics</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Sales</p>
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Dispatch & Logistics</h2>
           <p className="mt-1 text-sm text-slate-500">
             Packing, delivery challans, FG stock-out on ship, then invoice.
           </p>
@@ -293,7 +294,7 @@ export default function Dispatch() {
           <button
             type="button"
             onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
           >
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>
@@ -302,7 +303,7 @@ export default function Dispatch() {
 
       <ManufacturingWorkflowBar currentStepId="dispatch" />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           label="Ready to Dispatch"
           value={summary.ready_to_dispatch}
@@ -311,11 +312,11 @@ export default function Dispatch() {
         />
         <KpiCard label="Packed" value={summary.packed} icon={Package} color="bg-indigo-600" />
         <KpiCard label="In Transit" value={summary.in_transit} icon={Truck} color="bg-cyan-600" />
-        <KpiCard label="Delivered" value={summary.delivered} icon={Truck} color="bg-green-600" />
-        <KpiCard label="Delayed" value={summary.delayed} icon={Truck} color="bg-red-500" />
+        <KpiCard label="Delivered" value={summary.delivered} icon={Truck} color="bg-emerald-600" />
+        <KpiCard label="Delayed" value={summary.delayed} icon={Truck} color="bg-rose-600" />
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <DataTable
           columns={columns}
           data={rows}

@@ -11,7 +11,7 @@ import { formatInr, statusColor } from "../../data/financeMasterData";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-medium text-slate-500">{label}</p>
@@ -163,7 +163,7 @@ export default function PaymentTracking() {
     {
       key: "attachment",
       label: "Attachment",
-      render: (r) => r.attachment ? <span className="text-xs text-[#2563EB]">{r.attachment}</span> : "—",
+      render: (r) => r.attachment ? <span className="text-xs text-teal-800">{r.attachment}</span> : "—",
     },
     { key: "created_by", label: "Created By", render: (r) => r.created_by || "—" },
   ];
@@ -171,10 +171,11 @@ export default function PaymentTracking() {
   if (loading) return <Loader label="Loading payment tracking..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-5 pb-4">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Payment Tracking</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Finance</p>
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Payment Tracking</h2>
           <p className="mt-1 text-sm text-slate-500">
             Customer receipts and vendor payments — UPI, NEFT, RTGS, cash, and bank transfers.
           </p>
@@ -183,7 +184,7 @@ export default function PaymentTracking() {
           <button
             type="button"
             onClick={() => setShowPaymentModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm"
+            className="ui-btn-primary"
           >
             <Plus className="h-4 w-4" /> Record Payment
           </button>
@@ -197,13 +198,13 @@ export default function PaymentTracking() {
         </div>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Total Amount" value={formatInr(computedSummary.total_amount)} icon={IndianRupee} color="bg-slate-700" />
-        <KpiCard label="Customer Receipts" value={formatInr(computedSummary.customer_receipts)} icon={Users} color="bg-blue-600" />
-        <KpiCard label="Vendor Payments" value={formatInr(computedSummary.vendor_payments)} icon={Banknote} color="bg-purple-600" />
-        <KpiCard label="Bank Transfers" value={formatInr(computedSummary.bank_transfers)} icon={CreditCard} color="bg-blue-500" />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Total Amount" value={formatInr(computedSummary.total_amount)} icon={IndianRupee} color="bg-teal-700" />
+        <KpiCard label="Customer Receipts" value={formatInr(computedSummary.customer_receipts)} icon={Users} color="bg-indigo-600" />
+        <KpiCard label="Vendor Payments" value={formatInr(computedSummary.vendor_payments)} icon={Banknote} color="bg-slate-600" />
+        <KpiCard label="Bank Transfers" value={formatInr(computedSummary.bank_transfers)} icon={CreditCard} color="bg-cyan-600" />
         <KpiCard label="Completed" value={computedSummary.completed_payments} icon={CheckCircle} color="bg-emerald-600" />
-        <KpiCard label="Failed / Pending" value={`${computedSummary.failed_payments} / ${computedSummary.pending_payments}`} icon={XCircle} color="bg-red-500" />
+        <KpiCard label="Failed / Pending" value={`${computedSummary.failed_payments} / ${computedSummary.pending_payments}`} icon={XCircle} color="bg-rose-600" />
       </div>
 
       <FinanceFilters
@@ -218,7 +219,7 @@ export default function PaymentTracking() {
         searchPlaceholder="Search payment, UTR, party..."
       />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <DataTable columns={columns} data={filtered} searchPlaceholder="" searchKeys={[]} />
       </div>
 

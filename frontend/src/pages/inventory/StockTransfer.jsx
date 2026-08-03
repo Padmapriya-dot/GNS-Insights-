@@ -207,18 +207,19 @@ export default function StockTransfer() {
   if (loading) return <Loader label="Loading stock transfers..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5 pb-4">
       <header>
-        <h1 className="text-2xl font-bold text-slate-900">Stock Transfer</h1>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Inventory</p>
+        <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Stock Transfer</h2>
         <p className="mt-1 text-sm text-slate-500">
           Initiate or approve material transfers from Main Store to Shop Floor Store.
         </p>
       </header>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="grid gap-5 xl:grid-cols-2">
+        <section className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-800">
-            <Plus className="h-4 w-4" /> Create Transfer
+            <Plus className="h-4 w-4 text-teal-700" /> Create Transfer
           </h2>
           <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2">
             <label className="text-sm">
@@ -227,7 +228,7 @@ export default function StockTransfer() {
                 placeholder="Auto-generated if empty"
                 value={form.transfer_number}
                 onChange={(e) => setForm((f) => ({ ...f, transfer_number: e.target.value }))}
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                className="ui-input mt-1 w-full"
               />
             </label>
 
@@ -238,7 +239,7 @@ export default function StockTransfer() {
                 required
                 value={form.transfer_date}
                 onChange={(e) => setForm((f) => ({ ...f, transfer_date: e.target.value }))}
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                className="ui-input mt-1 w-full"
               />
             </label>
 
@@ -248,7 +249,7 @@ export default function StockTransfer() {
                 value={form.from_warehouse_id}
                 onChange={(e) => setForm((f) => ({ ...f, from_warehouse_id: e.target.value }))}
                 required
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                className="ui-input mt-1 w-full"
               >
                 <option value="">Select</option>
                 {warehouses.map((w) => (
@@ -265,7 +266,7 @@ export default function StockTransfer() {
                 value={form.to_warehouse_id}
                 onChange={(e) => setForm((f) => ({ ...f, to_warehouse_id: e.target.value }))}
                 required
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                className="ui-input mt-1 w-full"
               >
                 <option value="">Select</option>
                 {warehouses.map((w) => (
@@ -282,7 +283,7 @@ export default function StockTransfer() {
                 value={form.item_id}
                 onChange={(e) => setForm((f) => ({ ...f, item_id: e.target.value }))}
                 required
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                className="ui-input mt-1 w-full"
               >
                 <option value="">Select</option>
                 {items.map((i) => (
@@ -298,7 +299,7 @@ export default function StockTransfer() {
               <input
                 value={form.batch_number}
                 onChange={(e) => setForm((f) => ({ ...f, batch_number: e.target.value }))}
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                className="ui-input mt-1 w-full"
               />
             </label>
 
@@ -310,7 +311,7 @@ export default function StockTransfer() {
                 value={form.quantity}
                 onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
                 required
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                className="ui-input mt-1 w-full"
               />
             </label>
 
@@ -319,7 +320,7 @@ export default function StockTransfer() {
               <input
                 value={form.vehicle}
                 onChange={(e) => setForm((f) => ({ ...f, vehicle: e.target.value }))}
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                className="ui-input mt-1 w-full"
               />
             </label>
 
@@ -328,7 +329,7 @@ export default function StockTransfer() {
               <input
                 value={form.driver}
                 onChange={(e) => setForm((f) => ({ ...f, driver: e.target.value }))}
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                className="ui-input mt-1 w-full"
               />
             </label>
 
@@ -337,7 +338,7 @@ export default function StockTransfer() {
               <textarea
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                className="ui-input mt-1 w-full"
                 rows={2}
               />
             </label>
@@ -352,12 +353,12 @@ export default function StockTransfer() {
           </form>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        <section className="rounded-xl border border-slate-200/90 bg-slate-50 p-5">
           <h2 className="mb-3 text-sm font-bold text-slate-800">Status Flow</h2>
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
             {TRANSFER_STATUSES.map((s, i) => (
               <span key={s} className="flex items-center gap-2">
-                <span className="rounded-full bg-white px-2.5 py-1 capitalize shadow-xs">
+                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 capitalize shadow-sm">
                   {s.replace(/_/g, " ")}
                 </span>
                 {i < TRANSFER_STATUSES.length - 1 && (
@@ -369,17 +370,17 @@ export default function StockTransfer() {
         </section>
       </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-            <Truck className="h-4 w-4" /> Transfer History
+            <Truck className="h-4 w-4 text-teal-700" /> Transfer History
           </h2>
           <button
             type="button"
             onClick={load}
-            className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
           >
-            <RefreshCw className="inline h-3 w-3" /> Refresh
+            <RefreshCw className="h-3 w-3" /> Refresh
           </button>
         </div>
         <DataTable columns={historyColumns} data={transfers} showSearch={false} />

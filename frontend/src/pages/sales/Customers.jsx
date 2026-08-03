@@ -21,8 +21,8 @@ import { enrichApiCustomer } from "../../data/customersMasterData";
 import { exportToExcel } from "../../utils/exportUtils";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F5F5F5";
-const YELLOW = "#F5C518";
+const PAGE_BG = "#F4F7FE";
+const ACCENT = "#0f6d84";
 const PAGE_SIZES = [20, 50, 100];
 
 function blankOr(value) {
@@ -186,7 +186,8 @@ export default function Customers() {
   return (
     <div className="min-h-full" style={{ background: PAGE_BG }}>
       <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8">
-        <h1 className="mb-4 text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Customers</h1>
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-teal-700">Sales</p>
+        <h2 className="mb-4 text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Customers</h2>
 
         <div className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5">
           <div className="mb-4 flex flex-wrap items-center gap-2.5">
@@ -221,7 +222,7 @@ export default function Customers() {
                 setPartyOpen(true);
               }}
               className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
-              style={{ background: YELLOW }}
+              style={{ background: ACCENT, color: "#fff" }}
             >
               <Plus className="h-4 w-4" />
               Create Customer

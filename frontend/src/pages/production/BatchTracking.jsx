@@ -27,15 +27,15 @@ import { exportToExcel } from "../../utils/exportUtils";
 
 function SummaryCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
+    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium text-slate-500">{label}</p>
+          <p className="text-[11px] font-medium text-slate-500">{label}</p>
           <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p>
         </div>
         {Icon && (
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
+          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${color}`}>
+            <Icon className="h-4 w-4 text-white" />
           </div>
         )}
       </div>
@@ -122,7 +122,7 @@ export default function BatchTracking() {
       key: "actions",
       label: "Action",
       render: (r) => (
-        <button type="button" onClick={() => openDetail(r)} className="text-xs font-semibold text-[#2563EB] hover:underline">
+        <button type="button" onClick={() => openDetail(r)} className="text-xs font-semibold text-teal-800 hover:underline">
           View
         </button>
       ),
@@ -137,41 +137,42 @@ export default function BatchTracking() {
   if (loading) return <Loader label={t("production.loadingBatches")} />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-5 pb-4">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{t("production.batchTracking")}</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Production</p>
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{t("production.batchTracking")}</h2>
           <p className="mt-1 text-sm text-slate-500">
             Full batch traceability from raw material to customer dispatch.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={handleExport} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <button type="button" onClick={handleExport} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
             <Download className="h-4 w-4" /> Export
           </button>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
       </header>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <SummaryCard label="Total Batches" value={summary.total_batches} icon={Search} color="bg-[#2563EB]" />
-        <SummaryCard label="Running" value={summary.running} icon={Clock} color="bg-green-500" />
-        <SummaryCard label="Completed" value={summary.completed} icon={CheckCircle2} color="bg-emerald-500" />
+        <SummaryCard label="Total Batches" value={summary.total_batches} icon={Search} color="bg-teal-700" />
+        <SummaryCard label="Running" value={summary.running} icon={Clock} color="bg-emerald-600" />
+        <SummaryCard label="Completed" value={summary.completed} icon={CheckCircle2} color="bg-emerald-700" />
         <SummaryCard label="Hold" value={summary.hold} icon={Pause} color="bg-amber-500" />
-        <SummaryCard label="Rejected" value={summary.rejected} icon={XCircle} color="bg-red-500" />
+        <SummaryCard label="Rejected" value={summary.rejected} icon={XCircle} color="bg-rose-600" />
         <SummaryCard label="Expired" value={summary.expired} icon={AlertTriangle} color="bg-slate-500" />
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="mb-4">
           <input
             type="search"
             placeholder="Search batch, product, work order..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="ui-input w-full"
           />
         </div>
         <DataTable
@@ -182,11 +183,11 @@ export default function BatchTracking() {
         />
       </div>
 
-      <div className="flex flex-wrap gap-2 rounded-xl bg-slate-50 px-4 py-3">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
         {BATCH_TRACE_STEPS.map((step, i) => (
           <span key={step} className="flex items-center gap-2 text-xs text-slate-600">
-            <span className="font-semibold text-amber-600">{step}</span>
-            {i < BATCH_TRACE_STEPS.length - 1 && <span className="text-slate-300">↓</span>}
+            <span className="rounded-md bg-white px-2 py-1 font-semibold text-teal-800 ring-1 ring-slate-200">{step}</span>
+            {i < BATCH_TRACE_STEPS.length - 1 && <span className="text-slate-300">→</span>}
           </span>
         ))}
       </div>

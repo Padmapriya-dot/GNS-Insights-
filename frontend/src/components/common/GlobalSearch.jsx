@@ -77,6 +77,14 @@ export default function GlobalSearch({ onSelect, placeholderKey = "common.search
 
   useEffect(() => {
     const onKeyDown = (e) => {
+      const isModK = (e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K");
+      if (isModK) {
+        e.preventDefault();
+        inputRef.current?.focus();
+        setOpen(true);
+        setFocus(true);
+        return;
+      }
       if (e.key === "Escape") {
         setOpen(false);
         inputRef.current?.blur();
@@ -116,7 +124,7 @@ export default function GlobalSearch({ onSelect, placeholderKey = "common.search
           setFocus(true);
         }}
         onBlur={() => setTimeout(() => setFocus(false), 150)}
-        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
+        className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-16 text-sm text-slate-700 placeholder:text-slate-400 focus:border-teal-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-600/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-teal-500 dark:focus:bg-slate-900"
         aria-label={t("common.search")}
         aria-expanded={showDropdown}
         aria-controls="global-search-results"
@@ -126,12 +134,19 @@ export default function GlobalSearch({ onSelect, placeholderKey = "common.search
         role="combobox"
         autoComplete="off"
       />
+      <kbd
+        className={`pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-400 sm:inline-block dark:border-slate-600 dark:bg-slate-900 ${
+          focus || query ? "opacity-0" : ""
+        }`}
+      >
+        Ctrl K
+      </kbd>
       {showDropdown && (
         <div
           id="global-search-results"
           ref={listRef}
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl sm:min-w-[22rem]"
+          className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:min-w-[22rem]"
         >
           {!hasQuery ? (
             <p className="border-b border-slate-100 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -150,7 +165,7 @@ export default function GlobalSearch({ onSelect, placeholderKey = "common.search
               </p>
               <button
                 type="button"
-                className="mt-3 text-xs font-semibold text-[#2563EB] hover:underline"
+                className="mt-3 text-xs font-semibold text-teal-700 hover:underline dark:text-teal-400"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   setQuery("");
@@ -178,8 +193,8 @@ export default function GlobalSearch({ onSelect, placeholderKey = "common.search
                   onClick={() => handleSelect(r.path)}
                   className={`flex w-full items-center px-4 py-2.5 text-left text-sm font-medium transition-colors ${
                     selected
-                      ? "bg-blue-50 text-[#2563EB]"
-                      : "text-slate-800 hover:bg-slate-50"
+                      ? "bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-200"
+                      : "text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
                   }`}
                 >
                   <span className="truncate">{label}</span>

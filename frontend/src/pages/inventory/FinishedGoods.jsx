@@ -12,10 +12,17 @@ import { exportToExcel } from "../../utils/exportUtils";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p></div>
-        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-medium text-slate-500">{label}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p>
+        </div>
+        {Icon && (
+          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${color}`}>
+            <Icon className="h-4 w-4 text-white" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -107,34 +114,38 @@ export default function FinishedGoods() {
     { key: "expiry_date", label: "Expiry" },
     { key: "warranty", label: "Warranty" },
     { key: "serial_number", label: "Serial" },
-    { key: "qr_code", label: "QR", render: (r) => <span className="inline-flex items-center gap-1 text-xs text-[#2563EB]"><QrCode className="h-3 w-3" />{r.qr_code}</span> },
+    { key: "qr_code", label: "QR", render: (r) => <span className="inline-flex items-center gap-1 text-xs text-teal-800"><QrCode className="h-3 w-3" />{r.qr_code}</span> },
     { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${stockStatusColor(r.status)}`}>{stockStatusLabel(r.status)}</span> },
   ];
 
   if (loading) return <Loader label="Loading finished goods..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-900">Finished Goods</h1><p className="mt-1 text-sm text-slate-500">Verify produced stock ready for inspection and handover to sales dispatch.</p></div>
+    <div className="space-y-5 pb-4">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Inventory</p>
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Finished Goods</h2>
+          <p className="mt-1 text-sm text-slate-500">Verify produced stock ready for inspection and handover to sales dispatch.</p>
+        </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/inventory/items/create?type=finished_good" className="ui-btn-primary"><Plus className="h-4 w-4" /> New Product</Link>
-          <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "finished-goods")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+          <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "finished-goods")} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
+          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
         </div>
       </header>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Total Products" value={displaySummary.total_products ?? 0} icon={Package} color="bg-[#2563EB]" />
-        <KpiCard label="Available" value={displaySummary.available ?? 0} icon={Box} color="bg-green-500" />
+        <KpiCard label="Total Products" value={displaySummary.total_products ?? 0} icon={Package} color="bg-teal-700" />
+        <KpiCard label="Available" value={displaySummary.available ?? 0} icon={Box} color="bg-emerald-600" />
         <KpiCard label="Reserved" value={displaySummary.reserved ?? 0} icon={Package} color="bg-amber-500" />
-        <KpiCard label="Ready to Dispatch" value={displaySummary.ready_to_dispatch ?? 0} icon={Truck} color="bg-teal-500" />
-        <KpiCard label="Damaged" value={displaySummary.damaged ?? 0} icon={AlertTriangle} color="bg-red-500" />
-        <KpiCard label="Stock Value" value={formatInr(displaySummary.stock_value)} icon={Box} color="bg-indigo-500" />
+        <KpiCard label="Ready to Dispatch" value={displaySummary.ready_to_dispatch ?? 0} icon={Truck} color="bg-cyan-600" />
+        <KpiCard label="Damaged" value={displaySummary.damaged ?? 0} icon={AlertTriangle} color="bg-rose-600" />
+        <KpiCard label="Stock Value" value={formatInr(displaySummary.stock_value)} icon={Box} color="bg-indigo-600" />
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <input type="search" placeholder="Search SKU, product, batch, customer..." value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4 w-full rounded-lg border px-3 py-2 text-sm" />
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <input type="search" placeholder="Search SKU, product, batch, customer..." value={search} onChange={(e) => setSearch(e.target.value)} className="ui-input mb-4 w-full" />
         <DataTable columns={columns} data={filtered} showSearch={false} />
       </div>
     </div>

@@ -6,9 +6,9 @@ import { useToast } from "../../context/ToastContext";
 import { getFeatureSetting, putFeatureSetting } from "../../api/bizDocumentsApi";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 const SETTING_KEY = "sequence_reset";
-const ACCENT = "#F5C518";
+const ACCENT = "#0f6d84";
 
 /** Indian FY options: previous + current (Apr–Mar). */
 function buildFyOptions(date = new Date()) {

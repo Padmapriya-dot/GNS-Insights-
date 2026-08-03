@@ -1,3 +1,8 @@
+/**
+ * @deprecated Not routed. The live dashboard is `reference/ReferenceDashboard.jsx`
+ * (API: getErpDashboard). This component still uses dashboardDummyData and must
+ * not be wired into AppRoutes without replacing dummy KPIs with real API data.
+ */
 import { useEffect, useState } from "react";
 
 import { kpiMetrics } from "../../../data/dashboardDummyData";

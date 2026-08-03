@@ -21,7 +21,7 @@ export default function AccountingReports() {
             <Link
               key={r.to}
               to={r.to}
-              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-[#F5C518]"
+              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-[#0f6d84]"
             >
               <Icon className="h-5 w-5 text-slate-500" />
               <span className="font-semibold text-slate-800">{r.label}</span>

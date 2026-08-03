@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronDown, Search } from "lucide-react";
 
-const PAGE_BG = "#F5F5F5";
-const YELLOW = "#F5C518";
+const PAGE_BG = "#F4F7FE";
+const ACCENT = "#0f6d84";
 
 const DOCUMENT_TYPE_GROUPS = [
   {

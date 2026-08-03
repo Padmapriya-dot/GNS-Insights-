@@ -9,7 +9,7 @@ import { deletePayment, getInvoicesV2, getPayments } from "../../api/salesApi";
 import { formatInr } from "../../data/salesMasterData";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const YELLOW = "#F5C518";
+const ACCENT = "#0f6d84";
 const PAGE_SIZES = [10, 20, 50];
 
 const SORT_OPTIONS = [
@@ -72,7 +72,7 @@ function Chip({ label, active, onClick }) {
       onClick={onClick}
       className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-[13px] font-medium transition ${
         active
-          ? "bg-[#2d2a4a] text-white"
+          ? "bg-[#0f6d84] text-white"
           : "bg-[#f0f0f3] text-[#4a4a55] hover:bg-[#e4e4ea]"
       }`}
     >
@@ -259,14 +259,14 @@ export default function PaymentReceipts() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-[#F5F5F5]">
+      <div className="flex min-h-[50vh] items-center justify-center bg-[#F4F7FE]">
         <Loader label="Loading payment receipts..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-full space-y-4 bg-[#F5F5F5] p-4 sm:p-6">
+    <div className="min-h-full space-y-4 bg-[#F4F7FE] p-4 sm:p-6">
       <h1 className="text-[22px] font-bold text-[#1a1a1f]">Payment Receipts</h1>
 
       <div className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-[#f7f7f9]">
@@ -291,7 +291,7 @@ export default function PaymentReceipts() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search"
-            className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] shadow-sm placeholder:text-[#9a9aa5] focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-[#F5C518]/25"
+            className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] shadow-sm placeholder:text-[#9a9aa5] focus:border-[#0f6d84] focus:outline-none focus:ring-2 focus:ring-[#0f6d84]/25"
           />
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -364,7 +364,7 @@ export default function PaymentReceipts() {
           <Link
             to="/sales/payment-receipts/create"
             className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-[14px] font-semibold text-[#1a1a1f]"
-            style={{ background: YELLOW }}
+            style={{ background: ACCENT }}
           >
             <Plus className="h-4 w-4" strokeWidth={2.5} /> Record Payment
           </Link>
@@ -396,7 +396,7 @@ export default function PaymentReceipts() {
                     <Link
                       to="/sales/payment-receipts/create"
                       className="mt-4 inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-[14px] font-semibold text-[#1a1a1f]"
-                      style={{ background: YELLOW }}
+                      style={{ background: ACCENT }}
                     >
                       <Plus className="h-4 w-4" /> Record Payment
                     </Link>
@@ -470,7 +470,7 @@ export default function PaymentReceipts() {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="min-w-[2rem] rounded-md bg-[#F5C518]/70 px-2.5 py-1 text-center text-[13px] font-semibold">
+            <span className="min-w-[2rem] rounded-md bg-[#0f6d84] px-2.5 py-1 text-center text-[13px] font-semibold text-white">
               {page}
             </span>
             <button
@@ -563,7 +563,7 @@ export default function PaymentReceipts() {
                   setShowFilters(false);
                 }}
                 className="rounded-xl py-3 text-[14px] font-semibold"
-                style={{ background: YELLOW }}
+                style={{ background: ACCENT }}
               >
                 Apply Filter
               </button>

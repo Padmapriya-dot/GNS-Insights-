@@ -41,33 +41,34 @@ export default function IntegrationsDashboard() {
   if (loading) return <Loader label="Loading integrations..." />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-4">
       <PageHeader
+        eyebrow="Admin"
         title="Integrations"
         subtitle="Barcode coverage, accounting connectors, IoT machines, and API access."
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <p className="text-sm text-slate-500">Barcode coverage</p>
-          <p className="mt-1 text-2xl font-bold">{barcode?.coverage_pct ?? 0}%</p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800">
+          <p className="text-[11px] font-medium text-slate-500">Barcode coverage</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900">{barcode?.coverage_pct ?? 0}%</p>
           <p className="text-xs text-slate-400">
             {barcode?.barcoded_items ?? 0} / {barcode?.total_items ?? 0} items
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <p className="text-sm text-slate-500">IoT-ready machines</p>
-          <p className="mt-1 text-2xl font-bold">{machines.length}</p>
+        <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800">
+          <p className="text-[11px] font-medium text-slate-500">IoT-ready machines</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900">{machines.length}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <p className="text-sm text-slate-500">API modules</p>
-          <p className="mt-1 text-2xl font-bold">{apiInfo?.available_modules?.length ?? 0}</p>
+        <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800">
+          <p className="text-[11px] font-medium text-slate-500">API modules</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900">{apiInfo?.available_modules?.length ?? 0}</p>
           <p className="text-xs text-slate-400">{apiInfo?.auth}</p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <h2 className="mb-4 font-semibold">Accounting connectors</h2>
+      <div className="rounded-xl border border-slate-200/90 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800">
+        <h2 className="mb-4 text-sm font-bold text-slate-900">Accounting connectors</h2>
         <ul className="space-y-2">
           {(accounting?.connectors || []).map((c) => (
             <li
@@ -86,8 +87,8 @@ export default function IntegrationsDashboard() {
         )}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <h2 className="mb-4 font-semibold">IoT machine integrations</h2>
+      <div className="rounded-xl border border-slate-200/90 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800">
+        <h2 className="mb-4 text-sm font-bold text-slate-900">IoT machine integrations</h2>
         <DataTable
           columns={[
             { key: "code", label: "Code" },
