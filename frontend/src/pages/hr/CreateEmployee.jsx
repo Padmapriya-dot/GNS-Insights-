@@ -1,8 +1,9 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MapPin } from "lucide-react";
 
 import PageHeader from "../../components/common/PageHeader";
+import EmployeeAddressModal from "../../components/hr/EmployeeAddressModal";
 import { createEmployee } from "../../api/hrApi";
 import useTenantId from "../../hooks/useTenantId";
 
@@ -17,11 +18,13 @@ export default function CreateEmployee() {
     full_name: "",
     email: "",
     department: "",
+    address: "",
     hire_date: "",
     hourly_rate: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [addressOpen, setAddressOpen] = useState(false);
 
   const setField = (key) => (e) => {
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -40,6 +43,7 @@ export default function CreateEmployee() {
         full_name: form.full_name.trim(),
         email: form.email.trim() || null,
         department: form.department.trim() || null,
+        address: form.address.trim() || null,
         hire_date: form.hire_date || null,
         hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : null,
       });
@@ -96,7 +100,7 @@ export default function CreateEmployee() {
           </label>
 
           <label className="block text-sm font-medium text-slate-700 sm:col-span-1">
-            Full Name <span className="text-red-500">*</span>
+            Full Name (As per Aadhar) <span className="text-red-500">*</span>
             <input
               type="text"
               value={form.full_name}
@@ -122,13 +126,19 @@ export default function CreateEmployee() {
 
           <label className="block text-sm font-medium text-slate-700">
             Department
-            <input
-              type="text"
+            <select
               value={form.department}
               onChange={setField("department")}
-              placeholder="e.g. Production"
               className={inputClass}
-            />
+            >
+              <option value="">Select Department</option>
+              <option value="Production">Production</option>
+              <option value="HR">HR</option>
+              <option value="Sales">Sales</option>
+              <option value="Accountant">Accountant</option>
+              <option value="Store Manager">Store Manager</option>
+              <option value="Operator">Operator</option>
+            </select>
           </label>
 
           <label className="block text-sm font-medium text-slate-700">
@@ -140,6 +150,30 @@ export default function CreateEmployee() {
               className={inputClass}
             />
           </label>
+
+          <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Address</p>
+                <p className="text-xs text-slate-500">Add the employee’s complete address in a dedicated form.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddressOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#2563EB] bg-white px-3 py-2 text-sm font-semibold text-[#2563EB] hover:bg-blue-50"
+              >
+                <MapPin className="h-4 w-4" />
+                {form.address ? "Edit Address" : "Add Address"}
+              </button>
+            </div>
+            {form.address ? (
+              <p className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                {form.address}
+              </p>
+            ) : (
+              <p className="mt-3 text-sm text-slate-500">No address added yet.</p>
+            )}
+          </div>
 
           <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
             Hourly Rate ($)
@@ -155,8 +189,15 @@ export default function CreateEmployee() {
           </label>
         </div>
 
+        <EmployeeAddressModal
+          open={addressOpen}
+          onClose={() => setAddressOpen(false)}
+          value={form.address}
+          onSave={(value) => setForm((f) => ({ ...f, address: value }))}
+        />
+
         <div className="flex flex-wrap gap-3 border-t border-slate-100 pt-5">
-          <button type="submit" disabled={saving} className="ui-btn-primary disabled:opacity-50">
+          <button type="submit" disabled={saving} className="ui-btn-hr">
             {saving ? "Creating…" : "Create Employee"}
           </button>
           <Link to="/hr/employees" className="ui-btn-secondary">

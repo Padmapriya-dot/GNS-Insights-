@@ -982,18 +982,38 @@ export default function TaxInvoiceForm() {
                         {hasDesc ? t.taxable.toFixed(2) : "—"}
                       </td>
                       <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
-                        <select
-                          value={row.gst_pct}
-                          onChange={(e) => updateItem(idx, "gst_pct", e.target.value)}
-                          className="rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
-                        >
-                          <option value="">—</option>
-                          <option value="0">0%</option>
-                          <option value="5">5%</option>
-                          <option value="12">12%</option>
-                          <option value="18">18%</option>
-                          <option value="28">28%</option>
-                        </select>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span className="w-12 text-[11px] font-semibold text-[#6b6b76]">CGST</span>
+                            <input
+                              type="number"
+                              value={row.cgst_pct ?? ""}
+                              onChange={(e) => updateItem(idx, "cgst_pct", e.target.value)}
+                              placeholder="%"
+                              className="w-16 rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="w-12 text-[11px] font-semibold text-[#6b6b76]">SGST</span>
+                            <input
+                              type="number"
+                              value={row.sgst_pct ?? ""}
+                              onChange={(e) => updateItem(idx, "sgst_pct", e.target.value)}
+                              placeholder="%"
+                              className="w-16 rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="w-12 text-[11px] font-semibold text-[#6b6b76]">IGST</span>
+                            <input
+                              type="number"
+                              value={row.igst_pct ?? ""}
+                              onChange={(e) => updateItem(idx, "igst_pct", e.target.value)}
+                              placeholder="%"
+                              className="w-16 rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
+                            />
+                          </div>
+                        </div>
                       </td>
                       <td className="border-b border-r border-[#d0d0d8] px-2 py-2 font-semibold tabular-nums">
                         {hasDesc ? t.total.toFixed(2) : "—"}

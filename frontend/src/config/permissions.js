@@ -16,29 +16,29 @@ export const ROLES = [
 export const MODULES = [
   "dashboard", "masters", "production", "inventory", "procurement", "hr", "attendance",
   "sales", "accounts", "quality", "maintenance", "analytics", "alerts", "admin",
-  "documents", "factoryMonitor", "iot", "settings",
+  "documents", "documents_ops", "factoryMonitor", "iot", "settings",
 ];
 
 /** Static fallback matrix — API permissions take precedence when present. */
 export const ROLE_PERMISSIONS = {
   Admin: MODULES,
-  "Sales Manager": ["dashboard", "sales", "masters", "alerts", "documents", "analytics"],
+  "Sales Manager": ["dashboard", "sales", "masters", "alerts", "documents", "documents_ops", "analytics"],
   "Production Manager": [
-    "dashboard", "production", "quality", "analytics", "factoryMonitor", "alerts", "documents",
+    "dashboard", "production", "quality", "analytics", "factoryMonitor", "alerts", "documents", "documents_ops",
     "masters", "inventory", "maintenance", "procurement", "settings", "iot",
   ],
   "Store Manager": [
-    "dashboard", "inventory", "procurement", "masters", "alerts", "documents", "settings",
+    "dashboard", "inventory", "procurement", "masters", "alerts", "documents", "documents_ops", "settings",
   ],
   "Purchase Manager": [
-    "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "analytics",
+    "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "documents_ops", "analytics",
   ],
   "Procurement Manager": [
-    "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "analytics",
+    "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "documents_ops", "analytics",
   ],
-  "HR Manager": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents", "masters"],
-  Accountant: ["dashboard", "accounts", "sales", "documents", "analytics", "alerts", "masters"],
-  Operator: ["dashboard", "production", "factoryMonitor", "attendance", "documents", "alerts", "masters"],
+  "HR Manager": ["dashboard", "hr", "attendance", "analytics", "alerts", "documents"],
+  Accountant: ["dashboard", "accounts", "sales", "documents", "documents_ops", "analytics", "alerts", "masters"],
+  Operator: ["dashboard", "production", "factoryMonitor", "attendance", "documents", "documents_ops", "alerts", "masters"],
 };
 
 export const RESTRICTED_ACTION_ROLES = new Set();

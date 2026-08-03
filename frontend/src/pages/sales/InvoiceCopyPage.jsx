@@ -16,24 +16,6 @@ export default function InvoiceCopyPage() {
   useEffect(() => {
     if (!id) return;
 
-    // Check localStorage first (covers locally-created invoices)
-    const allLocal = [
-      ...JSON.parse(localStorage.getItem("smrt_invoices") || "[]"),
-      ...JSON.parse(localStorage.getItem("smrt_sales_bills") || "[]"),
-    ];
-    const localMatch = allLocal.find(
-      (inv) => String(inv.id) === String(id) || String(inv.invoice_number) === String(id)
-    );
-    if (localMatch) {
-      setDetail({
-        invoice: localMatch,
-        items: localMatch.items || [],
-        customer: { name: localMatch.customer_name || "Customer" },
-      });
-      setLoading(false);
-      return;
-    }
-
     getInvoiceDetail(id)
       .then((r) => setDetail(r.data))
       .catch(console.error)
@@ -54,7 +36,9 @@ export default function InvoiceCopyPage() {
         </Link>
       </div>
       {copyData ? (
-        <Invoice data={copyData} />
+        <div className="overflow-x-auto">
+          <Invoice data={copyData} />
+        </div>
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500">
           Select an invoice to view its copy.

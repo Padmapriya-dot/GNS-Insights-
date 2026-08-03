@@ -226,63 +226,65 @@ export default function Invoice({ data }) {
       <table className="goods-table">
         <thead>
           <tr>
-            <th style={{ width: "5%" }}>Sl No</th>
-            <th style={{ width: "36%", textAlign: "left" }}>Description of Goods</th>
-            <th style={{ width: "10%" }}>HSN/SAC</th>
-            <th style={{ width: "10%" }}>Qty</th>
-            <th style={{ width: "10%" }}>Rate</th>
-            <th style={{ width: "7%" }}>Per</th>
-            <th style={{ width: "14%", textAlign: "right" }}>Amount</th>
+            <th style={{ width: "4%" }}>Sl No</th>
+            <th style={{ width: "30%", textAlign: "left" }}>Description of Goods</th>
+            <th style={{ width: "8%" }}>HSN/SAC</th>
+            <th style={{ width: "6%" }}>Qty</th>
+            <th style={{ width: "8%" }}>Rate</th>
+            <th style={{ width: "6%" }}>Per</th>
+            <th style={{ width: "10%" }}>Taxable Value</th>
+            {isIgst ? (
+              <>
+                <th style={{ width: "6%" }}>IGST %</th>
+                <th style={{ width: "8%" }}>IGST Amt</th>
+              </>
+            ) : (
+              <>
+                <th style={{ width: "6%" }}>CGST %</th>
+                <th style={{ width: "8%" }}>CGST Amt</th>
+                <th style={{ width: "6%" }}>SGST %</th>
+                <th style={{ width: "8%" }}>SGST Amt</th>
+              </>
+            )}
+            <th style={{ width: "10%", textAlign: "right" }}>Total</th>
           </tr>
         </thead>
         <tbody>
 
           {/* Item rows */}
-          {items.map((item, idx) => (
-            <tr key={item.si || idx}>
-              <td className="text-center">{item.si || idx + 1}</td>
-              <td>{item.description || item.item_description || ""}</td>
-              <td className="text-center" style={{ fontFamily: "monospace" }}>{item.hsn || ""}</td>
-              <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(item.qty)}</td>
-              <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(item.rate)}</td>
-              <td className="text-center">{item.unit || unit0}</td>
-              <td className="text-right bold" style={{ fontFamily: "monospace" }}>{fmt(item.amount)}</td>
-            </tr>
-          ))}
-
-          {/* Tax rows — one row per tax type so each % aligns with its label */}
-          {isIgst ? (
-            <tr>
-              <td />
-              <td className="text-right">IGST</td>
-              <td /><td /><td />
-              <td className="text-center" style={{ fontFamily: "monospace" }}>{igstPct}%</td>
-              <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(igstAmt)}</td>
-            </tr>
-          ) : (
-            <>
-              <tr>
-                <td />
-                <td className="text-right">CGST</td>
-                <td /><td /><td />
-                <td className="text-center" style={{ fontFamily: "monospace" }}>{invoiceCgstPct}%</td>
-                <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(cgstAmt)}</td>
+          {items.map((item, idx) => {
+            const lineTotal = Number(item.amount) + Number(item.igstAmount || 0) + Number(item.cgstAmount || 0) + Number(item.sgstAmount || 0);
+            return (
+              <tr key={item.si || idx}>
+                <td className="text-center">{item.si || idx + 1}</td>
+                <td>{item.description || item.item_description || ""}</td>
+                <td className="text-center" style={{ fontFamily: "monospace" }}>{item.hsn || ""}</td>
+                <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(item.qty)}</td>
+                <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(item.rate)}</td>
+                <td className="text-center">{item.unit || unit0}</td>
+                <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(item.amount)}</td>
+                {isIgst ? (
+                  <>
+                    <td className="text-center" style={{ fontFamily: "monospace" }}>{item.igstPct || 0}%</td>
+                    <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(item.igstAmount)}</td>
+                  </>
+                ) : (
+                  <>
+                    <td className="text-center" style={{ fontFamily: "monospace" }}>{item.cgstPct || 0}%</td>
+                    <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(item.cgstAmount)}</td>
+                    <td className="text-center" style={{ fontFamily: "monospace" }}>{item.sgstPct || 0}%</td>
+                    <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(item.sgstAmount)}</td>
+                  </>
+                )}
+                <td className="text-right bold" style={{ fontFamily: "monospace" }}>{fmt(lineTotal)}</td>
               </tr>
-              <tr>
-                <td />
-                <td className="text-right">SGST</td>
-                <td /><td /><td />
-                <td className="text-center" style={{ fontFamily: "monospace" }}>{invoiceSgstPct}%</td>
-                <td className="text-right" style={{ fontFamily: "monospace" }}>{fmt(sgstAmt)}</td>
-              </tr>
-            </>
-          )}
+            );
+          })}
 
           {roundOff !== 0 && (
             <tr>
               <td />
-              <td className="text-right">Rounded Off</td>
-              <td /><td /><td /><td />
+              <td className="text-right" colSpan={isIgst ? 8 : 10} style={{ fontWeight: 700 }}>Rounded Off</td>
               <td className="text-right" style={{ fontFamily: "monospace" }}>
                 {roundOff > 0 ? "+" : ""}{fmt(roundOff)}
               </td>
@@ -291,10 +293,8 @@ export default function Invoice({ data }) {
 
           {/* Total row */}
           <tr>
-            <td colSpan="3" className="text-right bold">Total</td>
-            <td className="text-right bold" style={{ fontFamily: "monospace" }}>{fmt(qtyTotal)}</td>
-            <td colSpan="2" />
-            <td className="text-right bold" style={{ fontFamily: "monospace" }}>₹ {fmt(grand)}</td>
+            <td colSpan={isIgst ? 8 : 10} className="text-right bold">Total</td>
+            <td className="text-right bold" style={{ fontFamily: "monospace" }}>{fmt(grand)}</td>
           </tr>
 
         </tbody>

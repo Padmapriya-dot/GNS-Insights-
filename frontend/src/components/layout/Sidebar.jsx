@@ -34,6 +34,7 @@ const ICON_BY_KEY = {
   dashboard: LayoutDashboard,
   manufacturingWorkflow: Factory,
   masters: Layers,
+  hrMasters: Layers,
   production: Factory,
   inventory: Boxes,
   procurement: ShoppingCart,
@@ -193,11 +194,34 @@ function isProductionManager(user) {
   return allRoles.some((r) => r.includes("production manager") || r.includes("production_manager"));
 }
 
-function filterStaticNav(user) {
+function normalizeRoleName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_\-\s]+/g, " ");
+}
+
+function isHRManager(user) {
+  if (!user) return false;
+  if (Array.isArray(user.permissions) && user.permissions.includes("*")) return false; // admin
+  const roles = Array.isArray(user.roles)
+    ? user.roles.map((r) => (typeof r === "object" ? r.name : String(r)))
+    : [];
+  const roleStr = String(user.role || user.role_name || (typeof user.roles === "string" ? user.roles : ""));
+  const allRoles = [...roles.map((r) => normalizeRoleName(r)), normalizeRoleName(roleStr)];
+  return allRoles.some((r) => r.includes("hr manager") || r.includes("hr manager") || r.includes("hr") || r.includes("human resources"));
+}
+
+// Sections always hidden for HR Manager regardless of API permissions
+const HR_MANAGER_BLOCKED_SECTIONS = new Set(["masters", "hrMasters"]);
+
+export function filterStaticNav(user) {
   const storeMgr = isStoreManager(user);
   const isPM = isProductionManager(user);
+  const isHR = isHRManager(user);
   return SIDEBAR_NAV.map((section) => {
     if (isPM && !PROD_MANAGER_ALLOWED_SECTIONS.has(section.key)) return null;
+    if (isHR && HR_MANAGER_BLOCKED_SECTIONS.has(section.key)) return null;
     if (section.to) {
       if (!userCanAccess(user, section.module)) return null;
       if (storeMgr && !storeManagerPathAllowed(section.to)) return null;
@@ -260,8 +284,12 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, onClose }
     // Prefer local SIDEBAR_NAV so new pages (Inventory v2, Ledger) appear even if API catalog is stale.
     const staticNav = filterStaticNav(user);
     const raw = staticNav.length ? staticNav : apiNav && apiNav.length ? apiNav : [];
+    const filteredRaw = (raw || []).filter((section) => {
+      if (isHRManager(user) && HR_MANAGER_BLOCKED_SECTIONS.has(section.key)) return false;
+      return true;
+    });
     if (isProductionManager(user)) {
-      return raw
+      return filteredRaw
         .map((section) => {
           if (!PROD_MANAGER_ALLOWED_SECTIONS.has(section.key)) return null;
           if (!section.children) return section;
@@ -271,7 +299,7 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, onClose }
         })
         .filter(Boolean);
     }
-    return raw;
+    return filteredRaw;
   }, [apiNav, user, storeMode]);
 
   const [expanded, setExpanded] = useState(() =>

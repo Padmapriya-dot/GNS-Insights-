@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Save } from "lucide-react";
 
@@ -214,7 +214,7 @@ export default function CreateIncident() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm"
+              className="ui-btn-hr"
             >
               <Save className="h-4 w-4" />
               {saving ? "Submitting..." : "Submit Report"}

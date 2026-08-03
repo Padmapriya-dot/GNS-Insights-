@@ -167,6 +167,36 @@ textarea {
   transform: none;
 }
 
+/* HR action button – matches the app's Logout button (yellow-gold accent) */
+.ui-btn-hr {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background-color: #F5C518;
+  color: #1e293b;
+  box-shadow: 0 2px 8px rgba(245, 197, 24, 0.35);
+  transition: background-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+  cursor: pointer;
+  border: none;
+}
+.ui-btn-hr:hover {
+  background-color: #e6b800;
+  box-shadow: 0 4px 14px rgba(245, 197, 24, 0.5);
+}
+.ui-btn-hr:active {
+  transform: scale(0.97);
+}
+.ui-btn-hr:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* Secondary / outline button */
 .ui-btn-secondary {
   display: inline-flex;

@@ -429,7 +429,7 @@ Description:  ${doc.description || "No description provided."}
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all"
+              className="ui-btn-hr"
             >
               <Plus className="h-4 w-4" /> Upload Document
             </button>
@@ -860,7 +860,7 @@ Description:  ${doc.description || "No description provided."}
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm"
+                className="ui-btn-hr"
               >
                 {saving ? "Saving..." : "Save Document"}
               </button>
