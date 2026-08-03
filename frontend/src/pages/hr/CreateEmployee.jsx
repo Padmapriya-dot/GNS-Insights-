@@ -176,7 +176,7 @@ export default function CreateEmployee() {
           </div>
 
           <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
-            Hourly Rate ($)
+            Hourly Rate (₹)
             <input
               type="number"
               min="0"

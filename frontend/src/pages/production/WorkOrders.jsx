@@ -22,6 +22,7 @@ import WorkOrderDetailModal, {
   WorkOrderCompleteModal,
   WorkOrderStartModal,
 } from "../../components/production/WorkOrderDetailModal";
+import QuickWorkOrderModal from "../../components/production/QuickWorkOrderModal";
 import { useToast } from "../../context/ToastContext";
 import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
 import useAuth from "../../hooks/useAuth";
@@ -161,14 +162,35 @@ export default function WorkOrders() {
   const [completeModal, setCompleteModal] = useState(null);
   const [completeSteps, setCompleteSteps] = useState([]);
   const [issuingId, setIssuingId] = useState(null);
+  const [showQuickModal, setShowQuickModal] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      let localWOs = [];
+      try {
+        const stored = localStorage.getItem("smrt_local_work_orders");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          localWOs = parsed.map((r, i) => enrichApiWorkOrder(r, i));
+        }
+      } catch (e) {}
+
       const poId = poFilter ? Number(poFilter) : undefined;
       const wRes = await getWorkOrders(poId).catch(() => ({ data: [] }));
       const apiRows = wRes.data || [];
-      const enriched = apiRows.map((r, i) => enrichApiWorkOrder(r, i));
+      const apiEnriched = apiRows.map((r, i) => enrichApiWorkOrder(r, i));
+
+      const combined = [...localWOs, ...apiEnriched];
+      const seen = new Set();
+      const enriched = combined.filter((w) => {
+        const key = w.id ? `id-${w.id}` : w.work_order_number ? `num-${w.work_order_number}` : null;
+        if (!key) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
       enriched.sort((a, b) => {
         const idA = typeof a.id === "number" ? a.id : Number(String(a.id).replace(/\D/g, "")) || 0;
         const idB = typeof b.id === "number" ? b.id : Number(String(b.id).replace(/\D/g, "")) || 0;
@@ -468,9 +490,9 @@ export default function WorkOrders() {
         </div>
         <div className="flex flex-wrap gap-2">
           {!isOperator(user) && (
-            <Link to="/production/work-orders/create-quick" className="ui-btn-primary">
+            <button type="button" onClick={() => setShowQuickModal(true)} className="ui-btn-primary">
               <Plus className="h-4 w-4" /> New Work Order
-            </Link>
+            </button>
           )}
           <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <RefreshCw className="h-4 w-4" /> Refresh
@@ -538,7 +560,11 @@ export default function WorkOrders() {
             </select>
             <select value={filters.shift} onChange={(e) => setFilters((f) => ({ ...f, shift: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
               <option value="">Shift</option>
-              {SHIFTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              {SHIFTS.map((s) => {
+                const id = typeof s === "object" ? s.id : s;
+                const label = typeof s === "object" ? s.label : s;
+                return <option key={id} value={id}>{label}</option>;
+              })}
             </select>
             <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
               <option value="">Priority</option>
@@ -595,6 +621,14 @@ export default function WorkOrders() {
 
       {completeModal && (
         <WorkOrderCompleteModal workOrder={completeModal} steps={completeSteps} onClose={() => setCompleteModal(null)} />
+      )}
+
+      {showQuickModal && (
+        <QuickWorkOrderModal
+          onClose={() => setShowQuickModal(false)}
+          onSuccess={() => load()}
+          addToast={addToast}
+        />
       )}
     </div>
   );

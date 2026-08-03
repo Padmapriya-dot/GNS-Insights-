@@ -131,7 +131,7 @@ export default function DailyReports() {
     { key: "product_name", label: t("dashboard.product"), render: (r) => r.product_name || r.product_id || "—" },
     { key: "work_order_number", label: t("production.workOrder"), render: (r) => r.work_order_number || r.work_order_id || "—" },
     { key: "machine_name", label: t("production.machine"), render: (r) => r.machine_name || r.machine_id || "—" },
-    { key: "shift", label: "Shift", render: (r) => r.shift || "—" },
+    { key: "shift", label: "Shift", render: (r) => typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "—") : (r.shift || "—") },
     { key: "operator_name", label: "Operator", render: (r) => r.operator_name || "—" },
     { key: "planned_quantity", label: "Planned Quantity", render: (r) => (r.planned_quantity != null ? r.planned_quantity : "—") },
     {

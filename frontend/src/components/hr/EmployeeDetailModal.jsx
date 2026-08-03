@@ -407,7 +407,7 @@ export default function EmployeeDetailModal({ employee, onClose }) {
                 </div>
               </Field>
               <Field label="Designation" value={employee.designation} />
-              <Field label="Shift" value={employee.shift} />
+              <Field label="Shift" value={typeof employee.shift === "object" ? (employee.shift?.label || employee.shift?.id || "—") : (employee.shift || "—")} />
               <Field label="Reporting Manager" value={employee.reporting_manager} />
               <Field label="Employee Code" value={employee.employee_code || employee.employee_id} />
               <Field label="Employment Type">

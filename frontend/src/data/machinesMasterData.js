@@ -54,7 +54,7 @@ export function enrichApiMachine(row, index = 0) {
     display_status: status,
     status,
     assigned_operator: row.assigned_operator || "—",
-    current_shift: row.current_shift || "Shift A",
+    current_shift: typeof row.current_shift === "object" ? (row.current_shift?.label || row.current_shift?.id || "Shift A") : (row.current_shift || "Shift A"),
     current_work_order: row.current_work_order || null,
     current_product: row.current_product || null,
     health_score: row.health_score ?? 85,

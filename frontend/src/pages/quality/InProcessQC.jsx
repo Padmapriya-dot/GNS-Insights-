@@ -63,7 +63,7 @@ export default function InProcessQC() {
   const columns = [
     { key: "work_order_number", label: "Work Order" },
     { key: "machine_name", label: "Machine" },
-    { key: "shift", label: "Shift" },
+    { key: "shift", label: "Shift", render: (r) => typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "—") : (r.shift || "—") },
     { key: "operator_name", label: "Operator" },
     { key: "inspection_time", label: "Inspection Time" },
     { key: "qc_status", label: "Quality Control (QC) Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcStatusColor(r.qc_status)}`}>{r.qc_status}</span> },

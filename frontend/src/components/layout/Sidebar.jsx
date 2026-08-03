@@ -26,7 +26,7 @@ import BrandLogo from "../common/BrandLogo";
 import LogoutConfirmModal from "../common/LogoutConfirmModal";
 import useAuth from "../../hooks/useAuth";
 import { getSidebarMenus } from "../../api/authApi";
-import { userCanAccess, isStoreManager, storeManagerPathAllowed } from "../../config/permissions";
+import { userCanAccess, isStoreManager, isProductionManager, storeManagerPathAllowed } from "../../config/permissions";
 import { SIDEBAR_NAV, sectionHasActiveChild } from "../../config/sidebarNav";
 import { STORE_MANAGER_NAV_ITEMS } from "../../config/storeManagerNavConfig";
 
@@ -145,20 +145,26 @@ const PROD_MANAGER_ALLOWED_SECTIONS = new Set([
 const PROD_MANAGER_ALLOWED_CHILDREN = new Set([
   "/masters/products",
   "/masters/bom",
+  "/production",
+  "/production/dashboard",
+  "/production/create",
   "/production/machines",
   "/production/planning",
   "/production/mrp",
   "/production/work-orders",
+  "/production/work-orders/create-quick",
   "/production/schedule",
   "/factory-monitor/live-production",
   "/production/tasks",
   "/production/assign-tasks",
   "/production/batches",
   "/production/reports",
+  "/inventory",
   "/inventory/raw-materials",
   "/inventory/finished-goods",
   "/inventory/stock-transfer",
-  "/procurement/vendors",
+  "/sales",
+  "/sales/orders",
   "/procurement/material-requests",
   "/quality/in-process",
   "/quality/final",

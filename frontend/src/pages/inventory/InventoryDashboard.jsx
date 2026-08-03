@@ -18,6 +18,8 @@ import {
 
 import Loader from "../../components/common/Loader";
 import StoreManagerNav from "../../components/inventory/StoreManagerNav";
+import useAuth from "../../hooks/useAuth";
+import { isProductionManager } from "../../config/permissions";
 import { useToast } from "../../context/ToastContext";
 import {
   createPrFromLowStock,
@@ -90,6 +92,8 @@ const WORKFLOW = [
 ];
 
 export default function InventoryDashboard() {
+  const { user } = useAuth();
+  const isPM = isProductionManager(user);
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [dash, setDash] = useState({});
@@ -217,7 +221,7 @@ export default function InventoryDashboard() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Kpi label="Total Products" value={dash.total_products} icon={Package} tone="primary" to="/masters/products" />
-        <Kpi label="Vendors" value={vendorCount} icon={Building2} tone="slate" to="/procurement/vendors" />
+        {!isPM && <Kpi label="Vendors" value={vendorCount} icon={Building2} tone="slate" to="/procurement/vendors" />}
         <Kpi label="Low Stock Items" value={dash.low_stock_items} icon={AlertTriangle} tone="amber" to="/alerts/low-stock" />
         <Kpi label="Out of Stock" value={dash.out_of_stock_items} icon={PackageX} tone="red" to="/masters/products" />
         <Kpi label="Pending Requests" value={dash.pending_material_requests} icon={ClipboardList} tone="sky" to="/inventory/material-requests" />
@@ -233,8 +237,8 @@ export default function InventoryDashboard() {
       <div>
         <h2 className="mb-3 text-sm font-bold text-slate-800">Quick actions</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <QuickAction to="/masters/products/create" icon={Package} label="Add Product" hint="Product master" />
-          <QuickAction to="/procurement/vendors" icon={Building2} label="Vendors" hint="Supplier master" />
+          {!isPM && <QuickAction to="/masters/products/create" icon={Package} label="Add Product" hint="Product master" />}
+          {!isPM && <QuickAction to="/procurement/vendors" icon={Building2} label="Vendors" hint="Supplier master" />}
           <QuickAction to="/inventory/stock-in" icon={PackagePlus} label="Stock In" hint="Receive materials" />
           <QuickAction to="/inventory/material-requests" icon={ClipboardList} label="Material Request" hint="From production" />
           <QuickAction to="/inventory/issue-materials" icon={PackageMinus} label="Issue Materials" hint="Approve & issue" />

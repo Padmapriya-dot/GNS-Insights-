@@ -13,37 +13,34 @@ export function printProductionOrder(order, user) {
   const dueDate   = order.due_date   ? new Date(order.due_date).toLocaleDateString()   : "—";
   const priority  = order.priority ? order.priority.charAt(0).toUpperCase() + order.priority.slice(1) : "—";
   const status    = order.status   ? order.status.charAt(0).toUpperCase()   + order.status.slice(1).replace(/_/g," ") : "—";
-  const priorityColor = { high:"#f59e0b", urgent:"#ef4444", medium:"#f59e0b", low:"#22c55e" }[order.priority] || "#94a3b8";
 
   const html = `<!DOCTYPE html><html><head><title>Production Order ${order.order_number || ""}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:13px}
-  .page{padding:28px 36px}
-  .top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;font-size:11px;color:#555}
-  .brand{color:#2563eb;font-weight:700;font-size:12px;letter-spacing:.5px}
-  .title{font-size:26px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px}
-  .subtitle{font-size:12px;color:#555;padding-bottom:14px;border-bottom:2px solid #111;margin-bottom:22px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-bottom:0}
-  .section{padding:16px 0;border-bottom:1px solid #e2e8f0}
+  body{font-family:Arial,Helvetica,sans-serif;color:#000;background:#fff;font-size:12px;line-height:1.5}
+  .page{padding:24px 30px}
+  .top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;font-size:12px;color:#000}
+  .brand{color:#000;font-weight:bold;font-size:12px}
+  .title{font-size:24px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;color:#000}
+  .subtitle{font-size:12px;color:#000;padding-bottom:10px;border-bottom:1px solid #000;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:0}
+  .section{padding:10px 0;border-bottom:1px solid #ddd}
   .section:last-child{border-bottom:none}
-  .section-label{font-size:9px;font-weight:700;letter-spacing:1.2px;color:#64748b;text-transform:uppercase;margin-bottom:6px}
-  .section-value{font-size:15px;font-weight:700;color:#0f172a}
-  .section-sub{font-size:12px;color:#475569;margin-top:2px}
-  .badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-right:6px}
-  .badge-priority{background:#fef3c7;color:#92400e}
-  .badge-status{background:#f1f5f9;color:#1e293b;border:1px solid #cbd5e1}
+  .section-label{font-size:12px;font-weight:bold;color:#000;text-transform:uppercase;margin-bottom:4px}
+  .section-value{font-size:12px;font-weight:normal;color:#000}
+  .section-sub{font-size:12px;color:#000;margin-top:2px}
+  .badge{display:inline-block;padding:0;border-radius:0;font-size:12px;font-weight:normal;margin-right:8px;background:none !important;color:#000 !important;border:none !important}
   .qty-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px}
-  .qty-box .num{font-size:26px;font-weight:800;color:#0f172a}
-  .qty-box .lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
-  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  .qty-box .num{font-size:12px;font-weight:normal;color:#000}
+  .qty-box .lbl{font-size:12px;color:#000;text-transform:uppercase;margin-top:2px}
+  @media print{@page{margin:10mm;size:auto;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;margin:0;}}
 </style>
 </head><body><div class="page">
 
 <div class="top-bar">
   <div>
-    <span style="font-weight:700;color:#2563eb;font-size:11px;letter-spacing:.3px">Production</span>
-    ${printedBy ? `<span style="margin-left:10px;color:#555">Welcome, ${printedBy}</span>` : ""}
+    <span>Production</span>
+    ${printedBy ? `<span style="margin-left:10px">Welcome, ${printedBy}</span>` : ""}
   </div>
   <span class="brand">GNS Insights</span>
 </div>
@@ -66,17 +63,17 @@ export function printProductionOrder(order, user) {
 <div class="grid">
   <div class="section">
     <div class="section-label">Priority &amp; Status</div>
-    <div style="margin-top:6px">
-      <span class="badge badge-priority" style="background:#fef3c7;border-left:3px solid ${priorityColor}">${priority}</span>
-      <span class="badge badge-status">${status}</span>
+    <div style="margin-top:4px">
+      <span class="badge">${priority}</span>
+      <span class="badge">${status}</span>
     </div>
   </div>
   <div class="section">
     <div class="section-label">Production Quantities</div>
     <div class="qty-grid">
-      <div class="qty-box"><div class="num">${planned}</div><div class="lbl">Planned</div></div>
-      <div class="qty-box"><div class="num">${produced}</div><div class="lbl">Produced</div></div>
-      <div class="qty-box"><div class="num">${balance}</div><div class="lbl">Balance</div></div>
+      <div class="qty-box"><div class="lbl">Planned: ${planned}</div></div>
+      <div class="qty-box"><div class="lbl">Produced: ${produced}</div></div>
+      <div class="qty-box"><div class="lbl">Balance: ${balance}</div></div>
     </div>
   </div>
 </div>
@@ -84,16 +81,16 @@ export function printProductionOrder(order, user) {
 <div class="grid">
   <div class="section">
     <div class="section-label">Schedule</div>
-    <div style="margin-top:4px;line-height:1.8">
-      <div><strong>Start:</strong> ${startDate}</div>
-      <div><strong>Due:</strong> ${dueDate}</div>
+    <div style="margin-top:4px">
+      <div>Start: ${startDate}</div>
+      <div>Due: ${dueDate}</div>
     </div>
   </div>
   <div class="section">
     <div class="section-label">Assignment</div>
-    <div style="margin-top:4px;line-height:1.8">
-      <div><strong>Machine:</strong> ${order.machine_name || "—"}</div>
-      <div><strong>Shift:</strong> ${order.shift || "—"}</div>
+    <div style="margin-top:4px">
+      <div>Machine: ${order.machine_name || "—"}</div>
+      <div>Shift: ${order.shift || "—"}</div>
     </div>
   </div>
 </div>
@@ -117,37 +114,34 @@ export function printWorkOrder(workOrder, user) {
   const dueDate   = workOrder.planned_end   ? new Date(workOrder.planned_end).toLocaleDateString()   : "—";
   const priority  = workOrder.priority ? workOrder.priority.charAt(0).toUpperCase() + workOrder.priority.slice(1) : "—";
   const status    = workOrder.status   ? workOrder.status.charAt(0).toUpperCase()   + workOrder.status.slice(1).replace(/_/g," ") : "—";
-  const priorityColor = { high:"#f59e0b", urgent:"#ef4444", medium:"#f59e0b", low:"#22c55e" }[workOrder.priority] || "#94a3b8";
 
   const html = `<!DOCTYPE html><html><head><title>Work Order ${workOrder.work_order_number || ""}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:13px}
-  .page{padding:28px 36px}
-  .top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;font-size:11px;color:#555}
-  .brand{color:#2563eb;font-weight:700;font-size:12px;letter-spacing:.5px}
-  .title{font-size:26px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px}
-  .subtitle{font-size:12px;color:#555;padding-bottom:14px;border-bottom:2px solid #111;margin-bottom:22px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-bottom:0}
-  .section{padding:16px 0;border-bottom:1px solid #e2e8f0}
+  body{font-family:Arial,Helvetica,sans-serif;color:#000;background:#fff;font-size:12px;line-height:1.5}
+  .page{padding:24px 30px}
+  .top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;font-size:12px;color:#000}
+  .brand{color:#000;font-weight:bold;font-size:12px}
+  .title{font-size:24px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;color:#000}
+  .subtitle{font-size:12px;color:#000;padding-bottom:10px;border-bottom:1px solid #000;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:0}
+  .section{padding:10px 0;border-bottom:1px solid #ddd}
   .section:last-child{border-bottom:none}
-  .section-label{font-size:9px;font-weight:700;letter-spacing:1.2px;color:#64748b;text-transform:uppercase;margin-bottom:6px}
-  .section-value{font-size:15px;font-weight:700;color:#0f172a}
-  .section-sub{font-size:12px;color:#475569;margin-top:2px}
-  .badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-right:6px}
-  .badge-priority{background:#fef3c7;color:#92400e}
-  .badge-status{background:#f1f5f9;color:#1e293b;border:1px solid #cbd5e1}
+  .section-label{font-size:12px;font-weight:bold;color:#000;text-transform:uppercase;margin-bottom:4px}
+  .section-value{font-size:12px;font-weight:normal;color:#000}
+  .section-sub{font-size:12px;color:#000;margin-top:2px}
+  .badge{display:inline-block;padding:0;border-radius:0;font-size:12px;font-weight:normal;margin-right:8px;background:none !important;color:#000 !important;border:none !important}
   .qty-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px}
-  .qty-box .num{font-size:26px;font-weight:800;color:#0f172a}
-  .qty-box .lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
-  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  .qty-box .num{font-size:12px;font-weight:normal;color:#000}
+  .qty-box .lbl{font-size:12px;color:#000;text-transform:uppercase;margin-top:2px}
+  @media print{@page{margin:10mm;size:auto;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;margin:0;}}
 </style>
 </head><body><div class="page">
 
 <div class="top-bar">
   <div>
-    <span style="font-weight:700;color:#2563eb;font-size:11px;letter-spacing:.3px">Production</span>
-    ${printedBy ? `<span style="margin-left:10px;color:#555">Welcome, ${printedBy}</span>` : ""}
+    <span>Production</span>
+    ${printedBy ? `<span style="margin-left:10px">Welcome, ${printedBy}</span>` : ""}
   </div>
   <span class="brand">GNS Insights</span>
 </div>
@@ -171,18 +165,18 @@ export function printWorkOrder(workOrder, user) {
 <div class="grid">
   <div class="section">
     <div class="section-label">Priority &amp; Status</div>
-    <div style="margin-top:6px">
-      <span class="badge badge-priority" style="background:#fef3c7;border-left:3px solid ${priorityColor}">${priority}</span>
-      <span class="badge badge-status">${status}</span>
-      ${workOrder.materials_issued ? '<span class="badge" style="background:#dcfce7;color:#166534">Materials ✔</span>' : ""}
+    <div style="margin-top:4px">
+      <span class="badge">${priority}</span>
+      <span class="badge">${status}</span>
+      ${workOrder.materials_issued ? '<span class="badge">Materials ✔</span>' : ""}
     </div>
   </div>
   <div class="section">
     <div class="section-label">Production Quantities</div>
     <div class="qty-grid">
-      <div class="qty-box"><div class="num">${planned}</div><div class="lbl">Planned</div></div>
-      <div class="qty-box"><div class="num">${produced}</div><div class="lbl">Produced</div></div>
-      <div class="qty-box"><div class="num">${balance}</div><div class="lbl">Balance</div></div>
+      <div class="qty-box"><div class="lbl">Planned: ${planned}</div></div>
+      <div class="qty-box"><div class="lbl">Produced: ${produced}</div></div>
+      <div class="qty-box"><div class="lbl">Balance: ${balance}</div></div>
     </div>
   </div>
 </div>
@@ -190,17 +184,17 @@ export function printWorkOrder(workOrder, user) {
 <div class="grid">
   <div class="section">
     <div class="section-label">Schedule</div>
-    <div style="margin-top:4px;line-height:1.8">
-      <div><strong>Start:</strong> ${startDate}</div>
-      <div><strong>Due:</strong> ${dueDate}</div>
+    <div style="margin-top:4px">
+      <div>Start: ${startDate}</div>
+      <div>Due: ${dueDate}</div>
     </div>
   </div>
   <div class="section">
     <div class="section-label">Assignment</div>
-    <div style="margin-top:4px;line-height:1.8">
-      <div><strong>Machine:</strong> ${workOrder.machine_name || "—"}</div>
-      <div><strong>Operator:</strong> ${workOrder.operator_name || "—"}</div>
-      <div><strong>Shift:</strong> ${workOrder.shift || "—"}</div>
+    <div style="margin-top:4px">
+      <div>Machine: ${workOrder.machine_name || "—"}</div>
+      <div>Operator: ${workOrder.operator_name || "—"}</div>
+      <div>Shift: ${workOrder.shift || "—"}</div>
     </div>
   </div>
 </div>
