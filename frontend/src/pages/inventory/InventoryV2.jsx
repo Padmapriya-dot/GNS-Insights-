@@ -35,22 +35,6 @@ import { apiErrorMessage } from "../../utils/apiError";
 const PAGE_BG = "#F5F5F5";
 const PAGE_SIZES = [10, 20, 50];
 
-/** Shown when the API returns no inventory items (matches reference UI). */
-const DEMO_INVENTORY_ITEM = {
-  id: "demo-product",
-  name: "Demo Product",
-  hsn_code: "",
-  stock_value: 0,
-  purchase_price: 0,
-  selling_price: 100,
-  current_stock: 0,
-  unit: "PCS",
-  category: "No Category",
-  min_stock: 0,
-  gst_percent: 0,
-  description: "",
-};
-
 const SORT_OPTIONS = [
   { id: "name-asc", label: "Item Name A-Z" },
   { id: "name-desc", label: "Item Name Z-A" },
@@ -302,14 +286,11 @@ export default function InventoryV2() {
         listInventoryV2Categories(),
       ]);
       const rows = Array.isArray(itemsRes.data) ? itemsRes.data : [];
-      const hasDemo = rows.some(
-        (r) => String(r.id) === "demo-product" || String(r.name).toLowerCase() === "demo product"
-      );
-      setProducts(hasDemo ? rows : [DEMO_INVENTORY_ITEM, ...rows]);
+      setProducts(rows);
       const cats = Array.isArray(catsRes.data) ? catsRes.data : [];
       setCategories(cats.length ? cats : [{ id: 0, name: "No Category", stock: 0 }]);
     } catch {
-      setProducts([DEMO_INVENTORY_ITEM]);
+      setProducts([]);
       setCategories(
         ["No Category", ...PRODUCT_CATEGORIES].map((name, i) => ({
           id: i,

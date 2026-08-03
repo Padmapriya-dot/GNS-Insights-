@@ -1,4 +1,7 @@
 {
+  "erpNav": {
+    "roleWorkflow": "भूमिका-आधारित वर्कफ़्लो"
+  },
   "nav": {
     "dashboard": "डैशबोर्ड",
     "productionManagement": "उत्पादन प्रबंधन",

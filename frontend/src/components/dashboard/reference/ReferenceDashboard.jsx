@@ -47,6 +47,8 @@ const tooltipStyle = {
 };
 
 const KPI_TITLE_KEYS = {
+  "inventory-value": "inventoryValue",
+  "low-stock": "lowStockItems",
   "total-orders": "totalOrders",
   "today-production": "todaysProduction",
   "machines-running": "machinesRunning",
@@ -157,7 +159,7 @@ function ProductionOverview({ chartSets }) {
               onClick={() => setPeriod(label)}
               className={`rounded-md px-2.5 py-1 transition-colors ${period === label ? "bg-white text-[#2563EB] shadow-sm" : "text-slate-500"}`}
             >
-              {t(`refDashboard.${key}`)}
+              {t(`refDashboard.${key}`, key)}
             </button>
           ))}
         </div>
@@ -208,7 +210,7 @@ function ShopFloorStatus({ statusData = [] }) {
             </PieChart>
           </ResponsiveContainer>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-[10px] font-medium text-slate-500">{t("refDashboard.totalMachines")}</span>
+            <span className="text-[10px] font-medium text-slate-500">{t("refDashboard.totalMachines", "Total Machines")}</span>
             <span className="text-2xl font-bold text-[#1E293B]">{total}</span>
           </div>
         </div>
@@ -277,14 +279,14 @@ function OrdersOverview({ overview = EMPTY_ORDERS }) {
       <div className="grid grid-cols-2 gap-3 mb-4">
         {stats.map((s) => (
           <div key={s.labelKey} className="rounded-xl bg-slate-50 px-3 py-2.5 text-center">
-            <p className="text-[10px] font-medium text-slate-500">{t(`refDashboard.${s.labelKey}`)}</p>
+            <p className="text-[10px] font-medium text-slate-500">{t(`refDashboard.${s.labelKey}`, s.labelKey)}</p>
             <p className={`text-xl font-bold tabular-nums ${s.color}`}>{Number(s.value ?? 0).toLocaleString()}</p>
           </div>
         ))}
       </div>
       <div>
         <div className="mb-1 flex justify-between text-xs">
-          <span className="font-medium text-slate-600">{t("refDashboard.overallProgress")}</span>
+          <span className="font-medium text-slate-600">{t("refDashboard.overallProgress", "Overall Progress")}</span>
           <span className="font-bold text-[#2563EB]">{overview.progress}%</span>
         </div>
         <div className="h-3 overflow-hidden rounded-full bg-slate-100">
@@ -318,7 +320,7 @@ function InventorySummary({ blocks = [], warehouses = [] }) {
               <div>
                 <p className="text-lg font-bold text-slate-800">{Number(b.count ?? 0).toLocaleString()}</p>
                 <p className="text-[10px] text-slate-500 leading-tight">
-                  {labelKey ? t(`refDashboard.${labelKey}`) : b.label}
+                  {labelKey ? t(`refDashboard.${labelKey}`, b.label || labelKey) : b.label}
                 </p>
                 {b.quantity !== undefined && b.quantity !== b.count && b.quantity > 0 && (
                   <p className="text-[9px] text-slate-400 font-medium">{Number(b.quantity).toLocaleString()} units</p>
@@ -331,14 +333,14 @@ function InventorySummary({ blocks = [], warehouses = [] }) {
       <p className="mb-2 text-xs font-semibold text-slate-600">{t("refDashboard.warehouseLocation")}</p>
       <div className="flex h-3 overflow-hidden rounded-full">
         {warehouses.map((w, i) => (
-          <div key={w.name} style={{ width: `${w.pct || 0}%`, backgroundColor: w.color || "#94A3B8" }} title={WAREHOUSE_KEYS[i] ? t(`refDashboard.${WAREHOUSE_KEYS[i]}`) : w.name} />
+          <div key={w.name} style={{ width: `${w.pct || 0}%`, backgroundColor: w.color || "#94A3B8" }} title={WAREHOUSE_KEYS[i] ? t(`refDashboard.${WAREHOUSE_KEYS[i]}`, w.name || WAREHOUSE_KEYS[i]) : w.name} />
         ))}
       </div>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
         {warehouses.map((w, i) => (
           <span key={w.name} className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: w.color || "#94A3B8" }} />
-            {WAREHOUSE_KEYS[i] ? t(`refDashboard.${WAREHOUSE_KEYS[i]}`) : w.name}
+            {WAREHOUSE_KEYS[i] ? t(`refDashboard.${WAREHOUSE_KEYS[i]}`, w.name || WAREHOUSE_KEYS[i]) : w.name}
           </span>
         ))}
       </div>
@@ -407,7 +409,7 @@ function QuickActions() {
             >
               <Plus className="h-5 w-5" />
               <span className="text-[11px] font-semibold leading-tight">
-                {labelKey ? t(`refDashboard.${labelKey}`) : a.label}
+                {labelKey ? t(`refDashboard.${labelKey}`, a.label || labelKey) : a.label}
               </span>
             </Link>
           );
@@ -431,11 +433,11 @@ function RecentWorkOrders({ workOrders = [] }) {
           <table className="w-full min-w-[420px] text-left text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wide text-slate-400">
-                <th className="pb-2 pr-3 font-semibold">{t("refDashboard.woNo")}</th>
-                <th className="pb-2 pr-3 font-semibold">{t("refDashboard.product")}</th>
-                <th className="pb-2 pr-3 font-semibold">{t("refDashboard.qty")}</th>
-                <th className="pb-2 pr-3 font-semibold">{t("refDashboard.status")}</th>
-                <th className="pb-2 font-semibold">{t("refDashboard.dueDate")}</th>
+                <th className="pb-2 pr-3 font-semibold">WO No</th>
+                <th className="pb-2 pr-3 font-semibold">Product</th>
+                <th className="pb-2 pr-3 font-semibold">Qty</th>
+                <th className="pb-2 pr-3 font-semibold">Status</th>
+                <th className="pb-2 font-semibold">Due Date</th>
               </tr>
             </thead>
             <tbody>
@@ -510,7 +512,7 @@ function TodaysSummary({ items = [] }) {
       <ul className="space-y-3">
         {filteredItems.map((item, i) => {
           const Icon = summaryIcons[item.icon] || BarChart3;
-          const label = item.key ? t(`refDashboard.${item.key}`, item.label) : (SUMMARY_KEYS[i] ? t(`refDashboard.${SUMMARY_KEYS[i]}`) : item.label);
+          const label = item.key ? t(`refDashboard.${item.key}`, item.label || item.key) : (SUMMARY_KEYS[i] ? t(`refDashboard.${SUMMARY_KEYS[i]}`, item.label || SUMMARY_KEYS[i]) : item.label);
           return (
             <li key={item.key || item.label || i} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
               <span className="flex items-center gap-2.5 text-sm text-slate-600">
@@ -634,25 +636,20 @@ export default function ReferenceDashboard() {
       <KpiStrip cards={kpiCardsLive} />
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-        <div className={isOp ? "xl:col-span-12" : "xl:col-span-5"}>
-          <ProductionOverview chartSets={chartSets} />
-        </div>
-        {!isOp && (
-          <>
-            <div className="xl:col-span-3">
-              <ShopFloorStatus statusData={apiData?.shop_floor_status || []} />
-            </div>
-            <div className="xl:col-span-4">
-              <TopMachines machines={apiData?.top_machines || []} />
-            </div>
-          </>
+        {isOp && (
+          <div className="xl:col-span-12">
+            <ProductionOverview chartSets={chartSets} />
+          </div>
         )}
       </div>
 
       <div className={`grid grid-cols-1 gap-5 ${isOp ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
         <OrdersOverview overview={{ ...EMPTY_ORDERS, ...(apiData?.orders_overview || {}) }} />
         {!isOp && (
-          <InventorySummary blocks={apiData?.inventory_blocks || []} warehouses={apiData?.warehouse_locations || []} />
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-slate-700">Store Operations</div>
+            <InventorySummary blocks={apiData?.inventory_blocks || []} warehouses={apiData?.warehouse_locations || []} />
+          </div>
         )}
         <AlertsNotifications alerts={alertsLive} />
       </div>

@@ -1,4 +1,7 @@
 {
+  "erpNav": {
+    "roleWorkflow": "பாத்திரம் அடிப்படையிலான பணிப்பாய்வு"
+  },
   "nav": {
     "dashboard": "டாஷ்போர்டு",
     "productionManagement": "உற்பத்தி மேலாண்மை",

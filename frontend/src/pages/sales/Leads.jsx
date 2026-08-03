@@ -16,8 +16,6 @@ import {
   updateLeadStatus,
 } from "../../api/salesApi";
 import {
-  DEMO_LEAD_LIST,
-  DEMO_LEAD_SUMMARY,
   KANBAN_COLUMNS,
   LEAD_INDUSTRIES,
   LEAD_REGIONS,
@@ -51,6 +49,7 @@ export default function Leads() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [rows, setRows] = useState([]);
+  const [summaryState, setSummaryState] = useState(null);
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [view, setView] = useState("table");
@@ -60,44 +59,40 @@ export default function Leads() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [, listRes] = await Promise.allSettled([getLeadSummary(), getLeadsEnriched()]);
-      const stored = localStorage.getItem("smrt_leads");
-      const localLeads = stored ? JSON.parse(stored) : [];
-      let baseLeads = DEMO_LEAD_LIST || [];
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length) {
-        baseLeads = listRes.value.data;
+      const [summaryRes, listRes] = await Promise.allSettled([getLeadSummary(), getLeadsEnriched()]);
+      const liveRows = listRes.status === "fulfilled" && Array.isArray(listRes.value?.data)
+        ? listRes.value.data
+        : [];
+      const liveSummary = summaryRes.status === "fulfilled" && summaryRes.value?.data
+        ? summaryRes.value.data
+        : null;
+      setRows(liveRows);
+      if (liveSummary) {
+        setSummaryState(liveSummary);
       }
-      const leadMap = new Map();
-      baseLeads.forEach((item) => {
-        const key = String(item.lead_id || item.id || item.customer_name || "");
-        if (key) leadMap.set(key, item);
-      });
-      localLeads.forEach((item) => {
-        const key = String(item.lead_id || item.id || item.customer_name || "");
-        if (key) leadMap.set(key, item);
-      });
-      setRows(Array.from(leadMap.values()));
     } catch {
-      const stored = localStorage.getItem("smrt_leads");
-      const localLeads = stored ? JSON.parse(stored) : [];
-      const leadMap = new Map();
-      (DEMO_LEAD_LIST || []).forEach((item) => {
-        const key = String(item.lead_id || item.id || item.customer_name || "");
-        if (key) leadMap.set(key, item);
-      });
-      localLeads.forEach((item) => {
-        const key = String(item.lead_id || item.id || item.customer_name || "");
-        if (key) leadMap.set(key, item);
-      });
-      setRows(Array.from(leadMap.values()));
+      setRows([]);
+      setSummaryState(null);
+      addToast("Could not load leads from the server.", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [addToast]);
 
   useEffect(() => { load(); }, [load]);
 
   const summary = useMemo(() => {
+    if (summaryState) {
+      return {
+        total_leads: Number(summaryState.total_leads ?? summaryState.total ?? rows.length) || 0,
+        new_leads: Number(summaryState.new_leads ?? 0) || 0,
+        contacted_leads: Number(summaryState.contacted_leads ?? 0) || 0,
+        qualified_leads: Number(summaryState.qualified_leads ?? 0) || 0,
+        won_customers: Number(summaryState.won_customers ?? summaryState.won ?? 0) || 0,
+        lost_leads: Number(summaryState.lost_leads ?? 0) || 0,
+        conversion_rate: summaryState.conversion_rate ?? 0,
+      };
+    }
     const total_leads = rows.length;
     const new_leads = rows.filter((r) => String(r.status || "").toLowerCase() === "new").length;
     const contacted_leads = rows.filter((r) => String(r.status || "").toLowerCase() === "contacted").length;
@@ -106,7 +101,7 @@ export default function Leads() {
     const lost_leads = rows.filter((r) => String(r.status || "").toLowerCase() === "lost").length;
     const conversion_rate = total_leads > 0 ? ((won_customers / total_leads) * 100).toFixed(1) : 0;
     return { total_leads, new_leads, contacted_leads, qualified_leads, won_customers, lost_leads, conversion_rate };
-  }, [rows]);
+  }, [rows, summaryState]);
 
   const filtered = useMemo(() => {
     let list = rows;

@@ -7,7 +7,7 @@ import FinanceFilters from "../../components/finance/FinanceFilters";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getAPEnriched, getAPSummary } from "../../api/accountsApi";
-import { DEMO_AP_LIST, DEMO_AP_SUMMARY, FINANCE_FLOW, formatInr, statusColor } from "../../data/financeMasterData";
+import { FINANCE_FLOW, formatInr, statusColor } from "../../data/financeMasterData";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
@@ -23,7 +23,14 @@ function KpiCard({ label, value, icon: Icon, color }) {
 export default function AccountsPayable() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(DEMO_AP_SUMMARY);
+  const [summary, setSummary] = useState({
+    outstanding_payables: 0,
+    due_this_week: 0,
+    overdue_bills: 0,
+    paid_this_month: 0,
+    pending_approvals: 0,
+    vendor_count: 0,
+  });
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [financialYear, setFinancialYear] = useState("2025-26");
@@ -34,9 +41,14 @@ export default function AccountsPayable() {
     setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getAPSummary(), getAPEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_AP_SUMMARY, ...sumRes.value.data });
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows([]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data) {
+        setSummary((prev) => ({ ...prev, ...sumRes.value.data }));
+      }
+      if (listRes.status === "fulfilled" && Array.isArray(listRes.value?.data)) {
+        setRows(listRes.value.data);
+      } else {
+        setRows([]);
+      }
     } catch {
     } finally {
       setLoading(false);

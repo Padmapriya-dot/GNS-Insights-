@@ -5,7 +5,7 @@ import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { clockIn, clockOut, getAttendanceEnriched, getAttendanceSummary, getEmployeesEnriched, getShifts } from "../../api/hrApi";
-import { DEMO_ATT_SUMMARY, sourceLabel, statusColor } from "../../data/hrMasterData";
+import { sourceLabel, statusColor } from "../../data/hrMasterData";
 
 function KpiCard({ label, value, icon: Icon, color, suffix }) {
   return (
@@ -34,7 +34,7 @@ function todayStr() {
 export default function Attendance() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(DEMO_ATT_SUMMARY);
+  const [summary, setSummary] = useState({});
   const [rows, setRows] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [shifts, setShifts] = useState([]);
@@ -52,16 +52,22 @@ export default function Attendance() {
         getEmployeesEnriched(),
         getShifts(),
       ]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_ATT_SUMMARY, ...sumRes.value.data });
+      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary(sumRes.value.data || {});
+      else setSummary({});
       if (listRes.status === "fulfilled" && listRes.value?.data) {
         setRows([...listRes.value.data]);
       } else {
         setRows([]);
       }
       if (empRes.status === "fulfilled") setEmployees([...(empRes.value?.data || [])]);
+      else setEmployees([]);
       if (shiftRes.status === "fulfilled") setShifts([...(shiftRes.value?.data || [])]);
+      else setShifts([]);
     } catch {
+      setSummary({});
       setRows([]);
+      setEmployees([]);
+      setShifts([]);
     } finally {
       setLoading(false);
     }

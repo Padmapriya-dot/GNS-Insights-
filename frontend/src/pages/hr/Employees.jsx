@@ -7,7 +7,7 @@ import EmployeeDetailModal from "../../components/hr/EmployeeDetailModal";
 import { useToast } from "../../context/ToastContext";
 import { getEmployeeSummary, getEmployeesEnriched, createEmployee, getShifts } from "../../api/hrApi";
 import useTenantId from "../../hooks/useTenantId";
-import { DEMO_EMP_SUMMARY, deptColor, formatInr, statusColor } from "../../data/hrMasterData";
+import { deptColor, formatInr, statusColor } from "../../data/hrMasterData";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
@@ -38,7 +38,7 @@ export default function Employees() {
   const tenantId = useTenantId();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(DEMO_EMP_SUMMARY);
+  const [summary, setSummary] = useState({});
   const [rows, setRows] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -73,18 +73,25 @@ export default function Employees() {
           getEmployeesEnriched(),
           getShifts(),
         ]);
-        let hasError = false;
-
         if (sumRes.status === "fulfilled" && sumRes.value?.data) {
-          setSummary({ ...DEMO_EMP_SUMMARY, ...sumRes.value.data });
+          setSummary(sumRes.value.data || {});
+        } else {
+          setSummary({});
         }
         if (listRes.status === "fulfilled" && Array.isArray(listRes.value?.data)) {
           setRows([...listRes.value.data]);
+        } else {
+          setRows([]);
         }
         if (shiftRes.status === "fulfilled" && Array.isArray(shiftRes.value?.data)) {
           setShifts([...shiftRes.value.data]);
+        } else {
+          setShifts([]);
         }
       } catch {
+        setSummary({});
+        setRows([]);
+        setShifts([]);
       } finally {
         setLoading(false);
       }

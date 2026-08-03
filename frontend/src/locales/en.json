@@ -1,6 +1,7 @@
 {
   "erpNav": {
     "dashboard": "Dashboard",
+    "roleWorkflow": "Role-Based Workflow",
     "masters": "Masters",
     "products": "Products",
     "bom": "Bill of Materials (BOM)",

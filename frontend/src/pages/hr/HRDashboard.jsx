@@ -5,7 +5,7 @@ import { AlertTriangle, Briefcase, Clock, IndianRupee, RefreshCw, UserCheck, Use
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getHRHub } from "../../api/hrApi";
-import { DEMO_HR_HUB, HR_FLOW, formatInr } from "../../data/hrMasterData";
+import { HR_FLOW, formatInr } from "../../data/hrMasterData";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
@@ -32,14 +32,16 @@ const alertIcons = { certification: AlertTriangle, leave: Briefcase, payroll: In
 export default function HRDashboard() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [hub, setHub] = useState(DEMO_HR_HUB);
+  const [hub, setHub] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getHRHub();
-      if (res.data) setHub({ ...DEMO_HR_HUB, ...res.data });
+      if (res.data) setHub(res.data || {});
+      else setHub({});
     } catch {
+      setHub({});
     } finally {
       setLoading(false);
     }

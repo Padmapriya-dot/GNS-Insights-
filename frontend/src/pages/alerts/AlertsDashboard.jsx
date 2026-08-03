@@ -46,7 +46,6 @@ import {
   MODULE_OPTIONS,
   SEVERITY_STYLES,
   STATUS_STYLES,
-  DEMO_ALERTS,
   moduleLabel,
   formatAlertDate,
   computeAlertSummary,
@@ -206,47 +205,21 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
           alertsRes.reason?.response?.data?.detail ||
             "Failed to load alerts from the server."
         );
+        setRows([]);
       }
 
-      const stored = localStorage.getItem("smrt_local_alerts");
-      let localAlerts = stored ? JSON.parse(stored).map(normalizeAlert) : [];
-      if (initialAlertType) {
-        localAlerts = localAlerts.filter((a) => isMatchingAlertType(a.alert_type, initialAlertType));
-      }
+      const filteredAlerts = initialAlertType
+        ? apiAlerts.filter((a) => isMatchingAlertType(a.alert_type, initialAlertType))
+        : apiAlerts;
 
-      const combined = [...apiAlerts, ...localAlerts];
-      if (combined.length === 0) {
-        let demo = DEMO_ALERTS.map(normalizeAlert);
-        if (initialAlertType) {
-          demo = demo.filter((a) => isMatchingAlertType(a.alert_type, initialAlertType));
-        }
-        combined.push(...demo);
-      }
-
-      const uniqueMap = new Map();
-      combined.forEach((item) => {
-        const key = String(item.id);
-        if (!uniqueMap.has(key)) {
-          uniqueMap.set(key, item);
-        }
-      });
-
-      setRows(Array.from(uniqueMap.values()));
+      setRows(filteredAlerts);
 
       if (empRes.status === "fulfilled") {
         setEmployees(empRes.value?.data || []);
       }
     } catch (e) {
       setError(e.response?.data?.detail || e.message || "Failed to load alerts");
-      const stored = localStorage.getItem("smrt_local_alerts");
-      let localAlerts = stored ? JSON.parse(stored).map(normalizeAlert) : [];
-      if (localAlerts.length === 0) {
-        localAlerts = DEMO_ALERTS.map(normalizeAlert);
-      }
-      if (initialAlertType) {
-        localAlerts = localAlerts.filter((a) => isMatchingAlertType(a.alert_type, initialAlertType));
-      }
-      setRows(localAlerts);
+      setRows([]);
     } finally {
       markRequestEnd();
       setLoading(false);
@@ -344,22 +317,6 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
           })
         );
 
-        const stored = localStorage.getItem("smrt_local_alerts");
-        if (stored) {
-          const list = JSON.parse(stored).map((r) => {
-            if (String(r.id) === String(id)) {
-              return {
-                ...r,
-                status: nextStatus,
-                acknowledged_by: userName,
-                acknowledged_at: nowLocal,
-              };
-            }
-            return r;
-          });
-          localStorage.setItem("smrt_local_alerts", JSON.stringify(list));
-        }
-
         try {
           if (action === "ack") await acknowledgeAlert(id);
           if (action === "resolve") await resolveAlert(id);
@@ -373,11 +330,6 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
           console.warn("Backend delete notice:", apiErr);
         }
         setRows((prev) => prev.filter((r) => String(r.id) !== String(id)));
-        const stored = localStorage.getItem("smrt_local_alerts");
-        if (stored) {
-          const list = JSON.parse(stored).filter((a) => String(a.id) !== String(id));
-          localStorage.setItem("smrt_local_alerts", JSON.stringify(list));
-        }
       }
 
       addToast(`${label} successful`, "success");
@@ -410,10 +362,6 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
       const res = await createAlert(payload);
       const newAlert = normalizeAlert(res.data || { ...payload, id: Date.now() });
 
-      const stored = localStorage.getItem("smrt_local_alerts");
-      const localList = stored ? JSON.parse(stored) : [];
-      localStorage.setItem("smrt_local_alerts", JSON.stringify([newAlert, ...localList]));
-
       setRows((prev) => [newAlert, ...prev]);
       addToast("Alert registered successfully", "success");
       setShowCreate(false);
@@ -427,27 +375,7 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
       });
       await load();
     } catch (err) {
-      console.error("Create alert fallback:", err);
-      const fallbackAlert = normalizeAlert({
-        id: Date.now(),
-        ...payload,
-      });
-
-      const stored = localStorage.getItem("smrt_local_alerts");
-      const localList = stored ? JSON.parse(stored) : [];
-      localStorage.setItem("smrt_local_alerts", JSON.stringify([fallbackAlert, ...localList]));
-
-      setRows((prev) => [fallbackAlert, ...prev]);
-      addToast("Alert registered successfully", "success");
-      setShowCreate(false);
-      setForm({
-        title: "",
-        message: "",
-        alert_type: initialAlertType || "general",
-        severity: "medium",
-        assigned_to: "",
-        triggered_at: getNowLocalISO(),
-      });
+      addToast(err?.response?.data?.detail || "Could not create alert.", "error");
     } finally {
       setSaving(false);
     }

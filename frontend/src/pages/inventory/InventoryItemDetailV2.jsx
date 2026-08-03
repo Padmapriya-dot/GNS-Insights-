@@ -205,34 +205,6 @@ export default function InventoryItemDetailV2() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      if (String(id) === "demo-product") {
-        setItem({
-          id: "demo-product",
-          name: "Demo Product",
-          hsn_code: "",
-          stock_value: 0,
-          purchase_price: 0,
-          selling_price: 100,
-          current_stock: 0,
-          unit: "PCS",
-          category: "No Category",
-          min_stock: 0,
-          gst_percent: 0,
-          description: "",
-          wholesale_price: 0,
-        });
-        setTimeline([
-          {
-            id: "opening",
-            activity: "First Stock",
-            subtitle: "Opening Stock",
-            date: todayLabel(),
-            change: 0,
-            final: 0,
-          },
-        ]);
-        return;
-      }
       const res = await getInventoryV2Item(id);
       const data = res.data || {};
       setItem(data);
@@ -256,10 +228,6 @@ export default function InventoryItemDetailV2() {
   const stockValue = useMemo(() => stockQty * salePrice, [stockQty, salePrice]);
 
   const onStockSubmit = async ({ qty, remark, unit }) => {
-    if (String(id) === "demo-product") {
-      addToast("Add a real inventory item to adjust stock.", "error");
-      return;
-    }
     try {
       const fn = stockModal === "add" ? addInventoryV2Stock : removeInventoryV2Stock;
       await fn(id, { quantity: qty, remark, unit });
@@ -277,9 +245,7 @@ export default function InventoryItemDetailV2() {
     if (deleteBusy) return;
     setDeleteBusy(true);
     try {
-      if (String(id) !== "demo-product") {
-        await deleteInventoryV2Item(id);
-      }
+      await deleteInventoryV2Item(id);
       addToast("Product deleted.");
       navigate("/inventory", { replace: true });
     } catch (err) {
