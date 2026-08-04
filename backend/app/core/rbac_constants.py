@@ -82,10 +82,12 @@ PERMISSION_MATRIX = {
             "procurement",
             "settings",
             "iot",
+            "sales",
+            "accounts",
         ],
         "description": (
             "Dashboard, Production, Planning, Work Orders, Quality, "
-            "Inventory, Maintenance, Procurement, and Smart Factory IoT."
+            "Inventory, Maintenance, Procurement, Analytics, and Smart Factory IoT."
         ),
     },
     "Store Manager": {

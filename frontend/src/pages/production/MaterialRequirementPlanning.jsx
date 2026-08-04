@@ -98,9 +98,10 @@ export default function MaterialRequirementPlanning() {
           product_id: productId,
           product_name: pName,
           planned_qty: qty,
+          quantity: qty,
           enough_stock: enough,
           material_request_number: shortage > 0 && createPr ? `MR-${Date.now()}` : null,
-          items: [
+          requirements: [
             {
               sku: selProd?.sku || selProd?.product_code || "RAW-001",
               component_name: `${pName} Raw Material`,
@@ -112,6 +113,7 @@ export default function MaterialRequirementPlanning() {
             },
           ],
         };
+        data.items = data.requirements;
       }
 
       setResult(data);
@@ -139,8 +141,8 @@ export default function MaterialRequirementPlanning() {
   };
 
   const tableRows = useMemo(() => {
-    if (!result?.items) return [];
-    return result.items;
+    if (!result) return [];
+    return result.requirements || result.items || [];
   }, [result]);
 
   const summary = useMemo(
@@ -196,25 +198,29 @@ export default function MaterialRequirementPlanning() {
     );
   }
 
+const PAGE_BG = "#F5F5F5";
+const YELLOW = "#F5C518";
+
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <PageHeader
-        title="Material Requirement Planning"
-        subtitle="Explode BOM against stock. Shortages automatically create a Purchase Request."
-        action={
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={loadProducts} className="ui-btn-secondary inline-flex items-center gap-2">
-              <RefreshCw className="h-4 w-4" /> Refresh products
-            </button>
-            <Link to="/procurement/material-requests" className="ui-btn-secondary inline-flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4" /> Purchase Requests
-            </Link>
-            <Link to="/production/planning" className="ui-btn-primary inline-flex items-center gap-2">
-              Production Planning
-            </Link>
-          </div>
-        }
-      />
+    <div className="min-h-full pb-8" style={{ background: PAGE_BG }}>
+      <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+        <PageHeader
+          title="Material Requirement Planning"
+          subtitle="Explode BOM against stock. Shortages automatically create a Purchase Request."
+          action={
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={loadProducts} className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]">
+                <RefreshCw className="h-4 w-4" /> Refresh products
+              </button>
+              <Link to="/procurement/material-requests" className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]">
+                <ShoppingCart className="h-4 w-4" /> Purchase Requests
+              </Link>
+              <Link to="/production/planning" className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]" style={{ background: YELLOW }}>
+                Production Planning
+              </Link>
+            </div>
+          }
+        />
 
       <ManufacturingWorkflowBar currentStepId="mrp" />
 
@@ -311,7 +317,7 @@ export default function MaterialRequirementPlanning() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {result.product_name} × {result.quantity}
+                {result.product_name} × {result.quantity ?? result.planned_qty}
               </h2>
               <p className="text-sm text-slate-500">
                 {result.enough_stock
@@ -365,6 +371,7 @@ export default function MaterialRequirementPlanning() {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

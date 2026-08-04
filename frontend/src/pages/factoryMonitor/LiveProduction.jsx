@@ -13,6 +13,7 @@ import {
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
+import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { useToast } from "../../context/ToastContext";
 import {
   getShopFloorAlerts,
@@ -33,17 +34,17 @@ import {
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p>
-        </div>
+    <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden" title={typeof label === "string" ? label : undefined}>
+      <div className="flex items-center justify-between gap-1.5 min-w-0">
+        <p className="truncate text-[11px] font-medium text-slate-500 leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
         {Icon && (
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
+          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${color}`}>
+            <Icon className="h-3.5 w-3.5 text-white" />
           </div>
         )}
+      </div>
+      <div className="mt-2">
+        <p className="truncate text-xl font-extrabold tabular-nums text-slate-900 leading-none">{value}</p>
       </div>
     </div>
   );
@@ -140,23 +141,29 @@ export default function LiveProduction() {
   if (loading) return <Loader label="Loading shop floor..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="min-h-full pb-8 print:p-0" style={{ background: "#F5F5F5" }}>
+      <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Shop Floor</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Shop Floor</h1>
+          <p className="mt-0.5 text-xs text-slate-500 print:hidden">
             Live production grid, machine layout, alerts, and real-time shop floor monitoring.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to="/production" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <Factory className="h-4 w-4" /> Production Hub
-          </Link>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+
+        <div className="print:hidden">
+          <ManufacturingWorkflowBar currentStepId="shop_floor" />
+        </div>
+
+        <div className="mb-0 flex flex-wrap items-center justify-between gap-2 print:hidden">
+          <div className="flex flex-wrap gap-2">
+            <Link to="/production" className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]">
+              <Factory className="h-4 w-4" /> Production Hub
+            </Link>
+          </div>
+          <button type="button" onClick={load} className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]">
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
-      </header>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-8">
         <KpiCard label="Running Jobs" value={summary.running_jobs} icon={Factory} color="bg-teal-600" />
@@ -231,6 +238,7 @@ export default function LiveProduction() {
             {i < SHOP_FLOW_STEPS.length - 1 && <span className="text-slate-300">↓</span>}
           </span>
         ))}
+      </div>
       </div>
     </div>
   );

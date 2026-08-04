@@ -26,7 +26,7 @@ import BrandLogo from "../common/BrandLogo";
 import LogoutConfirmModal from "../common/LogoutConfirmModal";
 import useAuth from "../../hooks/useAuth";
 import { getSidebarMenus } from "../../api/authApi";
-import { userCanAccess, isStoreManager, isProductionManager, storeManagerPathAllowed } from "../../config/permissions";
+import { userCanAccess, isStoreManager, isProductionManager, isOperator, storeManagerPathAllowed } from "../../config/permissions";
 import { SIDEBAR_NAV, sectionHasActiveChild } from "../../config/sidebarNav";
 import { STORE_MANAGER_NAV_ITEMS } from "../../config/storeManagerNavConfig";
 
@@ -265,6 +265,10 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, onClose }
           return { ...section, children };
         })
         .filter(Boolean);
+    }
+    // Operators do not see the Masters section
+    if (isOperator(user)) {
+      return raw.filter((section) => section.key !== "masters");
     }
     return raw;
   }, [apiNav, user, storeMode]);

@@ -33,6 +33,8 @@ import {
 } from "../../api/schedulingApi";
 import { getMachines, createWorkOrder, getProductionOrders } from "../../api/productionApi";
 import useTenantId from "../../hooks/useTenantId";
+import useAuth from "../../hooks/useAuth";
+import { isOperator } from "../../config/permissions";
 import {
   CONFLICT_LABELS,
   DEMO_BOTTOM_KPIS,
@@ -361,23 +363,39 @@ function NewScheduleModal({ onClose, onSuccess }) {
     }
   };
 
-  const inputCls = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50";
+  const labelCls = "block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1";
+  const inputCls = "w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-colors disabled:opacity-50 text-slate-900 dark:text-slate-100";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-lg font-bold text-slate-900">New Schedule</h2>
-          <button type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-slate-100">
-            <X className="h-5 w-5 text-slate-500" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10 dark:bg-slate-800 dark:ring-slate-700">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4 dark:border-slate-700 dark:bg-slate-800/80">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/20 text-amber-700 dark:bg-amber-400/10 dark:text-amber-400">
+              <Calendar className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                New Schedule
+              </h3>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200 transition-colors"
+          >
+            <X className="h-5 w-5" />
           </button>
         </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-12"><Loader /></div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 p-6">
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">
+              <label className={labelCls}>
                 Production Order <span className="text-red-500">*</span>
               </label>
               <select
@@ -395,14 +413,14 @@ function NewScheduleModal({ onClose, onSuccess }) {
                 ))}
               </select>
               {productionOrders.length === 0 && (
-                <p className="mt-1 text-xs text-amber-600">
+                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                   No active production orders found. Create a production order first.
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Machine</label>
+              <label className={labelCls}>Machine</label>
               <select name="machine_id" value={form.machine_id} onChange={handleChange} className={inputCls}>
                 <option value="">— Unassigned —</option>
                 {machines.map((m) => (
@@ -415,18 +433,18 @@ function NewScheduleModal({ onClose, onSuccess }) {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Planned Start</label>
+                <label className={labelCls}>Planned Start</label>
                 <input type="datetime-local" name="planned_start" value={form.planned_start} onChange={handleChange} className={inputCls} />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Planned End</label>
+                <label className={labelCls}>Planned End</label>
                 <input type="datetime-local" name="planned_end" value={form.planned_end} onChange={handleChange} className={inputCls} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Shift</label>
+                <label className={labelCls}>Shift</label>
                 <select name="shift" value={form.shift} onChange={handleChange} className={inputCls}>
                   <option value="Morning">Morning</option>
                   <option value="Afternoon">Afternoon</option>
@@ -435,25 +453,31 @@ function NewScheduleModal({ onClose, onSuccess }) {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Priority</label>
+                <label className={labelCls}>Priority</label>
                 <select name="priority" value={form.priority} onChange={handleChange} className={inputCls}>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
+                  <option value="high">🔴 High</option>
+                  <option value="medium">🟡 Medium</option>
+                  <option value="low">🟢 Low</option>
                 </select>
               </div>
             </div>
 
-            <div className="flex gap-3 pt-2">
+            {/* Footer Actions */}
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4 dark:border-slate-700 mt-6">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
               <button
                 type="submit"
                 disabled={saving || productionOrders.length === 0}
-                className="flex-1 rounded-lg bg-[#0F4C81] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0d3d6a] disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl bg-[#F5C518] px-5 py-2.5 text-xs font-extrabold text-gray-900 shadow-md hover:bg-yellow-400 active:scale-95 transition-all disabled:opacity-50"
               >
+                <CheckCircle2 className="h-4 w-4 text-gray-900" />
                 {saving ? "Creating…" : "Create Schedule"}
-              </button>
-              <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-                Cancel
               </button>
             </div>
           </form>
@@ -467,6 +491,8 @@ function NewScheduleModal({ onClose, onSuccess }) {
 
 export default function ProductionSchedule() {
   const { addToast } = useToast();
+  const { user } = useAuth();
+  const operatorMode = isOperator(user);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("timeline");
   const [dashboard, setDashboard] = useState(DEMO_DASHBOARD);
@@ -643,26 +669,33 @@ export default function ProductionSchedule() {
     addToast("Schedule exported to Excel", "success");
   };
 
+const PAGE_BG = "#F5F5F5";
+const YELLOW = "#F5C518";
+
   if (loading) return <Loader />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      {/* Header */}
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Production Schedule</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Calendar, Gantt timeline, Kanban, and machine-wise scheduling control center.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setShowNewModal(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#0F4C81] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0d3d6a]"
-          >
-            <Plus className="h-4 w-4" /> New Schedule
-          </button>
+    <div className="min-h-full pb-8" style={{ background: PAGE_BG }}>
+      <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+        {/* Header */}
+        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Production Schedule</h1>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Calendar, Gantt timeline, Kanban, and machine-wise scheduling control center.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {!operatorMode && (
+              <button
+                type="button"
+                onClick={() => setShowNewModal(true)}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-[#1a1a1f]"
+                style={{ background: YELLOW }}
+              >
+                <Plus className="h-4 w-4" /> New Schedule
+              </button>
+            )}
           <button
             type="button"
             onClick={handleExport}
@@ -877,12 +910,13 @@ export default function ProductionSchedule() {
       </div>
 
       {/* New Schedule modal */}
-      {showNewModal && (
+      {!operatorMode && showNewModal && (
         <NewScheduleModal
           onClose={() => setShowNewModal(false)}
           onSuccess={load}
         />
       )}
+      </div>
     </div>
   );
 }

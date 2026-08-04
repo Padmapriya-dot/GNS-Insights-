@@ -29,6 +29,22 @@ class ProductionOrderBase(BaseModel):
     department: str | None = "Production"
     shift: str | None = "Shift A"
     machine_id: int | None = None
+    # ── Face Paper Details ───────────────────────────────────────────
+    face_paper_mill_grade: str | None = None
+    face_paper_paper: str | None = None
+    face_paper_thick_microns: str | None = None
+    face_paper_gsm: str | None = None
+    # ── Coating / Adhesive Details ───────────────────────────────────
+    coating_quality: str | None = None
+    coating_mill_grade: str | None = None
+    coating_cra_pct: str | None = None
+    coating_colour: str | None = None
+    coating_gsm: str | None = None
+    coating_width_mm: str | None = None
+    # ── Release Details ───────────────────────────────────────────
+    release_size_nos: str | None = None
+    release_stocks_nos: str | None = None
+    release_gsm_sqmtrs: str | None = None
 
 
 class ProductionOrderCreate(ProductionOrderBase):
@@ -149,6 +165,7 @@ class MachineRead(MachineBase):
 
 class MachineUpdate(BaseModel):
     status: str | None = None
+    idle_reason: str | None = None
 
 
 class MachineStatusEventBase(BaseModel):
