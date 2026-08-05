@@ -92,6 +92,8 @@ export const seedGLAccounts = () => api.post("/accounts/gl-accounts/seed");
 
 export const listFixedAssets = () => api.get("/accounts/fixed-assets");
 
+export const getBalanceSheet = () => api.get("/accounts/balance-sheet");
+
 export const createFixedAsset = (payload) =>
   api.post("/accounts/fixed-assets", payload);
 

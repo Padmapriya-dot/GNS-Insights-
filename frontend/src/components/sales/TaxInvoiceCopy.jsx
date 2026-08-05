@@ -295,42 +295,65 @@ export default function TaxInvoiceCopy({ data, showPrintButton = true }) {
               </tr>
             ))}
 
-            {/* Tax sub-rows — only column borders, no horizontal lines */}
+            {/* LESS: row — spans description area */}
+            <tr>
+              <td className={cellL} />
+              <td className={`${cellL} text-[9px] font-bold`} colSpan={1}>LESS :</td>
+              <td className={cellL} />
+              <td className={cellL} />
+              <td className={cellL} />
+              <td className={cellL} />
+              <td className={cellL} />
+            </tr>
+
+            {/* Tax sub-rows: label in Description, rate in Rate, amount in Amount */}
             {isIgst ? (
               <tr>
-                <td className={cellL} /><td className={cellL} /><td className={cellL} /><td className={cellL} />
+                <td className={cellL} />
+                <td className={`${cellL} text-[9px] font-bold`}>IGST</td>
+                <td className={cellL} />
+                <td className={cellL} />
                 <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right text-[9px]">{igstPct}%</td>
-                <td className="border-l border-r border-black px-1.5 py-0.5 text-center font-bold text-[9px]">IGST</td>
+                <td className={cellL} />
                 <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right font-bold text-[9.5px]">{fmt(igstAmt)}</td>
               </tr>
             ) : (
               <>
                 <tr>
-                  <td className={cellL} /><td className={cellL} /><td className={cellL} /><td className={cellL} />
+                  <td className={cellL} />
+                  <td className={`${cellL} text-[9px] font-bold`}>SGST</td>
+                  <td className={cellL} />
+                  <td className={cellL} />
                   <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right text-[9px]">9%</td>
-                  <td className="border-l border-r border-black px-1.5 py-0.5 text-center font-bold text-[9px]">CGST</td>
-                  <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right font-bold text-[9.5px]">{fmt(cgstAmt)}</td>
+                  <td className={cellL} />
+                  <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right font-bold text-[9.5px]">{fmt(sgstAmt)}</td>
                 </tr>
                 <tr>
-                  <td className={cellL} /><td className={cellL} /><td className={cellL} /><td className={cellL} />
+                  <td className={cellL} />
+                  <td className={`${cellL} text-[9px] font-bold`}>CGST</td>
+                  <td className={cellL} />
+                  <td className={cellL} />
                   <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right text-[9px]">9%</td>
-                  <td className="border-l border-r border-black px-1.5 py-0.5 text-center font-bold text-[9px]">SGST</td>
-                  <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right font-bold text-[9.5px]">{fmt(sgstAmt)}</td>
+                  <td className={cellL} />
+                  <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right font-bold text-[9.5px]">{fmt(cgstAmt)}</td>
                 </tr>
               </>
             )}
 
             {roundOff !== 0 && (
               <tr>
-                <td className={cellL} /><td className={cellL} /><td className={cellL} /><td className={cellL} />
                 <td className={cellL} />
-                <td className="border-l border-r border-black px-1.5 py-0.5 text-center font-bold text-[9px] italic">Round Off</td>
+                <td className={`${cellL} text-[9px] font-bold italic`}>ROUNDED OFF</td>
+                <td className={cellL} />
+                <td className={cellL} />
+                <td className={cellL} />
+                <td className={cellL} />
                 <td className="border-l border-r border-black px-1.5 py-0.5 font-mono text-right font-bold">{roundOff > 0 ? "+" : ""}{fmt(roundOff)}</td>
               </tr>
             )}
 
-            {/* Spacer — column borders only, no horizontal lines */}
-            <tr style={{ height: 72 }}>
+            {/* Spacer */}
+            <tr style={{ height: 36 }}>
               {[...Array(7)].map((_, i) => <td key={i} className={cellL} />)}
             </tr>
 
@@ -401,14 +424,14 @@ export default function TaxInvoiceCopy({ data, showPrintButton = true }) {
           {/* LEFT — Declaration */}
           <div className={`${BR} w-1/2 p-1.5 space-y-0.5`}>
             <p className="font-bold underline text-[8px] mb-0.5">Declaration</p>
-            <ol className="list-decimal pl-3 space-y-0.5 text-slate-900">
-              <li>Certified that the particulars given above are true and correct.</li>
-              <li>The amount indicated represents the price actually charged and that there is no flow of additional consideration directly or indirectly from the Buyer.</li>
-              <li>All disputes subject to jurisdiction.</li>
-              <li>Goods once sold cannot be taken back or exchanged.</li>
-              <li>Cheques subject to realization.</li>
-              <li>24% interest per annum will be charged if the bills are not paid within due days.</li>
-              <li>Goods Return Policy: Goods shall be taken back only within 7 days.</li>
+            <ol className="list-none pl-0 space-y-0.5 text-slate-900">
+              <li>1.Certified that the particulars given above are true and correct.</li>
+              <li>2.The amount indicated represents the price actually charged and that there is no flow of additional consideration directly or indirectly from the Buyer.</li>
+              <li>3.All disputes subject to jurisdiction.</li>
+              <li>4.Goods once sold cannot be taken back or exchanged.</li>
+              <li>5.Cheques subject to realization.</li>
+              <li>6.24% interest per annum will be charged if the bills are not paid within due days.</li>
+              <li>7.Goods Return Policy: Goods shall be taken back only within 7 days.</li>
             </ol>
             <p className="mt-1 pt-0.5 border-t border-slate-300 text-[7.5px]">
               <span className="font-bold">Remarks: </span>
@@ -420,19 +443,13 @@ export default function TaxInvoiceCopy({ data, showPrintButton = true }) {
           <div className="w-1/2 p-1.5 flex flex-col justify-between">
             <div>
               <p className="font-bold underline text-[8px] mb-0.5">Rejection Policy</p>
-              <ol className="list-decimal pl-3 space-y-0.5 text-slate-900">
-                <li>Loose Winding &amp; Tight Release.</li>
-                <li>Printability on face paper.</li>
-                <li>Loop Tack, Peel Adhesion and Shear Strength (15% clearance) are less than what is mentioned in our Technical Data Sheet.</li>
-                <li>For all Rejection and Quality Claims: End user Email / Samples for evaluation is mandatory.</li>
-                <li>For application issues End user visit by company representative/technical team is mandatory.</li>
-                <li>No rejection claim will be accepted if above conditions are not fulfilled.</li>
-                <li>We are not responsible for multi-national calibration related issues.</li>
-                <li>Quality discrepancies/shortages to be reported within 24 hours from the receipt of the material.</li>
-                <li>Any quality issue claims can only be accepted within 7 days.</li>
+              <ol className="list-none pl-0 space-y-0.5 text-slate-900">
+                <li>1.</li>
+                <li>2.</li>
+                <li>3.</li>
+                <li>4.</li>
               </ol>
-            </div>
-            <div className="text-right mt-3">
+            </div>            <div className="text-right mt-3">
               <p className="font-bold text-[8px] uppercase">for {sName}</p>
               <p className="mt-10 text-[8px] font-bold text-slate-600">Authorised Signatory</p>
             </div>

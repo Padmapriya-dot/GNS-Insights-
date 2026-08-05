@@ -36,11 +36,23 @@ export function numberToWordsInr(amount) {
   return `${words} Only`;
 }
 
+const joinAddress = (...parts) =>
+  parts
+    .flatMap((part) => (typeof part === "string" ? [part] : []))
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(", ");
+
+const normalizeCustomer = (detail) => {
+  if (!detail) return {};
+  return detail.customer || detail.buyer || detail.consignee || {};
+};
+
 export function mapDetailToInvoiceCopy(detail, companySettings = {}) {
   if (!detail?.invoice) return null;
 
   const inv = detail.invoice;
-  const cust = detail.customer || {};
+  const cust = normalizeCustomer(detail);
   const taxValue = (obj, camelKey, snakeKey) => Number(obj?.[camelKey] ?? obj?.[snakeKey]) || 0;
 
   const invoiceIgstPct = taxValue(inv, "igstPct", "igst_pct");
@@ -78,11 +90,11 @@ export function mapDetailToInvoiceCopy(detail, companySettings = {}) {
     const sgstAmount = Number(item.sgstAmount) || Number(item.sgst_amount) || (sgstPct ? Math.round(taxable * sgstPct) / 100 : 0);
     return {
       si: i + 1,
-      description: item.item_description,
-      hsn: item.hsn || "48114100",
-      qty: Number(item.qty).toFixed(2),
-      unit: (item.unit || "pcs").toUpperCase(),
-      rate: Number(item.rate).toFixed(3),
+      description: item.item_description || item.description || item.product_name || item.name || item.item_name || "",
+      hsn: item.hsn || item.hsn_code || item.hsn_sac || "48114100",
+      qty: Number(item.qty || item.quantity || 0).toFixed(2),
+      unit: (item.unit || item.uom || "pcs").toUpperCase(),
+      rate: Number(item.rate || item.unit_price || item.price || 0).toFixed(3),
       amount: taxable,
       igstPct,
       igstAmount,
@@ -126,6 +138,7 @@ export function mapDetailToInvoiceCopy(detail, companySettings = {}) {
       email: companySettings.email || companySettings.contact_email || "",
     },
     meta: {
+      invoiceId: inv.id,
       invoiceNo: inv.invoice_number,
       date: formatDate(inv.issue_date),
       deliveryNote: "",
@@ -139,17 +152,35 @@ export function mapDetailToInvoiceCopy(detail, companySettings = {}) {
       termsOfDelivery: "",
     },
     consignee: {
-      name: cust.name || "",
-      address: [cust.address_line1, cust.address_line2].filter(Boolean).join(", "),
-      contact: cust.phone || "",
-      gstin: cust.gstin || "",
+      name: cust.name || cust.company || cust.customer_name || "",
+      address: joinAddress(
+        cust.address,
+        cust.address_line1,
+        cust.address_line2,
+        cust.billing_address,
+        cust.shipping_address,
+        cust.city,
+        cust.pincode,
+        cust.state
+      ),
+      contact: cust.phone || cust.contact || cust.mobile || "",
+      gstin: cust.gstin || cust.GSTIN || "",
       state: cust.state ? `${cust.state}, Code: ${cust.state_code || ""}` : "",
     },
     buyer: {
-      name: cust.name || "",
-      address: [cust.address_line1, cust.address_line2].filter(Boolean).join(", "),
-      contact: cust.phone || "",
-      gstin: cust.gstin || "",
+      name: cust.name || cust.company || cust.customer_name || "",
+      address: joinAddress(
+        cust.address,
+        cust.address_line1,
+        cust.address_line2,
+        cust.billing_address,
+        cust.shipping_address,
+        cust.city,
+        cust.pincode,
+        cust.state
+      ),
+      contact: cust.phone || cust.contact || cust.mobile || "",
+      gstin: cust.gstin || cust.GSTIN || "",
       state: cust.state ? `${cust.state}, Code: ${cust.state_code || ""}` : "",
     },
     placeOfSupply: cust.state || "",

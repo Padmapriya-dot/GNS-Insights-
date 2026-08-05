@@ -73,8 +73,8 @@ class InvoiceV2Create(BaseModel):
     discount: float = 0
     other_charge: float = 0
     round_off: float = 0
-    sgst_pct: float = 0
     cgst_pct: float = 0
+    sgst_pct: float = 0
     igst_pct: float = 0
     status: str = "issued"
     # logistics / optional
@@ -130,11 +130,11 @@ class InvoiceV2Read(BaseModel):
     subtotal: float = 0
     discount: float = 0
     other_charge: float = 0
-    sgst_pct: float = 0
     cgst_pct: float = 0
+    sgst_pct: float = 0
     igst_pct: float = 0
-    sgst_amount: float = 0
     cgst_amount: float = 0
+    sgst_amount: float = 0
     igst_amount: float = 0
     round_off: float = 0
     grand_total: float = 0

@@ -554,15 +554,32 @@ def get_invoice_detail_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)),
     db: Session = Depends(get_db),
 ):
+    from app.models.sales import Customer as CustomerModel
     inv = get_invoice_v2(db, tenant_id, invoice_id)
     if not inv:
         raise HTTPException(404, "Invoice not found")
+    cust = db.get(CustomerModel, inv.customer_id)
+    customer_data = None
+    if cust:
+        customer_data = {
+            "id": cust.id,
+            "name": cust.name,
+            "address_line1": cust.address_line1,
+            "address_line2": cust.address_line2,
+            "city": cust.city,
+            "pincode": cust.pincode,
+            "state": cust.state,
+            "state_code": cust.state_code,
+            "gstin": cust.gstin,
+            "email": cust.email,
+            "phone": cust.phone,
+        }
     # Compatibility wrapper for BillDetail / InvoiceCopy pages
     return {
         "found": True,
         "invoice": inv,
         "items": inv.items,
-        "customer": {"id": inv.customer_id, "name": inv.buyer_name} if inv.buyer_name else None,
+        "customer": customer_data,
     }
 
 

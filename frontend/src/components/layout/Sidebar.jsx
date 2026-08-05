@@ -189,17 +189,6 @@ const PROD_MANAGER_ALLOWED_CHILDREN = new Set([
   "/analytics/live",
 ]);
 
-function isProductionManager(user) {
-  if (!user) return false;
-  const roles = Array.isArray(user.roles)
-    ? user.roles.map((r) => (typeof r === "object" ? r.name : String(r)))
-    : [];
-  const roleStr = String(user.role || user.role_name || (typeof user.roles === "string" ? user.roles : "")).toLowerCase();
-  const allRoles = [...roles.map((r) => String(r).toLowerCase()), roleStr];
-  if (allRoles.some((r) => r.includes("admin"))) return false;
-  return allRoles.some((r) => r.includes("production manager") || r.includes("production_manager"));
-}
-
 function normalizeRoleName(value) {
   return String(value || "")
     .trim()

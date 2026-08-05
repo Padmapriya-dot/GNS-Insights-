@@ -399,7 +399,7 @@ export default function InvoiceDashboard() {
                     <td className="border-t border-r border-[#d0d0d8] px-4 py-3">
                       <div className="relative flex flex-wrap items-center gap-3">
                         <Link
-                          to={`/sales/invoices/${r.id}/copy`}
+                          to={`/sales/invoices/${r.id}`}
                           className="text-[12px] font-semibold text-[#4a4a55] hover:underline"
                         >
                           View
@@ -413,7 +413,7 @@ export default function InvoiceDashboard() {
                           </Link>
                         ) : null}
                         <Link
-                          to={`/sales/invoices/${r.id}/copy`}
+                          to={`/sales/invoices/${r.id}`}
                           className="text-[12px] font-semibold text-[#4a4a55] hover:underline"
                         >
                           Print
@@ -426,41 +426,6 @@ export default function InvoiceDashboard() {
                           >
                             Pay
                           </Link>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="rounded p-1 text-[#6b6b76] hover:bg-[#f3f3f6]"
-                          onClick={() => setMenuId((id) => (id === r.id ? null : r.id))}
-                          aria-label="More options"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                        {menuId === r.id ? (
-                          <>
-                            <button
-                              type="button"
-                              className="fixed inset-0 z-10 cursor-default"
-                              aria-label="Close menu"
-                              onClick={() => setMenuId(null)}
-                            />
-                            <div className="absolute right-0 top-7 z-20 min-w-[150px] overflow-hidden rounded-lg border border-[#e4e4ea] bg-white py-1 shadow-lg">
-                              <Link
-                                to={`/sales/invoices/${r.id}/edit`}
-                                className="block px-3 py-2 text-left text-[13px] hover:bg-[#f7f7f9]"
-                                onClick={() => setMenuId(null)}
-                              >
-                                Edit Invoice
-                              </Link>
-                              <button
-                                type="button"
-                                disabled={deletingId === r.id || (r.invoice_status || "active") === "cancelled"}
-                                className="block w-full px-3 py-2 text-left text-[13px] text-[#dc2626] hover:bg-[#fef2f2] disabled:opacity-40"
-                                onClick={() => handleCancelInvoice(r)}
-                              >
-                                {deletingId === r.id ? "CancellingΓÇª" : "Cancel Invoice"}
-                              </button>
-                            </div>
-                          </>
                         ) : null}
                       </div>
                     </td>

@@ -531,6 +531,14 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/sales/invoices/:id"
+        element={
+          <ProtectedRoute>
+            <P.InvoiceCopyPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/sales/invoices/:id/copy"
         element={
           <ProtectedRoute>
