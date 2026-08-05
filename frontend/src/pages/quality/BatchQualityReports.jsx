@@ -67,7 +67,7 @@ export default function BatchQualityReports() {
   const columns = [
     { key: "batch_code", label: "Batch" },
     { key: "product_name", label: "Product" },
-    { key: "shift", label: "Shift" },
+    { key: "shift", label: "Shift", render: (r) => typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "—") : (r.shift || "—") },
     { key: "production_qty", label: "Production Qty" },
     { key: "pass_qty", label: "Pass Qty" },
     { key: "reject_qty", label: "Reject Qty" },

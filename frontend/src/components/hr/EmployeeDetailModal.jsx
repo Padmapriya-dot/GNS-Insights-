@@ -46,7 +46,7 @@ export default function EmployeeDetailModal({ employee, onClose }) {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <Field label="Department" value={employee.department} />
               <Field label="Designation" value={employee.designation} />
-              <Field label="Shift" value={employee.shift} />
+              <Field label="Shift" value={typeof employee.shift === "object" ? (employee.shift?.label || employee.shift?.id || "—") : (employee.shift || "—")} />
               <Field label="Reporting Manager" value={employee.reporting_manager} />
             </div>
           )}

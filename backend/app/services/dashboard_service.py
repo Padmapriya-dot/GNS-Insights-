@@ -199,6 +199,32 @@ def _monthly_overview(db: Session, tenant_id: int) -> list[dict]:
     return rows
 
 
+def _yearly_overview(db: Session, tenant_id: int) -> list[dict]:
+    today = date.today()
+    rows = []
+    for year_offset in range(4, -1, -1):
+        year_val = today.year - year_offset
+        year_start = date(year_val, 1, 1)
+        year_end = date(year_val, 12, 31)
+        reports = list(
+            db.scalars(
+                select(DailyProductionReport).where(
+                    DailyProductionReport.tenant_id == tenant_id,
+                    DailyProductionReport.report_date >= year_start,
+                    DailyProductionReport.report_date <= year_end,
+                )
+            ).all()
+        )
+        actual = int(sum(float(r.produced_quantity or 0) for r in reports))
+        planned = int(sum(float(r.planned_quantity or 0) for r in reports))
+        rows.append({
+            "date": str(year_val),
+            "planned": planned,
+            "actual": actual,
+        })
+    return rows
+
+
 def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> dict:
     today = date.today()
     yesterday = today - timedelta(days=1)
@@ -600,6 +626,7 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
         "production_overview": overview,
         "production_overview_weekly": _weekly_overview(db, tenant_id),
         "production_overview_monthly": _monthly_overview(db, tenant_id),
+        "production_overview_yearly": _yearly_overview(db, tenant_id),
         "shop_floor_status": _machine_status_breakdown(machines),
         "top_machines": _top_machines(db, tenant_id, machines),
         "orders_overview": {

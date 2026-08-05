@@ -30,6 +30,22 @@ class ProductionOrder(Base, TimestampMixin):
     department: Mapped[str | None] = mapped_column(String(128))
     shift: Mapped[str | None] = mapped_column(String(64))
     machine_id: Mapped[int | None] = mapped_column(ForeignKey("machines.id"), nullable=True)
+    # ── Face Paper Details ───────────────────────────────────────────
+    face_paper_mill_grade: Mapped[str | None] = mapped_column(String(128))
+    face_paper_paper: Mapped[str | None] = mapped_column(String(128))
+    face_paper_thick_microns: Mapped[str | None] = mapped_column(String(32))
+    face_paper_gsm: Mapped[str | None] = mapped_column(String(32))
+    # ── Coating / Adhesive Details ───────────────────────────────────
+    coating_quality: Mapped[str | None] = mapped_column(String(64))
+    coating_mill_grade: Mapped[str | None] = mapped_column(String(128))
+    coating_cra_pct: Mapped[str | None] = mapped_column(String(32))
+    coating_colour: Mapped[str | None] = mapped_column(String(64))
+    coating_gsm: Mapped[str | None] = mapped_column(String(32))
+    coating_width_mm: Mapped[str | None] = mapped_column(String(32))
+    # ── Release Details ───────────────────────────────────────────
+    release_size_nos: Mapped[str | None] = mapped_column(String(32))
+    release_stocks_nos: Mapped[str | None] = mapped_column(String(32))
+    release_gsm_sqmtrs: Mapped[str | None] = mapped_column(String(32))
 
     tenant = relationship("Tenant", back_populates="production_orders")
     product = relationship("Product", back_populates="production_orders")

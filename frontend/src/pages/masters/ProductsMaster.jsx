@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { createPortal } from "react-dom";
 
+import useAuth from "../../hooks/useAuth";
+import { isProductionManager } from "../../config/permissions";
 import AddNewItemModal from "../../components/sales/AddNewItemModal";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
@@ -24,19 +26,7 @@ const PAGE_BG = "#F5F5F5";
 const YELLOW = "#F5C518";
 const PAGE_SIZES = [20, 50, 100];
 
-/** Matches reference screenshot sample row when API has no products. */
-const SCREENSHOT_DEMO = [
-  {
-    id: "demo-product",
-    name: "Demo Product",
-    description: "",
-    hsn_code: "",
-    unit: "",
-    selling_price: 100,
-    gst_percent: null,
-    cess_percent: 0,
-  },
-];
+const SCREENSHOT_DEMO = [];
 
 function blankOr(value) {
   if (value == null) return "";
@@ -90,6 +80,8 @@ function DeleteConfirmModal({ open, onClose, onConfirm, busy = false }) {
 }
 
 export default function ProductsMaster() {
+  const { user } = useAuth();
+  const isPM = isProductionManager(user);
   const { addToast } = useToast();
   const { pathname } = useLocation();
   const pageTitle = pathname.startsWith("/inventory") ? "Inventory" : "Products";
@@ -109,13 +101,9 @@ export default function ProductsMaster() {
     try {
       const res = await getProducts();
       const rows = Array.isArray(res.data) ? res.data : [];
-      if (rows.length > 0) {
-        setProducts(rows.map((row) => enrichApiProduct(row)));
-      } else {
-        setProducts(SCREENSHOT_DEMO);
-      }
+      setProducts(rows.map((row) => enrichApiProduct(row)));
     } catch {
-      setProducts(SCREENSHOT_DEMO);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -209,17 +197,19 @@ export default function ProductsMaster() {
                 className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] py-2.5 pl-10 pr-4 text-[13px] text-[#1a1a1f] outline-none placeholder:text-[#a0a0ab] focus:border-[#d0d0d8] focus:bg-white"
               />
             </div>
-            <Link
-              to={
-                pathname.startsWith("/inventory")
-                  ? "/inventory/products/bulk-import"
-                  : "/masters/products/bulk-import"
-              }
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
-            >
-              <Upload className="h-4 w-4" />
-              Bulk Import
-            </Link>
+            {!isPM && (
+              <Link
+                to={
+                  pathname.startsWith("/inventory")
+                    ? "/inventory/products/bulk-import"
+                    : "/masters/products/bulk-import"
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              >
+                <Upload className="h-4 w-4" />
+                Bulk Import
+              </Link>
+            )}
             <button
               type="button"
               onClick={onExport}
@@ -228,18 +218,20 @@ export default function ProductsMaster() {
               <FileSpreadsheet className="h-4 w-4" />
               Export (xlsx)
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(null);
-                setAddOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
-              style={{ background: YELLOW }}
-            >
-              <Plus className="h-4 w-4" />
-              Create Product
-            </button>
+            {!isPM && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(null);
+                  setAddOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
+                style={{ background: YELLOW }}
+              >
+                <Plus className="h-4 w-4" />
+                Create Product
+              </button>
+            )}
           </div>
 
           <div className="overflow-hidden rounded-lg border border-[#ececf0]">

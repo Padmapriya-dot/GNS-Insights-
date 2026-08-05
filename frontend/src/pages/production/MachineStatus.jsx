@@ -2,14 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Activity,
+  ChevronLeft,
+  ChevronRight,
   Cpu,
   Download,
+  FileSpreadsheet,
   FileText,
   Grid3X3,
   LayoutList,
   Plus,
   Printer,
   RefreshCw,
+  Search,
   Thermometer,
   Upload,
   Wrench,
@@ -21,6 +25,8 @@ import Loader from "../../components/common/Loader";
 import MachineDetailModal from "../../components/production/MachineDetailModal";
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
+import useAuth from "../../hooks/useAuth";
+import { isOperator } from "../../config/permissions";
 import {
   getMachineDetail,
   getMachineSummary,
@@ -45,6 +51,10 @@ import {
   statusLabel,
 } from "../../data/machinesMasterData";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
+
+const PAGE_BG = "#F5F5F5";
+const YELLOW = "#F5C518";
+const PAGE_SIZES = [20, 50, 100];
 
 function SummaryCard({ label, value, icon: Icon, color, sub }) {
   return (
@@ -153,6 +163,8 @@ const defaultFilters = {
 export default function MachineStatus() {
   const tenantId = useTenantId();
   const { addToast } = useToast();
+  const { user } = useAuth();
+  const operatorMode = isOperator(user);
   const [loading, setLoading] = useState(true);
   const [machines, setMachines] = useState([]);
   const [apiSummary, setApiSummary] = useState(null);
@@ -161,6 +173,9 @@ export default function MachineStatus() {
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [viewMode, setViewMode] = useState("grid");
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const loadMachines = useCallback(async () => {
     setLoading(true);
@@ -197,28 +212,41 @@ export default function MachineStatus() {
     }
   };
 
-  const filteredMachines = useMemo(() => {
+  const filtered = useMemo(() => {
     return machines.filter((m) => {
-      const status = normalizeStatus(m);
-      if (filters.code && !String(m.code).toLowerCase().includes(filters.code.toLowerCase())) return false;
       if (filters.name && !m.name.toLowerCase().includes(filters.name.toLowerCase())) return false;
+      if (filters.code && !m.code.toLowerCase().includes(filters.code.toLowerCase())) return false;
+      if (filters.status && normalizeStatus(m.status) !== filters.status) return false;
       if (filters.department && m.department !== filters.department) return false;
       if (filters.production_line && m.production_line !== filters.production_line) return false;
       if (filters.machine_type && m.machine_type !== filters.machine_type) return false;
-      if (filters.status && status !== filters.status) return false;
-      if (filters.operator && !String(m.assigned_operator || "").toLowerCase().includes(filters.operator.toLowerCase())) return false;
-      if (filters.shift && m.current_shift !== filters.shift) return false;
+      if (filters.operator && !String(m.operator_name || "").toLowerCase().includes(filters.operator.toLowerCase())) return false;
+      if (filters.shift && m.shift !== filters.shift) return false;
       if (filters.work_center && m.work_center !== filters.work_center) return false;
       return true;
     });
   }, [machines, filters]);
 
+  const filteredMachines = filtered;
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters, pageSize]);
+
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const paginatedMachines = useMemo(() => {
+    return filtered.slice((page - 1) * pageSize, page * pageSize);
+  }, [filtered, page, pageSize]);
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+
   const summary = useMemo(() => {
     if (apiSummary && !Object.values(filters).some(Boolean)) {
       return apiSummary;
     }
-    return computeMachineSummary(filteredMachines);
-  }, [apiSummary, filteredMachines, filters]);
+    return computeMachineSummary(filtered);
+  }, [apiSummary, filtered, filters]);
 
   const exportColumns = [
     { key: "code", label: "Machine Code" },
@@ -254,10 +282,10 @@ export default function MachineStatus() {
     addToast("Template downloaded");
   };
 
-  const handleStatusChange = async (machine, newStatus) => {
+  const handleStatusChange = async (machine, newStatus, idleReason) => {
     if (typeof machine.id === "number") {
       try {
-        await updateMachineStatus(machine.id, tenantId, newStatus);
+        await updateMachineStatus(machine.id, tenantId, newStatus, idleReason);
         addToast(`Machine ${newStatus}`);
         loadMachines();
         setSelected(null);
@@ -317,123 +345,247 @@ export default function MachineStatus() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-h-full pb-8" style={{ background: PAGE_BG }}>
+      <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Machine Management</h1>
-          <p className="text-sm text-slate-500">Digital profiles · Live status · OEE · Production integration</p>
+          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Machine Management</h1>
+          <p className="mt-0.5 text-xs text-slate-500">Digital profiles · Live status · OEE · Production integration</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={handleDownloadTemplate} className="ui-btn-secondary">
-            <Upload className="h-4 w-4" /> Import
-          </button>
-          <button type="button" onClick={handleExportExcel} className="ui-btn-secondary">
-            <Download className="h-4 w-4" /> Export
-          </button>
-          <button type="button" onClick={loadMachines} className="ui-btn-secondary">
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </button>
-          <Link to="/production/machines/create" className="ui-btn-primary">
-            <Plus className="h-4 w-4" /> New Machine
-          </Link>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+          <SummaryCard label="Total Machines" value={summary.total_machines} icon={Cpu} color="bg-slate-600" />
+          <SummaryCard label="Running" value={summary.running} icon={Zap} color="bg-green-600" />
+          <SummaryCard label="Idle" value={summary.idle} icon={Activity} color="bg-yellow-500" />
+          <SummaryCard label="Maintenance" value={summary.maintenance} icon={Wrench} color="bg-blue-600" />
+          <SummaryCard label="Breakdown" value={summary.breakdown} icon={Activity} color="bg-red-600" />
+          <SummaryCard label="Offline" value={summary.offline} icon={Cpu} color="bg-slate-800" />
+          <SummaryCard label="Utilization" value={`${summary.utilization_pct}%`} icon={Activity} color="bg-indigo-600" />
+          <SummaryCard label="Today's Production" value={summary.todays_production?.toLocaleString?.() ?? summary.todays_production} icon={FileText} color="bg-teal-600" />
         </div>
-      </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-        <SummaryCard label="Total Machines" value={summary.total_machines} icon={Cpu} color="bg-slate-600" />
-        <SummaryCard label="Running" value={summary.running} icon={Zap} color="bg-green-600" />
-        <SummaryCard label="Idle" value={summary.idle} icon={Activity} color="bg-yellow-500" />
-        <SummaryCard label="Maintenance" value={summary.maintenance} icon={Wrench} color="bg-blue-600" />
-        <SummaryCard label="Breakdown" value={summary.breakdown} icon={Activity} color="bg-red-600" />
-        <SummaryCard label="Offline" value={summary.offline} icon={Cpu} color="bg-slate-800" />
-        <SummaryCard label="Utilization" value={`${summary.utilization_pct}%`} icon={Activity} color="bg-indigo-600" />
-        <SummaryCard label="Today's Production" value={summary.todays_production?.toLocaleString?.() ?? summary.todays_production} icon={FileText} color="bg-teal-600" />
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            type="search"
-            placeholder="Search machines..."
-            value={filters.name}
-            onChange={(e) => setFilters((f) => ({ ...f, name: e.target.value }))}
-            className="min-w-[200px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-          />
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-          >
-            <option value="">All Status</option>
-            {MACHINE_STATUSES.map((s) => (
-              <option key={s} value={s}>{statusLabel(s)}</option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => setShowAdvanced((v) => !v)}
-            className="text-sm font-semibold text-[#2563EB] hover:underline"
-          >
-            {showAdvanced ? "Hide Filters" : "More Filters"}
-          </button>
-          <div className="ml-auto flex rounded-lg border border-slate-200 p-0.5">
+        <div className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex flex-wrap items-center gap-2.5">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
+              <input
+                type="search"
+                placeholder="Search machines..."
+                value={filters.name}
+                onChange={(e) => setFilters((f) => ({ ...f, name: e.target.value }))}
+                className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] py-2.5 pl-10 pr-4 text-[13px] outline-none placeholder:text-[#a0a0ab] focus:border-[#d0d0d8] focus:bg-white"
+              />
+            </div>
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+              className="rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3 py-2 text-[13px] font-semibold text-[#1a1a1f]"
+            >
+              <option value="">All Status</option>
+              {MACHINE_STATUSES.map((s) => (
+                <option key={s} value={s}>{statusLabel(s)}</option>
+              ))}
+            </select>
             <button
               type="button"
-              onClick={() => setViewMode("grid")}
-              className={`rounded-md p-2 ${viewMode === "grid" ? "bg-[#2563EB] text-white" : "text-slate-500"}`}
-              title="Grid view"
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
             >
-              <Grid3X3 className="h-4 w-4" />
+              {showAdvanced ? "Hide Filters" : "More Filters"}
             </button>
+            {!operatorMode && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+                >
+                  <Upload className="h-4 w-4" /> Import
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportExcel}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+                >
+                  <FileSpreadsheet className="h-4 w-4" /> Export
+                </button>
+              </>
+            )}
             <button
               type="button"
-              onClick={() => setViewMode("list")}
-              className={`rounded-md p-2 ${viewMode === "list" ? "bg-[#2563EB] text-white" : "text-slate-500"}`}
-              title="List view"
+              onClick={loadMachines}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
             >
-              <LayoutList className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4" /> Refresh
             </button>
+            {!operatorMode && (
+              <Link
+                to="/production/machines/create"
+                className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
+                style={{ background: YELLOW }}
+              >
+                <Plus className="h-4 w-4" /> New Machine
+              </Link>
+            )}
+            <div className="ml-auto flex rounded-lg border border-slate-200 p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                className={`rounded-md p-2 ${viewMode === "grid" ? "bg-[#2563EB] text-white" : "text-slate-500"}`}
+                title="Grid view"
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={`rounded-md p-2 ${viewMode === "list" ? "bg-[#2563EB] text-white" : "text-slate-500"}`}
+                title="List view"
+              >
+                <LayoutList className="h-4 w-4" />
+              </button>
+            </div>
           </div>
+
+          {showAdvanced && (
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <input placeholder="Machine Code" value={filters.code} onChange={(e) => setFilters((f) => ({ ...f, code: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+              <select value={filters.department} onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                <option value="">All Departments</option>
+                {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <select value={filters.production_line} onChange={(e) => setFilters((f) => ({ ...f, production_line: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                <option value="">All Lines</option>
+                {PRODUCTION_LINES.map((l) => <option key={l} value={l}>{l}</option>)}
+              </select>
+              <select value={filters.machine_type} onChange={(e) => setFilters((f) => ({ ...f, machine_type: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                <option value="">All Types</option>
+                {MACHINE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <input placeholder="Operator" value={filters.operator} onChange={(e) => setFilters((f) => ({ ...f, operator: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+              <select value={filters.shift} onChange={(e) => setFilters((f) => ({ ...f, shift: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                <option value="">All Shifts</option>
+                {SHIFTS.map((s) => {
+                  const id = typeof s === "object" ? s.id : s;
+                  const label = typeof s === "object" ? s.label : s;
+                  return <option key={id} value={id}>{label}</option>;
+                })}
+              </select>
+              <select value={filters.work_center} onChange={(e) => setFilters((f) => ({ ...f, work_center: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                <option value="">All Work Centers</option>
+                {WORK_CENTERS.map((w) => <option key={w} value={w}>{w}</option>)}
+              </select>
+              <button type="button" onClick={() => setFilters(defaultFilters)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                Clear Filters
+              </button>
+            </div>
+          )}
+
+          {viewMode === "list" ? (
+            <>
+              <div className="overflow-hidden rounded-lg border border-[#ececf0]">
+                <DataTable columns={columns} data={paginatedMachines} showSearch={false} pagination={false} />
+              </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[12px] text-[#6b6b76]">
+                <div className="flex items-center gap-2">
+                  <span>Rows per page:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="rounded border border-[#e2e2e8] bg-white px-2 py-1 outline-none"
+                  >
+                    {PAGE_SIZES.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                  <span>{total === 0 ? "0-0 of 0" : `${from}-${to} of ${total}`}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="grid h-8 min-w-8 place-items-center rounded border border-[#e0b400] px-2 text-[13px] font-semibold"
+                    style={{ background: "#fff2b8" }}
+                  >
+                    {page}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {paginatedMachines.map((machine) => {
+                const normStatus = normalizeStatus(machine.status);
+                const statusConfig = STATUS_COLORS[normStatus] || STATUS_COLORS.idle;
+                return (
+                  <div
+                    key={machine.id}
+                    onClick={() => setSelected(machine)}
+                    className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-xs transition-all hover:border-[#2563EB] hover:shadow-md cursor-pointer"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            {machine.code || `M-${machine.id}`}
+                          </span>
+                          <h3 className="text-base font-bold text-slate-900 group-hover:text-[#2563EB] line-clamp-1">
+                            {machine.name}
+                          </h3>
+                        </div>
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${statusConfig.badge}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${statusConfig.dot}`} />
+                          {statusLabel(machine.status)}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                        <div className="rounded-lg bg-slate-50 p-2">
+                          <span className="text-[10px] text-slate-400 block">Department</span>
+                          <span className="font-semibold text-slate-700 truncate block">{machine.department || "—"}</span>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-2">
+                          <span className="text-[10px] text-slate-400 block">Operator</span>
+                          <span className="font-semibold text-slate-700 truncate block">{machine.operator_name || "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
+                      <span>Shift: <strong className="text-slate-700">{typeof machine.shift === "object" ? (machine.shift?.label || machine.shift?.id || "General") : (machine.shift || "General")}</strong></span>
+                      <span className="font-semibold text-[#2563EB]">View Details →</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {showAdvanced && (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <input placeholder="Machine Code" value={filters.code} onChange={(e) => setFilters((f) => ({ ...f, code: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-            <select value={filters.department} onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              <option value="">All Departments</option>
-              {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-            <select value={filters.production_line} onChange={(e) => setFilters((f) => ({ ...f, production_line: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              <option value="">All Lines</option>
-              {PRODUCTION_LINES.map((l) => <option key={l} value={l}>{l}</option>)}
-            </select>
-            <select value={filters.machine_type} onChange={(e) => setFilters((f) => ({ ...f, machine_type: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              <option value="">All Types</option>
-              {MACHINE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <input placeholder="Operator" value={filters.operator} onChange={(e) => setFilters((f) => ({ ...f, operator: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-            <select value={filters.shift} onChange={(e) => setFilters((f) => ({ ...f, shift: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              <option value="">All Shifts</option>
-              {SHIFTS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <select value={filters.work_center} onChange={(e) => setFilters((f) => ({ ...f, work_center: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              <option value="">All Work Centers</option>
-              {WORK_CENTERS.map((w) => <option key={w} value={w}>{w}</option>)}
-            </select>
-            <button type="button" onClick={() => setFilters(defaultFilters)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-              Clear Filters
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-2 rounded-xl bg-slate-50 px-4 py-3">
-        {WORKFLOW_STEPS.map((step, i) => (
-          <span key={step} className="flex items-center gap-2 text-xs text-slate-600">
-            <span className="font-semibold text-[#2563EB]">{step}</span>
-            {i < WORKFLOW_STEPS.length - 1 && <span className="text-slate-300">→</span>}
-          </span>
-        ))}
+        <div className="flex flex-wrap gap-2 rounded-xl bg-slate-50 px-4 py-3">
+          {WORKFLOW_STEPS.map((step, i) => (
+            <span key={step} className="flex items-center gap-2 text-xs text-slate-600">
+              <span className="font-semibold text-[#2563EB]">{step}</span>
+              {i < WORKFLOW_STEPS.length - 1 && <span className="text-slate-300">→</span>}
+            </span>
+          ))}
+        </div>
       </div>
 
       {filteredMachines.length === 0 ? (
@@ -466,6 +618,7 @@ export default function MachineStatus() {
           detail={detail}
           onClose={() => { setSelected(null); setDetail(null); }}
           onStatusChange={handleStatusChange}
+          operatorMode={operatorMode}
         />
       )}
     </div>

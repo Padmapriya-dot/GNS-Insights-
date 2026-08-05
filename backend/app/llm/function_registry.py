@@ -996,12 +996,13 @@ def format_tool_result(tool_name: str, result: dict) -> str:
                 hrs = wo.get('hours_remaining')
                 days = wo.get('days_remaining')
                 delayed = wo.get('is_delayed', False)
+                time_left_str = f"{hrs} hrs  (~{days} days)" if hrs is not None else 'Not scheduled'
                 lines += [
                     "",
                     f"**⏱ Time Analysis**",
                     f"- **Started:**      {(wo.get('planned_start') or '—')[:16]}",
                     f"- **Planned End:**  {(wo.get('planned_end') or '—')[:16]}",
-                    f"- **Time Left:**    {f'{hrs} hrs  (~{days} days)' if hrs is not None else 'Not scheduled'}",
+                    f"- **Time Left:**    {time_left_str}",
                     f"- **Status:**       {'🔴 DELAYED' if delayed else '✅ On Track'}",
                     f"- **Downtime:**     {wo.get('downtime_minutes', 0)} min",
                 ]
@@ -1025,6 +1026,9 @@ def format_tool_result(tool_name: str, result: dict) -> str:
             prod = wo.get("product") or {}
             mac = wo.get("machine") or {}
             status_icon = {"running": "🟢", "in_progress": "🟢", "planned": "🔵", "completed": "✅", "paused": "⏸️", "delayed": "🔴"}.get((wo.get("status") or "").lower(), "⚪")
+            hrs_rem = wo.get('hours_remaining')
+            days_rem = wo.get('days_remaining')
+            time_rem_str = f"{hrs_rem} hrs (~{days_rem} days)" if hrs_rem is not None else 'Not scheduled'
             lines += [
                 "---",
                 f"**{status_icon} {wo.get('work_order_number','?')}**  |  Status: **{(wo.get('status') or '').upper()}**  |  Priority: **{(wo.get('priority') or 'medium').upper()}**",
@@ -1039,7 +1043,7 @@ def format_tool_result(tool_name: str, result: dict) -> str:
                 "",
                 f"**⏱ Timeline**",
                 f"- Start: {(wo.get('planned_start') or '—')[:16]}  →  End: {(wo.get('planned_end') or '—')[:16]}",
-                f"- Time Remaining: {f"{wo.get('hours_remaining')} hrs (~{wo.get('days_remaining')} days)" if wo.get('hours_remaining') is not None else 'Not scheduled'}",
+                f"- Time Remaining: {time_rem_str}",
                 f"- Delay: {'🔴 YES — OVERDUE' if wo.get('is_delayed') else '✅ On Track'}",
                 "",
             ]
@@ -1080,6 +1084,9 @@ def format_tool_result(tool_name: str, result: dict) -> str:
             mac = p.get("machine") or {}
             wo_info = p.get("work_orders") or {}
             status_icon = {"completed": "✅", "in_progress": "🟢", "running": "🟢", "planned": "🔵", "delayed": "🔴"}.get((p.get("status") or "").lower(), "⚪")
+            hrs_rem = p.get('hours_remaining')
+            days_rem = p.get('days_remaining')
+            time_left_str = f"{hrs_rem} hrs (~{days_rem} days)" if hrs_rem is not None else 'No due date set'
             lines += [
                 "---",
                 f"**{status_icon} {p.get('order_number','?')}**  |  Status: **{(p.get('status') or '').upper()}**  |  Priority: **{(p.get('priority') or 'medium').upper()}**",
@@ -1094,7 +1101,7 @@ def format_tool_result(tool_name: str, result: dict) -> str:
                 "",
                 f"**⏱ Timeline**",
                 f"- Start: {(p.get('start_date') or '—')[:16]}  →  Due: {(p.get('due_date') or '—')[:16]}",
-                f"- Time Left: {f"{p.get('hours_remaining')} hrs (~{p.get('days_remaining')} days)" if p.get('hours_remaining') is not None else 'No due date set'}",
+                f"- Time Left: {time_left_str}",
                 f"- Delay: {'🔴 OVERDUE' if p.get('is_delayed') else '✅ On Track'}",
                 "",
             ]
@@ -1213,6 +1220,9 @@ def format_tool_result(tool_name: str, result: dict) -> str:
         for s in sched:
             status_icon = {"running": "🟢", "in_progress": "🟢", "planned": "🔵",
                            "completed": "✅", "paused": "⏸️", "delayed": "🔴"}.get((s.get("status") or "").lower(), "⚪")
+            hrs_rem = s.get('hours_remaining')
+            days_rem = s.get('days_remaining')
+            time_left_str = f"{hrs_rem} hrs (~{days_rem} days)" if hrs_rem is not None else 'Not scheduled'
             lines += [
                 "---",
                 f"**{status_icon} {s.get('work_order_number','?')}**  |  Status: **{(s.get('status') or '').upper()}**  |  Priority: **{(s.get('priority','medium')).upper()}**",
@@ -1220,7 +1230,7 @@ def format_tool_result(tool_name: str, result: dict) -> str:
                 f"- **Machine:** {s.get('machine_code','—')} {s.get('machine_name','')}  |  **Operator:** {s.get('operator','—')}",
                 f"- **Shift:** {s.get('shift','—')}  |  **Dept:** {s.get('department','—')}",
                 f"- **Start:** {s.get('planned_start','—')}  →  **End:** {s.get('planned_end','—')}",
-                f"- **Time Left:** {f"{s.get('hours_remaining')} hrs (~{s.get('days_remaining')} days)" if s.get('hours_remaining') is not None else 'Not scheduled'}",
+                f"- **Time Left:** {time_left_str}",
                 f"- **Progress:** {s.get('produced_quantity',0):,.0f} / {s.get('planned_quantity',0):,.0f} units  ({s.get('progress_pct',0)}%)",
                 f"- **Delay:** {'🔴 OVERDUE' if s.get('is_delayed') else '✅ On Track'}",
                 "",
@@ -1296,6 +1306,9 @@ def format_tool_result(tool_name: str, result: dict) -> str:
         for t in tasks:
             status_icon = {"running": "🟢", "in_progress": "🟢", "planned": "🔵",
                            "completed": "✅", "paused": "⏸️"}.get((t.get("status") or "").lower(), "⚪")
+            hrs = t.get('hours_remaining')
+            days = t.get('days_remaining')
+            time_left_str = f"{hrs} hrs (~{days} days)" if hrs is not None else 'Not scheduled'
             lines += [
                 "---",
                 f"**{status_icon} {t.get('work_order_number','?')}**  |  Status: **{(t.get('status') or '').upper()}**  |  Priority: **{(t.get('priority','medium')).upper()}**",
@@ -1309,7 +1322,7 @@ def format_tool_result(tool_name: str, result: dict) -> str:
                 "",
                 f"**⏱ Timeline**",
                 f"- Start: {t.get('planned_start','—')}  →  End: {t.get('planned_end','—')}",
-                f"- Time Left: {f"{t.get('hours_remaining')} hrs (~{t.get('days_remaining')} days)" if t.get('hours_remaining') is not None else 'Not scheduled'}",
+                f"- Time Left: {time_left_str}",
                 f"- Delay: {'🔴 OVERDUE' if t.get('is_delayed') else '✅ On Track'}",
                 "",
             ]

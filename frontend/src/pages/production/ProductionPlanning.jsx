@@ -1,18 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
+  CheckCircle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Download,
   Eye,
+  FileSpreadsheet,
   FileText,
   Pause,
   Play,
   Plus,
   Printer,
   RefreshCw,
+  Search,
+  Send,
   Upload,
+  X,
 } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
@@ -57,23 +64,39 @@ import {
 } from "../../data/productionPlanningMasterData";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import { printProductionOrder } from "../../utils/printUtils";
+import QuickWorkOrderModal from "../../components/production/QuickWorkOrderModal";
+import IssueMaterialsModal from "../../components/production/IssueMaterialsModal";
+
+const PAGE_BG = "#F5F5F5";
+const YELLOW = "#F5C518";
+const PAGE_SIZES = [20, 50, 100];
 
 function SummaryCard({ label, value, icon: Icon, color, onClick }) {
+  const displayVal =
+    value === null || value === undefined
+      ? "0"
+      : typeof value === "object"
+      ? (value?.value ?? value?.count ?? value?.total ?? JSON.stringify(value))
+      : String(value);
+
   return (
     <div
       onClick={onClick}
-      className={`rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ${
-        onClick ? "cursor-pointer transition hover:shadow-md" : ""
+      className={`rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden ${
+        onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""
       }`}
+      title={typeof label === "string" ? label : undefined}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium text-slate-500">{label}</p>
-          <p className="mt-1 truncate text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{value}</p>
-        </div>
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${color}`}>
-          <Icon className="h-4 w-4 text-white" />
-        </div>
+      <div className="flex items-center justify-between gap-1.5 min-w-0">
+        <p className="truncate text-[11px] font-medium text-slate-500 leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
+        {Icon && (
+          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${color}`}>
+            <Icon className="h-3.5 w-3.5 text-white" />
+          </div>
+        )}
+      </div>
+      <div className="mt-2">
+        <p className="truncate text-xl font-extrabold tabular-nums text-slate-900 leading-none">{displayVal}</p>
       </div>
     </div>
   );
@@ -104,7 +127,7 @@ function ProgressCell({ row }) {
         <span>{pct}%</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 print:border print:border-slate-300">
-        <div className="h-full rounded-full bg-teal-600 print:bg-slate-700" style={{ width: `${Math.min(pct, 100)}%` }} />
+        <div className="h-full rounded-full bg-[#2563EB] print:bg-slate-700" style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
     </div>
   );
@@ -130,6 +153,64 @@ function formatDate(val) {
   return isNaN(d.getTime()) ? String(val).slice(0, 10) : d.toLocaleDateString(undefined, { dateStyle: "short" });
 }
 
+/* ─── Bottom-Right Yellow Order Created Toast Popup ───────────────────────── */
+function OrderCreatedToast({ order, onClose }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 7000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  if (!order) return null;
+
+  return (
+    <div className="fixed bottom-6 right-6 z-[9999] w-full max-w-sm animate-in slide-in-from-bottom-5 duration-300 print:hidden">
+      <div className="relative overflow-hidden rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-yellow-400/40 border-l-6 border-[#F5C518]">
+        {/* close */}
+        <button
+          onClick={onClose}
+          type="button"
+          className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-yellow-100 hover:text-gray-900 transition-colors"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        {/* Icon & Title */}
+        <div className="flex items-start gap-3.5 mb-3 pr-6">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F5C518] shadow-sm text-gray-900">
+            <CheckCircle className="h-6 w-6 text-gray-900" />
+          </div>
+          <div>
+            <h4 className="text-base font-extrabold text-gray-900">
+              Production Order Created!
+            </h4>
+            <p className="text-xs font-medium text-gray-600 mt-0.5">
+              Order <strong className="text-gray-900 font-bold">#{order.order_number || order.id}</strong> has been saved.
+            </p>
+          </div>
+        </div>
+
+        {/* Operator card if present with Yellow/Amber accent */}
+        {order.operator_name && (
+          <div className="flex items-center justify-between rounded-xl bg-amber-50/90 border border-amber-200 px-3.5 py-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Send className="h-4 w-4 text-amber-700 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Sent to Operator</p>
+                <p className="truncate text-xs font-bold text-gray-900">{order.operator_name}</p>
+              </div>
+            </div>
+            {order.operator_id && order.operator_id !== "—" && (
+              <span className="text-[11px] font-bold text-gray-900 bg-[#F5C518] px-2 py-0.5 rounded-md shrink-0 shadow-xs">
+                ID: {order.operator_id}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ProductionPlanning() {
   const { user } = useAuth();
   const { addToast } = useToast();
@@ -146,6 +227,20 @@ export default function ProductionPlanning() {
   const [completeModal, setCompleteModal] = useState(null);
   const [completeSteps, setCompleteSteps] = useState([]);
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const [createdToastOrder, setCreatedToastOrder] = useState(null);
+  const [quickWoOrder, setQuickWoOrder] = useState(null);
+  const [issueModalOrder, setIssueModalOrder] = useState(null);
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  useEffect(() => {
+    if (location.state?.createdOrder) {
+      setCreatedToastOrder(location.state.createdOrder);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const [machines, setMachines] = useState([]);
   // State to track which single order is being printed
@@ -167,7 +262,20 @@ export default function ProductionPlanning() {
       try {
         const stored = localStorage.getItem("smrt_local_production_orders");
         if (stored) {
-          localOrders = JSON.parse(stored).map((r, i) => enrichApiOrder(r, i));
+          const parsed = JSON.parse(stored);
+          let modified = false;
+          localOrders = parsed.map((r, i) => {
+            if (r && typeof r.shift === "object" && r.shift !== null) {
+              r.shift = r.shift.label || r.shift.id || "General";
+              modified = true;
+            }
+            return enrichApiOrder(r, i);
+          });
+          if (modified) {
+            try {
+              localStorage.setItem("smrt_local_production_orders", JSON.stringify(localOrders));
+            } catch (e) {}
+          }
         }
       } catch (e) {}
       const rawList = [...localOrders, ...apiOrders];
@@ -232,6 +340,18 @@ export default function ProductionPlanning() {
     });
   }, [orders, filters]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [filters, pageSize]);
+
+  const total = filteredOrders.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const paginatedOrders = useMemo(() => {
+    return filteredOrders.slice((page - 1) * pageSize, page * pageSize);
+  }, [filteredOrders, page, pageSize]);
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+
   const summary = useMemo(() => {
     // Always compute from the actual merged orders list (local + API)
     // so status changes (e.g. completed) are reflected immediately
@@ -281,22 +401,51 @@ export default function ProductionPlanning() {
 
   const handleMachineChange = async (orderId, machineId) => {
     const numId = machineId ? Number(machineId) : null;
+    const selectedM = machines.find((m) => String(m.id) === String(machineId));
+    const mName = selectedM ? (selectedM.name || selectedM.code) : (machineId ? `Machine #${machineId}` : "—");
+
     setOrders((prev) =>
       prev.map((o) => {
-        if (o.id === orderId) {
-          const selectedM = machines.find((m) => String(m.id) === String(machineId));
-          return { ...o, machine_id: numId, machine_name: selectedM ? (selectedM.name || selectedM.code) : "—" };
+        if (o.id === orderId || o.order_number === orderId) {
+          return { ...o, machine_id: numId, machine_name: mName };
         }
         return o;
       })
     );
-    addToast(numId ? "Machine assigned" : "Machine unassigned");
+
+    // Save to local storage for POs and WOs
+    try {
+      const storedPOs = localStorage.getItem("smrt_local_production_orders");
+      if (storedPOs) {
+        const localPOs = JSON.parse(storedPOs);
+        const updatedPOs = localPOs.map((po) =>
+          po.id === orderId || po.order_number === orderId
+            ? { ...po, machine_id: numId, machine_name: mName }
+            : po
+        );
+        localStorage.setItem("smrt_local_production_orders", JSON.stringify(updatedPOs));
+      }
+
+      const storedWOs = localStorage.getItem("smrt_local_work_orders");
+      if (storedWOs) {
+        const localWOs = JSON.parse(storedWOs);
+        const updatedWOs = localWOs.map((wo) =>
+          wo.production_order_id === orderId || wo.production_order_number === orderId
+            ? { ...wo, machine_id: numId, machine_name: mName }
+            : wo
+        );
+        localStorage.setItem("smrt_local_work_orders", JSON.stringify(updatedWOs));
+      }
+    } catch {}
+
+    addToast(numId ? `Machine (${mName}) assigned` : "Machine unassigned", "success");
+
     if (typeof orderId === "number" && numId) {
       try {
         await updateProductionOrderMachine(orderId, numId);
         notifyManufacturingSpine(MANUFACTURING_EVENTS.WORK_ORDER_UPDATED, { orderId, machineId: numId });
       } catch {
-        addToast("Machine assignment failed on server", "error");
+        // Fallback info
       }
     }
   };
@@ -346,7 +495,35 @@ export default function ProductionPlanning() {
       return;
     }
     setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: "in_progress" } : o)));
-    addToast("Production started");
+    try {
+      const storedPOs = localStorage.getItem("smrt_local_production_orders");
+      if (storedPOs) {
+        const list = JSON.parse(storedPOs);
+        const updated = list.map((o) =>
+          o.id === order.id || o.plan_code === order.plan_code || o.order_number === order.order_number
+            ? { ...o, status: "in_progress" }
+            : o
+        );
+        localStorage.setItem("smrt_local_production_orders", JSON.stringify(updated));
+      }
+      const storedTasks = localStorage.getItem("smrt_local_tasks");
+      if (storedTasks) {
+        const taskList = JSON.parse(storedTasks);
+        const updatedTasks = taskList.map((t) => {
+          if (
+            t.status === "open" ||
+            t.reference_id === order.plan_code ||
+            t.reference_id === order.order_number ||
+            t.work_order_id === order.id
+          ) {
+            return { ...t, status: "in_progress" };
+          }
+          return t;
+        });
+        localStorage.setItem("smrt_local_tasks", JSON.stringify(updatedTasks));
+      }
+    } catch {}
+    addToast("Production started — Tasks set to In Progress");
     setStartModal(null);
     setStartLoading(false);
   };
@@ -475,7 +652,8 @@ export default function ProductionPlanning() {
   const exportColumns = [
     { key: "order_number", label: "Order No" },
     { key: "product_name", label: "Product" },
-    { key: "customer_name", label: "Customer" },
+    { key: "buyer_company", label: "Buyer Company" },
+    { key: "size", label: "Size" },
     { key: "planned_quantity", label: "Planned" },
     { key: "produced_quantity", label: "Produced" },
     { key: "priority", label: "Priority" },
@@ -498,7 +676,11 @@ export default function ProductionPlanning() {
   };
 
   const handleIndividualPrint = (order) => {
-    printProductionOrder(order, user);
+    setPrintDetailOrder(order);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => setPrintDetailOrder(null), 500);
+    }, 150);
   };
 
   const columns = [
@@ -512,7 +694,16 @@ export default function ProductionPlanning() {
         </span>
       )
     },
-    { key: "customer_name", label: "Customer" },
+    {
+      key: "buyer_company",
+      label: "Buyer Company",
+      render: (r) => r.buyer_company || r.customer_name || "—",
+    },
+    {
+      key: "size",
+      label: "Size",
+      render: (r) => r.size || "—",
+    },
     { key: "planned_quantity", label: "Planned Quantity" },
     {
       key: "produced_quantity",
@@ -532,9 +723,13 @@ export default function ProductionPlanning() {
     {
       key: "machine_name",
       label: "Machine",
-      render: (r) => <span className="text-slate-700 font-medium">{r.machine_name || "—"}</span>,
+      render: (r) => (
+        <span className={r.machine_name && r.machine_name !== "—" && r.machine_name !== "Unassigned" ? "font-semibold text-slate-800" : "text-slate-400"}>
+          {r.machine_name && r.machine_name !== "—" && r.machine_name !== "Unassigned" ? r.machine_name : "—"}
+        </span>
+      ),
     },
-    { key: "shift", label: "Shift" },
+    { key: "shift", label: "Shift", render: (r) => typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "—") : (r.shift || "—") },
     {
       key: "start_date",
       label: "Start",
@@ -549,6 +744,7 @@ export default function ProductionPlanning() {
       key: "progress",
       label: "Progress",
       sortable: false,
+      printHidden: true,
       render: (r) => <ProgressCell row={r} />,
     },
     {
@@ -566,22 +762,26 @@ export default function ProductionPlanning() {
       key: "actions",
       label: "Actions",
       sortable: false,
-      render: (r) => (
-        <div className="flex flex-wrap gap-1 text-xs print:hidden">
-          <button type="button" title="View" onClick={() => openOrder(r)} className="font-semibold text-teal-800 hover:underline">View</button>
-          <Link to={`/production/create?id=${r.id}&product_id=${r.product_id || ""}&order_number=${encodeURIComponent(r.order_number || "")}&customer_name=${encodeURIComponent(r.customer_name || "")}&bom_version=${encodeURIComponent(r.bom_version || "BOM v1.0")}&planned_quantity=${r.planned_quantity || ""}&priority=${r.priority || "medium"}&shift=${encodeURIComponent(r.shift || "Shift A")}&machine_id=${r.machine_id || ""}&start_date=${r.start_date || ""}&due_date=${r.due_date || ""}`} className="font-semibold text-slate-600 hover:underline">✏ Edit</Link>
-          {canStart(r.status) && (
-            <button type="button" onClick={() => handleStartClick(r)} className="font-semibold text-green-700 hover:underline">▶ Start</button>
-          )}
-          {canPause(r.status) && (
-            <button type="button" onClick={() => handlePause(r)} className="font-semibold text-amber-700 hover:underline">⏸ Pause</button>
-          )}
-          <button type="button" onClick={() => handleIndividualPrint(r)} className="font-semibold text-slate-500 hover:underline">🖨 Print</button>
-          {(!r.machine_name || r.machine_name === "—") && (
-            <Link to={`/production/work-orders/create-quick?production_order_id=${r.id}&product_id=${r.product_id || ""}&planned_quantity=${r.planned_quantity || ""}&order_number=${encodeURIComponent(r.order_number || "")}&customer_name=${encodeURIComponent(r.customer_name || "")}&shift=${encodeURIComponent(r.shift || "")}&priority=${r.priority || "medium"}&start_date=${r.start_date || ""}&due_date=${r.due_date || ""}`} className="font-semibold text-slate-500 hover:underline">📄 Work Order</Link>
-          )}
-        </div>
-      ),
+      printHidden: true,
+      render: (r) => {
+        const shiftStr = typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "General") : (r.shift || "General");
+        return (
+          <div className="flex flex-wrap gap-1 text-xs print:hidden">
+            <button type="button" title="View" onClick={() => openOrder(r)} className="font-semibold text-[#2563EB] hover:underline">👁 View</button>
+            <Link to={`/production/create?id=${r.id}&product_id=${r.product_id || ""}&order_number=${encodeURIComponent(r.order_number || "")}&buyer_company=${encodeURIComponent(r.buyer_company || r.customer_name || "")}&operator_name=${encodeURIComponent(r.operator_name || "")}&operator_id=${encodeURIComponent(r.operator_id || "")}&bom_version=${encodeURIComponent(r.bom_version || "BOM v1.0")}&planned_quantity=${r.planned_quantity || ""}&produced_quantity=${r.produced_quantity ?? 0}&priority=${r.priority || "medium"}&shift=${encodeURIComponent(shiftStr)}&machine_id=${r.machine_id || ""}&start_date=${r.start_date || ""}&due_date=${r.due_date || ""}&size=${encodeURIComponent(r.size || "")}&status=${encodeURIComponent(r.status || "planned")}&progress=${calculateProgressPct(r)}`} className="font-semibold text-slate-600 hover:underline">✏ Edit</Link>
+            <button type="button" onClick={() => handleIndividualPrint(r)} className="font-semibold text-slate-500 hover:underline">🖨 Print</button>
+            {canStart(r.status) && (
+              <button type="button" onClick={() => handleStartClick(r)} className="font-semibold text-green-700 hover:underline">▶ Start</button>
+            )}
+            {canPause(r.status) && (
+              <button type="button" onClick={() => handlePause(r)} className="font-semibold text-amber-700 hover:underline">⏸ Pause</button>
+            )}
+            {(!r.machine_name || r.machine_name === "—" || r.machine_name === "Unassigned") && (
+              <button type="button" onClick={() => setIssueModalOrder(r)} className="font-semibold text-cyan-700 hover:underline">📄 Work Order</button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -589,153 +789,240 @@ export default function ProductionPlanning() {
 
   return (
     <>
-      <div className={`space-y-6 pb-8 ${printDetailOrder ? "hidden print:hidden" : "print:p-0 print:space-y-4 print:block"}`}>
-        {/* Global Print-only Header */}
-        <div className="hidden print:block mb-4 border-b pb-4">
-          <h1 className="text-xl font-bold text-black">Production Planning Report</h1>
-          <p className="text-xs text-slate-600">
-            Generated on: {new Date().toLocaleDateString()} | Total Orders: {filteredOrders.length}
-          </p>
-        </div>
+      <div className={`min-h-full pb-8 ${printDetailOrder ? "hidden print:hidden" : "print:p-0 print:space-y-4 print:block"}`} style={{ background: PAGE_BG }}>
+        <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+          {/* Global Print-only Header */}
+          <div className="hidden print:block mb-4 border-b pb-4">
+            <h1 className="text-xl font-bold text-black">Production Planning Report</h1>
+            <p className="text-xs text-slate-600">
+              Generated on: {new Date().toLocaleDateString()} | Total Orders: {filteredOrders.length}
+            </p>
+          </div>
 
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          accept=".csv, .txt"
-          className="hidden"
-        />
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept=".csv, .txt"
+            className="hidden"
+          />
 
-        <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between print:hidden">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Production</p>
-            <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Production Planning</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Production Planning</h1>
+            <p className="mt-0.5 text-xs text-slate-500 print:hidden">
               Plan, schedule, and monitor production orders across machines, materials, and operators.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {!isOperator(user) && (
-              <Link to="/production/create" className="ui-btn-primary">
-                <Plus className="h-4 w-4" /> New Production Order
-              </Link>
-            )}
-            <button type="button" onClick={handleImportFileClick} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              <Upload className="h-4 w-4" /> Import
-            </button>
-            <button type="button" onClick={handleExportExcel} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              <Download className="h-4 w-4" /> Export Excel
-            </button>
-            <button type="button" onClick={handleExportPdf} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              <FileText className="h-4 w-4" /> Export PDF
-            </button>
-            <button type="button" onClick={handleGlobalPrint} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              <Printer className="h-4 w-4" /> Print
-            </button>
-            <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              <RefreshCw className="h-4 w-4" /> Refresh
-            </button>
+
+          <div className="print:hidden">
+            <ManufacturingWorkflowBar currentStepId="production_planning" />
           </div>
-        </header>
 
-        <div className="print:hidden">
-          <ManufacturingWorkflowBar currentStepId="production_planning" />
-        </div>
+          <div className="my-3 flex flex-wrap gap-2 print:hidden">
+            <Link to="/production/mrp" className="ui-btn-secondary text-sm">Run MRP</Link>
+            <Link to="/production/work-orders" className="ui-btn-secondary text-sm">Work Orders</Link>
+          </div>
 
-        <div className="mb-0 flex flex-wrap gap-2 print:hidden">
-          <Link to="/production/mrp" className="ui-btn-secondary text-sm">Run MRP</Link>
-          <Link to="/production/work-orders" className="ui-btn-secondary text-sm">Work Orders</Link>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-8 print:hidden">
-          <SummaryCard label="Total Orders" value={summary.total_orders} icon={ClipboardList} color="bg-teal-700" />
-          <SummaryCard label="Planned" value={summary.planned_orders} icon={FileText} color="bg-sky-600" />
-          <SummaryCard label="In Progress" value={summary.in_progress_orders} icon={Play} color="bg-amber-500" />
-          <SummaryCard label="Completed" value={summary.completed_orders} icon={CheckCircle2} color="bg-emerald-600" />
-          <SummaryCard label="Delayed" value={summary.delayed_orders} icon={AlertTriangle} color="bg-rose-600" />
-          <SummaryCard label="Cancelled" value={summary.cancelled_orders} icon={Pause} color="bg-slate-500" />
-          <SummaryCard label="Today's Target" value={summary.todays_target?.toLocaleString?.() ?? summary.todays_target} icon={ClipboardList} color="bg-indigo-600" />
-          <SummaryCard
-            label="Today's Production"
-            value={summary.todays_production?.toLocaleString?.() ?? summary.todays_production}
-            icon={CheckCircle2}
-            color="bg-teal-600"
-            onClick={showTodayStartOrders}
-          />
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:p-0 print:border-none print:shadow-none">
-          <div className="mb-4 flex flex-wrap items-center gap-3 print:hidden">
-            <input
-              type="search"
-              placeholder="Search production orders..."
-              value={filters.order_number || filters.product}
-              onChange={(e) => setFilters((f) => ({ ...f, order_number: e.target.value, product: e.target.value }))}
-              className="min-w-[220px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-8 print:hidden">
+            <SummaryCard label="Total Orders" value={summary.total_orders} icon={ClipboardList} color="bg-[#2563EB]" />
+            <SummaryCard label="Planned" value={summary.planned_orders} icon={FileText} color="bg-blue-500" />
+            <SummaryCard label="In Progress" value={summary.in_progress_orders} icon={Play} color="bg-amber-500" />
+            <SummaryCard label="Completed" value={summary.completed_orders} icon={CheckCircle2} color="bg-green-500" />
+            <SummaryCard label="Delayed" value={summary.delayed_orders} icon={AlertTriangle} color="bg-red-500" />
+            <SummaryCard label="Cancelled" value={summary.cancelled_orders} icon={Pause} color="bg-slate-500" />
+            <SummaryCard label="Today's Target" value={summary.todays_target?.toLocaleString?.() ?? summary.todays_target} icon={ClipboardList} color="bg-indigo-500" />
+            <SummaryCard
+              label="Today's Production"
+              value={summary.todays_production?.toLocaleString?.() ?? summary.todays_production}
+              icon={CheckCircle2}
+              color="bg-teal-500"
+              onClick={showTodayStartOrders}
             />
-            <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
-              {showAdvanced ? "Hide Filters" : "Advanced Filters"}
-            </button>
           </div>
 
-          {showAdvanced && (
-            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 print:hidden">
-              <input placeholder="Order No." value={filters.order_number} onChange={(e) => setFilters((f) => ({ ...f, order_number: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <input placeholder="Product" value={filters.product} onChange={(e) => setFilters((f) => ({ ...f, product: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <input placeholder="Customer" value={filters.customer} onChange={(e) => setFilters((f) => ({ ...f, customer: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <input placeholder="Work Order" value={filters.work_order} onChange={(e) => setFilters((f) => ({ ...f, work_order: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <input placeholder="Machine" value={filters.machine} onChange={(e) => setFilters((f) => ({ ...f, machine: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <select value={filters.department} onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
-                <option value="">Department</option>
-                {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-              <select value={filters.shift} onChange={(e) => setFilters((f) => ({ ...f, shift: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
-                <option value="">Shift</option>
-                {SHIFTS.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
-                <option value="">Priority</option>
-                {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-              <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
-                <option value="">Status</option>
-                {ORDER_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
-              </select>
-              <input type="date" value={filters.date_from} onChange={(e) => setFilters((f) => ({ ...f, date_from: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <input type="date" value={filters.date_to} onChange={(e) => setFilters((f) => ({ ...f, date_to: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <button type="button" onClick={() => setFilters(defaultFilters)} className="rounded-lg border px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">Clear</button>
+          {/* Main Card Container styled like Customers page */}
+          <div className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5 print:p-0 print:border-none print:shadow-none">
+            {/* Top Action Bar: Search on left, Action Buttons & Yellow + New Production Order on right */}
+            <div className="mb-4 flex flex-wrap items-center gap-2.5 print:hidden">
+              <div className="relative min-w-[220px] flex-1">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
+                <input
+                  type="search"
+                  placeholder="Search production orders..."
+                  value={filters.order_number || filters.product || ""}
+                  onChange={(e) => setFilters((f) => ({ ...f, order_number: e.target.value, product: e.target.value }))}
+                  className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] py-2.5 pl-10 pr-4 text-[13px] outline-none placeholder:text-[#a0a0ab] focus:border-[#d0d0d8] focus:bg-white"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              >
+                {showAdvanced ? "Hide Filters" : "Advanced Filters"}
+              </button>
+              <button
+                type="button"
+                onClick={handleImportFileClick}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              >
+                <Upload className="h-4 w-4" />
+                Import
+              </button>
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Export Excel
+              </button>
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              >
+                <FileText className="h-4 w-4" />
+                Export PDF
+              </button>
+              <button
+                type="button"
+                onClick={handleGlobalPrint}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              >
+                <Printer className="h-4 w-4" />
+                Print
+              </button>
+              <button
+                type="button"
+                onClick={load}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </button>
+              {!isOperator(user) && (
+                <Link
+                  to="/production/create"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
+                  style={{ background: YELLOW }}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Production Order
+                </Link>
+              )}
             </div>
-          )}
 
-          <div className="print:w-full print:text-xs">
-            <DataTable
-              columns={columns}
-              data={filteredOrders}
-              showSearch={false}
-              emptyState={
-                <div className="py-12 text-center">
-                  <ClipboardList className="mx-auto h-12 w-12 text-slate-300" />
-                  <p className="mt-4 text-sm font-medium text-slate-600">No production orders found.</p>
-                  <Link to="/production/create" className="ui-btn-primary mt-4 inline-flex print:hidden">Create Production Order</Link>
-                </div>
-              }
-            />
+            {showAdvanced && (
+              <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 print:hidden">
+                <input placeholder="Order No." value={filters.order_number} onChange={(e) => setFilters((f) => ({ ...f, order_number: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+                <input placeholder="Product" value={filters.product} onChange={(e) => setFilters((f) => ({ ...f, product: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+                <input placeholder="Customer" value={filters.customer} onChange={(e) => setFilters((f) => ({ ...f, customer: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+                <input placeholder="Work Order" value={filters.work_order} onChange={(e) => setFilters((f) => ({ ...f, work_order: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+                <input placeholder="Machine" value={filters.machine} onChange={(e) => setFilters((f) => ({ ...f, machine: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+                <select value={filters.department} onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
+                  <option value="">Department</option>
+                  {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <select value={filters.shift} onChange={(e) => setFilters((f) => ({ ...f, shift: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
+                  <option value="">Shift</option>
+                  {SHIFTS.map((s) => {
+                    const id = typeof s === "object" ? s.id : s;
+                    const label = typeof s === "object" ? s.label : s;
+                    return <option key={id} value={id}>{label}</option>;
+                  })}
+                </select>
+                <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
+                  <option value="">Priority</option>
+                  {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
+                  <option value="">Status</option>
+                  {ORDER_STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
+                </select>
+                <input type="date" value={filters.date_from} onChange={(e) => setFilters((f) => ({ ...f, date_from: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+                <input type="date" value={filters.date_to} onChange={(e) => setFilters((f) => ({ ...f, date_to: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+                <button type="button" onClick={() => setFilters(defaultFilters)} className="rounded-lg border px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">Clear</button>
+              </div>
+            )}
+
+            <div className="overflow-hidden rounded-lg border border-[#ececf0] print:w-full print:border-none">
+              <DataTable
+                columns={columns}
+                data={paginatedOrders}
+                showSearch={false}
+                pagination={false}
+                emptyState={
+                  <div className="py-12 text-center">
+                    <ClipboardList className="mx-auto h-12 w-12 text-slate-300" />
+                    <p className="mt-4 text-sm font-medium text-slate-600">No production orders found.</p>
+                    <Link to="/production/create" className="ui-btn-primary mt-4 inline-flex print:hidden">Create Production Order</Link>
+                  </div>
+                }
+              />
+            </div>
+
+            {/* Pagination Controls like Customers Page */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[12px] text-[#6b6b76] print:hidden">
+              <div className="flex items-center gap-2">
+                <span>Rows per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="rounded border border-[#e2e2e8] bg-white px-2 py-1 outline-none"
+                >
+                  {PAGE_SIZES.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                <span>{total === 0 ? "0-0 of 0" : `${from}-${to} of ${total}`}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="grid h-8 min-w-8 place-items-center rounded border border-[#e0b400] px-2 text-[13px] font-semibold"
+                  style={{ background: "#fff2b8" }}
+                >
+                  {page}
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="print:hidden">
-          <ManufacturingWorkflowBar currentStepId="production_planning" compact />
-        </div>
+          <div className="print:hidden">
+            <ManufacturingWorkflowBar currentStepId="production_planning" compact />
+          </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 print:hidden">
-          <p className="mb-2 text-xs font-semibold text-slate-500">Status Flow</p>
-          <div className="flex flex-wrap gap-2">
-            {STATUS_FLOW.map((s, i) => (
-              <span key={s} className="flex items-center gap-2 text-xs text-slate-600">
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium">{s}</span>
-                {i < STATUS_FLOW.length - 1 && <span className="text-slate-300">↓</span>}
-              </span>
-            ))}
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 print:hidden">
+            <p className="mb-2 text-xs font-semibold text-slate-500">Status Flow</p>
+            <div className="flex flex-wrap gap-2">
+              {STATUS_FLOW.map((s, i) => (
+                <span key={s} className="flex items-center gap-2 text-xs text-slate-600">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium">{s}</span>
+                  {i < STATUS_FLOW.length - 1 && <span className="text-slate-300">↓</span>}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -751,7 +1038,7 @@ export default function ProductionPlanning() {
             <span className="font-bold text-blue-600 text-xs tracking-wide">GNS Insights</span>
           </div>
           <div className="border-b-2 border-slate-900 pb-4 mb-6">
-            <h1 className="text-3xl font-bold uppercase tracking-wide">Production Order Details</h1>
+            <h1 className="print-title text-4xl font-black uppercase tracking-wide text-black">Production Order Details</h1>
             <p className="text-sm text-slate-500 mt-1">Order # {printDetailOrder.order_number} | Printed on {new Date().toLocaleDateString()} {(user?.full_name || user?.name) ? `| By: ${user.full_name || user.name}` : ""}</p>
           </div>
 
@@ -807,7 +1094,7 @@ export default function ProductionPlanning() {
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Assignment</p>
               <p className="text-sm"><span className="font-medium">Machine:</span> {printDetailOrder.machine_name || "Unassigned"}</p>
-              <p className="text-sm mt-1"><span className="font-medium">Shift:</span> {printDetailOrder.shift || "—"}</p>
+              <p className="text-sm mt-1"><span className="font-medium">Shift:</span> {typeof printDetailOrder.shift === "object" ? (printDetailOrder.shift?.label || printDetailOrder.shift?.id || "—") : (printDetailOrder.shift || "—")}</p>
             </div>
           </div>
         </div>
@@ -821,6 +1108,7 @@ export default function ProductionPlanning() {
           onStart={handleStartClick}
           onPause={handlePause}
           onComplete={handleComplete}
+          onQuickWorkOrder={(o) => setQuickWoOrder(o)}
         />
       )}
 
@@ -842,28 +1130,113 @@ export default function ProductionPlanning() {
         />
       )}
 
+      {quickWoOrder && (
+        <QuickWorkOrderModal
+          order={quickWoOrder}
+          onClose={() => setQuickWoOrder(null)}
+          onSuccess={() => load()}
+          addToast={addToast}
+        />
+      )}
+
+      {issueModalOrder && (
+        <IssueMaterialsModal
+          workOrder={issueModalOrder}
+          onClose={() => setIssueModalOrder(null)}
+          onSuccess={() => load()}
+          addToast={addToast}
+        />
+      )}
+
+      {createdToastOrder && (
+        <OrderCreatedToast
+          order={createdToastOrder}
+          onClose={() => setCreatedToastOrder(null)}
+        />
+      )}
+
       {/* Global CSS for Print Optimization */}
       <style>{`
         @media print {
-          body {
+          @page {
+            size: landscape;
+            margin: 4mm;
+          }
+          *, *::before, *::after {
+            box-shadow: none !important;
+            text-shadow: none !important;
+            scrollbar-width: none !important;
+          }
+          *::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+          }
+          html, body, #root {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
             background-color: #fff !important;
             color: #000 !important;
-            font-size: 11px !important;
+          }
+          div, section, article, main, table, .overflow-x-auto {
+            overflow: visible !important;
+            overflow-x: visible !important;
+            overflow-y: visible !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+          }
+          body * {
+            background-color: #fff !important;
+            background: transparent !important;
+            color: #000 !important;
+            font-size: 10px !important;
+            font-weight: 400 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           table {
             width: 100% !important;
+            max-width: 100% !important;
             border-collapse: collapse !important;
+            font-size: 10px !important;
+            table-layout: auto !important;
+            margin: 0 !important;
           }
-          th, td {
+          th {
             border: 1px solid #cbd5e1 !important;
-            padding: 6px 8px !important;
+            padding: 4px 6px !important;
             white-space: normal !important;
             word-break: break-word !important;
+            background-color: #f8fafc !important;
+            font-size: 10px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            text-align: left !important;
+          }
+          td {
+            border: 1px solid #cbd5e1 !important;
+            padding: 4px 6px !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            font-size: 10px !important;
+            vertical-align: middle !important;
           }
           tr {
             page-break-inside: avoid !important;
           }
-          .print\\:hidden {
+          h1, .print-title, .title {
+            font-size: 28px !important;
+            font-weight: 900 !important;
+            text-transform: uppercase !important;
+            line-height: 1.2 !important;
+            margin-bottom: 4px !important;
+          }
+          .print\\:hidden, th.print\\:hidden, td.print\\:hidden, [class*="print:hidden"] {
             display: none !important;
           }
           .print\\:block {

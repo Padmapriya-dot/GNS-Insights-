@@ -27,6 +27,26 @@ function readStoredUser() {
   return null;
 }
 
+function clearTenantDataCaches() {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith("smrt_") || k.startsWith("gns_") || k.startsWith("smrt-company-"))) {
+        if (
+          !k.startsWith("smrt-token") &&
+          !k.startsWith("smrt-refresh") &&
+          !k.startsWith("smrt-user") &&
+          !k.startsWith("smrt-language")
+        ) {
+          keys.push(k);
+        }
+      }
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch {}
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readStoredUser);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -70,6 +90,7 @@ export function AuthProvider({ children }) {
         if (cancelled) return;
         if (err.response?.status === 401) {
           try {
+            clearTenantDataCaches();
             localStorage.removeItem("smrt-token");
             localStorage.removeItem("smrt-refresh-token");
             localStorage.removeItem("smrt-user");
@@ -84,6 +105,7 @@ export function AuthProvider({ children }) {
 
   const login = useCallback((authData) => {
     setSessionExpired(false);
+    clearTenantDataCaches();
     let u;
     if (typeof authData === "object" && authData !== null) {
       const token = authData.access_token ?? authData.token;
@@ -127,6 +149,7 @@ export function AuthProvider({ children }) {
       setUser(null);
       setSessionExpired(false);
       try {
+        clearTenantDataCaches();
         localStorage.removeItem("smrt-user");
         localStorage.removeItem("smrt-token");
         localStorage.removeItem("smrt-refresh-token");

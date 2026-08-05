@@ -77,9 +77,14 @@ def get_user_permissions(user: User) -> set[str]:
         normalized = _normalize_permissions(getattr(role, "permissions", None))
         if normalized:
             perms.update(normalized)
-        elif getattr(role, "name", None) in PERMISSION_MATRIX:
-            perms.update(_permissions_for_role_name(role.name))
+        role_name = getattr(role, "name", None) if hasattr(role, "name") else (role if isinstance(role, str) else None)
+        if role_name and role_name in PERMISSION_MATRIX:
+            perms.update(_permissions_for_role_name(role_name))
+    for name in get_role_names(user):
+        if name in PERMISSION_MATRIX:
+            perms.update(_permissions_for_role_name(name))
     return perms
+
 
 
 def user_is_admin(user: User) -> bool:

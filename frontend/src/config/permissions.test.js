@@ -4,6 +4,8 @@ import {
   canAccess,
   getModuleForPath,
   isAdmin,
+  isProductionManager,
+  userCanAccessPath,
   getEffectivePermissions,
   userCanAccess,
 } from "./permissions";
@@ -40,6 +42,21 @@ describe("isAdmin", () => {
     expect(isAdmin({ permissions: ["*"] })).toBe(true);
     expect(isAdmin({ role: "Operator", permissions: ["production"] })).toBe(false);
     expect(isAdmin(null)).toBe(false);
+  });
+});
+
+describe("isProductionManager and userCanAccessPath", () => {
+  it("detects Production Manager role", () => {
+    expect(isProductionManager({ role: "Production Manager" })).toBe(true);
+    expect(isProductionManager({ roles: ["production_manager"] })).toBe(true);
+    expect(isProductionManager({ role: "Admin" })).toBe(false);
+  });
+
+  it("blocks Production Manager from accessing vendors page", () => {
+    const pm = { role: "Production Manager" };
+    expect(userCanAccessPath(pm, "/procurement/vendors")).toBe(false);
+    expect(userCanAccessPath(pm, "/masters/vendors")).toBe(false);
+    expect(userCanAccessPath(pm, "/masters/products")).toBe(true);
   });
 });
 

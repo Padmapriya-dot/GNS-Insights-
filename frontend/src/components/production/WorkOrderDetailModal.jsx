@@ -187,7 +187,7 @@ export default function WorkOrderDetailModal({
                   <Field label="Efficiency" value={w.machine_efficiency_pct != null ? `${w.machine_efficiency_pct}%` : "—"} />
                   <Field label="Operator" value={w.operator_name} />
                   <Field label="Supervisor" value={w.supervisor} />
-                  <Field label="Shift" value={w.shift} />
+                  <Field label="Shift" value={typeof w.shift === "object" ? (w.shift?.label || w.shift?.id || "—") : (w.shift || "—")} />
                 </div>
               </div>
               <div>
@@ -241,7 +241,7 @@ export default function WorkOrderDetailModal({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Field label="Assigned Operator" value={w.operator_name} />
               <Field label="Supervisor" value={w.supervisor} />
-              <Field label="Shift" value={w.shift} />
+              <Field label="Shift" value={typeof w.shift === "object" ? (w.shift?.label || w.shift?.id || "—") : (w.shift || "—")} />
               <Field label="Department" value={w.department} />
               <Field label="Efficiency" value={w.operator_efficiency_pct != null ? `${w.operator_efficiency_pct}%` : "—"} />
             </div>

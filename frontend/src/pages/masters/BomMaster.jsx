@@ -84,7 +84,7 @@ export default function BomMaster() {
     try {
       const [bomRes, prodRes] = await Promise.all([getBillOfMaterials(), getProducts()]);
       const apiRows = bomRes.data || [];
-      const apiProducts = prodRes.data || [];
+      const apiProducts = Array.isArray(prodRes) ? prodRes : (prodRes.data || []);
       const groupedApi = groupApiBomRows(apiRows);
 
       let customBoms = [];

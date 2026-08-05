@@ -1,9 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Package, AlertTriangle, ArrowLeft, CheckCircle2 } from "lucide-react";
+import {
+  Package,
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Sparkles,
+  ChevronUp,
+  Plus,
+  Boxes,
+  Tag,
+  Warehouse as WarehouseIcon,
+} from "lucide-react";
 
 import { createInventoryItem, getSuppliers, getWarehouses } from "../../api/inventoryApi";
-import { Input, Select, FormRow } from "../../components/common/FormField";
 import useTenantId from "../../hooks/useTenantId";
 
 const RAW_MATERIAL_CATEGORIES = [
@@ -25,6 +35,39 @@ const DEFAULT_WAREHOUSES = [
   "Warehouse 1",
 ];
 
+const PAGE_BG = "#F5F5F5";
+const YELLOW = "#F5C518";
+
+/* ─── Collapsible Section Component (matching Create Production) ─────────────── */
+function CollapsibleSection({ title, subtitle, expanded, onToggle, children }) {
+  return (
+    <div className="border-t border-slate-100 py-4">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <h3 className="text-[15px] font-semibold text-slate-900">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="ml-4 flex items-center gap-1.5 rounded-full border border-[#F5C518] bg-white px-4 py-1.5 text-[13px] font-semibold text-slate-800 hover:bg-yellow-50 transition-colors"
+        >
+          {expanded ? (
+            <><ChevronUp className="h-3.5 w-3.5" /> Hide</>
+          ) : (
+            <><Plus className="h-3.5 w-3.5" /> Add</>
+          )}
+        </button>
+      </div>
+      {expanded && (
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CreateItem() {
   const tenantId = useTenantId();
   const navigate = useNavigate();
@@ -35,6 +78,12 @@ export default function CreateItem() {
 
   const [suppliers, setSuppliers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
+
+  // Section collapse states
+  const [showStock, setShowStock] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
+  const [showFinishedDetails, setShowFinishedDetails] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const [form, setForm] = useState({
     tenant_id: tenantId,
@@ -55,6 +104,8 @@ export default function CreateItem() {
     customer_name: "",
     serial_number: "",
     expiry_date: "",
+    production_date: "",
+    warranty: "",
     item_type: initialType,
   });
 
@@ -70,7 +121,7 @@ export default function CreateItem() {
   useEffect(() => {
     getSuppliers(tenantId)
       .then((r) => setSuppliers(r.data || []))
-      .catch(console.error);
+      .catch(() => {});
 
     getWarehouses()
       .then((r) => {
@@ -83,7 +134,7 @@ export default function CreateItem() {
         }
       })
       .catch(() => setWarehouses(DEFAULT_WAREHOUSES));
-  }, []);
+  }, [tenantId]);
 
   const handleTypeChange = (newType) => {
     setForm((f) => ({
@@ -92,6 +143,25 @@ export default function CreateItem() {
       category: newType === "finished_good" ? "Finished Goods" : "Metals",
       unit: newType === "finished_good" ? "pcs" : "kg",
     }));
+  };
+
+  const handleAutoGenerateSku = () => {
+    const prefix = isFinishedGood ? "FG" : "RM";
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    const categoryCode = (form.category || "GEN").slice(0, 3).toUpperCase();
+    const newSku = `${prefix}-${categoryCode}-${rand}`;
+    setForm((f) => ({ ...f, sku: newSku }));
+    if (fieldErrors.sku) {
+      setFieldErrors((e) => ({ ...e, sku: null }));
+    }
+  };
+
+  const toggleShowAll = () => {
+    const next = !showAll;
+    setShowAll(next);
+    setShowStock(next);
+    setShowPricing(next);
+    setShowFinishedDetails(next);
   };
 
   const handleSubmit = async (e) => {
@@ -144,297 +214,336 @@ export default function CreateItem() {
     }
   };
 
-  const categoryOptions = (isFinishedGood ? FINISHED_GOOD_CATEGORIES : RAW_MATERIAL_CATEGORIES).map(
-    (c) => ({ value: c, label: c })
-  );
-
-  const warehouseOptions = warehouses.map((w) => ({ value: w, label: w }));
+  const categories = isFinishedGood ? FINISHED_GOOD_CATEGORIES : RAW_MATERIAL_CATEGORIES;
 
   return (
-    <div className="max-w-3xl pb-10">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
+    <div className="min-h-full py-8 pb-16" style={{ background: PAGE_BG }}>
+      {/* Centered Form Wrapper */}
+      <div className="mx-auto max-w-3xl px-4 sm:px-6">
+        {/* Back Link */}
+        <div className="mb-4">
           <Link
             to={backPath}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 mb-2"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#2563EB] transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to {isFinishedGood ? "Finished Goods" : "Raw Materials"}
           </Link>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {isFinishedGood ? "Create Finished Good" : "Create Raw Material"}
-            </h1>
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
-                isFinishedGood
-                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                  : "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300"
-              }`}
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {isFinishedGood ? "Finished Good Form" : "Raw Material Form"}
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        </div>
+
+        {/* Page Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold tracking-tight text-[#1a1a1f]">
+            {isFinishedGood ? "Create Finished Good" : "Create Raw Material"}
+          </h1>
+          <p className="mt-1 text-xs text-slate-500">
             {isFinishedGood
               ? "Add a new manufactured finished product to your inventory catalog."
               : "Add a new raw material item to your inventory catalog."}
           </p>
         </div>
-      </div>
 
-      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800/50 p-6 shadow-sm">
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {error && (
-            <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              {error}
-            </div>
-          )}
+        {/* Main Card Form styled like Create Production */}
+        <div className="rounded-2xl border border-[#e4e4ea] bg-white p-6 shadow-sm sm:p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                {error}
+              </div>
+            )}
 
-          {isFinishedGood ? (
-            <>
-              <FormRow>
-                <Input
-                  label="Product Stock Keeping Unit (SKU) *"
+            {/* Top Mandatory Fields */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* SKU */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    {isFinishedGood ? "Product Stock Keeping Unit (SKU)" : "Material Stock Keeping Unit (SKU)"} <span className="text-red-500">* *</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAutoGenerateSku}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2563EB] hover:underline"
+                  >
+                    <Sparkles className="h-3 w-3 text-amber-500" /> Auto-Generate
+                  </button>
+                </div>
+                <input
+                  type="text"
                   required
-                  placeholder="e.g. FG-GEAR-1001"
+                  placeholder={isFinishedGood ? "e.g. FG-GEAR-1001" : "e.g. RM-STEEL-001"}
                   value={form.sku}
                   onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-                  error={fieldErrors.sku}
-                  hint="Unique finished product Stock Keeping Unit (SKU)"
+                  className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white transition-colors"
                 />
-                <Input
-                  label="Product Name *"
-                  required
-                  placeholder="e.g. Precision Hydraulic Gearbox"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  error={fieldErrors.name}
-                />
-              </FormRow>
+                <p className="mt-1 text-[11px] text-slate-400">{isFinishedGood ? "Unique finished product code" : "Unique raw material code"}</p>
+                {fieldErrors.sku && <p className="mt-1 text-[11px] font-medium text-red-500">{fieldErrors.sku}</p>}
+              </div>
 
-              <FormRow>
-                <Input
-                  label="Batch Number"
-                  placeholder="e.g. BATCH-FG-001"
-                  value={form.batch_number}
-                  onChange={(e) => setForm((f) => ({ ...f, batch_number: e.target.value }))}
-                />
-                <Select
-                  label="Warehouse"
-                  value={form.warehouse_name}
-                  onChange={(e) => setForm((f) => ({ ...f, warehouse_name: e.target.value }))}
-                  options={warehouseOptions}
-                />
-              </FormRow>
-
-              <FormRow>
-                <Input
-                  label="Quantity (QTY)"
-                  type="number"
-                  min="0"
-                  placeholder="0"
-                  value={form.quantity}
-                  onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
-                  hint="Initial physical stock count"
-                />
-                <Input
-                  label="Reserved Qty"
-                  type="number"
-                  min="0"
-                  placeholder="0"
-                  value={form.reserved}
-                  onChange={(e) => setForm((f) => ({ ...f, reserved: e.target.value }))}
-                  hint="Allocated or reserved stock"
-                />
-                <Input
-                  label="Unit Cost / Price (₹)"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.unit_cost}
-                  onChange={(e) => setForm((f) => ({ ...f, unit_cost: e.target.value }))}
-                />
-              </FormRow>
-
-              <FormRow>
-                <Input
-                  label="Customer Name"
-                  placeholder="e.g. Tata Motors / Bosch"
-                  value={form.customer_name}
-                  onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))}
-                />
-                <Input
-                  label="Production Date"
-                  type="date"
-                  value={form.production_date}
-                  onChange={(e) => setForm((f) => ({ ...f, production_date: e.target.value }))}
-                />
-              </FormRow>
-
-              <FormRow>
-                <Input
-                  label="Expiry Date"
-                  type="date"
-                  value={form.expiry_date}
-                  onChange={(e) => setForm((f) => ({ ...f, expiry_date: e.target.value }))}
-                />
-                <Input
-                  label="Warranty Period"
-                  placeholder="e.g. 12 Months / 2 Years"
-                  value={form.warranty}
-                  onChange={(e) => setForm((f) => ({ ...f, warranty: e.target.value }))}
-                />
-              </FormRow>
-
-              <FormRow>
-                <Input
-                  label="Serial Number"
-                  placeholder="e.g. SN-998210"
-                  value={form.serial_number}
-                  onChange={(e) => setForm((f) => ({ ...f, serial_number: e.target.value }))}
-                />
-              </FormRow>
-            </>
-          ) : (
-            <>
-              <FormRow>
-                <Input
-                  label="Material Stock Keeping Unit (SKU) *"
-                  required
-                  placeholder="e.g. RM-STEEL-001"
-                  value={form.sku}
-                  onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-                  error={fieldErrors.sku}
-                  hint="Unique raw material code"
-                />
-                <Input
-                  label="Material Code"
-                  placeholder="Optional material code"
+              {/* Material Code / Barcode */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  {isFinishedGood ? "Product Code" : "Material Code"}
+                </label>
+                <input
+                  type="text"
+                  placeholder={isFinishedGood ? "Optional product code" : "Optional material code"}
                   value={form.barcode}
                   onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))}
+                  className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white transition-colors"
                 />
-              </FormRow>
+              </div>
+            </div>
 
-              <Input
-                label="Material Name *"
+            {/* Material / Product Name */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                {isFinishedGood ? "Product Name" : "Material Name"} <span className="text-red-500">* *</span>
+              </label>
+              <input
+                type="text"
                 required
-                placeholder="e.g. Stainless Steel Sheet 2mm"
+                placeholder={isFinishedGood ? "e.g. Precision Hydraulic Gearbox" : "e.g. Stainless Steel Sheet 2mm"}
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                error={fieldErrors.name}
+                className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white transition-colors"
               />
+              {fieldErrors.name && <p className="mt-1 text-[11px] font-medium text-red-500">{fieldErrors.name}</p>}
+            </div>
 
-              <FormRow>
-                <Select
-                  label="Category"
+            {/* Category & Warehouse */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Category</label>
+                <select
                   value={form.category}
                   onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                  options={categoryOptions}
-                />
-                <Select
-                  label="Warehouse"
+                  className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none focus:border-[#2563EB] focus:bg-white transition-colors"
+                >
+                  {categories.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Warehouse</label>
+                <select
                   value={form.warehouse_name}
                   onChange={(e) => setForm((f) => ({ ...f, warehouse_name: e.target.value }))}
-                  options={warehouseOptions}
-                />
-                <Input
-                  label="Batch Number"
-                  placeholder="e.g. BATCH-RM-001"
+                  className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none focus:border-[#2563EB] focus:bg-white transition-colors"
+                >
+                  {warehouses.map((w) => (
+                    <option key={w} value={w}>{w}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* ─── Collapsible Section 1: Stock Details ─────────────────────────── */}
+            <CollapsibleSection
+              title={isFinishedGood ? "Stock Details" : "Stock & Inventory Details"}
+              subtitle="Quantity (QTY), Reserved Qty, Unit, Batch Number"
+              expanded={showStock}
+              onToggle={() => setShowStock(!showStock)}
+            >
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Batch Number</label>
+                <input
+                  type="text"
+                  placeholder={isFinishedGood ? "e.g. BATCH-FG-001" : "e.g. BATCH-RM-001"}
                   value={form.batch_number}
                   onChange={(e) => setForm((f) => ({ ...f, batch_number: e.target.value }))}
+                  className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white transition-colors"
                 />
-              </FormRow>
+              </div>
 
-              <FormRow>
-                <Input
-                  label="Quantity (QTY)"
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Quantity (QTY)</label>
+                <input
                   type="number"
                   min="0"
                   placeholder="0"
                   value={form.quantity}
                   onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
-                  hint="Initial physical stock count"
+                  className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white transition-colors"
                 />
-                <Input
-                  label="Reserved Qty"
+                <p className="mt-1 text-[11px] text-slate-400">Initial physical stock count</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Reserved Qty</label>
+                <input
                   type="number"
                   min="0"
                   placeholder="0"
                   value={form.reserved}
                   onChange={(e) => setForm((f) => ({ ...f, reserved: e.target.value }))}
-                  hint="Allocated or reserved stock"
+                  className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white transition-colors"
                 />
-              </FormRow>
+                <p className="mt-1 text-[11px] text-slate-400">Allocated or reserved stock</p>
+              </div>
 
-              <FormRow>
-                <Input
-                  label="Unit"
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Unit</label>
+                <input
+                  type="text"
                   placeholder="KGS, GMS, LTR, MTR, SQMTR, SHEET, DRUM, PCS"
                   value={form.unit}
                   onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-                  hint="Default: KGS"
+                  className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white transition-colors"
                 />
-                <Input
-                  label="Unit Cost (₹)"
+                <p className="mt-1 text-[11px] text-slate-400">Default: {isFinishedGood ? "PCS" : "KGS"}</p>
+              </div>
+            </CollapsibleSection>
+
+            {/* ─── Collapsible Section 2: Pricing & Reorder ────────────────────── */}
+            <CollapsibleSection
+              title="Pricing & Reorder Details"
+              subtitle="Unit Cost (₹), Reorder Level, Preferred Supplier"
+              expanded={showPricing}
+              onToggle={() => setShowPricing(!showPricing)}
+            >
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Unit Cost (₹)</label>
+                <input
                   type="number"
                   step="0.01"
                   placeholder="0.00"
                   value={form.unit_cost}
                   onChange={(e) => setForm((f) => ({ ...f, unit_cost: e.target.value }))}
+                  className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white transition-colors"
                 />
-              </FormRow>
+              </div>
 
-              <FormRow>
-                <Input
-                  label="Reorder Level"
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Reorder Level</label>
+                <input
                   type="number"
                   min="0"
                   placeholder="0"
                   value={form.reorder_level}
                   onChange={(e) => setForm((f) => ({ ...f, reorder_level: e.target.value }))}
-                  hint="Alert when stock falls below this level"
+                  className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white transition-colors"
                 />
-                <Select
-                  label="Preferred Supplier"
+                <p className="mt-1 text-[11px] text-slate-400">Alert when stock falls below this level</p>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Preferred Supplier</label>
+                <select
                   value={form.supplier_id}
                   onChange={(e) => setForm((f) => ({ ...f, supplier_id: e.target.value }))}
-                  options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
-                  placeholder="None"
-                />
-              </FormRow>
-            </>
-          )}
+                  className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none focus:border-[#2563EB] focus:bg-white transition-colors"
+                >
+                  <option value="">Select Preferred Supplier (Optional)</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+            </CollapsibleSection>
 
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg disabled:opacity-70 disabled:cursor-not-allowed transition-all ${
-                isFinishedGood
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
-                  : "bg-gradient-to-r from-teal-500 to-teal-600 shadow-teal-500/25 hover:from-teal-600 hover:to-teal-700"
-              }`}
-            >
-              <Package className="h-4 w-4" />
-              {saving
-                ? "Saving..."
-                : isFinishedGood
-                ? "Create Finished Good"
-                : "Create Raw Material"}
-            </button>
-            <Link
-              to={backPath}
-              className="rounded-xl border border-slate-200 dark:border-slate-600 px-5 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
+            {/* ─── Collapsible Section 3: Finished Goods Additional Details ───── */}
+            {isFinishedGood && (
+              <CollapsibleSection
+                title="Production & Customer Details"
+                subtitle="Customer Name, Serial Number, Dates, Warranty"
+                expanded={showFinishedDetails}
+                onToggle={() => setShowFinishedDetails(!showFinishedDetails)}
+              >
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Customer Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Bosch / Tata Motors"
+                    value={form.customer_name}
+                    onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))}
+                    className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Serial Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SN-998210"
+                    value={form.serial_number}
+                    onChange={(e) => setForm((f) => ({ ...f, serial_number: e.target.value }))}
+                    className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Production Date</label>
+                  <input
+                    type="date"
+                    value={form.production_date}
+                    onChange={(e) => setForm((f) => ({ ...f, production_date: e.target.value }))}
+                    className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none focus:border-[#2563EB] focus:bg-white transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Expiry Date</label>
+                  <input
+                    type="date"
+                    value={form.expiry_date}
+                    onChange={(e) => setForm((f) => ({ ...f, expiry_date: e.target.value }))}
+                    className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none focus:border-[#2563EB] focus:bg-white transition-colors"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Warranty Period</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 12 Months / 2 Years"
+                    value={form.warranty}
+                    onChange={(e) => setForm((f) => ({ ...f, warranty: e.target.value }))}
+                    className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] px-4 py-2.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white transition-colors"
+                  />
+                </div>
+              </CollapsibleSection>
+            )}
+
+            {/* Show All Fields Toggle Button (Pill Button like image) */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={toggleShowAll}
+                className="rounded-full border border-purple-200 bg-white px-4 py-2 text-xs font-semibold text-purple-600 hover:bg-purple-50 transition-colors"
+              >
+                {showAll ? "− Hide Optional Fields" : "+ Show All Fields"}
+              </button>
+            </div>
+
+            {/* Form Action Buttons */}
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-5">
+              <Link
+                to={backPath}
+                className="rounded-full border border-[#e4e4ea] bg-[#f3f3f6] px-5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-[#ececf0] transition-colors"
+              >
+                Cancel
+              </Link>
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-xs font-semibold text-[#1a1a1f] shadow-xs disabled:opacity-60 transition-all hover:opacity-95"
+                style={{ background: YELLOW }}
+              >
+                <Plus className="h-4 w-4" />
+                {saving
+                  ? "Saving..."
+                  : isFinishedGood
+                  ? "Create Finished Good"
+                  : "Create Raw Material"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
 }
-

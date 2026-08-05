@@ -24,8 +24,10 @@ const NAV_ITEMS = [
 function shouldShowNav(user) {
   if (!user) return false;
   if (isAdmin(user)) return true;
-  const roles = Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role];
-  return roles.includes("Production Manager");
+  const roles = (Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role, user.role_name])
+    .filter(Boolean)
+    .map((r) => (typeof r === "object" ? r?.name || "" : String(r)).toLowerCase());
+  return roles.some((r) => r === "production manager" || r === "production_manager" || r.includes("production manager") || r.includes("production_manager"));
 }
 
 export default function ProductionManagerNav() {

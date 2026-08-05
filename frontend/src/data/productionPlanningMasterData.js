@@ -27,7 +27,13 @@ export const STATUS_COLORS = {
   pending: "bg-blue-100 text-blue-800",
 };
 
-export const SHIFTS = ["Shift A", "Shift B", "Shift C"];
+export const SHIFTS = [
+  { id: "General", label: "General Shift", timing: "9:00 AM – 6:00 PM" },
+  { id: "Shift A", label: "Shift A",       timing: "6:00 AM – 2:00 PM" },
+  { id: "Shift B", label: "Shift B",       timing: "2:00 PM – 10:00 PM" },
+  { id: "Shift C", label: "Shift C",       timing: "10:00 PM – 6:00 AM" },
+];
+
 export const DEPARTMENTS = ["Production", "Packing", "Assembly", "Quality Control"];
 
 export const WORKFLOW_STEPS = [
@@ -174,7 +180,7 @@ export function enrichApiOrder(row, index = 0) {
     work_order_number: row.work_order_number || null,
     machine_name: row.machine_name || "—",
     department: row.department || "Production",
-    shift: row.shift || "Shift A",
+    shift: typeof row.shift === "object" ? (row.shift?.label || row.shift?.id || "General") : (row.shift || "General"),
     status: status,
     planned_quantity: planned,
     produced_quantity: produced,
@@ -182,9 +188,18 @@ export function enrichApiOrder(row, index = 0) {
     progress_pct: finalProgress,
     good_qty: finalGood,
     reject_qty: finalReject,
+    buyer_company: row.buyer_company || row.customer_name || "",
+    operator_name: row.operator_name || "",
+    operator_id: row.operator_id || "",
+    size: row.size || "",
     is_delayed: row.is_delayed ?? false,
     materials: row.materials || [],
-    work_orders: row.work_orders || [],
+    work_orders: Array.isArray(row.work_orders)
+      ? row.work_orders.map((wo) => ({
+          ...wo,
+          shift: typeof wo.shift === "object" ? (wo.shift?.label || wo.shift?.id || "Shift A") : (wo.shift || "Shift A"),
+        }))
+      : [],
     documents: row.documents || [],
     audit_logs: row.audit_logs || [],
   };

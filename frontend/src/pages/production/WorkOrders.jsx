@@ -3,17 +3,18 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Download,
-  Eye,
+  FileSpreadsheet,
   FileText,
-  Package,
   Pause,
   Play,
   Plus,
   Printer,
   RefreshCw,
-  Square,
+  Search,
   Star,
 } from "lucide-react";
 
@@ -25,6 +26,8 @@ import WorkOrderDetailModal, {
   WorkOrderCompleteModal,
   WorkOrderStartModal,
 } from "../../components/production/WorkOrderDetailModal";
+import QuickWorkOrderModal from "../../components/production/QuickWorkOrderModal";
+import IssueMaterialsModal from "../../components/production/IssueMaterialsModal";
 import { useToast } from "../../context/ToastContext";
 import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
 import useAuth from "../../hooks/useAuth";
@@ -38,6 +41,8 @@ import {
   pauseWorkOrder,
   startWorkOrder,
   stopWorkOrder,
+  getMachines,
+  updateProductionOrderMachine,
 } from "../../api/productionApi";
 import {
   DEPARTMENTS,
@@ -62,17 +67,36 @@ import {
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import { printWorkOrder } from "../../utils/printUtils";
 
-function SummaryCard({ label, value, icon: Icon, color }) {
+const PAGE_BG = "#F5F5F5";
+const YELLOW = "#F5C518";
+const PAGE_SIZES = [20, 50, 100];
+
+function SummaryCard({ label, value, icon: Icon, color, onClick }) {
+  const displayVal =
+    value === null || value === undefined
+      ? "0"
+      : typeof value === "object"
+      ? (value?.value ?? value?.count ?? value?.total ?? JSON.stringify(value))
+      : String(value);
+
   return (
-    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium text-slate-500">{label}</p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{value}</p>
-        </div>
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${color}`}>
-          <Icon className="h-4 w-4 text-white" />
-        </div>
+    <div
+      onClick={onClick}
+      className={`rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden ${
+        onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""
+      }`}
+      title={typeof label === "string" ? label : undefined}
+    >
+      <div className="flex items-center justify-between gap-1.5 min-w-0">
+        <p className="truncate text-[11px] font-medium text-slate-500 leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
+        {Icon && (
+          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${color}`}>
+            <Icon className="h-3.5 w-3.5 text-white" />
+          </div>
+        )}
+      </div>
+      <div className="mt-2">
+        <p className="truncate text-xl font-extrabold tabular-nums text-slate-900 leading-none">{displayVal}</p>
       </div>
     </div>
   );
@@ -103,17 +127,22 @@ function ProgressCell({ row }) {
         <span>{pct}%</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
-        <div className="h-full rounded-full bg-teal-600" style={{ width: `${Math.min(pct, 100)}%` }} />
+        <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
     </div>
   );
 }
 
 function MachineCell({ row }) {
+  const isAssigned = Boolean(row.machine_name && row.machine_name !== "—" && row.machine_name !== "Unassigned");
   return (
     <div>
-      <p className="text-sm font-medium text-slate-800">{row.machine_name || "—"}</p>
-      <p className="text-[10px] capitalize text-slate-500">{row.machine_status || "—"}</p>
+      <p className={`text-sm font-medium ${isAssigned ? "text-slate-800" : "text-slate-400"}`}>
+        {isAssigned ? row.machine_name : "—"}
+      </p>
+      {isAssigned && row.machine_status && row.machine_status !== "—" && (
+        <p className="text-[10px] capitalize text-slate-500">{row.machine_status}</p>
+      )}
     </div>
   );
 }
@@ -164,14 +193,39 @@ export default function WorkOrders() {
   const [completeModal, setCompleteModal] = useState(null);
   const [completeSteps, setCompleteSteps] = useState([]);
   const [issuingId, setIssuingId] = useState(null);
+  const [showQuickModal, setShowQuickModal] = useState(false);
+  const [issueModalOrder, setIssueModalOrder] = useState(null);
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      let localWOs = [];
+      try {
+        const stored = localStorage.getItem("smrt_local_work_orders");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          localWOs = parsed.map((r, i) => enrichApiWorkOrder(r, i));
+        }
+      } catch (e) {}
+
       const poId = poFilter ? Number(poFilter) : undefined;
       const wRes = await getWorkOrders(poId).catch(() => ({ data: [] }));
       const apiRows = wRes.data || [];
-      const enriched = apiRows.map((r, i) => enrichApiWorkOrder(r, i));
+      const apiEnriched = apiRows.map((r, i) => enrichApiWorkOrder(r, i));
+
+      const combined = [...localWOs, ...apiEnriched];
+      const seen = new Set();
+      const enriched = combined.filter((w) => {
+        const key = w.id ? `id-${w.id}` : w.work_order_number ? `num-${w.work_order_number}` : null;
+        if (!key) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
       enriched.sort((a, b) => {
         const idA = typeof a.id === "number" ? a.id : Number(String(a.id).replace(/\D/g, "")) || 0;
         const idB = typeof b.id === "number" ? b.id : Number(String(b.id).replace(/\D/g, "")) || 0;
@@ -187,6 +241,52 @@ export default function WorkOrders() {
       setLoading(false);
     }
   }, [poFilter]);
+
+  const [machines, setMachines] = useState([]);
+
+  useEffect(() => {
+    getMachines()
+      .then((res) => setMachines(res?.data || []))
+      .catch(() => setMachines([]));
+  }, []);
+
+  const handleMachineChange = async (workOrderId, machineId) => {
+    const numId = machineId ? Number(machineId) : null;
+    const selectedM = machines.find((m) => String(m.id) === String(machineId));
+    const mName = selectedM ? (selectedM.name || selectedM.code) : (machineId ? `Machine #${machineId}` : "Unassigned");
+
+    setWorkOrders((prev) =>
+      prev.map((w) => {
+        if (w.id === workOrderId || w.work_order_number === workOrderId) {
+          return { ...w, machine_id: numId, machine_name: mName };
+        }
+        return w;
+      })
+    );
+
+    try {
+      const storedWOs = localStorage.getItem("smrt_local_work_orders") || localStorage.getItem("smrt_work_orders");
+      if (storedWOs) {
+        const localWOs = JSON.parse(storedWOs);
+        const updatedWOs = localWOs.map((wo) =>
+          wo.id === workOrderId || wo.work_order_number === workOrderId
+            ? { ...wo, machine_id: numId, machine_name: mName }
+            : wo
+        );
+        localStorage.setItem("smrt_local_work_orders", JSON.stringify(updatedWOs));
+        localStorage.setItem("smrt_work_orders", JSON.stringify(updatedWOs));
+      }
+    } catch {}
+
+    addToast(numId ? `Machine (${mName}) assigned to work order` : "Machine unassigned", "success");
+
+    if (typeof workOrderId === "number" && numId) {
+      try {
+        await updateProductionOrderMachine(workOrderId, numId).catch(() => null);
+        notifyManufacturingSpine(MANUFACTURING_EVENTS.WORK_ORDER_UPDATED, { workOrderId, machineId: numId });
+      } catch {}
+    }
+  };
 
   useEffect(() => { load(); }, [load]);
   useManufacturingRefresh(load);
@@ -209,6 +309,18 @@ export default function WorkOrders() {
       return true;
     });
   }, [workOrders, filters, poFilter, pendingView]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters, pageSize]);
+
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const paginatedWorkOrders = useMemo(() => {
+    return filtered.slice((page - 1) * pageSize, page * pageSize);
+  }, [filtered, page, pageSize]);
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
 
   // Always use the locally-enriched list to compute summary counts.
   // The backend API summary uses raw DB status (e.g. "running") which can
@@ -304,32 +416,8 @@ export default function WorkOrders() {
     addToast("Stopped");
   };
 
-  const handleIssueMaterials = async (wo) => {
-    if (typeof wo.id !== "number") {
-      addToast("Issue materials requires a saved work order", "error");
-      return;
-    }
-    setIssuingId(wo.id);
-    try {
-      const res = await issueWorkOrderMaterials(wo.id);
-      const data = res.data || {};
-      addToast(data.message || "Materials issued", "success");
-      notifyManufacturingSpine(MANUFACTURING_EVENTS.MATERIALS_ISSUED, {
-        workOrderId: wo.id,
-        ...data,
-      });
-      await load();
-      if (selected?.id === wo.id) {
-        const detailRes = await getWorkOrderDetail(wo.id);
-        setDetail(enrichApiWorkOrder(detailRes.data));
-        setSelected(enrichApiWorkOrder({ ...wo, ...detailRes.data, materials_issued: true }));
-      }
-    } catch (err) {
-      const msg = err?.response?.data?.detail || err?.message || "Material issue failed";
-      addToast(typeof msg === "string" ? msg : "Material issue failed", "error");
-    } finally {
-      setIssuingId(null);
-    }
+  const handleIssueMaterials = (wo) => {
+    setIssueModalOrder(wo);
   };
 
   const handleComplete = async (wo) => {
@@ -417,14 +505,8 @@ export default function WorkOrders() {
       label: "Status",
       render: (r) => (
         <span className="inline-flex flex-col gap-0.5">
-          <span className="rounded-md bg-slate-50 px-2 py-0.5 text-xs font-semibold capitalize text-slate-700 ring-1 ring-inset ring-slate-200">
-            {woStatusLabel(r.status)}
-          </span>
-          {r.is_delayed && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600">
-              <AlertTriangle className="h-3 w-3" aria-hidden /> Delayed
-            </span>
-          )}
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold capitalize">{woStatusLabel(r.status)}</span>
+          {r.is_delayed && <span className="text-[10px] font-semibold text-red-600">🔴 Delayed</span>}
         </span>
       ),
     },
@@ -433,56 +515,26 @@ export default function WorkOrders() {
       label: "Actions",
       sortable: false,
       render: (r) => (
-        <div className="flex flex-wrap items-center gap-1">
-          <button
-            type="button"
-            title="View"
-            onClick={() => openWo(r)}
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-teal-800 hover:bg-teal-50"
-          >
-            <Eye className="h-3.5 w-3.5" /> View
-          </button>
+        <div className="flex flex-wrap gap-1 text-xs">
+          <button type="button" onClick={() => openWo(r)} className="font-semibold text-[#2563EB] hover:underline">👁 View</button>
           {canWoIssueMaterials(r.status, r.materials_issued) && (
             <button
               type="button"
               disabled={issuingId === r.id}
               onClick={() => handleIssueMaterials(r)}
-              className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-cyan-800 hover:bg-cyan-50 disabled:opacity-50"
+              className="font-semibold text-cyan-700 hover:underline disabled:opacity-50"
             >
-              <Package className="h-3.5 w-3.5" />
-              {issuingId === r.id ? "Issuing…" : "Issue"}
+              {issuingId === r.id ? "Issuing…" : "📦 Issue Materials"}
             </button>
           )}
           {r.materials_issued && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700">
-              <CheckCircle2 className="h-3 w-3" /> Materials
-            </span>
+            <span className="text-[10px] font-semibold text-emerald-600">Materials ✔</span>
           )}
-          {canWoStart(r.status) && (
-            <button type="button" onClick={() => handleStartClick(r)} className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-50">
-              <Play className="h-3.5 w-3.5" /> Start
-            </button>
-          )}
-          {canWoPause(r.status) && (
-            <button type="button" onClick={() => handlePause(r)} className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-50">
-              <Pause className="h-3.5 w-3.5" /> Pause
-            </button>
-          )}
-          {canWoStop(r.status) && (
-            <button type="button" onClick={() => handleStop(r)} className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100">
-              <Square className="h-3 w-3" /> Stop
-            </button>
-          )}
-          <button type="button" onClick={() => handlePrintRow(r)} className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100">
-            <Printer className="h-3.5 w-3.5" /> Print
-          </button>
-          <button
-            type="button"
-            onClick={() => exportToPdf([r], exportCols, `WO ${r.work_order_number}`, r.work_order_number)}
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100"
-          >
-            <FileText className="h-3.5 w-3.5" /> PDF
-          </button>
+          {canWoStart(r.status) && <button type="button" onClick={() => handleStartClick(r)} className="font-semibold text-green-700 hover:underline">▶ Start</button>}
+          {canWoPause(r.status) && <button type="button" onClick={() => handlePause(r)} className="font-semibold text-amber-700 hover:underline">⏸ Pause</button>}
+          {canWoStop(r.status) && <button type="button" onClick={() => handleStop(r)} className="font-semibold text-slate-600 hover:underline">⏹ Stop</button>}
+          <button type="button" onClick={() => handlePrintRow(r)} className="font-semibold text-slate-500 hover:underline">🖨 Print</button>
+          <button type="button" onClick={() => exportToPdf([r], exportCols, `WO ${r.work_order_number}`, r.work_order_number)} className="font-semibold text-slate-500 hover:underline">📄 PDF</button>
         </div>
       ),
     },
@@ -491,135 +543,206 @@ export default function WorkOrders() {
   if (loading) return <Loader label="Loading work orders..." />;
 
   return (
-    <div className="space-y-5 pb-4">
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div className="min-h-full pb-8" style={{ background: PAGE_BG }}>
+      <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Production</p>
-          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
-            Work Orders
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="text-xs text-slate-400">
+            <Link to="/production/planning" className="hover:text-[#2563EB]">Production Planning</Link>
+            {" → "}
+            <Link to="/production/mrp" className="hover:text-[#2563EB]">MRP</Link>
+            {" → Work Orders"}
+          </p>
+          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Work Orders</h1>
+          <p className="mt-0.5 text-xs text-slate-500">
             Issue materials, assign machine/operator, run production, complete with QC and finished goods.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {!isOperator(user) && (
-            <Link to="/production/work-orders/create-quick" className="ui-btn-primary">
-              <Plus className="h-4 w-4" /> New Work Order
+
+        {pendingView && (
+          <div className="flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-white text-xs font-bold">
+                {filtered.length}
+              </span>
+              <span className="font-semibold text-orange-800">Pending Orders</span>
+              <span className="text-orange-600">— showing only <strong>Planned</strong> and <strong>In Progress</strong> work orders</span>
+            </div>
+            <Link
+              to="/production/work-orders"
+              className="rounded-lg border border-orange-300 bg-white px-3 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-100 transition-colors"
+            >
+              View All Orders
             </Link>
-          )}
-          <button
-            type="button"
-            onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </button>
-        </div>
-      </header>
-
-      {pendingView && (
-        <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-white">
-              {filtered.length}
-            </span>
-            <span className="font-semibold text-amber-900">Pending Orders</span>
-            <span className="text-amber-700">— Planned and in-progress work orders only</span>
-          </div>
-          <Link
-            to="/production/work-orders"
-            className="rounded-lg border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-          >
-            View All Orders
-          </Link>
-        </div>
-      )}
-
-      <ManufacturingWorkflowBar currentStepId="work_order" />
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <SummaryCard label="Total Work Orders" value={summary.total_work_orders} icon={ClipboardList} color="bg-teal-700" />
-        <SummaryCard label="Planned" value={summary.planned_orders} icon={FileText} color="bg-sky-600" />
-        <SummaryCard label="In Progress" value={summary.in_progress_orders} icon={Play} color="bg-amber-500" />
-        <SummaryCard label="Completed" value={summary.completed_orders} icon={CheckCircle2} color="bg-emerald-600" />
-        <SummaryCard label="Delayed" value={summary.delayed_orders} icon={AlertTriangle} color="bg-rose-600" />
-        <SummaryCard label="High Priority" value={summary.high_priority_orders} icon={Star} color="bg-violet-600" />
-      </div>
-
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
-        <div className="mb-4 flex flex-wrap gap-3">
-          <input
-            type="search"
-            placeholder="Search work orders..."
-            value={filters.work_order_number}
-            onChange={(e) => setFilters((f) => ({ ...f, work_order_number: e.target.value }))}
-            className="ui-input min-w-[200px] flex-1"
-          />
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            {showAdvanced ? "Hide Filters" : "Advanced Filters"}
-          </button>
-          <button
-            type="button"
-            onClick={() => exportToExcel(filtered, exportCols, "work-orders")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-          >
-            <Download className="h-4 w-4" /> Export
-          </button>
-        </div>
-
-        {showAdvanced && (
-          <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-            <input placeholder="WO Number" value={filters.work_order_number} onChange={(e) => setFilters((f) => ({ ...f, work_order_number: e.target.value }))} className="ui-input" />
-            <input placeholder="Production Order" value={filters.production_order} onChange={(e) => setFilters((f) => ({ ...f, production_order: e.target.value }))} className="ui-input" />
-            <input placeholder="Product" value={filters.product} onChange={(e) => setFilters((f) => ({ ...f, product: e.target.value }))} className="ui-input" />
-            <input placeholder="Customer" value={filters.customer} onChange={(e) => setFilters((f) => ({ ...f, customer: e.target.value }))} className="ui-input" />
-            <input placeholder="Machine" value={filters.machine} onChange={(e) => setFilters((f) => ({ ...f, machine: e.target.value }))} className="ui-input" />
-            <input placeholder="Operator" value={filters.operator} onChange={(e) => setFilters((f) => ({ ...f, operator: e.target.value }))} className="ui-input" />
-            <select value={filters.department} onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))} className="ui-input">
-              <option value="">Department</option>
-              {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-            <select value={filters.shift} onChange={(e) => setFilters((f) => ({ ...f, shift: e.target.value }))} className="ui-input">
-              <option value="">Shift</option>
-              {SHIFTS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} className="ui-input">
-              <option value="">Priority</option>
-              {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-            <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className="ui-input">
-              <option value="">Status</option>
-              {WO_STATUSES.map((s) => <option key={s} value={s}>{woStatusLabel(s)}</option>)}
-            </select>
-            <button type="button" onClick={() => setFilters(defaultFilters)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50">Clear</button>
           </div>
         )}
 
-        <DataTable columns={columns} data={filtered} showSearch={false} emptyState={
-          <div className="py-12 text-center">
-            <ClipboardList className="mx-auto h-12 w-12 text-slate-300" />
-            <p className="mt-4 text-sm font-medium text-slate-600">No work orders found.</p>
-            <Link to="/production/work-orders/create-quick" className="ui-btn-primary mt-4 inline-flex">Create Work Order</Link>
+        <ManufacturingWorkflowBar currentStepId="work_order" />
+
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+          <SummaryCard label="Total Work Orders" value={summary.total_work_orders} icon={ClipboardList} color="bg-[#2563EB]" />
+          <SummaryCard label="Planned" value={summary.planned_orders} icon={FileText} color="bg-blue-500" />
+          <SummaryCard label="In Progress" value={summary.in_progress_orders} icon={Play} color="bg-amber-500" />
+          <SummaryCard label="Completed" value={summary.completed_orders} icon={CheckCircle2} color="bg-green-500" />
+          <SummaryCard label="Delayed" value={summary.delayed_orders} icon={AlertTriangle} color="bg-red-500" />
+          <SummaryCard label="High Priority" value={summary.high_priority_orders} icon={Star} color="bg-purple-500" />
+        </div>
+
+        {/* Card Container styled like Production Planning */}
+        <div className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex flex-wrap items-center gap-2.5">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
+              <input
+                type="search"
+                placeholder="Search work orders..."
+                value={filters.work_order_number}
+                onChange={(e) => setFilters((f) => ({ ...f, work_order_number: e.target.value }))}
+                className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] py-2.5 pl-10 pr-4 text-[13px] outline-none placeholder:text-[#a0a0ab] focus:border-[#d0d0d8] focus:bg-white"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+            >
+              {showAdvanced ? "Hide Filters" : "Advanced Filters"}
+            </button>
+            <button
+              type="button"
+              onClick={() => exportToExcel(filtered, exportCols, "work-orders")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Export Excel
+            </button>
+            <button
+              type="button"
+              onClick={load}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
+            {!isOperator(user) && (
+              <button
+                type="button"
+                onClick={() => setShowQuickModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
+                style={{ background: YELLOW }}
+              >
+                <Plus className="h-4 w-4" />
+                New Work Order
+              </button>
+            )}
           </div>
-        } />
-      </div>
 
-      <ManufacturingWorkflowBar currentStepId="material_issue" compact />
+          {showAdvanced && (
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+              <input placeholder="WO Number" value={filters.work_order_number} onChange={(e) => setFilters((f) => ({ ...f, work_order_number: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+              <input placeholder="Production Order" value={filters.production_order} onChange={(e) => setFilters((f) => ({ ...f, production_order: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+              <input placeholder="Product" value={filters.product} onChange={(e) => setFilters((f) => ({ ...f, product: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+              <input placeholder="Customer" value={filters.customer} onChange={(e) => setFilters((f) => ({ ...f, customer: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+              <input placeholder="Machine" value={filters.machine} onChange={(e) => setFilters((f) => ({ ...f, machine: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+              <input placeholder="Operator" value={filters.operator} onChange={(e) => setFilters((f) => ({ ...f, operator: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+              <select value={filters.department} onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
+                <option value="">Department</option>
+                {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <select value={filters.shift} onChange={(e) => setFilters((f) => ({ ...f, shift: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
+                <option value="">Shift</option>
+                {SHIFTS.map((s) => {
+                  const id = typeof s === "object" ? s.id : s;
+                  const label = typeof s === "object" ? s.label : s;
+                  return <option key={id} value={id}>{label}</option>;
+                })}
+              </select>
+              <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
+                <option value="">Priority</option>
+                {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
+                <option value="">Status</option>
+                {WO_STATUSES.map((s) => <option key={s} value={s}>{woStatusLabel(s)}</option>)}
+              </select>
+              <button type="button" onClick={() => setFilters(defaultFilters)} className="rounded-lg border px-3 py-2 text-sm font-semibold">Clear</button>
+            </div>
+          )}
 
-      <div className="rounded-xl border border-slate-200/90 bg-white px-4 py-3">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Status Workflow</p>
-        <div className="flex flex-wrap gap-2">
-          {STATUS_FLOW.map((s, i) => (
-            <span key={s} className="flex items-center gap-2 text-xs">
-              <span className="rounded-md bg-slate-50 px-2 py-0.5 font-medium text-slate-700 ring-1 ring-inset ring-slate-200">{s}</span>
-              {i < STATUS_FLOW.length - 1 && <span className="text-slate-300">→</span>}
-            </span>
-          ))}
+          <div className="overflow-hidden rounded-lg border border-[#ececf0]">
+            <DataTable
+              columns={columns}
+              data={paginatedWorkOrders}
+              showSearch={false}
+              pagination={false}
+              emptyState={
+                <div className="py-12 text-center">
+                  <ClipboardList className="mx-auto h-12 w-12 text-slate-300" />
+                  <p className="mt-4 text-sm font-medium text-slate-600">No work orders found.</p>
+                  <button type="button" onClick={() => setShowQuickModal(true)} className="ui-btn-primary mt-4 inline-flex">Create Work Order</button>
+                </div>
+              }
+            />
+          </div>
+
+          {/* Pagination Bar */}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[12px] text-[#6b6b76]">
+            <div className="flex items-center gap-2">
+              <span>Rows per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="rounded border border-[#e2e2e8] bg-white px-2 py-1 outline-none"
+              >
+                {PAGE_SIZES.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <span>{total === 0 ? "0-0 of 0" : `${from}-${to} of ${total}`}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="grid h-8 min-w-8 place-items-center rounded border border-[#e0b400] px-2 text-[13px] font-semibold"
+                style={{ background: "#fff2b8" }}
+              >
+                {page}
+              </button>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <ManufacturingWorkflowBar currentStepId="material_issue" compact />
+
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <p className="mb-2 text-xs font-semibold text-slate-500">Status Workflow</p>
+          <div className="flex flex-wrap gap-2">
+            {STATUS_FLOW.map((s, i) => (
+              <span key={s} className="flex items-center gap-2 text-xs text-slate-600">
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium">{s}</span>
+                {i < STATUS_FLOW.length - 1 && <span className="text-slate-300">↓</span>}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -643,6 +766,23 @@ export default function WorkOrders() {
 
       {completeModal && (
         <WorkOrderCompleteModal workOrder={completeModal} steps={completeSteps} onClose={() => setCompleteModal(null)} />
+      )}
+
+      {showQuickModal && (
+        <QuickWorkOrderModal
+          onClose={() => setShowQuickModal(false)}
+          onSuccess={() => load()}
+          addToast={addToast}
+        />
+      )}
+
+      {issueModalOrder && (
+        <IssueMaterialsModal
+          workOrder={issueModalOrder}
+          onClose={() => setIssueModalOrder(null)}
+          onSuccess={() => load()}
+          addToast={addToast}
+        />
       )}
     </div>
   );
