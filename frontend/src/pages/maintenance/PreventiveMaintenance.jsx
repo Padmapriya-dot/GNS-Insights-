@@ -5,16 +5,24 @@ import DataTable from "../../components/common/DataTable";
 import MaintenanceErrorState from "../../components/maintenance/MaintenanceErrorState";
 import MaintenanceFilters from "../../components/maintenance/MaintenanceFilters";
 import Loader from "../../components/common/Loader";
+import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { useToast } from "../../context/ToastContext";
 import { getPreventiveEnriched, getPreventiveSummary } from "../../api/maintenanceApi";
 import { DEMO_PREVENTIVE_LIST, DEMO_PREVENTIVE_SUMMARY, MAINTENANCE_FLOW, mntStatusColor } from "../../data/maintenanceMasterData";
 
 function KpiCard({ label, value, icon: Icon, color, suffix }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}{suffix || ""}</p></div>
-        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+    <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden" title={typeof label === "string" ? label : undefined}>
+      <div className="flex items-center justify-between gap-1.5 min-w-0">
+        <p className="truncate text-[11px] font-medium text-slate-500 leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
+        {Icon && (
+          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${color}`}>
+            <Icon className="h-3.5 w-3.5 text-white" />
+          </div>
+        )}
+      </div>
+      <div className="mt-2">
+        <p className="truncate text-xl font-extrabold tabular-nums text-slate-900 leading-none">{value}{suffix || ""}</p>
       </div>
     </div>
   );
@@ -83,14 +91,19 @@ export default function PreventiveMaintenance() {
   if (error && !rows.length) return <MaintenanceErrorState message={error} onRetry={load} />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="min-h-full pb-8 print:p-0" style={{ background: "#F5F5F5" }}>
+      <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Preventive Maintenance</h1>
-          <p className="mt-1 text-sm text-slate-500">Schedule and track recurring maintenance tasks across all machines.</p>
+          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Preventive Maintenance</h1>
+          <p className="mt-0.5 text-xs text-slate-500 print:hidden">Schedule and track recurring maintenance tasks across all machines.</p>
         </div>
-        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
-      </header>
+
+
+        <div className="mb-0 flex flex-wrap items-center justify-between gap-2 print:hidden">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={load} className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"><RefreshCw className="h-4 w-4" /> Refresh</button>
+          </div>
+        </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiCard label="Total Machines" value={summary.total_machines} icon={Cog} color="bg-blue-600" />
@@ -112,8 +125,9 @@ export default function PreventiveMaintenance() {
 
       <MaintenanceFilters search={search} onSearchChange={setSearch} statusFilter={statusFilter} onStatusFilterChange={setStatusFilter} searchPlaceholder="Search machine, engineer, task..." />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5">
         <DataTable columns={columns} data={filtered} searchPlaceholder="" searchKeys={[]} />
+      </div>
       </div>
     </div>
   );

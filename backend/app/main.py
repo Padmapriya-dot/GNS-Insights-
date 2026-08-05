@@ -577,6 +577,19 @@ def on_startup():
         "ALTER TABLE alerts ADD COLUMN metadata_json TEXT",
         "ALTER TABLE alerts ADD COLUMN created_by VARCHAR(255)",
         "ALTER TABLE alerts ADD COLUMN is_read BOOLEAN NOT NULL DEFAULT 0",
+        "ALTER TABLE production_orders ADD COLUMN face_paper_mill_grade VARCHAR(128)",
+        "ALTER TABLE production_orders ADD COLUMN face_paper_paper VARCHAR(128)",
+        "ALTER TABLE production_orders ADD COLUMN face_paper_thick_microns VARCHAR(32)",
+        "ALTER TABLE production_orders ADD COLUMN face_paper_gsm VARCHAR(32)",
+        "ALTER TABLE production_orders ADD COLUMN coating_quality VARCHAR(64)",
+        "ALTER TABLE production_orders ADD COLUMN coating_mill_grade VARCHAR(128)",
+        "ALTER TABLE production_orders ADD COLUMN coating_cra_pct VARCHAR(32)",
+        "ALTER TABLE production_orders ADD COLUMN coating_colour VARCHAR(64)",
+        "ALTER TABLE production_orders ADD COLUMN coating_gsm VARCHAR(32)",
+        "ALTER TABLE production_orders ADD COLUMN coating_width_mm VARCHAR(32)",
+        "ALTER TABLE production_orders ADD COLUMN release_size_nos VARCHAR(32)",
+        "ALTER TABLE production_orders ADD COLUMN release_stocks_nos VARCHAR(32)",
+        "ALTER TABLE production_orders ADD COLUMN release_gsm_sqmtrs VARCHAR(32)",
     ]
     for ddl in _production_order_columns:
         try:

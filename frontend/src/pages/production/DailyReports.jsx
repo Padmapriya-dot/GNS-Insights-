@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { FileDown, FileSpreadsheet } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileDown, FileSpreadsheet, RefreshCw, Search } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
@@ -11,6 +11,10 @@ import { enrichApiOrder } from "../../data/productionPlanningMasterData";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
 import useTenantId from "../../hooks/useTenantId";
+
+const PAGE_BG = "#F5F5F5";
+const YELLOW = "#F5C518";
+const PAGE_SIZES = [20, 50, 100];
 
 function formatDate(val) {
   if (!val) return "—";
@@ -25,6 +29,10 @@ export default function DailyReports() {
   const [reports, setReports] = useState([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -153,6 +161,28 @@ export default function DailyReports() {
     { key: "notes", label: "Notes", render: (r) => r.notes || "—" },
   ];
 
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return reports;
+    const q = searchQuery.toLowerCase();
+    return reports.filter((r) =>
+      String(r.work_order_number || "").toLowerCase().includes(q) ||
+      String(r.product_name || "").toLowerCase().includes(q) ||
+      String(r.machine_name || "").toLowerCase().includes(q) ||
+      String(r.operator_name || "").toLowerCase().includes(q) ||
+      String(r.notes || "").toLowerCase().includes(q)
+    );
+  }, [reports, searchQuery]);
+
+  useEffect(() => { setPage(1); }, [searchQuery, pageSize]);
+
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const paginatedReports = useMemo(() => {
+    return filtered.slice((page - 1) * pageSize, page * pageSize);
+  }, [filtered, page, pageSize]);
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+
   const emptyState = (
     <EmptyState
       icon="chart"
@@ -162,33 +192,54 @@ export default function DailyReports() {
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={t("production.dailyReports")}
-        subtitle={t("production.dailyReportsSubtitle")}
-      />
+    <div className="min-h-full pb-8" style={{ background: PAGE_BG }}>
+      <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+        <div>
+          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">{t("production.dailyReports")}</h1>
+          <p className="mt-0.5 text-xs text-slate-500">{t("production.dailyReportsSubtitle")}</p>
+        </div>
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
-          />
-          <span className="text-slate-500">to</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
-          />
-          <div className="ml-auto flex gap-2">
+        <div className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex flex-wrap items-center gap-2.5">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
+              <input
+                type="search"
+                placeholder={t("common.search")}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] py-2.5 pl-10 pr-4 text-[13px] outline-none placeholder:text-[#a0a0ab] focus:border-[#d0d0d8] focus:bg-white"
+              />
+            </div>
+            <div className="flex items-center gap-1 text-xs text-slate-600">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3 py-2 text-xs"
+              />
+              <span>to</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3 py-2 text-xs"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={loadReports}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
             <button
               type="button"
               onClick={() => exportToExcel(reports, columns, "daily-reports")}
               disabled={!reports.length}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] disabled:opacity-50"
+              style={{ background: YELLOW }}
             >
               <FileSpreadsheet className="h-4 w-4" />
               Export Excel
@@ -197,25 +248,75 @@ export default function DailyReports() {
               type="button"
               onClick={() => exportToPdf(reports, columns, "Daily Production Reports", "daily-reports")}
               disabled={!reports.length}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0] disabled:opacity-50"
             >
               <FileDown className="h-4 w-4" />
               Export PDF
             </button>
           </div>
-        </div>
 
-        {loading ? (
-          <Loader label="Loading daily production reports..." />
-        ) : (
-          <DataTable
-            columns={columns}
-            data={reports}
-            searchPlaceholder={t("common.search")}
-            searchKeys={["report_date", "product_name", "work_order_number", "machine_name", "operator_name", "notes"]}
-            emptyState={emptyState}
-          />
-        )}
+          {loading ? (
+            <Loader label="Loading daily production reports..." />
+          ) : (
+            <>
+              <div className="overflow-hidden rounded-lg border border-[#ececf0]">
+                <DataTable
+                  columns={columns}
+                  data={paginatedReports}
+                  showSearch={false}
+                  pagination={false}
+                  emptyState={emptyState}
+                />
+              </div>
+
+              {/* Pagination Bar */}
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[12px] text-[#6b6b76]">
+                <div className="flex items-center gap-2">
+                  <span>Rows per page:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="rounded border border-[#e2e2e8] bg-white px-2 py-1 outline-none"
+                  >
+                    {PAGE_SIZES.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                  <span>{total === 0 ? "0-0 of 0" : `${from}-${to} of ${total}`}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="grid h-8 min-w-8 place-items-center rounded border border-[#e0b400] px-2 text-[13px] font-semibold"
+                    style={{ background: "#fff2b8" }}
+                  >
+                    {page}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

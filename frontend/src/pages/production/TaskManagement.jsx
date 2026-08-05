@@ -4,6 +4,7 @@ import { ClipboardList, CheckCircle, Clock, XCircle, Loader2 } from "lucide-reac
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
 import { getTasks, createTask, updateTask } from "../../api/tasksApi";
+import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 
 const STATUSES = [
   { value: "open", label: "Open" },
@@ -57,7 +58,7 @@ export default function TaskManagement() {
   const [filterPriority, setFilterPriority] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
 
-  /* ── load tasks: API + localStorage merged ──────────────────── */
+  /* ── load tasks: API + localStorage merged + Production Planning auto-sync ── */
   const loadTasks = useCallback(async () => {
     setLoading(true);
     try {
@@ -70,11 +71,52 @@ export default function TaskManagement() {
       const apiIds = new Set(apiTasks.map((t) => String(t.id)));
       const uniqueLocal = localTasks.filter((t) => !apiIds.has(String(t.id)));
 
-      setTasks([...uniqueLocal, ...apiTasks]);
+      let combined = [...uniqueLocal, ...apiTasks];
+
+      /* Auto-sync: check if Production Planning or Work Orders are in_progress */
+      try {
+        const storedPOs = localStorage.getItem("smrt_local_production_orders");
+        const storedWOs = localStorage.getItem("smrt_local_work_orders");
+        const pos = storedPOs ? JSON.parse(storedPOs) : [];
+        const wos = storedWOs ? JSON.parse(storedWOs) : [];
+
+        const hasInProgressPlanning =
+          pos.some((po) => po.status === "in_progress" || po.status === "In Progress") ||
+          wos.some((wo) => wo.status === "in_progress" || wo.status === "In Progress" || wo.status === "running");
+
+        const inProgressRefIds = new Set();
+        pos.forEach((po) => {
+          if (po.status === "in_progress" || po.status === "In Progress") {
+            if (po.id) inProgressRefIds.add(String(po.id));
+            if (po.order_number) inProgressRefIds.add(String(po.order_number));
+            if (po.plan_code) inProgressRefIds.add(String(po.plan_code));
+          }
+        });
+        wos.forEach((wo) => {
+          if (wo.status === "in_progress" || wo.status === "In Progress" || wo.status === "running") {
+            if (wo.id) inProgressRefIds.add(String(wo.id));
+            if (wo.work_order_number) inProgressRefIds.add(String(wo.work_order_number));
+          }
+        });
+
+        /* Automatically update task status to in_progress if linked plan is in_progress or if planning is in_progress */
+        combined = combined.map((t) => {
+          const refId = String(t.reference_id || t.work_order_id || "");
+          if (t.status === "open" && (hasInProgressPlanning || inProgressRefIds.has(refId))) {
+            return { ...t, status: "in_progress" };
+          }
+          return t;
+        });
+
+        localStorage.setItem("smrt_local_tasks", JSON.stringify(combined));
+      } catch {}
+
+      setTasks(combined);
     } catch {
       /* fallback to localStorage only */
       const storedRaw = localStorage.getItem("smrt_local_tasks");
-      setTasks(storedRaw ? JSON.parse(storedRaw) : []);
+      const list = storedRaw ? JSON.parse(storedRaw) : [];
+      setTasks(list);
     } finally {
       setLoading(false);
     }
@@ -82,38 +124,39 @@ export default function TaskManagement() {
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
 
-  /* ── status advance ─────────────────────────────────────────── */
+  /* ── status advance / direct set ────────────────────────────── */
+  const setTaskStatusDirect = async (task, targetStatus) => {
+    setUpdatingId(task.id);
+    try {
+      if (!String(task.id).startsWith("task-")) {
+        await updateTask(task.id, { status: targetStatus });
+      }
+      setTasks((prev) =>
+        prev.map((t) => (String(t.id) === String(task.id) ? { ...t, status: targetStatus } : t))
+      );
+      const storedRaw = localStorage.getItem("smrt_local_tasks");
+      if (storedRaw) {
+        const local = JSON.parse(storedRaw).map((t) =>
+          String(t.id) === String(task.id) ? { ...t, status: targetStatus } : t
+        );
+        localStorage.setItem("smrt_local_tasks", JSON.stringify(local));
+      }
+      addToast(`Task set to ${targetStatus.replace(/_/g, " ")}`, "success");
+    } catch (err) {
+      addToast(err?.response?.data?.detail || "Update failed", "error");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const advanceStatus = async (task) => {
     const next =
       task.status === "open"
         ? "in_progress"
         : task.status === "in_progress"
         ? "completed"
-        : null;
-    if (!next) return;
-    setUpdatingId(task.id);
-    try {
-      if (!String(task.id).startsWith("task-")) {
-        await updateTask(task.id, { status: next });
-      }
-      /* update local list */
-      setTasks((prev) =>
-        prev.map((t) => (String(t.id) === String(task.id) ? { ...t, status: next } : t))
-      );
-      /* update localStorage */
-      const storedRaw = localStorage.getItem("smrt_local_tasks");
-      if (storedRaw) {
-        const local = JSON.parse(storedRaw).map((t) =>
-          String(t.id) === String(task.id) ? { ...t, status: next } : t
-        );
-        localStorage.setItem("smrt_local_tasks", JSON.stringify(local));
-      }
-      addToast(`Task marked as ${next.replace(/_/g, " ")}`, "success");
-    } catch (err) {
-      addToast(err?.response?.data?.detail || "Update failed", "error");
-    } finally {
-      setUpdatingId(null);
-    }
+        : "completed";
+    await setTaskStatusDirect(task, next);
   };
 
   /* ── filtered view ──────────────────────────────────────────── */
@@ -136,39 +179,45 @@ export default function TaskManagement() {
   };
 
   return (
-    <div className="space-y-5">
-      {/* ── Page Header ──────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="min-h-full pb-8 print:p-0" style={{ background: "#F5F5F5" }}>
+      <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Assign Tasks</h1>
-          <p className="mt-0.5 text-sm text-gray-500">
+          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Assign Tasks</h1>
+          <p className="mt-0.5 text-xs text-slate-500 print:hidden">
             Production tasks auto-created from orders, plus manual assignments.
           </p>
         </div>
-        <button
-          onClick={loadTasks}
-          className="flex items-center gap-1.5 rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          <Loader2 className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
-      </div>
+
+
+        <div className="mb-0 flex flex-wrap items-center justify-between gap-2 print:hidden">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={loadTasks}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+            >
+              <Loader2 className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+        </div>
 
       {/* ── Summary Cards ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: "Open", count: counts.open, icon: Clock, color: "text-blue-600 bg-blue-50" },
           { label: "In Progress", count: counts.in_progress, icon: Loader2, color: "text-amber-600 bg-amber-50" },
           { label: "Completed", count: counts.completed, icon: CheckCircle, color: "text-green-600 bg-green-50" },
         ].map(({ label, count, icon: Icon, color }) => (
-          <div key={label} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-gray-500">{label}</p>
-              <div className={`rounded-full p-1.5 ${color}`}>
-                <Icon className="h-4 w-4" />
+          <div key={label} className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm min-w-0 overflow-hidden" title={label}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-slate-500">{label}</p>
+                <p className="mt-1 truncate text-lg font-bold tabular-nums text-slate-900 sm:text-xl">{count}</p>
+              </div>
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${color}`}>
+                <Icon className="h-4.5 w-4.5" />
               </div>
             </div>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{count}</p>
           </div>
         ))}
       </div>
@@ -276,20 +325,36 @@ export default function TaskManagement() {
                           <span className="flex items-center gap-1 text-[11px] text-gray-400">
                             <XCircle className="h-3.5 w-3.5" /> Closed
                           </span>
-                        ) : nextLabel ? (
-                          <button
-                            disabled={updatingId === task.id}
-                            onClick={() => advanceStatus(task)}
-                            className="flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-[12px] font-semibold text-teal-700 hover:bg-teal-100 disabled:opacity-50 transition-colors"
-                          >
-                            {updatingId === task.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <CheckCircle className="h-3 w-3" />
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {task.status !== "in_progress" && (
+                              <button
+                                disabled={updatingId === task.id}
+                                onClick={() => setTaskStatusDirect(task, "in_progress")}
+                                className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                              >
+                                {updatingId === task.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Clock className="h-3 w-3" />
+                                )}
+                                In Progress
+                              </button>
                             )}
-                            {nextLabel}
-                          </button>
-                        ) : null}
+                            <button
+                              disabled={updatingId === task.id}
+                              onClick={() => setTaskStatusDirect(task, "completed")}
+                              className="flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-[11px] font-semibold text-teal-700 hover:bg-teal-100 disabled:opacity-50 transition-colors"
+                            >
+                              {updatingId === task.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-3 w-3" />
+                              )}
+                              Complete
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -298,6 +363,7 @@ export default function TaskManagement() {
             </table>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

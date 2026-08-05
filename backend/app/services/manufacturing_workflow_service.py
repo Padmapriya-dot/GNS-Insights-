@@ -209,6 +209,99 @@ def find_or_create_inventory_item_for_product(
     return item
 
 
+def ensure_default_bom_for_product(db: Session, tenant_id: int, product: Product) -> list[BillOfMaterial]:
+    """If a product has no BOM, generate realistic raw material components & BOM entries."""
+    existing = list(
+        db.scalars(
+            select(BillOfMaterial).where(
+                BillOfMaterial.tenant_id == tenant_id,
+                BillOfMaterial.product_id == product.id,
+            )
+        ).all()
+    )
+    if existing:
+        return existing
+
+    p_name = product.name or "Product"
+    p_code = product.sku or product.product_code if hasattr(product, "product_code") else None
+    p_code = p_code or f"PROD-{product.id}"
+
+    default_components = [
+        {
+            "name": f"Raw Polymer / Resin ({p_name})",
+            "sku": f"RAW-{p_code}-01",
+            "category": "Raw Material",
+            "unit": "KG",
+            "qty": 0.85,
+            "stock": 15.0,
+            "unit_cost": 45.0,
+        },
+        {
+            "name": f"Preform / Sub-component ({p_name})",
+            "sku": f"RAW-{p_code}-02",
+            "category": "Raw Material",
+            "unit": "Pcs",
+            "qty": 1.0,
+            "stock": 25.0,
+            "unit_cost": 12.0,
+        },
+        {
+            "name": f"Color Masterbatch Additive",
+            "sku": "RAW-DYE-01",
+            "category": "Raw Material",
+            "unit": "KG",
+            "qty": 0.05,
+            "stock": 8.0,
+            "unit_cost": 120.0,
+        },
+        {
+            "name": f"Outer Corrugated Box ({p_name})",
+            "sku": f"PKG-{p_code}-01",
+            "category": "Packaging Material",
+            "unit": "Box",
+            "qty": 0.02,
+            "stock": 5.0,
+            "unit_cost": 25.0,
+        },
+    ]
+
+    new_boms = []
+    for comp in default_components:
+        c_prod = db.scalars(
+            select(Product).where(
+                Product.tenant_id == tenant_id,
+                Product.sku == comp["sku"],
+            )
+        ).first()
+        if not c_prod:
+            c_prod = Product(
+                tenant_id=tenant_id,
+                sku=comp["sku"],
+                name=comp["name"],
+                category=comp["category"],
+                unit=comp["unit"],
+                unit_cost=comp["unit_cost"],
+                current_stock=comp["stock"],
+                min_stock=10,
+                max_stock=500,
+            )
+            db.add(c_prod)
+            db.flush()
+
+        bom = BillOfMaterial(
+            tenant_id=tenant_id,
+            product_id=product.id,
+            component_product_id=c_prod.id,
+            quantity=comp["qty"],
+            unit=comp["unit"],
+        )
+        db.add(bom)
+        new_boms.append(bom)
+
+    db.commit()
+    return new_boms
+
+
 def get_bom_requirements(
     db: Session,
     tenant_id: int,
@@ -224,6 +317,11 @@ def get_bom_requirements(
             )
         ).all()
     )
+    if not bom_rows:
+        product = db.get(Product, product_id)
+        if product:
+            bom_rows = ensure_default_bom_for_product(db, tenant_id, product)
+
     requirements: list[dict[str, Any]] = []
     for row in bom_rows:
         component = db.get(Product, row.component_product_id)

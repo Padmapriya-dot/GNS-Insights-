@@ -21,6 +21,7 @@ import {
   MANUFACTURING_EVENTS,
   notifyManufacturingSpine,
 } from "../../utils/manufacturingEvents";
+import IssueMaterialsModal from "../../components/production/IssueMaterialsModal";
 
 const STATUS_CLS = {
   pending: "bg-amber-50 text-amber-800 ring-amber-200",
@@ -52,6 +53,7 @@ export default function StoreMaterialRequests({ mode = "requests" }) {
   const [items, setItems] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [busyId, setBusyId] = useState(null);
+  const [showIssueModal, setShowIssueModal] = useState(false);
   const [showForm, setShowForm] = useState(!issueMode);
   const [consumeRow, setConsumeRow] = useState(null);
   const [consumeForm, setConsumeForm] = useState({ used_qty: "", waste_qty: "0", returned_qty: "0" });
@@ -268,7 +270,11 @@ export default function StoreMaterialRequests({ mode = "requests" }) {
           ) : null}
         </div>
         <div className="flex gap-2">
-          {!issueMode && (
+          {issueMode ? (
+            <button type="button" onClick={() => setShowIssueModal(true)} className="ui-btn-primary">
+              <Plus className="h-4 w-4" /> Issue Materials Form
+            </button>
+          ) : (
             <button type="button" onClick={() => setShowForm((v) => !v)} className="ui-btn-primary">
               <Plus className="h-4 w-4" /> New Request
             </button>
@@ -354,6 +360,14 @@ export default function StoreMaterialRequests({ mode = "requests" }) {
             </div>
           </form>
         </div>
+      )}
+
+      {showIssueModal && (
+        <IssueMaterialsModal
+          onClose={() => setShowIssueModal(false)}
+          onSuccess={() => load()}
+          addToast={addToast}
+        />
       )}
     </div>
   );

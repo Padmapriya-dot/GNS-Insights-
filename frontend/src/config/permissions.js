@@ -56,11 +56,11 @@ export const ROLE_PERMISSIONS = {
   Accountant: ["dashboard", "accounts", "sales", "documents", "analytics", "alerts", "masters"],
   accountant: ["dashboard", "accounts", "sales", "documents", "analytics", "alerts", "masters"],
   Operator: [
-    "dashboard", "production", "factoryMonitor", "attendance", "documents", "alerts", "masters",
+    "dashboard", "production", "factoryMonitor", "attendance", "documents", "alerts",
     "quality", "maintenance", "inventory",
   ],
   operator: [
-    "dashboard", "production", "factoryMonitor", "attendance", "documents", "alerts", "masters",
+    "dashboard", "production", "factoryMonitor", "attendance", "documents", "alerts",
     "quality", "maintenance", "inventory",
   ],
 };

@@ -3,6 +3,7 @@ import { ArrowRight, CheckCircle2, Clock, Plus, RefreshCw, Truck, XCircle } from
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
+import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { useToast } from "../../context/ToastContext";
 import {
   createStockTransfer,
@@ -207,16 +208,18 @@ export default function StockTransfer() {
   if (loading) return <Loader label="Loading stock transfers..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header>
-        <h1 className="text-2xl font-bold text-slate-900">Stock Transfer</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Initiate or approve material transfers from Main Store to Shop Floor Store.
-        </p>
-      </header>
+    <div className="min-h-full pb-8 print:p-0" style={{ background: "#F5F5F5" }}>
+      <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+        <div>
+          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Stock Transfer</h1>
+          <p className="mt-0.5 text-xs text-slate-500 print:hidden">
+            Initiate or approve material transfers from Main Store to Shop Floor Store.
+          </p>
+        </div>
+
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5">
           <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-800">
             <Plus className="h-4 w-4" /> Create Transfer
           </h2>
@@ -369,7 +372,7 @@ export default function StockTransfer() {
         </section>
       </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-sm font-bold text-slate-800">
             <Truck className="h-4 w-4" /> Transfer History
@@ -377,13 +380,14 @@ export default function StockTransfer() {
           <button
             type="button"
             onClick={load}
-            className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3 py-1.5 text-xs font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
           >
             <RefreshCw className="inline h-3 w-3" /> Refresh
           </button>
         </div>
         <DataTable columns={historyColumns} data={transfers} showSearch={false} />
       </section>
+      </div>
     </div>
   );
 }
