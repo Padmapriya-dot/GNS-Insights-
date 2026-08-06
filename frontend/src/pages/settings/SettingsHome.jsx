@@ -11,6 +11,7 @@ import {
   Info,
   KeyRound,
   LifeBuoy,
+  Moon,
   Package,
   Palette,
   Puzzle,
@@ -18,12 +19,14 @@ import {
   Search,
   Settings,
   Shield,
+  Sun,
   Users,
   UserRound,
   Wallet,
   X,
 } from "lucide-react";
 
+import useSettings from "../../context/SettingsContext";
 import { searchSettingsCategories } from "./settingsCatalog";
 import { SettingsCard, SkeletonCards } from "./settingsUi";
 
@@ -72,6 +75,40 @@ const SETTINGS_GROUPS = [
   },
 ];
 
+function ThemeModeToggle() {
+  const { theme, updateTheme } = useSettings();
+  const isDark = theme === "dark";
+
+  return (
+    <div className="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3.5 py-2 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+      <Sun
+        className={`h-4 w-4 shrink-0 ${isDark ? "text-slate-400 dark:text-slate-500" : "text-amber-500"}`}
+        aria-hidden
+      />
+      <button
+        type="button"
+        role="switch"
+        aria-checked={isDark}
+        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        onClick={() => updateTheme(isDark ? "light" : "dark")}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+          isDark ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-600"
+        }`}
+      >
+        <span
+          className={`pointer-events-none absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+            isDark ? "left-[22px]" : "left-0.5"
+          }`}
+        />
+      </button>
+      <Moon
+        className={`h-4 w-4 shrink-0 ${isDark ? "text-blue-400" : "text-slate-400 dark:text-slate-500"}`}
+        aria-hidden
+      />
+    </div>
+  );
+}
+
 export default function SettingsHome() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -98,16 +135,19 @@ export default function SettingsHome() {
   return (
     <div className="mx-auto max-w-5xl space-y-7">
       <header className="space-y-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-400">
-            System
-          </p>
-          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-slate-100">
-            Settings
-          </h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Company, users, security, and system preferences.
-          </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-400">
+              System
+            </p>
+            <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-slate-100">
+              Settings
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Company, users, security, and system preferences.
+            </p>
+          </div>
+          <ThemeModeToggle />
         </div>
 
         <div className="relative">

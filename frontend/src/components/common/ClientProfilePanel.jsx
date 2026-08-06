@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LogOut, Settings, UserRound } from "lucide-react";
+import { LogOut, Palette, Settings, UserRound } from "lucide-react";
 
 import useAuth from "../../hooks/useAuth";
 import BrandLogo from "../common/BrandLogo";
@@ -58,6 +58,14 @@ export default function ClientProfilePanel({ onClose, onRequestLogout }) {
         >
           <Settings className="h-4 w-4 text-slate-500" />
           Settings
+        </button>
+        <button
+          type="button"
+          onClick={() => go("/settings/appearance")}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700/60"
+        >
+          <Palette className="h-4 w-4 text-indigo-500" />
+          Appearance
         </button>
         <button
           type="button"

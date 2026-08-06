@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  Building2,
   Calendar,
   ChevronDown,
   Maximize2,
@@ -25,7 +24,7 @@ export default function Navbar({ onMenuClick }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { theme, updateTheme, companyName } = useSettings();
+  const { theme, updateTheme } = useSettings();
   const [now, setNow] = useState(() => new Date());
   const [showProfile, setShowProfile] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -37,8 +36,6 @@ export default function Navbar({ onMenuClick }) {
   const displayName = user?.full_name || user?.name || "User";
   const firstName = String(displayName).trim().split(/\s+/)[0] || "User";
   const displayRole = user?.role_name || user?.role || "";
-  const tenantLabel =
-    user?.tenant_name || user?.company_name || companyName || "";
   const isDark = theme === "dark";
 
   useEffect(() => {
@@ -145,18 +142,6 @@ export default function Navbar({ onMenuClick }) {
 
         {/* Right: actions */}
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          {tenantLabel ? (
-            <div
-              className="hidden max-w-[140px] items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 xl:flex dark:border-slate-700 dark:bg-slate-800/80"
-              title={tenantLabel}
-            >
-              <Building2 className="h-3.5 w-3.5 shrink-0 text-teal-700 dark:text-teal-400" aria-hidden />
-              <span className="truncate text-xs font-medium text-slate-700 dark:text-slate-200">
-                {tenantLabel}
-              </span>
-            </div>
-          ) : null}
-
           <NotificationBell />
 
           <button

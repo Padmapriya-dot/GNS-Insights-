@@ -225,7 +225,7 @@
   "common": {
     "cancel": "Cancel",
     "search": "Search...",
-    "searchMenuReports": "Search for menu, reports, orders...",
+    "searchMenuReports": "Search modules, pages, products...",
     "messages": "Messages",
     "fullscreen": "Fullscreen",
     "notifications": "Notifications",

@@ -236,6 +236,8 @@ export const SIDEBAR_NAV = [
     labelKey: "erpNav.settings",
     icon: Settings,
     children: [
+      { label: "All Settings", to: "/settings", module: "settings", end: true },
+      { label: "Appearance", to: "/settings/appearance", module: "settings" },
       { label: "Change Template", to: "/settings/change-template", module: "settings" },
       { label: "Invoice Template", to: "/settings/invoice-template", module: "settings" },
       { label: "Quotation Template", to: "/settings/quotation-template", module: "settings" },
