@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { Award, Calendar, CheckCircle, Clock, Coffee, HeartPulse, Plus, RefreshCw, XCircle, X, Save } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
@@ -186,7 +186,7 @@ export default function Leave() {
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all"
+            className="ui-btn-hr"
           >
             <Plus className="h-4 w-4" /> Request Leave
           </button>
@@ -358,7 +358,7 @@ export default function Leave() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm"
+                  className="ui-btn-hr"
                 >
                   <Save className="h-4 w-4" />
                   {saving ? "Saving..." : "Submit Request"}

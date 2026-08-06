@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { createLeaveRequest, getEmployees } from "../../api/hrApi";
@@ -113,7 +113,7 @@ export default function CreateLeave() {
             style={{ display: "block", width: "100%", marginTop: "4px", padding: "8px" }}
           />
         </label>
-        <button type="submit" disabled={saving}>
+        <button type="submit" disabled={saving} className="ui-btn-hr">
           {saving ? "Submitting..." : "Submit Request"}
         </button>
       </form>

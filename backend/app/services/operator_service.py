@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -49,6 +49,7 @@ from app.services.work_order_service import (
     pause_work_order,
     start_work_order,
 )
+from app.services.hr_service import list_attendance, record_clock_in, record_clock_out
 
 logger = logging.getLogger(__name__)
 
@@ -1127,40 +1128,143 @@ class OperatorService:
             ],
         }
 
+    def _resolve_hr_employee(self, user: User):
+        from sqlalchemy import func, or_, select
+        from app.models.hr import Employee
+
+        email = (user.email or "").strip().lower()
+        full_name = (user.full_name or "").strip().lower()
+        employee_code = (user.employee_id or "").strip()
+
+        filters = []
+        if email:
+            filters.append(func.lower(Employee.email) == email)
+        if full_name:
+            filters.append(func.lower(Employee.full_name) == full_name)
+        if employee_code:
+            if employee_code.isdigit():
+                filters.append(Employee.id == int(employee_code))
+            filters.append(func.lower(Employee.employee_code) == employee_code.lower())
+        if user.id is not None:
+            filters.append(Employee.id == user.id)
+        first_name = full_name.split(" ", 1)[0] if full_name else ""
+        if len(first_name) >= 3:
+            filters.append(func.lower(Employee.full_name).like(f"{first_name}%"))
+
+        if not filters:
+            return None
+
+        return self.db.scalar(
+            select(Employee)
+            .where(Employee.tenant_id == self.tenant_id, or_(*filters))
+            .limit(1)
+        )
+
+    def _resolve_attendance_employee_id(self, user: User) -> int:
+        employee = self._resolve_hr_employee(user)
+        if employee is not None:
+            return employee.id
+
+        if user.employee_id and user.employee_id.isdigit():
+            return int(user.employee_id)
+
+        return user.id
+
+    def get_attendance(self, user: User) -> dict:
+        from app.models.hr import AttendanceRecord
+
+        employee_id = self._resolve_attendance_employee_id(user)
+        from datetime import date
+        cutoff = date.today() - timedelta(days=30)
+        records = list_attendance(self.db, self.tenant_id, date_from=cutoff, employee_id=employee_id)
+
+        present = sum(1 for r in records if (r.status or "").lower() in ("present", "on_duty"))
+        absent = sum(1 for r in records if (r.status or "").lower() == "absent")
+        on_duty = sum(1 for r in records if (r.status or "").lower() == "on_duty")
+        late_or_ot = sum(1 for r in records if (r.status or "").lower() in ("late", "late_in", "overtime", "ot"))
+
+        return {
+            "employee_id": employee_id,
+            "present": present,
+            "absent": absent,
+            "on_duty": on_duty,
+            "late_or_ot": late_or_ot,
+            "records": [
+                {
+                    "record_date": r.record_date.isoformat(),
+                    "status": r.status,
+                    "clock_in": r.clock_in.isoformat() if r.clock_in else None,
+                    "clock_out": r.clock_out.isoformat() if r.clock_out else None,
+                    "work_hours": float(r.work_hours or 0),
+                    "overtime_hours": float(r.overtime_hours or 0),
+                }
+                for r in records
+            ],
+        }
+
+    def clock_in(self, user: User):
+        employee_id = self._resolve_attendance_employee_id(user)
+        return record_clock_in(self.db, self.tenant_id, employee_id, date.today())
+
+    def clock_out(self, user: User):
+        employee_id = self._resolve_attendance_employee_id(user)
+        rec = record_clock_out(self.db, self.tenant_id, employee_id, date.today())
+        if rec is None:
+            raise HTTPException(status_code=404, detail="No open attendance record to clock out")
+        return rec
+
     def get_attendance_deep(self, user) -> dict:
         """Return deep attendance data for AI answers."""
         from datetime import date
         from sqlalchemy import func, or_, select
+        from sqlalchemy.orm import joinedload
         from app.models.hr import AttendanceRecord, Employee
 
         today = date.today()
-        employee_match = [
-            func.lower(Employee.email) == (user.email or "").lower(),
-            func.lower(Employee.full_name) == (user.full_name or "").lower(),
-            Employee.id == user.id,
-        ]
-        first_name = (user.full_name or "").strip().split(" ", 1)[0]
+        email = (user.email or "").strip().lower()
+        full_name = (user.full_name or "").strip().lower()
+        employee_match = []
+        if email:
+            employee_match.append(func.lower(Employee.email) == email)
+        if full_name:
+            employee_match.append(func.lower(Employee.full_name) == full_name)
+        employee_match.append(Employee.id == user.id)
+        first_name = full_name.split(" ", 1)[0] if full_name else ""
         if len(first_name) >= 3:
-            employee_match.append(func.lower(Employee.full_name).like(f"{first_name.lower()}%"))
-        if str(user.employee_id or "").isdigit():
-            employee_match.append(Employee.id == int(user.employee_id))
-        if user.employee_id:
-            employee_match.append(Employee.employee_code == user.employee_id)
+            employee_match.append(func.lower(Employee.full_name).like(f"{first_name}%"))
+
+        employee_code = (user.employee_id or "").strip()
+        if employee_code:
+            if employee_code.isdigit():
+                employee_match.append(Employee.id == int(employee_code))
+            employee_match.append(func.lower(Employee.employee_code) == employee_code.lower())
+
         employee = self.db.scalar(
-            select(Employee).where(
-                Employee.tenant_id == self.tenant_id,
-                or_(*employee_match),
-            )
+            select(Employee)
+            .where(Employee.tenant_id == self.tenant_id, or_(*employee_match))
+            .limit(1)
         )
-        employee_id = employee.id if employee else None
-        attendance_employee_ids = [employee_id] if employee_id is not None else [user.id]
-        all_att = []
-        all_att = list(self.db.scalars(
-            select(AttendanceRecord).where(
-                AttendanceRecord.tenant_id == self.tenant_id,
-                AttendanceRecord.employee_id.in_(attendance_employee_ids),
-            ).order_by(AttendanceRecord.record_date.desc()).limit(30)
-        ).all())
+
+        attendance_employee_ids = []
+        if employee is not None:
+            attendance_employee_ids.append(employee.id)
+        if employee_code.isdigit():
+            attendance_employee_ids.append(int(employee_code))
+        attendance_employee_ids.append(user.id)
+        attendance_employee_ids = [id_ for id_ in set(attendance_employee_ids) if id_ is not None]
+
+        all_att = list(
+            self.db.scalars(
+                select(AttendanceRecord)
+                .options(joinedload(AttendanceRecord.employee))
+                .where(
+                    AttendanceRecord.tenant_id == self.tenant_id,
+                    AttendanceRecord.employee_id.in_(attendance_employee_ids),
+                )
+                .order_by(AttendanceRecord.record_date.desc(), AttendanceRecord.id.desc())
+                .limit(30)
+            ).all()
+        )
 
         present_days = sum(1 for a in all_att if (a.status or "").lower() in ("present", "on_duty"))
         absent_days = sum(1 for a in all_att if (a.status or "").lower() == "absent")
@@ -1168,18 +1272,34 @@ class OperatorService:
         total_hours = sum(float(a.work_hours or 0) for a in all_att)
 
         today_att = next((a for a in all_att if a.record_date == today), None)
+        latest_att = all_att[0] if all_att else None
+
+        attendance_records = [
+            {
+                "record_date": a.record_date.isoformat(),
+                "status": a.status,
+                "clock_in": a.clock_in.isoformat() if a.clock_in else None,
+                "clock_out": a.clock_out.isoformat() if a.clock_out else None,
+                "work_hours": float(a.work_hours or 0),
+                "overtime_hours": float(a.overtime_hours or 0),
+                "employee_name": a.employee.full_name if a.employee else None,
+                "employee_code": a.employee.employee_code if a.employee else None,
+            }
+            for a in all_att
+        ]
 
         return {
             "operator_name": user.full_name,
-            "employee_id": employee_id or user.id,
-            "matched_employee_name": employee.full_name if employee else None,
-            "matched_employee_code": employee.employee_code if employee else None,
+            "employee_id": employee.id if employee else (latest_att.employee_id if latest_att else user.id),
+            "matched_employee_name": employee.full_name if employee else (latest_att.employee.full_name if latest_att and latest_att.employee else None),
+            "matched_employee_code": employee.employee_code if employee else (latest_att.employee.employee_code if latest_att and latest_att.employee else None),
             "today": {
                 "status": today_att.status if today_att else "Not clocked in",
                 "clock_in": today_att.clock_in.isoformat() if today_att and today_att.clock_in else None,
                 "clock_out": today_att.clock_out.isoformat() if today_att and today_att.clock_out else None,
                 "hours_worked": float(today_att.work_hours or 0) if today_att else 0,
             },
+            "attendance_records": attendance_records,
             "last_30_days": {
                 "present": present_days,
                 "absent": absent_days,

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import QRCode from "qrcode";
 import { Building2, ChevronDown, FileText, Grid2x2, ImagePlus, MapPin, Package, PenLine, Plane, Plus, Ban, Search, Ship, TrainFront, Trash2, Truck, User, X } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
@@ -311,6 +312,7 @@ export default function TaxInvoiceForm() {
   });
   const [items, setItems] = useState([emptyItem(), emptyItem(), emptyItem()]);
   const [saving, setSaving] = useState(false);
+  const qrCanvasRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -513,8 +515,14 @@ export default function TaxInvoiceForm() {
   const finalAmount = money(itemsTotal + otherCharge - invoiceDiscount + (Number(form.round_off) || 0));
 
   const useIgst = invoiceType === "export";
-  const sgstPct = useIgst ? 0 : 9;
+  const fullInvoiceNo = (form.invoice_prefix || "") + (form.invoice_number || "");
+
+  useEffect(() => {
+    if (!qrCanvasRef.current || !fullInvoiceNo) return;
+    QRCode.toCanvas(qrCanvasRef.current, fullInvoiceNo, { width: 80, margin: 1, errorCorrectionLevel: "M" }, () => {});
+  }, [fullInvoiceNo]);
   const cgstPct = useIgst ? 0 : 9;
+  const sgstPct = useIgst ? 0 : 9;
   const igstPct = useIgst ? 18 : 0;
 
   const handleSubmit = async (e) => {
@@ -543,8 +551,8 @@ export default function TaxInvoiceForm() {
         discount: invoiceDiscount,
         other_charge: otherCharge,
         round_off: Number(form.round_off) || 0,
-        sgst_pct: sgstPct,
         cgst_pct: cgstPct,
+        sgst_pct: sgstPct,
         igst_pct: igstPct,
         status: "issued",
         transport_mode: form.transport_mode || null,
@@ -728,6 +736,13 @@ export default function TaxInvoiceForm() {
                   onChange={(e) => setForm((f) => ({ ...f, invoice_number: e.target.value }))}
                 />
               </label>
+              <div className="flex flex-col items-center justify-center rounded-md border border-[#d0d0d8] bg-[#f7f7f9] p-1.5">
+                <canvas ref={qrCanvasRef} style={{ display: fullInvoiceNo ? "block" : "none" }} />
+                {!fullInvoiceNo && (
+                  <div className="flex h-[80px] w-[80px] items-center justify-center text-[10px] text-[#a0a0ab]">QR</div>
+                )}
+                <span className="mt-1 text-[9px] text-[#9a9aa5]">Scan = Bill No.</span>
+              </div>
               <label className="block">
                 <FieldLabel>Invoice Date</FieldLabel>
                 <SoftInput
@@ -982,18 +997,38 @@ export default function TaxInvoiceForm() {
                         {hasDesc ? t.taxable.toFixed(2) : "—"}
                       </td>
                       <td className="border-b border-r border-[#d0d0d8] px-2 py-2">
-                        <select
-                          value={row.gst_pct}
-                          onChange={(e) => updateItem(idx, "gst_pct", e.target.value)}
-                          className="rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
-                        >
-                          <option value="">—</option>
-                          <option value="0">0%</option>
-                          <option value="5">5%</option>
-                          <option value="12">12%</option>
-                          <option value="18">18%</option>
-                          <option value="28">28%</option>
-                        </select>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span className="w-12 text-[11px] font-semibold text-[#6b6b76]">CGST</span>
+                            <input
+                              type="number"
+                              value={row.cgst_pct ?? ""}
+                              onChange={(e) => updateItem(idx, "cgst_pct", e.target.value)}
+                              placeholder="%"
+                              className="w-16 rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="w-12 text-[11px] font-semibold text-[#6b6b76]">SGST</span>
+                            <input
+                              type="number"
+                              value={row.sgst_pct ?? ""}
+                              onChange={(e) => updateItem(idx, "sgst_pct", e.target.value)}
+                              placeholder="%"
+                              className="w-16 rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="w-12 text-[11px] font-semibold text-[#6b6b76]">IGST</span>
+                            <input
+                              type="number"
+                              value={row.igst_pct ?? ""}
+                              onChange={(e) => updateItem(idx, "igst_pct", e.target.value)}
+                              placeholder="%"
+                              className="w-16 rounded-md border border-[#d0d0d8] bg-[#f7f7f9] px-1.5 py-1.5"
+                            />
+                          </div>
+                        </div>
                       </td>
                       <td className="border-b border-r border-[#d0d0d8] px-2 py-2 font-semibold tabular-nums">
                         {hasDesc ? t.total.toFixed(2) : "—"}

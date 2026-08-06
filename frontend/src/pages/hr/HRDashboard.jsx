@@ -158,7 +158,6 @@ export default function HRDashboard() {
         <QuickLink to="/hr/incidents" label="Incidents" />
         <QuickLink to="/hr/documents" label="Human Resources (HR) Documents" />
         <QuickLink to="/masters/departments" label="Departments" />
-        <QuickLink to="/production/tasks" label="Machine Allocation" />
       </div>
     </div>
   );

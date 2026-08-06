@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  Building2,
   Cpu,
   FileText,
   Printer,
+  Save,
   UserPlus,
   Users,
   Wrench,
@@ -61,49 +63,114 @@ export function DepartmentFormModal({ department, onClose, onSave }) {
     work_center_count: department?.work_center_count ?? 0,
   });
 
+  const inputClass =
+    "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
+  const canSave = Boolean((form.code || "").trim()) && Boolean((form.name || "").trim());
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">{department?.id ? "Edit Department" : "Add Department"}</h2>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl border border-slate-200 max-w-2xl w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">{department?.id ? "Edit Department" : "Add Department"}</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Define the department details and head information.</p>
+          </div>
           <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <input placeholder="Department Code" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-          <input placeholder="Department Name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-          <select value={form.department_type} onChange={(e) => setForm((f) => ({ ...f, department_type: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
-            <option value="production">Production</option>
-            <option value="support">Support</option>
-            <option value="admin">Administration</option>
-          </select>
-          <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-          <input placeholder="Plant" value={form.plant} onChange={(e) => setForm((f) => ({ ...f, plant: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-          <input placeholder="Branch" value={form.branch} onChange={(e) => setForm((f) => ({ ...f, branch: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-          <input placeholder="Manager Name" value={form.manager_name} onChange={(e) => setForm((f) => ({ ...f, manager_name: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm sm:col-span-2" />
-          <input placeholder="Mobile" value={form.manager_mobile} onChange={(e) => setForm((f) => ({ ...f, manager_mobile: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-          <input placeholder="Email" value={form.manager_email} onChange={(e) => setForm((f) => ({ ...f, manager_email: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-          <label className="block text-xs font-medium text-slate-600">
-            Employees
-            <input type="number" min="0" placeholder="Employees" value={form.employee_count} onChange={(e) => setForm((f) => ({ ...f, employee_count: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
-          </label>
-          <label className="block text-xs font-medium text-slate-600">
-            Machines
-            <input type="number" min="0" placeholder="Machines" value={form.machine_count} onChange={(e) => setForm((f) => ({ ...f, machine_count: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
-          </label>
-          <label className="block sm:col-span-2 text-xs font-medium text-slate-600">
-            Work Centers
-            <input type="number" min="0" placeholder="Work Centers" value={form.work_center_count} onChange={(e) => setForm((f) => ({ ...f, work_center_count: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
-          </label>
-          <textarea placeholder="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm sm:col-span-2" rows={2} />
+
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Department Code</label>
+              <input placeholder="e.g. PROD-01" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Department Name</label>
+              <input placeholder="e.g. Production" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputClass} />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Department Type</label>
+              <select value={form.department_type} onChange={(e) => setForm((f) => ({ ...f, department_type: e.target.value }))} className={inputClass}>
+                <option value="production">Production</option>
+                <option value="support">Support</option>
+                <option value="admin">Administration</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Status</label>
+              <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))} className={inputClass}>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Plant</label>
+              <input placeholder="Plant 1" value={form.plant} onChange={(e) => setForm((f) => ({ ...f, plant: e.target.value }))} className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Branch</label>
+              <input placeholder="Bengaluru" value={form.branch} onChange={(e) => setForm((f) => ({ ...f, branch: e.target.value }))} className={inputClass} />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Department Head</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Manager Name</label>
+                <input placeholder="Manager Name" value={form.manager_name} onChange={(e) => setForm((f) => ({ ...f, manager_name: e.target.value }))} className={inputClass} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Mobile</label>
+                <input placeholder="Mobile" value={form.manager_mobile} onChange={(e) => setForm((f) => ({ ...f, manager_mobile: e.target.value }))} className={inputClass} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Email</label>
+                <input placeholder="Email" value={form.manager_email} onChange={(e) => setForm((f) => ({ ...f, manager_email: e.target.value }))} className={inputClass} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Designation</label>
+                <input placeholder="Designation" value={form.manager_designation} onChange={(e) => setForm((f) => ({ ...f, manager_designation: e.target.value }))} className={inputClass} />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Employees</label>
+              <input type="number" min="0" placeholder="0" value={form.employee_count} onChange={(e) => setForm((f) => ({ ...f, employee_count: e.target.value }))} className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Machines</label>
+              <input type="number" min="0" placeholder="0" value={form.machine_count} onChange={(e) => setForm((f) => ({ ...f, machine_count: e.target.value }))} className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Work Centers</label>
+              <input type="number" min="0" placeholder="0" value={form.work_center_count} onChange={(e) => setForm((f) => ({ ...f, work_center_count: e.target.value }))} className={inputClass} />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Description</label>
+            <textarea placeholder="Add a short description for this department" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className={`${inputClass} min-h-[90px] resize-y`} rows={3} />
+          </div>
         </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-sm font-semibold text-slate-600">Cancel</button>
-          <button type="button" onClick={() => onSave(form)} className="ui-btn-primary">Save</button>
+
+        <div className="flex justify-end gap-2 border-t pt-4">
+          <button type="button" onClick={onClose} className="rounded-xl border px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            Cancel
+          </button>
+          <button type="button" onClick={() => canSave && onSave(form)} className="ui-btn-hr" disabled={!canSave}>
+            <Save className="h-4 w-4" /> Save Department
+          </button>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { createShift } from "../../api/hrApi";
@@ -94,16 +94,9 @@ export default function CreateShift() {
         <button
           type="submit"
           disabled={saving}
-          style={{
-            padding: "10px 16px",
-            background: "#111827",
-            color: "#fff",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-          }}
+          className="ui-btn-hr"
         >
-          {saving ? "Saving..." : "Create"}
+          {saving ? "Saving..." : "Create Shift"}
         </button>
       </form>
     </div>

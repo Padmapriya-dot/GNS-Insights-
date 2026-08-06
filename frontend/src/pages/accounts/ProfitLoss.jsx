@@ -75,6 +75,70 @@ export default function ProfitLoss() {
     XLSX.writeFile(wb, `Profit_Loss_${year}.xlsx`);
   };
 
+  const exportCsv = () => {
+    const maxRows = Math.max((data.revenue_rows || []).length, (data.expense_rows || []).length);
+    const rows = [
+      ["Profit & Loss Statement"],
+      ["Year", year],
+      [],
+      ["Particulars", "Amount", "Particulars", "Amount"],
+      ...Array.from({ length: maxRows }, (_, i) => {
+        const rev = (data.revenue_rows || [])[i];
+        const exp = (data.expense_rows || [])[i];
+        return [rev?.category || "", rev ? formatInr(rev.fy) : "", exp?.category || "", exp ? formatInr(exp.fy) : ""];
+      }),
+      [],
+      ["Total Revenue", formatInr(totalRevenue), "Total Expenses", formatInr(totalExpenses)],
+      ["Gross Profit", formatInr(data.gross_profit || 0), "", ""],
+      [netProfitLoss >= 0 ? "Net Profit" : "Net Loss", formatInr(Math.abs(netProfitLoss)), "", ""],
+    ];
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `ProfitLoss_${year}.csv`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const exportPdf = async () => {
+    try {
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      doc.setFontSize(14); doc.setFont(undefined, "bold");
+      doc.text("Profit & Loss Statement", 14, 14);
+      doc.setFontSize(9); doc.setFont(undefined, "normal");
+      doc.text(`${startDate} to ${endDate}`, 14, 20);
+      const maxRows = Math.max((data.revenue_rows || []).length, (data.expense_rows || []).length);
+      const body = Array.from({ length: maxRows }, (_, i) => {
+        const rev = (data.revenue_rows || [])[i];
+        const exp = (data.expense_rows || [])[i];
+        return [rev?.category || "", rev ? formatInr(rev.fy) : "", exp?.category || "", exp ? formatInr(exp.fy) : ""];
+      });
+      body.push([
+        { content: "Total Revenue", styles: { fontStyle: "bold" } },
+        { content: formatInr(totalRevenue), styles: { fontStyle: "bold", halign: "right" } },
+        { content: "Total Expenses", styles: { fontStyle: "bold" } },
+        { content: formatInr(totalExpenses), styles: { fontStyle: "bold", halign: "right" } },
+      ]);
+      body.push([
+        { content: netProfitLoss >= 0 ? "Net Profit" : "Net Loss", styles: { fontStyle: "bold" } },
+        { content: formatInr(Math.abs(netProfitLoss)), styles: { fontStyle: "bold", halign: "right" } },
+        "", ""
+      ]);
+      autoTable(doc, {
+        startY: 24,
+        head: [["Particulars", "Amount", "Particulars", "Amount"]],
+        body,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [228, 228, 228], textColor: 0, fontStyle: "bold" },
+        columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
+      });
+      doc.save(`ProfitLoss_${year}.pdf`);
+    } catch (e) { console.error(e); alert("PDF generation failed."); }
+  };
+
   if (loading) return <Loader label="Loading Profit & Loss..." />;
 
   // Calculate totals from revenue and expense rows
@@ -95,6 +159,31 @@ export default function ProfitLoss() {
             <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Profit & Loss Statement</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">Profit & Loss A/c</h1>
             <p className="mt-2 text-sm text-slate-500">{startDate} to {endDate}</p>
+            {/* Download buttons right under title */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-slate-600">Download:</span>
+              <button
+                type="button"
+                onClick={exportExcel}
+                className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+              >
+                ⬇ Excel
+              </button>
+              <button
+                type="button"
+                onClick={exportCsv}
+                className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+              >
+                ⬇ CSV
+              </button>
+              <button
+                type="button"
+                onClick={exportPdf}
+                className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+              >
+                ⬇ PDF
+              </button>
+            </div>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
@@ -111,7 +200,6 @@ export default function ProfitLoss() {
                 {[2026, 2025, 2024, 2023].map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
-            <ExportButtons onExcel={exportExcel} />
             <button
               type="button"
               onClick={fetchData}

@@ -49,6 +49,7 @@ from app.services.finance_extended_service import (
     list_gl_enriched,
     list_payments_enriched,
 )
+from app.services.balance_sheet_service import get_balance_sheet
 from app.services.journal_service import (
     delete_journal_entry,
     get_journal_entry,
@@ -262,6 +263,14 @@ def extended_reports_endpoint(
     db: Session = Depends(get_db),
 ):
     return get_extended_reports(db, tenant_id, financial_year, month, branch)
+
+
+@router.get("/balance-sheet")
+def balance_sheet_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    """Return the two-column balance sheet layout with amounts from DB."""
+    return get_balance_sheet(db, tenant_id)
 
 
 @router.get("/journal-entries", response_model=list[JournalEntryRead])

@@ -197,7 +197,7 @@ Description : ${doc.description || 'N/A'}
     },
     {
       key: "created_at",
-      label: "Date Added",
+      label: "Date",
       render: (r) => (
         <span className="inline-flex items-center gap-1 text-slate-600 text-xs">
           <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
@@ -220,20 +220,20 @@ Description : ${doc.description || 'N/A'}
     },
   ];
 
-  if (loading && documents.length === 0) return <Loader label="Loading HR documents archive..." />;
+  if (loading && documents.length === 0) return <Loader label="Loading HR documents..." />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-sans">HR Documents Archive</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-sans">HR Documents</h1>
           <p className="mt-1 text-sm text-slate-500">Access and organize policy manuals, employee handbooks, and personnel files.</p>
         </div>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => setShowUploadModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all"
+            className="ui-btn-hr"
           >
             <Plus className="h-4 w-4" /> Add Document
           </button>
@@ -377,7 +377,7 @@ Description : ${doc.description || 'N/A'}
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm"
+                  className="ui-btn-hr"
                 >
                   <Save className="h-4 w-4" />
                   {saving ? "Saving..." : "Upload Document"}
