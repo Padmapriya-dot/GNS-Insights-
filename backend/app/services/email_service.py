@@ -88,12 +88,14 @@ def _send_via_smtplib(
         msg.add_alternative(html, subtype="html")
 
     try:
+        logger.info("email_send_start to=%s subject=%s via=smtplib", to, subject)
         with smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=30) as server:
             server.ehlo()
             server.starttls()
             server.ehlo()
             server.login(s.smtp_user, s.smtp_password)
             server.send_message(msg)
+        logger.info("email_send_success to=%s subject=%s via=smtplib", to, subject)
     except EmailDeliveryError:
         raise
     except Exception as exc:
@@ -129,7 +131,9 @@ async def _send_via_fastapi_mail(
         subtype=MessageType.html if html else MessageType.plain,
     )
     try:
+        logger.info("email_send_start to=%s subject=%s via=fastapi_mail", to, subject)
         await FastMail(conf).send_message(message)
+        logger.info("email_send_success to=%s subject=%s via=fastapi_mail", to, subject)
     except Exception as exc:
         logger.exception("email_send_failed to=%s subject=%s", to, subject)
         raise EmailDeliveryError("Failed to send password reset email.") from exc
