@@ -394,6 +394,29 @@ TOOL_DEFINITIONS: list[dict] = [
     },    {
         "type": "function",
         "function": {
+            "name": "get_product_detail_deep",
+            "description": (
+                "Get direct, complete details for a specific product: product ID, SKU, BOM raw materials "
+                "with quantities and costs, machine, operator, supervisor, manpower, planned production time, "
+                "average cycle time, and latest production/work order. Use whenever the user asks how long a "
+                "product takes to make, which or how much raw material it uses, BOM, machine, manpower, or "
+                "complete product production details."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "product_name": {
+                        "type": "string",
+                        "description": "Product name, SKU, or product code from the user's question.",
+                    }
+                },
+                "required": ["product_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_product_overview_deep",
             "description": (
                 "Get full product overview: total products, today's products, per-product order status "
@@ -503,6 +526,7 @@ API_ENDPOINT_MAP = {
     "get_schedule_deep": "GET /api/production/schedule/deep",
     "get_mrp_deep": "GET /api/production/mrp/deep",
     "get_assigned_tasks_deep": "GET /api/production/tasks/deep",
+    "get_product_detail_deep": "GET /api/products/{product}/deep",
 }
 
 
@@ -542,13 +566,22 @@ def execute_tool(db: Session, user: User, tool_name: str, arguments: dict) -> di
                     )
                     or w.get("planned_start")
                     )
-                    ]
-            return {
-                "success": True,
-                "count": len(orders),
-                "work_orders": orders,
-                "endpoint": endpoint,
-            }
+            ]
+        for order in orders:
+            if not isinstance(order, dict) or not order.get("id"):
+                continue
+            try:
+                detail = svc.get_work_order(int(order["id"]), user)
+                if isinstance(detail, dict):
+                    order["raw_materials"] = detail.get("materials") or []
+            except Exception:
+                logger.debug("Could not enrich today's work order materials", exc_info=True)
+        return {
+            "success": True,
+            "count": len(orders),
+            "work_orders": orders,
+            "endpoint": endpoint,
+        }
 
     if tool_name == "get_pending_work_orders":
         data = svc.list_work_orders(user)
@@ -667,7 +700,7 @@ def execute_tool(db: Session, user: User, tool_name: str, arguments: dict) -> di
     if tool_name == "get_machine_deep_status":
         query = args.get("query", "")
         machines = svc.get_machine_deep_status(query)
-        return {"success": True, "machines": machines, "count": len(machines), "endpoint": endpoint}
+        return {"success": True, "query": query, "machines": machines, "count": len(machines), "endpoint": endpoint}
 
     if tool_name == "get_work_order_deep":
         query = args.get("query", "")
@@ -693,7 +726,7 @@ def execute_tool(db: Session, user: User, tool_name: str, arguments: dict) -> di
         return {"success": True, **data, "endpoint": endpoint}
 
     if tool_name == "get_production_overview_deep":
-        data = svc.get_production_overview_deep()
+        data = svc.get_production_overview_deep(args.get("query", ""))
         return {"success": True, **data, "endpoint": endpoint}
 
     if tool_name == "get_schedule_deep":
@@ -714,8 +747,12 @@ def execute_tool(db: Session, user: User, tool_name: str, arguments: dict) -> di
     if tool_name == "get_product_overview_deep":
         return {"success": True, **svc.get_product_overview_deep(), "endpoint": endpoint}
 
+    if tool_name == "get_product_detail_deep":
+        data = svc.get_product_detail_deep(args.get("product_name", ""))
+        return {"success": True, **data, "endpoint": endpoint}
+
     if tool_name == "get_work_order_stats_deep":
-        return {"success": True, **svc.get_work_order_stats_deep(), "endpoint": endpoint}
+        return {"success": True, **svc.get_work_order_stats_deep(args.get("query", "")), "endpoint": endpoint}
 
     if tool_name == "get_production_schedule_stats_deep":
         return {"success": True, **svc.get_production_schedule_stats_deep(), "endpoint": endpoint}
@@ -778,6 +815,14 @@ def format_tool_result(tool_name: str, result: dict) -> str:
                     f"\n  - **Progress:** **{prog}%** {bar} ({actual_q:,.0f}/{planned_q:,.0f} units)"
                     f"\n  - **Status:** {s.upper()}"
                 )
+                materials = wo.get("raw_materials") or []
+                if materials:
+                    lines.append("  - **Raw Materials:** " + "; ".join(
+                        f"{m.get('component_name', '—')} ({m.get('required_qty', 0)} {m.get('unit', '')}, issued {m.get('issued_qty', 0)})"
+                        for m in materials
+                    ))
+                else:
+                    lines.append("  - **Raw Materials:** No BOM materials configured")
         if delayed > 0:
             lines += ["", f"⚠️ **Alert:** {delayed} work order(s) are delayed — immediate attention required!"]
         else:
@@ -901,7 +946,8 @@ def format_tool_result(tool_name: str, result: dict) -> str:
     if tool_name == "get_machine_deep_status":
         machines = result.get("machines") or []
         if not machines:
-            return "No machines found matching your query. All machines may be idle or no data available."
+            query = result.get("query") or "the requested status"
+            return f"No machines currently match **{query}**. The live machine data contains no machines in that status."
         lines = [f"### 🏭 Machine Deep Status Report  ({len(machines)} machine{'s' if len(machines) != 1 else ''})", ""]
         for m in machines:
             wo = m.get("current_work_order") or {}
@@ -1110,6 +1156,7 @@ def format_tool_result(tool_name: str, result: dict) -> str:
             f"- ⌚ Total Hours Worked: **{last30.get('total_hours_worked',0)} hrs**",
             f"- 📊 Attendance Rate: **{last30.get('attendance_pct',0)}%**",
             "",
+            f"- Matched Employee: {result.get('matched_employee_name') or 'Not linked'} ({result.get('matched_employee_code') or '—'})",
             f"- Assigned Machine ID: {result.get('assigned_machine') or '—'}",
             f"- Plant Code: {result.get('plant_code') or '—'}",
         ])
@@ -1117,7 +1164,7 @@ def format_tool_result(tool_name: str, result: dict) -> str:
     if tool_name == "get_production_overview_deep":
         s = result.get("summary") or {}
         today = result.get("today") or {}
-        active = result.get("active_orders") or []
+        orders = result.get("orders") or result.get("active_orders") or []
         lines = [
             "### 🏭 Production Overview",
             "",
@@ -1133,15 +1180,36 @@ def format_tool_result(tool_name: str, result: dict) -> str:
             f"**📅 Today's Production  ({today.get('date', 'Today')})**",
             f"- Output: **{today.get('output', 0):,.0f} units**  |  Scrap: **{today.get('scrap', 0):,.1f} units**",
         ]
-        if active:
-            lines += ["", "**🔄 Active Orders**"]
-            for o in active:
+        if orders:
+            lines += ["", "**📋 Complete Order Details**"]
+            for o in orders:
                 delayed_icon = " 🔴 DELAYED" if o.get("is_delayed") else ""
                 lines.append(
-                    f"- **{o.get('order_number','?')}** | {o.get('product','—')} | Customer: {o.get('customer','—')} "
-                    f"| Priority: {(o.get('priority','medium')).upper()} | Progress: {o.get('progress_pct',0)}% "
+                    f"\n- **{o.get('order_number','?')}** (Production ID: {o.get('production_order_id','—')}) | "
+                    f"{o.get('product','—')} (Product ID: {o.get('product_id','—')}) | "
+                    f"Status: {(o.get('status') or 'unknown').upper()} | Progress: {o.get('progress_pct',0)}% "
                     f"({o.get('produced_qty',0):,.0f}/{o.get('planned_qty',0):,.0f}) | Due: {o.get('due_date','—')}{delayed_icon}"
                 )
+                lines.append(
+                    f"  - Customer: {o.get('customer','—')} | Priority: {(o.get('priority','medium')).upper()} | "
+                    f"Manpower: {o.get('manpower_count',0)} ({', '.join(o.get('manpower') or []) or 'Unassigned'})"
+                )
+                materials = o.get("raw_materials") or []
+                lines.append(f"  - Raw Materials: {len(materials)} component(s)")
+                for material in materials:
+                    lines.append(
+                        f"    - {material.get('component_name','—')} (Product ID: {material.get('component_product_id','—')}): "
+                        f"required {material.get('required_qty',0)} {material.get('unit','')} | "
+                        f"available {material.get('available_qty',0)} | shortage {material.get('shortage_qty',0)}"
+                    )
+                for wo in o.get("work_orders") or []:
+                    lines.append(
+                        f"  - Work Order ID: {wo.get('work_order_id','—')} / {wo.get('work_order_number','—')} | "
+                        f"Machine: {wo.get('machine_id','—')} {wo.get('machine_name') or ''} | "
+                        f"Operator: {wo.get('operator') or 'Unassigned'} | Supervisor: {wo.get('supervisor') or '—'} | "
+                        f"Time taken: {wo.get('time_taken_hours') if wo.get('time_taken_hours') is not None else '—'} hrs | "
+                        f"Planned time: {wo.get('planned_hours') if wo.get('planned_hours') is not None else '—'} hrs"
+                    )
         return "\n".join(lines)
 
     if tool_name == "get_schedule_deep":
@@ -1167,6 +1235,41 @@ def format_tool_result(tool_name: str, result: dict) -> str:
                 f"- **Delay:** {'🔴 OVERDUE' if s.get('is_delayed') else '✅ On Track'}",
                 "",
             ]
+        return "\n".join(lines)
+
+    if tool_name == "get_product_detail_deep":
+        products = result.get("products") or []
+        if not result.get("found") or not products:
+            return result.get("message") or "No matching product found."
+        lines = [f"### 📦 Product Production Details ({len(products)} match{'es' if len(products) != 1 else ''})", ""]
+        for product in products:
+            time_data = product.get("time_estimate") or {}
+            manpower = product.get("manpower") or {}
+            machine = product.get("machine") or {}
+            order = product.get("latest_production_order") or {}
+            lines += [
+                "---",
+                f"**📦 {product.get('product_name', '—')}** | Product ID: **{product.get('product_id', '—')}** | SKU: **{product.get('sku', '—')}**",
+                f"- **Description:** {product.get('description') or '—'}",
+                f"- **Production Time:** **{time_data.get('planned_hours') if time_data.get('planned_hours') is not None else 'Not configured'} hours** "
+                f"({time_data.get('planned_days') if time_data.get('planned_days') is not None else '—'} days)",
+                f"- **Average Cycle Time:** **{time_data.get('avg_cycle_time_min_per_unit') if time_data.get('avg_cycle_time_min_per_unit') is not None else 'Not available'} minutes/unit**",
+                f"- **Machine:** {machine.get('name') or 'Not assigned'} (ID: {machine.get('id', '—')}, Code: {machine.get('code') or '—'})",
+                f"- **Manpower:** Operator: {manpower.get('operator_name') or 'Unassigned'} | Supervisor: {manpower.get('supervisor') or '—'} | Shift: {manpower.get('shift') or '—'}",
+                f"- **Latest Production Order:** {order.get('order_number') or 'None'} | Status: {order.get('status') or '—'} | Planned Qty: {order.get('planned_quantity') or '—'}",
+                "",
+                f"**🔩 Raw Materials ({len(product.get('raw_materials') or [])} components)**",
+            ]
+            materials = product.get("raw_materials") or []
+            if not materials:
+                lines.append("- No BOM raw materials configured for this product.")
+            for material in materials:
+                lines.append(
+                    f"- **{material.get('component_name') or '—'}** | Product ID: {material.get('component_product_id', '—')} | "
+                    f"Used: **{material.get('quantity', 0)} {material.get('unit') or ''} per product unit** | "
+                    f"Unit cost: {material.get('unit_cost', 0):,.2f} | Component cost: {material.get('total_cost', 0):,.2f}"
+                )
+            lines.append("")
         return "\n".join(lines)
 
     if tool_name == "get_mrp_deep":

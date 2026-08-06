@@ -16,14 +16,17 @@ import {
 } from "recharts";
 import {
   AlertTriangle,
+  ArrowRight,
   BarChart3,
   Boxes,
   CheckCircle2,
   Clock,
-  FileText,
   Gauge,
+  IndianRupee,
+  ListTodo,
   Package,
   Plus,
+  RefreshCw,
   ShoppingCart,
   Target,
   Users,
@@ -32,17 +35,18 @@ import {
 } from "lucide-react";
 
 import EmptyChart from "../../common/EmptyChart";
+import SkeletonCard, { SkeletonChart } from "../../common/SkeletonCard";
 import { quickActionsRef } from "../../../data/referenceDashboardData";
 import { getErpDashboard } from "../../../api/dashboardApi";
 import useAuth from "../../../hooks/useAuth";
 import useManufacturingRefresh from "../../../hooks/useManufacturingRefresh";
 import { userCanAccess, isOperator } from "../../../config/permissions";
-import { CardShell, KpiIcon, StatusBadge, TrendBadge } from "./ReferenceParts";
+import { CardShell, KpiIcon, StatusBadge, TrendBadge, getKpiAccent } from "./ReferenceParts";
 
 const tooltipStyle = {
-  borderRadius: 10,
+  borderRadius: 8,
   border: "1px solid #e2e8f0",
-  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+  boxShadow: "0 4px 12px rgba(15,23,42,0.08)",
   fontSize: 12,
 };
 
@@ -53,12 +57,21 @@ const KPI_TITLE_KEYS = {
   "pending-orders": "pendingOrders",
   "good-qty": "goodQtyToday",
   "reject-qty": "rejectQtyToday",
+  "inventory-value": "inventoryValue",
+  "low-stock": "lowStockItems",
+  "raw-materials": "rawMaterials",
+  "finished-goods": "finishedGoods",
+  warehouses: "warehouses",
+  "stock-movements": "stockMovements",
 };
 
 const TREND_LABEL_KEYS = {
   "vs last 7 days": "vsLast7Days",
   "vs yesterday": "vsYesterday",
   "vs total machines": "vsTotalMachines",
+  "units on hand": "unitsOnHand",
+  "active locations": "activeLocations",
+  "GRNs today": "grnsToday",
 };
 
 const SHOP_FLOOR_KEYS = {
@@ -75,27 +88,92 @@ const QUICK_ACTION_KEYS = ["newWorkOrder", "productionEntry", "materialIssue", "
 const QUICK_ACTION_MODULES = ["production", "production", "inventory", "inventory", "quality", "analytics"];
 const SUMMARY_KEYS = ["manPower", "workingHours", "powerConsumption", "productionEfficiency", "targetAchievement"];
 
-const KPI_STYLE = {
-  "total-orders": { gradient: "from-blue-600 to-blue-500", iconBg: "bg-white/20" },
-  "today-production": { gradient: "from-emerald-600 to-emerald-500", iconBg: "bg-white/20" },
-  "machines-running": { gradient: "from-violet-600 to-violet-500", iconBg: "bg-white/20" },
-  "pending-orders": { gradient: "from-orange-600 to-orange-500", iconBg: "bg-white/20" },
-  "good-qty": { gradient: "from-teal-600 to-teal-500", iconBg: "bg-white/20" },
-  "reject-qty": { gradient: "from-red-600 to-red-500", iconBg: "bg-white/20" },
-};
-
 const EMPTY_ORDERS = { total: 0, inProgress: 0, completed: 0, onHold: 0, progress: 0 };
-const PERIOD_KEYS = { Daily: "daily", Weekly: "weekly", Monthly: "monthly", Yearly: "yearly" };
+const PERIOD_KEYS = { Daily: "daily", Weekly: "weekly", Monthly: "monthly" };
 
-const summaryIcons = { users: Users, clock: Clock, zap: Zap, gauge: Gauge, target: Target };
+const summaryIcons = { users: Users, clock: Clock, zap: Zap, gauge: Gauge, target: Target, boxes: Boxes, cart: ShoppingCart, alert: AlertTriangle, package: Package };
 const alertIcons = { alert: AlertTriangle, wrench: Wrench, box: Package, check: CheckCircle2, cart: ShoppingCart };
 const blockIcons = { boxes: Boxes, cog: Wrench, package: Package, alert: AlertTriangle };
+
+function sectionVisible(sections, key) {
+  if (!Array.isArray(sections) || sections.length === 0) return true;
+  return sections.includes(key);
+}
+
+function formatInr(n) {
+  const v = Number(n) || 0;
+  try {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(v);
+  } catch {
+    return `₹${v.toLocaleString()}`;
+  }
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-5 pb-4" aria-busy="true" aria-label="Loading dashboard">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <SkeletonCard key={i} />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <div className="xl:col-span-5">
+          <SkeletonChart />
+        </div>
+        <div className="xl:col-span-3">
+          <SkeletonChart />
+        </div>
+        <div className="xl:col-span-4">
+          <SkeletonChart />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardHero({ profile, dateLabel, onRefresh, refreshing }) {
+  const { t } = useTranslation();
+  const isStore = profile === "store";
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">
+          {isStore ? t("refDashboard.storeOperations", "Store Operations") : t("refDashboard.executiveOverview", "Executive Overview")}
+        </p>
+        <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+          {isStore
+            ? t("refDashboard.storeDashboardTitle", "Store Operations")
+            : t("refDashboard.manufacturingDashboardTitle", "Manufacturing Dashboard")}
+        </h2>
+        {dateLabel ? (
+          <p className="mt-1 text-xs text-slate-500">
+            {t("refDashboard.asOf", "As of")} {dateLabel}
+          </p>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        onClick={onRefresh}
+        disabled={refreshing}
+        className="inline-flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+      >
+        <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden />
+        {t("common.refresh", "Refresh")}
+      </button>
+    </div>
+  );
+}
 
 function KpiStrip({ cards = [] }) {
   const { t } = useTranslation();
   if (!cards.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-10 text-center text-sm text-slate-500">
+      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-10 text-center text-sm text-slate-500">
         {t("common.noData", "No data available.")}
       </div>
     );
@@ -105,37 +183,199 @@ function KpiStrip({ cards = [] }) {
       {cards.map((card) => {
         const titleKey = KPI_TITLE_KEYS[card.id];
         const trendKey = TREND_LABEL_KEYS[card.trendLabel];
-        const style = KPI_STYLE[card.id] || KPI_STYLE["total-orders"];
-        const cls = `relative overflow-hidden rounded-2xl bg-gradient-to-br ${style.gradient} p-4 text-white shadow-[0_4px_14px_rgba(0,0,0,0.12)] transition-transform hover:-translate-y-0.5 block`;
+        const accent = getKpiAccent(card.id);
+        const cls =
+          "group relative block overflow-hidden rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-md";
         const inner = (
-          <div className="flex items-start gap-3">
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${style.iconBg}`}>
-              <KpiIcon id={card.id} className="h-6 w-6 text-white" />
+          <>
+            <span className={`absolute inset-x-0 top-0 h-0.5 ${accent.bar}`} aria-hidden />
+            <div className="flex items-start gap-3">
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${accent.iconBg}`}>
+                <KpiIcon id={card.id} className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium leading-tight text-slate-500">
+                  {titleKey ? t(`refDashboard.${titleKey}`) : card.title}
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums leading-none text-slate-900">
+                  {card.value}
+                  {card.unit ? <span className="ml-1 text-sm font-semibold text-slate-500">{card.unit}</span> : null}
+                  {card.suffix ? <span className="text-lg font-semibold text-slate-400">{card.suffix}</span> : null}
+                </p>
+                <TrendBadge
+                  up={card.trendUp}
+                  value={card.trend}
+                  label={trendKey ? t(`refDashboard.${trendKey}`) : card.trendLabel}
+                />
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium text-white/85 leading-tight">
-                {titleKey ? t(`refDashboard.${titleKey}`) : card.title}
-              </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums leading-none">
-                {card.value}
-                {card.unit && <span className="ml-1 text-sm font-semibold">{card.unit}</span>}
-                {card.suffix && <span className="text-lg font-semibold text-white/80">{card.suffix}</span>}
-              </p>
-              <TrendBadge
-                up={card.trendUp}
-                value={card.trend}
-                label={trendKey ? t(`refDashboard.${trendKey}`) : card.trendLabel}
-              />
-            </div>
-          </div>
+          </>
         );
         return card.link ? (
-          <Link key={card.id} to={card.link} className={cls}>{inner}</Link>
+          <Link key={card.id} to={card.link} className={cls}>
+            {inner}
+          </Link>
         ) : (
-          <div key={card.id} className={cls}>{inner}</div>
+          <div key={card.id} className={cls}>
+            {inner}
+          </div>
         );
       })}
     </div>
+  );
+}
+
+function PendingTasks({ overview, inventoryBlocks = [], alerts = [], profile }) {
+  const { t } = useTranslation();
+  const lowStock = inventoryBlocks.find((b) => b.key === "low_stock")?.count ?? 0;
+  const tasks = [];
+
+  if (profile === "store") {
+    if (overview?.total) {
+      tasks.push({
+        id: "dispatch",
+        label: overview?.labels?.total || t("refDashboard.pendingDispatch", "Pending Dispatch"),
+        value: overview.total,
+        to: "/sales/dispatch",
+        tone: "amber",
+      });
+    }
+    if (overview?.inProgress) {
+      tasks.push({
+        id: "grn-qc",
+        label: overview?.labels?.inProgress || t("refDashboard.pendingGrnQc", "Pending GRN QC"),
+        value: overview.inProgress,
+        to: "/procurement/goods-receipt",
+        tone: "sky",
+      });
+    }
+    if (lowStock) {
+      tasks.push({
+        id: "low-stock",
+        label: t("refDashboard.lowStockItems"),
+        value: lowStock,
+        to: "/alerts/low-stock",
+        tone: "rose",
+      });
+    }
+  } else {
+    if (overview?.inProgress) {
+      tasks.push({
+        id: "in-progress",
+        label: t("refDashboard.inProgress"),
+        value: overview.inProgress,
+        to: "/production/work-orders",
+        tone: "sky",
+      });
+    }
+    if (overview?.onHold) {
+      tasks.push({
+        id: "on-hold",
+        label: t("refDashboard.onHold"),
+        value: overview.onHold,
+        to: "/production/work-orders",
+        tone: "rose",
+      });
+    }
+    if (lowStock) {
+      tasks.push({
+        id: "low-stock",
+        label: t("refDashboard.lowStockItems"),
+        value: lowStock,
+        to: "/alerts/low-stock",
+        tone: "amber",
+      });
+    }
+  }
+
+  if (alerts.length) {
+    tasks.push({
+      id: "alerts",
+      label: t("refDashboard.openAlerts", "Open Alerts"),
+      value: alerts.length,
+      to: "/alerts",
+      tone: "violet",
+    });
+  }
+
+  const toneClass = {
+    sky: "bg-sky-50 text-sky-800 ring-sky-200",
+    amber: "bg-amber-50 text-amber-800 ring-amber-200",
+    rose: "bg-rose-50 text-rose-800 ring-rose-200",
+    violet: "bg-violet-50 text-violet-800 ring-violet-200",
+  };
+
+  return (
+    <CardShell
+      title={t("refDashboard.pendingTasks", "Pending Tasks")}
+      subtitle={t("refDashboard.pendingTasksHint", "Items that need attention today")}
+      action={
+        <ListTodo className="h-4 w-4 text-slate-400" aria-hidden />
+      }
+    >
+      {!tasks.length ? (
+        <p className="py-6 text-center text-sm text-slate-500">{t("refDashboard.allCaughtUp", "You're all caught up.")}</p>
+      ) : (
+        <ul className="space-y-2">
+          {tasks.map((task) => (
+            <li key={task.id}>
+              <Link
+                to={task.to}
+                className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2.5 transition hover:border-slate-200 hover:bg-slate-50"
+              >
+                <span className="text-sm font-medium text-slate-700">{task.label}</span>
+                <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-bold tabular-nums ring-1 ring-inset ${toneClass[task.tone]}`}>
+                  {Number(task.value).toLocaleString()}
+                  <ArrowRight className="h-3 w-3 opacity-70" aria-hidden />
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </CardShell>
+  );
+}
+
+function FinancialSnapshot({ inventoryBlocks = [] }) {
+  const { t } = useTranslation();
+  const raw = inventoryBlocks.find((b) => b.key === "raw");
+  const fg = inventoryBlocks.find((b) => b.key === "fg");
+  const low = inventoryBlocks.find((b) => b.key === "low_stock");
+  const totalValue = (Number(raw?.value) || 0) + (Number(fg?.value) || 0);
+
+  const rows = [
+    { label: t("refDashboard.totalInventoryValue", "Total Inventory Value"), value: formatInr(totalValue), icon: IndianRupee },
+    { label: t("refDashboard.rawMaterials"), value: formatInr(raw?.value), icon: Boxes },
+    { label: t("refDashboard.finishedGoods"), value: formatInr(fg?.value), icon: Package },
+    { label: t("refDashboard.lowStockItems"), value: String(low?.count ?? 0), icon: AlertTriangle },
+  ];
+
+  return (
+    <CardShell
+      title={t("refDashboard.financialSnapshot", "Financial Snapshot")}
+      subtitle={t("refDashboard.financialSnapshotHint", "Inventory valuation from live stock")}
+      action={
+        <Link to="/analytics/finance" className="text-xs font-semibold text-teal-700 hover:underline">
+          {t("common.viewAll")}
+        </Link>
+      }
+    >
+      <ul className="space-y-2.5">
+        {rows.map((row) => {
+          const Icon = row.icon;
+          return (
+            <li key={row.label} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
+              <span className="flex items-center gap-2 text-sm text-slate-600">
+                <Icon className="h-4 w-4 text-teal-700" aria-hidden />
+                {row.label}
+              </span>
+              <span className="text-sm font-bold tabular-nums text-slate-900">{row.value}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </CardShell>
   );
 }
 
@@ -149,15 +389,17 @@ function ProductionOverview({ chartSets }) {
       title={t("refDashboard.productionOverview")}
       className="h-full"
       action={
-        <div className="flex rounded-lg bg-slate-100 p-0.5 text-[11px] font-semibold">
+        <div className="flex rounded-lg bg-slate-100 p-0.5 text-[11px] font-semibold" role="tablist" aria-label={t("refDashboard.productionOverview")}>
           {Object.entries(PERIOD_KEYS).map(([label, key]) => (
             <button
               key={label}
               type="button"
+              role="tab"
+              aria-selected={period === label}
               onClick={() => setPeriod(label)}
-              className={`rounded-md px-2.5 py-1 transition-colors ${period === label ? "bg-white text-[#2563EB] shadow-sm" : "text-slate-500"}`}
+              className={`rounded-md px-2.5 py-1 transition-colors ${period === label ? "bg-white text-teal-800 shadow-sm" : "text-slate-500"}`}
             >
-              {t(`refDashboard.${key}`, label)}
+              {t(`refDashboard.${key}`)}
             </button>
           ))}
         </div>
@@ -172,8 +414,8 @@ function ProductionOverview({ chartSets }) {
               <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-              <Line type="monotone" dataKey="planned" name={t("refDashboard.plannedQty")} stroke="#3B82F6" strokeWidth={2.5} dot={{ r: 3, fill: "#3B82F6" }} />
-              <Line type="monotone" dataKey="actual" name={t("refDashboard.actualQty")} stroke="#22C55E" strokeWidth={2.5} dot={{ r: 3, fill: "#22C55E" }} />
+              <Line type="monotone" dataKey="planned" name={t("refDashboard.plannedQty")} stroke="#0f6d84" strokeWidth={2.5} dot={{ r: 3, fill: "#0f6d84" }} />
+              <Line type="monotone" dataKey="actual" name={t("refDashboard.actualQty")} stroke="#16a34a" strokeWidth={2.5} dot={{ r: 3, fill: "#16a34a" }} />
             </LineChart>
           </ResponsiveContainer>
         ) : (
@@ -209,7 +451,7 @@ function ShopFloorStatus({ statusData = [] }) {
           </ResponsiveContainer>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-[10px] font-medium text-slate-500">{t("refDashboard.totalMachines")}</span>
-            <span className="text-2xl font-bold text-[#1E293B]">{total}</span>
+            <span className="text-2xl font-bold text-slate-900">{total}</span>
           </div>
         </div>
         <ul className="w-full space-y-2 text-sm">
@@ -221,7 +463,7 @@ function ShopFloorStatus({ statusData = [] }) {
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
                   <span>{key ? t(`refDashboard.${key}`) : item.name}</span>
                 </span>
-                <span className="shrink-0 font-bold text-slate-800">{item.value}</span>
+                <span className="shrink-0 font-bold tabular-nums text-slate-800">{item.value}</span>
               </li>
             );
           })}
@@ -246,15 +488,15 @@ function TopMachines({ machines = [] }) {
         {machines.map((m) => (
           <li key={m.id} className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[10px] font-bold text-slate-500">
-              {m.id.split("-")[0]}
+              {String(m.id).split("-")[0]}
             </div>
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex justify-between text-xs">
                 <span className="font-semibold text-slate-700">{m.id}</span>
-                <span className="font-bold text-[#2563EB]">{m.utilization}%</span>
+                <span className="font-bold tabular-nums text-teal-800">{m.utilization}%</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full rounded-full bg-gradient-to-r from-[#3B82F6] to-[#22C55E]" style={{ width: `${m.utilization}%` }} />
+                <div className="h-full rounded-full bg-teal-600" style={{ width: `${m.utilization}%` }} />
               </div>
             </div>
           </li>
@@ -266,18 +508,19 @@ function TopMachines({ machines = [] }) {
 
 function OrdersOverview({ overview = EMPTY_ORDERS }) {
   const { t } = useTranslation();
+  const labels = overview.labels || {};
   const stats = [
-    { labelKey: "totalOrders", value: overview.total, color: "text-[#2563EB]" },
-    { labelKey: "inProgress", value: overview.inProgress, color: "text-orange-500" },
-    { labelKey: "completed", value: overview.completed, color: "text-green-600" },
-    { labelKey: "onHold", value: overview.onHold, color: "text-red-500" },
+    { label: labels.total || t("refDashboard.totalOrders"), value: overview.total, color: "text-sky-700" },
+    { label: labels.inProgress || t("refDashboard.inProgress"), value: overview.inProgress, color: "text-amber-600" },
+    { label: labels.completed || t("refDashboard.completed"), value: overview.completed, color: "text-emerald-700" },
+    { label: labels.onHold || t("refDashboard.onHold"), value: overview.onHold, color: "text-rose-600" },
   ];
   return (
     <CardShell title={t("refDashboard.ordersOverview")}>
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="mb-4 grid grid-cols-2 gap-3">
         {stats.map((s) => (
-          <div key={s.labelKey} className="rounded-xl bg-slate-50 px-3 py-2.5 text-center">
-            <p className="text-[10px] font-medium text-slate-500">{t(`refDashboard.${s.labelKey}`)}</p>
+          <div key={s.label} className="rounded-lg bg-slate-50 px-3 py-2.5 text-center">
+            <p className="text-[10px] font-medium text-slate-500">{s.label}</p>
             <p className={`text-xl font-bold tabular-nums ${s.color}`}>{Number(s.value ?? 0).toLocaleString()}</p>
           </div>
         ))}
@@ -285,10 +528,10 @@ function OrdersOverview({ overview = EMPTY_ORDERS }) {
       <div>
         <div className="mb-1 flex justify-between text-xs">
           <span className="font-medium text-slate-600">{t("refDashboard.overallProgress")}</span>
-          <span className="font-bold text-[#2563EB]">{overview.progress}%</span>
+          <span className="font-bold tabular-nums text-teal-800">{overview.progress}%</span>
         </div>
-        <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-          <div className="h-full rounded-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]" style={{ width: `${overview.progress}%` }} />
+        <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full rounded-full bg-teal-600" style={{ width: `${overview.progress}%` }} />
         </div>
       </div>
     </CardShell>
@@ -306,32 +549,39 @@ function InventorySummary({ blocks = [], warehouses = [] }) {
   }
   return (
     <CardShell title={t("refDashboard.inventorySummary")}>
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="mb-4 grid grid-cols-2 gap-3">
         {blocks.map((b, i) => {
           const Icon = blockIcons[b.icon] || Boxes;
           const labelKey = INVENTORY_KEYS[i];
           return (
-            <div key={b.label} className="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ backgroundColor: `${b.color || "#2563EB"}18`, color: b.color || "#2563EB" }}>
+            <div key={b.label} className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2.5">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `${b.color || "#0f6d84"}18`, color: b.color || "#0f6d84" }}
+              >
                 <Icon className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-800">{Number(b.count ?? 0).toLocaleString()}</p>
-                <p className="text-[10px] text-slate-500 leading-tight">
+                <p className="text-lg font-bold tabular-nums text-slate-800">{Number(b.count ?? 0).toLocaleString()}</p>
+                <p className="text-[10px] leading-tight text-slate-500">
                   {labelKey ? t(`refDashboard.${labelKey}`) : b.label}
                 </p>
-                {b.quantity !== undefined && b.quantity !== b.count && b.quantity > 0 && (
-                  <p className="text-[9px] text-slate-400 font-medium">{Number(b.quantity).toLocaleString()} units</p>
-                )}
+                {b.quantity !== undefined && b.quantity !== b.count && b.quantity > 0 ? (
+                  <p className="text-[9px] font-medium text-slate-400">{Number(b.quantity).toLocaleString()} units</p>
+                ) : null}
               </div>
             </div>
           );
         })}
       </div>
       <p className="mb-2 text-xs font-semibold text-slate-600">{t("refDashboard.warehouseLocation")}</p>
-      <div className="flex h-3 overflow-hidden rounded-full">
+      <div className="flex h-2.5 overflow-hidden rounded-full">
         {warehouses.map((w, i) => (
-          <div key={w.name} style={{ width: `${w.pct || 0}%`, backgroundColor: w.color || "#94A3B8" }} title={WAREHOUSE_KEYS[i] ? t(`refDashboard.${WAREHOUSE_KEYS[i]}`) : w.name} />
+          <div
+            key={w.name}
+            style={{ width: `${w.pct || 0}%`, backgroundColor: w.color || "#94A3B8" }}
+            title={WAREHOUSE_KEYS[i] ? t(`refDashboard.${WAREHOUSE_KEYS[i]}`) : w.name}
+          />
         ))}
       </div>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
@@ -351,21 +601,28 @@ function AlertsNotifications({ alerts = [] }) {
   return (
     <CardShell
       title={t("refDashboard.alertsNotifications")}
-      action={<Link to="/alerts" className="text-xs font-semibold text-[#2563EB] hover:underline">{t("common.viewAll")}</Link>}
+      action={
+        <Link to="/alerts" className="text-xs font-semibold text-teal-700 hover:underline">
+          {t("common.viewAll")}
+        </Link>
+      }
     >
       {!alerts.length ? (
         <p className="py-6 text-center text-sm text-slate-500">{t("common.noData", "No data available.")}</p>
       ) : (
-        <ul className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+        <ul className="max-h-[220px] space-y-3 overflow-y-auto pr-1">
           {alerts.map((a, i) => {
             const Icon = alertIcons[a.icon] || AlertTriangle;
             const inner = (
               <>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${a.color}18`, color: a.color }}>
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: `${a.color || "#0f6d84"}18`, color: a.color || "#0f6d84" }}
+                >
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm text-slate-700 leading-snug">{a.message}</p>
+                  <p className="text-sm leading-snug text-slate-700">{a.message}</p>
                   <p className="mt-0.5 text-[11px] text-slate-400">{a.time || "—"}</p>
                 </div>
               </>
@@ -373,7 +630,9 @@ function AlertsNotifications({ alerts = [] }) {
             return (
               <li key={a.id || i}>
                 {a.link ? (
-                  <Link to={a.link} className="flex gap-3 rounded-lg p-1 -m-1 hover:bg-slate-50">{inner}</Link>
+                  <Link to={a.link} className="-m-1 flex gap-3 rounded-lg p-1 hover:bg-slate-50">
+                    {inner}
+                  </Link>
                 ) : (
                   <div className="flex gap-3">{inner}</div>
                 )}
@@ -394,7 +653,7 @@ function QuickActions() {
   if (!visible.length) return null;
   return (
     <CardShell title={t("refDashboard.quickActions")}>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2.5">
         {quickActionsRef.map((a, i) => {
           if (!userCanAccess(user, QUICK_ACTION_MODULES[i])) return null;
           const labelKey = QUICK_ACTION_KEYS[i];
@@ -402,11 +661,12 @@ function QuickActions() {
             <Link
               key={a.label}
               to={a.to}
-              className="flex flex-col items-center justify-center gap-2 rounded-xl p-4 text-center text-white shadow-md transition-transform hover:-translate-y-0.5 hover:shadow-lg"
-              style={{ backgroundColor: a.bg }}
+              className="flex flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50/80 p-3.5 text-center transition hover:border-teal-200 hover:bg-teal-50/50"
             >
-              <Plus className="h-5 w-5" />
-              <span className="text-[11px] font-semibold leading-tight">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg text-white" style={{ backgroundColor: a.bg }}>
+                <Plus className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="text-[11px] font-semibold leading-tight text-slate-700">
                 {labelKey ? t(`refDashboard.${labelKey}`) : a.label}
               </span>
             </Link>
@@ -422,7 +682,11 @@ function RecentWorkOrders({ workOrders = [] }) {
   return (
     <CardShell
       title={t("refDashboard.recentWorkOrders")}
-      action={<Link to="/production/work-orders" className="text-xs font-semibold text-[#2563EB] hover:underline">{t("common.viewAll")}</Link>}
+      action={
+        <Link to="/production/work-orders" className="text-xs font-semibold text-teal-700 hover:underline">
+          {t("common.viewAll")}
+        </Link>
+      }
     >
       {!workOrders.length ? (
         <p className="py-6 text-center text-sm text-slate-500">{t("common.noRecords", "No records found.")}</p>
@@ -441,11 +705,13 @@ function RecentWorkOrders({ workOrders = [] }) {
             <tbody>
               {workOrders.map((wo) => (
                 <tr key={wo.wo} className="border-b border-slate-50 last:border-0">
-                  <td className="py-2.5 pr-3 font-semibold text-[#2563EB]">{wo.wo}</td>
+                  <td className="py-2.5 pr-3 font-semibold text-teal-800">{wo.wo}</td>
                   <td className="py-2.5 pr-3 text-slate-700">{wo.product}</td>
                   <td className="py-2.5 pr-3 tabular-nums">{wo.qty}</td>
-                  <td className="py-2.5 pr-3"><StatusBadge status={wo.status} /></td>
-                  <td className="py-2.5 text-slate-500 text-xs">{wo.due}</td>
+                  <td className="py-2.5 pr-3">
+                    <StatusBadge status={wo.status} />
+                  </td>
+                  <td className="py-2.5 text-xs text-slate-500">{wo.due}</td>
                 </tr>
               ))}
             </tbody>
@@ -507,17 +773,21 @@ function TodaysSummary({ items = [] }) {
   }
   return (
     <CardShell title={t("refDashboard.todaysSummary")}>
-      <ul className="space-y-3">
+      <ul className="space-y-2.5">
         {filteredItems.map((item, i) => {
           const Icon = summaryIcons[item.icon] || BarChart3;
-          const label = item.key ? t(`refDashboard.${item.key}`, item.label) : (SUMMARY_KEYS[i] ? t(`refDashboard.${SUMMARY_KEYS[i]}`) : item.label);
+          const label = item.key
+            ? t(`refDashboard.${item.key}`, item.label)
+            : SUMMARY_KEYS[i]
+              ? t(`refDashboard.${SUMMARY_KEYS[i]}`)
+              : item.label;
           return (
-            <li key={item.key || item.label || i} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
+            <li key={item.key || item.label || i} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
               <span className="flex items-center gap-2.5 text-sm text-slate-600">
-                <Icon className="h-4 w-4 text-[#2563EB]" />
+                <Icon className="h-4 w-4 text-teal-700" aria-hidden />
                 {label}
               </span>
-              <span className="text-sm font-bold text-slate-800">{item.value}</span>
+              <span className="text-sm font-bold tabular-nums text-slate-800">{item.value}</span>
             </li>
           );
         })}
@@ -532,10 +802,12 @@ export default function ReferenceDashboard() {
   const isOp = isOperator(user);
   const [apiData, setApiData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
+  const load = useCallback((isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     setError(null);
     getErpDashboard()
       .then((res) => setApiData(res.data))
@@ -543,53 +815,57 @@ export default function ReferenceDashboard() {
         setApiData(null);
         setError("Failed to load dashboard data.");
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-  useManufacturingRefresh(load);
+  useEffect(() => {
+    load(false);
+  }, [load]);
+  useManufacturingRefresh(() => load(true));
+
+  const profile = apiData?.dashboard_profile || "full";
+  const sections = apiData?.visible_sections || [];
+  const isStoreProfile = profile === "store";
 
   const kpiCardsLive = useMemo(() => {
     if (!apiData?.kpi_cards?.length) return [];
     let localGood = 0;
     let localReject = 0;
     let hasLocalOrders = false;
-    const COMPLETED_STATUSES = ["completed", "closed", "done", "cancelled", "rejected"];
     try {
       const stored = localStorage.getItem("smrt_local_production_orders");
       if (stored) {
         const orders = JSON.parse(stored);
         if (orders.length > 0) hasLocalOrders = true;
         orders.forEach((o) => {
-          // Good qty: prefer explicit good_qty fields, then fall back to produced_quantity
           const g = Number(o.good_qty ?? o.good_quantity ?? o.accepted_quantity ?? 0);
-          // Reject qty: prefer explicit reject_qty, then scrap fields
           const r = Number(o.reject_qty ?? o.rejected_quantity ?? o.scrap_quantity ?? o.scrap ?? 0);
-          // produced_quantity fallback: if good_qty is 0, treat produced as good
           const p = Number(o.produced_quantity ?? o.actual_quantity ?? 0);
-          // Good qty = explicit good_qty OR (produced - reject) OR produced
-          const effectiveGood = g > 0 ? g : (p > 0 ? Math.max(p - r, p) : 0);
+          const effectiveGood = g > 0 ? g : p > 0 ? Math.max(p - r, p) : 0;
           localGood += effectiveGood;
           localReject += r;
         });
       }
-    } catch (e) {}
+    } catch {
+      /* ignore local storage parse errors */
+    }
 
     return apiData.kpi_cards.map((k) => {
       let val = k.value ?? "0";
       if (k.id === "good-qty" || k.title?.toLowerCase().includes("good")) {
-        // Always use local sum if we have local orders (local is ground truth for good qty)
-        if (hasLocalOrders) {
-          val = String(localGood);
-        } else if (val === "0" || !val) {
-          val = String(localGood);
-        }
+        if (hasLocalOrders) val = String(localGood);
+        else if (val === "0" || !val) val = String(localGood);
       }
-      if ((k.id === "reject-qty" || k.title?.toLowerCase().includes("reject") || k.title?.toLowerCase().includes("scrap")) && (val === "0" || !val) && localReject > 0) {
+      if (
+        (k.id === "reject-qty" || k.title?.toLowerCase().includes("reject") || k.title?.toLowerCase().includes("scrap")) &&
+        (val === "0" || !val) &&
+        localReject > 0
+      ) {
         val = String(localReject);
       }
-      // pending-orders: always trust the backend value (counts non-completed Work Orders from DB)
-      // No localStorage override — backend is the single source of truth for this count
       return { ...k, value: val };
     });
   }, [apiData]);
@@ -600,11 +876,14 @@ export default function ReferenceDashboard() {
       Daily: apiData.production_overview || [],
       Weekly: apiData.production_overview_weekly || [],
       Monthly: apiData.production_overview_monthly || [],
-      Yearly: apiData.production_overview_yearly || [],
     };
   }, [apiData]);
 
   const alertsLive = useMemo(() => apiData?.alerts_feed || [], [apiData]);
+  const ordersOverview = useMemo(
+    () => ({ ...EMPTY_ORDERS, ...(apiData?.orders_overview || {}) }),
+    [apiData]
+  );
 
   const workOrdersLive = useMemo(() => {
     if (!apiData?.recent_work_orders?.length) return [];
@@ -617,59 +896,110 @@ export default function ReferenceDashboard() {
     }));
   }, [apiData]);
 
-  if (loading) {
-    return <div className="py-16 text-center text-sm text-slate-500">{t("common.loading", "Loading...")}</div>;
-  }
+  const dateLabel = useMemo(() => {
+    if (!apiData?.date) return "";
+    try {
+      return new Date(apiData.date).toLocaleDateString(undefined, {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return apiData.date;
+    }
+  }, [apiData]);
+
+  const showProduction = !isOp && !isStoreProfile && sectionVisible(sections, "production_overview");
+  const showShopFloor = !isOp && !isStoreProfile && sectionVisible(sections, "shop_floor");
+  const showTopMachines = !isOp && !isStoreProfile && sectionVisible(sections, "top_machines");
+  const showInventory = !isOp && sectionVisible(sections, "inventory");
+  const showQuickActions = !isOp && sectionVisible(sections, "quick_actions");
+  const showRecentWo = !isStoreProfile && sectionVisible(sections, "recent_work_orders");
+  const showFinance = !isOp && showInventory;
+
+  if (loading) return <DashboardSkeleton />;
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-10 text-center text-sm text-red-700">
+      <div className="rounded-xl border border-rose-200 bg-rose-50 px-6 py-10 text-center text-sm text-rose-700" role="alert">
         {error}
-        <button type="button" onClick={load} className="mt-4 text-[#2563EB] font-semibold hover:underline">Retry</button>
+        <button
+          type="button"
+          onClick={() => load(false)}
+          className="mt-4 block w-full font-semibold text-teal-800 hover:underline sm:inline sm:w-auto"
+        >
+          {t("common.retry", "Retry")}
+        </button>
       </div>
     );
   }
 
   return (
     <div className="space-y-5 pb-4">
-      <KpiStrip cards={kpiCardsLive} />
+      <DashboardHero
+        profile={profile}
+        dateLabel={dateLabel}
+        onRefresh={() => load(true)}
+        refreshing={refreshing}
+      />
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-        <div className={isOp ? "xl:col-span-12" : "xl:col-span-5"}>
-          <ProductionOverview chartSets={chartSets} />
-        </div>
-        {!isOp && (
-          <>
+      {sectionVisible(sections, "kpi") ? <KpiStrip cards={kpiCardsLive} /> : null}
+
+      <div className={`grid grid-cols-1 gap-5 ${isOp ? "lg:grid-cols-1" : "lg:grid-cols-3"}`}>
+        {!isOp ? (
+          <PendingTasks
+            overview={ordersOverview}
+            inventoryBlocks={apiData?.inventory_blocks || []}
+            alerts={alertsLive}
+            profile={profile}
+          />
+        ) : null}
+        {showFinance ? <FinancialSnapshot inventoryBlocks={apiData?.inventory_blocks || []} /> : null}
+        {sectionVisible(sections, "todays_summary") ? (
+          <TodaysSummary items={apiData?.todays_summary || []} />
+        ) : null}
+      </div>
+
+      {(showProduction || showShopFloor || showTopMachines || (isOp && sectionVisible(sections, "production_overview"))) && (
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+          {(showProduction || (isOp && sectionVisible(sections, "production_overview"))) && (
+            <div className={isOp || (!showShopFloor && !showTopMachines) ? "xl:col-span-12" : "xl:col-span-5"}>
+              <ProductionOverview chartSets={chartSets} />
+            </div>
+          )}
+          {showShopFloor ? (
             <div className="xl:col-span-3">
               <ShopFloorStatus statusData={apiData?.shop_floor_status || []} />
             </div>
+          ) : null}
+          {showTopMachines ? (
             <div className="xl:col-span-4">
               <TopMachines machines={apiData?.top_machines || []} />
             </div>
-          </>
-        )}
-      </div>
+          ) : null}
+        </div>
+      )}
 
       <div className={`grid grid-cols-1 gap-5 ${isOp ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
-        <OrdersOverview overview={{ ...EMPTY_ORDERS, ...(apiData?.orders_overview || {}) }} />
-        {!isOp && (
+        {sectionVisible(sections, "orders_overview") ? <OrdersOverview overview={ordersOverview} /> : null}
+        {showInventory ? (
           <InventorySummary blocks={apiData?.inventory_blocks || []} warehouses={apiData?.warehouse_locations || []} />
-        )}
-        <AlertsNotifications alerts={alertsLive} />
+        ) : null}
+        {sectionVisible(sections, "alerts") ? <AlertsNotifications alerts={alertsLive} /> : null}
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-        {!isOp && (
+        {showQuickActions ? (
           <div className="xl:col-span-3">
             <QuickActions />
           </div>
-        )}
-        <div className={isOp ? "xl:col-span-7" : "xl:col-span-5"}>
-          <RecentWorkOrders workOrders={workOrdersLive} />
-        </div>
-        <div className={isOp ? "xl:col-span-5" : "xl:col-span-4"}>
-          <TodaysSummary items={apiData?.todays_summary || []} />
-        </div>
+        ) : null}
+        {showRecentWo ? (
+          <div className={showQuickActions ? "xl:col-span-9" : "xl:col-span-12"}>
+            <RecentWorkOrders workOrders={workOrdersLive} />
+          </div>
+        ) : null}
       </div>
 
       <footer className="flex flex-col items-center justify-between gap-2 border-t border-slate-200 pt-4 text-center text-[11px] text-slate-500 sm:flex-row sm:text-left">

@@ -19,7 +19,7 @@ import { mapApiJournalToUi } from "../../api/manualJournalSync";
 import { apiErrorMessage } from "../../utils/apiError";
 import { useToast } from "../../context/ToastContext";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 
 function todayIso() {
   const d = new Date();
@@ -298,7 +298,7 @@ export default function NewJournalEntryV2() {
               disabled={saving}
               onClick={handleSave}
               className="rounded-lg px-5 py-2.5 text-[14px] font-bold text-[#1a1a1f] disabled:opacity-60"
-              style={{ background: "#F5C518" }}
+              style={{ background: "#0f6d84" }}
             >
               {saving ? "Saving…" : isEdit ? "Update" : "Save"}
             </button>

@@ -60,7 +60,7 @@ def get_production_analytics(
 ) -> ProductionAnalyticsRead:
     from sqlalchemy import func, select
 
-    from app.models.production import DailyProductionReport, WorkOrder
+    from app.models.production import DailyProductionReport, ProductionOrder, WorkOrder
     from app.models.quality import QualityInspection
     from app.models.user import User
 
@@ -137,109 +137,131 @@ def get_production_analytics(
         alerts.append(AlertItem(type="downtime", severity="danger",
             message=f"{machine.get('down')} machine(s) down / in maintenance"))
 
-    daily_output = []
-    try:
-        rows = db.execute(
-            select(
-                DailyProductionReport.report_date,
-                func.coalesce(func.sum(DailyProductionReport.produced_quantity), 0).label("qty"),
-                func.coalesce(func.sum(DailyProductionReport.planned_quantity), 0).label("planned"),
-            )
-            .where(DailyProductionReport.tenant_id == tenant_id)
-            .where(func.extract("year", DailyProductionReport.report_date) == y)
-            .group_by(DailyProductionReport.report_date)
-            .order_by(DailyProductionReport.report_date)
-            .limit(30)
-        ).all()
-        daily_output = [
-            ChartPoint(label=str(r[0]), value=float(r[1] or 0), value2=float(r[2] or 0))
-            for r in rows
-        ]
-    except Exception:
-        daily_output = []
+    # Daily output — last 14 report days from DailyProductionReport
+    daily_start = date.today() - timedelta(days=13)
+    daily_rows = db.execute(
+        select(
+            DailyProductionReport.report_date,
+            func.coalesce(func.sum(DailyProductionReport.produced_quantity), 0),
+        )
+        .where(DailyProductionReport.tenant_id == tenant_id)
+        .where(DailyProductionReport.report_date >= daily_start)
+        .group_by(DailyProductionReport.report_date)
+        .order_by(DailyProductionReport.report_date)
+    ).all()
+    daily_output = [
+        ChartPoint(label=r[0].isoformat() if hasattr(r[0], "isoformat") else str(r[0]), value=float(r[1] or 0))
+        for r in daily_rows
+        if float(r[1] or 0) > 0
+    ]
 
-    shift_wise = []
-    try:
-        rows = db.execute(
-            select(
-                WorkOrder.shift,
-                func.coalesce(func.sum(WorkOrder.actual_quantity), 0).label("actual"),
-                func.coalesce(func.sum(WorkOrder.planned_quantity), 0).label("planned"),
-            )
-            .where(WorkOrder.tenant_id == tenant_id)
-            .where(WorkOrder.shift.isnot(None))
-            .group_by(WorkOrder.shift)
-        ).all()
-        shift_wise = [
-            ChartPoint(label=str(r[0] or "General"), value=float(r[1] or 0), value2=float(r[2] or 0))
-            for r in rows if r[0]
-        ]
-    except Exception:
-        shift_wise = []
+    # Shift-wise output from work orders
+    shift_rows = db.execute(
+        select(
+            func.coalesce(WorkOrder.shift, "Unassigned"),
+            func.coalesce(func.sum(WorkOrder.actual_quantity), 0),
+        )
+        .where(WorkOrder.tenant_id == tenant_id)
+        .group_by(WorkOrder.shift)
+        .order_by(func.coalesce(func.sum(WorkOrder.actual_quantity), 0).desc())
+    ).all()
+    shift_wise = [
+        ChartPoint(label=str(r[0] or "Unassigned"), value=float(r[1] or 0))
+        for r in shift_rows
+        if float(r[1] or 0) > 0
+    ][:8]
 
-    product_wise = []
-    try:
-        from app.models.product import Product
-        rows = db.execute(
+    # Product-wise output from daily reports (fallback: work orders via production order)
+    from app.models.product import Product
+
+    product_rows = db.execute(
+        select(
+            DailyProductionReport.product_id,
+            Product.name,
+            Product.sku,
+            func.coalesce(func.sum(DailyProductionReport.produced_quantity), 0),
+        )
+        .select_from(DailyProductionReport)
+        .outerjoin(Product, Product.id == DailyProductionReport.product_id)
+        .where(DailyProductionReport.tenant_id == tenant_id)
+        .where(func.extract("year", DailyProductionReport.report_date) == y)
+        .group_by(DailyProductionReport.product_id, Product.name, Product.sku)
+        .order_by(func.coalesce(func.sum(DailyProductionReport.produced_quantity), 0).desc())
+        .limit(8)
+    ).all()
+    product_wise = [
+        ChartPoint(
+            label=(r[1] or r[2] or f"Product #{r[0]}"),
+            value=float(r[3] or 0),
+        )
+        for r in product_rows
+        if float(r[3] or 0) > 0
+    ]
+    if not product_wise:
+        wo_product_rows = db.execute(
             select(
+                ProductionOrder.product_id,
                 Product.name,
-                func.coalesce(func.sum(DailyProductionReport.produced_quantity), 0).label("qty"),
+                Product.sku,
+                func.coalesce(func.sum(WorkOrder.actual_quantity), 0),
             )
-            .join(Product, DailyProductionReport.product_id == Product.id)
-            .where(DailyProductionReport.tenant_id == tenant_id)
-            .group_by(Product.name)
-            .order_by(func.sum(DailyProductionReport.produced_quantity).desc())
+            .select_from(WorkOrder)
+            .join(ProductionOrder, ProductionOrder.id == WorkOrder.production_order_id)
+            .outerjoin(Product, Product.id == ProductionOrder.product_id)
+            .where(WorkOrder.tenant_id == tenant_id)
+            .group_by(ProductionOrder.product_id, Product.name, Product.sku)
+            .order_by(func.coalesce(func.sum(WorkOrder.actual_quantity), 0).desc())
             .limit(8)
         ).all()
         product_wise = [
-            ChartPoint(label=str(r[0]), value=float(r[1] or 0))
-            for r in rows if r[0]
-        ]
-    except Exception:
-        product_wise = []
-
-    operator_performance = []
-    try:
-        rows = db.execute(
-            select(
-                WorkOrder.operator_name,
-                func.coalesce(func.sum(WorkOrder.actual_quantity), 0).label("actual"),
-                func.coalesce(func.sum(WorkOrder.planned_quantity), 0).label("planned"),
+            ChartPoint(
+                label=(r[1] or r[2] or f"Product #{r[0]}"),
+                value=float(r[3] or 0),
             )
-            .where(WorkOrder.tenant_id == tenant_id)
-            .where(WorkOrder.operator_name.isnot(None))
-            .group_by(WorkOrder.operator_name)
-            .limit(10)
-        ).all()
-        operator_performance = [
-            ChartPoint(label=str(r[0]), value=float(r[1] or 0), value2=float(r[2] or 0))
-            for r in rows if r[0]
+            for r in wo_product_rows
+            if float(r[3] or 0) > 0
         ]
-    except Exception:
-        operator_performance = []
 
-    downtime_analysis = []
-    try:
-        from app.models.machine import Machine
-        rows = db.execute(
-            select(
-                Machine.name,
-                func.coalesce(func.sum(DailyProductionReport.downtime_minutes), 0).label("mins"),
-            )
-            .join(Machine, DailyProductionReport.machine_id == Machine.id)
-            .where(DailyProductionReport.tenant_id == tenant_id)
-            .where(DailyProductionReport.downtime_minutes > 0)
-            .group_by(Machine.name)
-            .order_by(func.sum(DailyProductionReport.downtime_minutes).desc())
-            .limit(8)
-        ).all()
-        downtime_analysis = [
-            ChartPoint(label=str(r[0]), value=round(float(r[1] or 0) / 60, 1))
-            for r in rows if r[0]
-        ]
-    except Exception:
-        downtime_analysis = []
+    # Operator performance from work-order actuals
+    op_rows = db.execute(
+        select(
+            func.coalesce(WorkOrder.operator_name, "Unassigned"),
+            func.coalesce(func.sum(WorkOrder.actual_quantity), 0),
+        )
+        .where(WorkOrder.tenant_id == tenant_id)
+        .where(WorkOrder.operator_name.isnot(None))
+        .where(WorkOrder.operator_name != "")
+        .group_by(WorkOrder.operator_name)
+        .order_by(func.coalesce(func.sum(WorkOrder.actual_quantity), 0).desc())
+        .limit(8)
+    ).all()
+    operator_performance = [
+        ChartPoint(label=str(r[0]), value=float(r[1] or 0))
+        for r in op_rows
+        if float(r[1] or 0) > 0
+    ]
 
+    # Downtime analysis — minutes by machine (or unassigned) for selected year
+    from app.models.machine import Machine
+
+    dt_rows = db.execute(
+        select(
+            func.coalesce(Machine.code, Machine.name, "Unassigned"),
+            func.coalesce(func.sum(DailyProductionReport.downtime_minutes), 0),
+        )
+        .select_from(DailyProductionReport)
+        .outerjoin(Machine, Machine.id == DailyProductionReport.machine_id)
+        .where(DailyProductionReport.tenant_id == tenant_id)
+        .where(func.extract("year", DailyProductionReport.report_date) == y)
+        .group_by(Machine.code, Machine.name)
+        .order_by(func.coalesce(func.sum(DailyProductionReport.downtime_minutes), 0).desc())
+        .limit(8)
+    ).all()
+    downtime_analysis = [
+        ChartPoint(label=str(r[0] or "Unassigned"), value=round(float(r[1] or 0) / 60, 1))
+        for r in dt_rows
+        if float(r[1] or 0) > 0
+    ]
 
     return ProductionAnalyticsRead(
         kpis=kpis, alerts=alerts,

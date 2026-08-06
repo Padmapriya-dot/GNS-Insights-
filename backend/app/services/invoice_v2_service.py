@@ -382,8 +382,8 @@ def create_invoice_v2(db: Session, payload: InvoiceV2Create) -> Invoice:
         discount=_money(payload.discount),
         other_charge=_money(payload.other_charge),
         round_off=_money(payload.round_off),
+        cgst_pct=float(payload.csgst_pct or 0),
         sgst_pct=float(payload.sgst_pct or 0),
-        cgst_pct=float(payload.cgst_pct or 0),
         igst_pct=float(payload.igst_pct or 0),
         status=payload.status or "issued",
         transport_mode=payload.transport_mode,
@@ -465,18 +465,18 @@ def create_invoice_v2(db: Session, payload: InvoiceV2Create) -> Invoice:
     use_igst = doc == "export_invoice" or float(payload.igst_pct or 0) > 0
     if use_igst:
         inv.igst_amount = _money(gst_sum)
-        inv.sgst_amount = 0
         inv.cgst_amount = 0
+        inv.sgst_amount = 0
         if not inv.igst_pct:
             inv.igst_pct = 18
     else:
-        inv.sgst_amount = _money(gst_sum / 2)
         inv.cgst_amount = _money(gst_sum / 2)
+        inv.sgst_amount = _money(gst_sum / 2)
         inv.igst_amount = 0
-        if not inv.sgst_pct:
-            inv.sgst_pct = 9
         if not inv.cgst_pct:
             inv.cgst_pct = 9
+        if not inv.sgst_pct:
+            inv.sgst_pct = 9
 
     inv.grand_total = _money(
         taxable_sum + gst_sum - float(inv.discount or 0) + float(inv.round_off or 0)
@@ -495,8 +495,8 @@ def create_invoice_v2(db: Session, payload: InvoiceV2Create) -> Invoice:
         issue_date=inv.issue_date or date.today(),
         subtotal=float(inv.subtotal or 0),
         discount=float(inv.discount or 0),
-        sgst=float(inv.sgst_amount or 0),
         cgst=float(inv.cgst_amount or 0),
+        sgst=float(inv.sgst_amount or 0),
         igst=float(inv.igst_amount or 0),
         round_off=float(inv.round_off or 0),
         grand_total=float(inv.grand_total or 0),
@@ -572,8 +572,8 @@ def update_invoice_v2(db: Session, tenant_id: int, invoice_id: int, payload: Inv
     inv.discount = _money(payload.discount)
     inv.other_charge = _money(payload.other_charge)
     inv.round_off = _money(payload.round_off)
-    inv.sgst_pct = float(payload.sgst_pct or 0)
     inv.cgst_pct = float(payload.cgst_pct or 0)
+    inv.sgst_pct = float(payload.sgst_pct or 0)
     inv.igst_pct = float(payload.igst_pct or 0)
     inv.status = payload.status or inv.status or "issued"
     inv.transport_mode = payload.transport_mode
@@ -660,18 +660,18 @@ def update_invoice_v2(db: Session, tenant_id: int, invoice_id: int, payload: Inv
     use_igst = doc == "export_invoice" or float(payload.igst_pct or 0) > 0
     if use_igst:
         inv.igst_amount = _money(gst_sum)
-        inv.sgst_amount = 0
         inv.cgst_amount = 0
+        inv.sgst_amount = 0
         if not inv.igst_pct:
             inv.igst_pct = 18
     else:
-        inv.sgst_amount = _money(gst_sum / 2)
         inv.cgst_amount = _money(gst_sum / 2)
+        inv.sgst_amount = _money(gst_sum / 2)
         inv.igst_amount = 0
-        if not inv.sgst_pct:
-            inv.sgst_pct = 9
         if not inv.cgst_pct:
             inv.cgst_pct = 9
+        if not inv.sgst_pct:
+            inv.sgst_pct = 9
 
     inv.grand_total = _money(
         taxable_sum + gst_sum - float(inv.discount or 0) + float(inv.round_off or 0)
@@ -721,11 +721,11 @@ def get_invoice_v2(db: Session, tenant_id: int, invoice_id: int) -> InvoiceV2Rea
         subtotal=float(inv.subtotal or 0),
         discount=float(inv.discount or 0),
         other_charge=float(getattr(inv, "other_charge", 0) or 0),
-        sgst_pct=float(inv.sgst_pct or 0),
         cgst_pct=float(inv.cgst_pct or 0),
+        sgst_pct=float(inv.sgst_pct or 0),
         igst_pct=float(inv.igst_pct or 0),
-        sgst_amount=float(inv.sgst_amount or 0),
         cgst_amount=float(inv.cgst_amount or 0),
+        sgst_amount=float(inv.sgst_amount or 0),
         igst_amount=float(inv.igst_amount or 0),
         round_off=float(inv.round_off or 0),
         grand_total=float(inv.grand_total or 0),

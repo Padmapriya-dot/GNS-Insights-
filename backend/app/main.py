@@ -306,6 +306,11 @@ def on_startup():
         pass  # Column may already exist
     try:
         with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE employees ADD COLUMN address TEXT"))
+    except Exception:
+        pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
             conn.execute(text("ALTER TABLE gl_accounts ADD COLUMN meta TEXT"))
     except Exception:
         pass
@@ -442,6 +447,7 @@ def on_startup():
     _customer_columns = [
         "ALTER TABLE customers ADD COLUMN customer_code VARCHAR(64)",
         "ALTER TABLE customers ADD COLUMN city VARCHAR(128)",
+        "ALTER TABLE customers ADD COLUMN pincode VARCHAR(16)",
         "ALTER TABLE customers ADD COLUMN state VARCHAR(128)",
         "ALTER TABLE customers ADD COLUMN state_code VARCHAR(16)",
         "ALTER TABLE customers ADD COLUMN credit_limit NUMERIC(14, 2) DEFAULT 0",

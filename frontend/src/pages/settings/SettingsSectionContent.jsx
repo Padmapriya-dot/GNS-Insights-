@@ -6,10 +6,12 @@ import {
   ExternalLink,
   KeyRound,
   Loader2,
+  Moon,
   Plus,
   RefreshCw,
   Save,
   Shield,
+  Sun,
   Trash2,
 } from "lucide-react";
 
@@ -552,33 +554,49 @@ function AppearanceSection() {
       }
     >
       <SectionCard title="Theme">
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            { id: "light", label: "Light" },
-            { id: "dark", label: "Dark" },
-            { id: "system", label: "System" },
-          ].map((opt) => (
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+              Color mode
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Switch between light and dark appearance.
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3.5 py-2 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+            <Sun
+              className={`h-4 w-4 shrink-0 ${
+                theme === "light"
+                  ? "text-amber-500"
+                  : "text-slate-400 dark:text-slate-500"
+              }`}
+              aria-hidden
+            />
             <button
-              key={opt.id}
               type="button"
-              onClick={() => {
-                if (opt.id === "system") {
-                  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-                  updateTheme(prefersDark ? "dark" : "light");
-                } else {
-                  updateTheme(opt.id);
-                }
-              }}
-              className={`rounded-xl border px-4 py-3 text-sm font-medium ${
-                (opt.id === "system" ? false : theme === opt.id) ||
-                (opt.id !== "system" && theme === opt.id)
-                  ? "border-teal-500 bg-teal-50 text-teal-800 dark:bg-teal-900/30 dark:text-teal-200"
-                  : "border-slate-200 text-slate-700 dark:border-slate-600 dark:text-slate-300"
+              role="switch"
+              aria-checked={theme === "dark"}
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              onClick={() => updateTheme(theme === "dark" ? "light" : "dark")}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+                theme === "dark" ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-600"
               }`}
             >
-              {opt.label}
+              <span
+                className={`pointer-events-none absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  theme === "dark" ? "left-[22px]" : "left-0.5"
+                }`}
+              />
             </button>
-          ))}
+            <Moon
+              className={`h-4 w-4 shrink-0 ${
+                theme === "dark"
+                  ? "text-blue-400"
+                  : "text-slate-400 dark:text-slate-500"
+              }`}
+              aria-hidden
+            />
+          </div>
         </div>
       </SectionCard>
 

@@ -10,6 +10,7 @@ class CustomerBase(BaseModel):
     address_line1: str | None = None
     address_line2: str | None = None
     city: str | None = None
+    pincode: str | None = None
     state: str | None = None
     state_code: str | None = None
     gstin: str | None = None
@@ -30,6 +31,8 @@ class CustomerUpdate(BaseModel):
     contact_name: str | None = None
     address_line1: str | None = None
     address_line2: str | None = None
+    city: str | None = None
+    pincode: str | None = None
     state: str | None = None
     state_code: str | None = None
     gstin: str | None = None

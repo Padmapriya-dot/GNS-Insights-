@@ -38,23 +38,23 @@ import {
 
 function Kpi({ label, value, icon: Icon, tone = "slate", to }) {
   const tones = {
-    primary: "bg-[var(--color-primary)]",
+    primary: "bg-teal-700",
     emerald: "bg-emerald-600",
     amber: "bg-amber-500",
-    red: "bg-red-500",
+    red: "bg-rose-600",
     sky: "bg-sky-600",
     teal: "bg-teal-600",
     slate: "bg-slate-600",
     orange: "bg-orange-500",
   };
   const card = (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md">
+    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs font-medium text-slate-500">{label}</p>
+          <p className="text-[11px] font-medium text-slate-500">{label}</p>
           <p className="mt-1 truncate text-xl font-bold tabular-nums text-slate-900">{value ?? "—"}</p>
         </div>
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}>
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tones[tone]}`}>
           <Icon className="h-4 w-4 text-white" />
         </div>
       </div>
@@ -67,9 +67,9 @@ function QuickAction({ to, icon: Icon, label, hint }) {
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-[var(--color-primary)]/40 hover:shadow-md"
+      className="flex items-center gap-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-teal-200 hover:bg-teal-50/40"
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-800">
         <Icon className="h-5 w-5" />
       </div>
       <div>
@@ -174,17 +174,21 @@ export default function InventoryDashboard() {
   }
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-5 pb-4">
       <StoreManagerNav />
 
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Store Dashboard</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Inventory</p>
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Store Dashboard</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Stock health, warehouses, and daily store operations at a glance.
+          </p>
         </div>
         <button
           type="button"
           onClick={load}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
         >
           <RefreshCw className="h-4 w-4" /> Refresh
         </button>
@@ -197,7 +201,7 @@ export default function InventoryDashboard() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search products by name, code, category, or warehouse…"
-          className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+          className="ui-input w-full pl-10"
         />
         {searchResults.length > 0 && (
           <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
@@ -235,7 +239,7 @@ export default function InventoryDashboard() {
       </div>
 
       <div>
-        <h2 className="mb-3 text-sm font-bold text-slate-800">Quick actions</h2>
+        <h3 className="mb-3 text-sm font-semibold text-slate-800">Quick actions</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {!isPM && <QuickAction to="/masters/products/create" icon={Package} label="Add Product" hint="Product master" />}
           {!isPM && <QuickAction to="/procurement/vendors" icon={Building2} label="Vendors" hint="Supplier master" />}
@@ -249,11 +253,11 @@ export default function InventoryDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800">Low stock alerts</h3>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <h3 className="text-sm font-semibold text-slate-800">Low stock alerts</h3>
           {lowStockItems.length === 0 ? (
-            <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-700">
+            <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-700">
               No low stock items right now.
             </p>
           ) : (
@@ -261,7 +265,7 @@ export default function InventoryDashboard() {
               {lowStockItems.map((item) => (
                 <li
                   key={item.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 px-3 py-2.5"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2.5"
                 >
                   <div>
                     <p className="text-sm font-semibold text-amber-900">{item.name}</p>
@@ -273,7 +277,7 @@ export default function InventoryDashboard() {
                     type="button"
                     disabled={prBusy === item.id}
                     onClick={() => createPr(item)}
-                    className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                    className="rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
                   >
                     Create Purchase Requisition
                   </button>
@@ -283,13 +287,13 @@ export default function InventoryDashboard() {
           )}
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-bold text-slate-800">Daily store workflow</h3>
+        <section className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <h3 className="mb-3 text-sm font-semibold text-slate-800">Daily store workflow</h3>
           <ol className="flex flex-wrap items-center gap-2">
             {WORKFLOW.map((step, i) => (
               <li key={step} className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] text-white">
+                <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-700 text-[10px] text-white">
                     {i + 1}
                   </span>
                   {step}

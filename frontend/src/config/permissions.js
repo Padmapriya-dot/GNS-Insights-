@@ -16,7 +16,7 @@ export const ROLES = [
 export const MODULES = [
   "dashboard", "masters", "production", "inventory", "procurement", "hr", "attendance",
   "sales", "accounts", "quality", "maintenance", "analytics", "alerts", "admin",
-  "documents", "factoryMonitor", "iot", "settings",
+  "documents", "documents_ops", "factoryMonitor", "iot", "settings",
 ];
 
 /** Static fallback matrix — API permissions take precedence when present. */
@@ -46,7 +46,7 @@ export const ROLE_PERMISSIONS = {
     "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "analytics",
   ],
   "Procurement Manager": [
-    "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "analytics",
+    "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "documents_ops", "analytics",
   ],
   procurement_manager: [
     "dashboard", "procurement", "inventory", "masters", "accounts", "alerts", "documents", "analytics",
@@ -257,6 +257,9 @@ export function storeManagerPathAllowed(pathname) {
   if (path.startsWith("/accounts/ledger")) return true;
   if (path.startsWith("/accounts/expenses")) return true;
   if (path.startsWith("/masters/products")) return true;
+  if (path.startsWith("/procurement/goods-receipt")) return true;
+  if (path.startsWith("/procurement/material-requests")) return true;
+  if (path.startsWith("/procurement/vendors")) return true;
   if (path.startsWith("/masters/vendors")) return true;
   if (path.startsWith("/settings")) return true;
   if (path.startsWith("/alerts")) return true;

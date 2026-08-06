@@ -17,6 +17,7 @@ class Employee(Base, TimestampMixin):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255))
     department: Mapped[str | None] = mapped_column(String(128))
+    address: Mapped[str | None] = mapped_column(Text)
     hire_date: Mapped[date | None] = mapped_column(Date)
     hourly_rate: Mapped[float | None] = mapped_column(Numeric(10, 2))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

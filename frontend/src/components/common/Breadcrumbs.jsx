@@ -35,7 +35,14 @@ const pathLabels = {
   leave: "Leave",
   payroll: "Payroll",
   accounts: "Accounts",
+  expenses: "Expenses",
+  ledger: "Ledger",
+  "chart-of-accounts": "Chart of Accounts",
+  "journal-entries": "Journal Entries",
+  "balance-sheet": "Balance Sheet",
+  "profit-loss": "Profit & Loss",
   procurement: "Procurement",
+  purchases: "Purchases",
   "purchase-orders": "Purchase Orders",
   vendors: "Vendors",
   "goods-receipt": "Goods Receipt Note (GRN)",
@@ -45,6 +52,7 @@ const pathLabels = {
   bom: "Bill of Materials (BOM)",
   quality: "Quality",
   analytics: "Analytics",
+  executive: "Executive Dashboard",
   forecasting: "Forecasting",
   alerts: "Alerts",
   "low-stock": "Low Stock",
@@ -56,11 +64,17 @@ const pathLabels = {
   "audit-logs": "Audit Logs",
   integrations: "Integrations",
   settings: "Settings",
+  manufacturing: "Manufacturing",
+  workflow: "Role Workflow",
   "factory-monitor": "Factory Monitor",
   "live-production": "Live Production",
   "machine-status": "Machine Status",
   "production-lines": "Production Lines",
   iot: "Internet of Things (IoT)",
+  mrp: "MRP",
+  schedule: "Schedule",
+  "assign-tasks": "Assign Tasks",
+  dashboard: "Dashboard",
 };
 
 function getLabel(segment, segments, index) {
@@ -74,50 +88,68 @@ function getLabel(segment, segments, index) {
   return pathLabels[segment] || segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function Breadcrumbs({ items: customItems }) {
-  const { pathname } = useLocation();
-  const segments = pathname.split("/").filter(Boolean);
+/** Build breadcrumb trail for a pathname. */
+export function getBreadcrumbTrail(pathname) {
+  const segments = (pathname || "/").split("/").filter(Boolean);
 
-  const items = customItems ?? (() => {
-    if (segments[0] === "admin") {
-      const adminLabels = {
-        users: "Users",
-        roles: "Roles",
-        permissions: "Permissions",
-        "audit-logs": "Audit Logs",
-      };
-      const trail = [{ label: "Dashboard", path: "/" }, { label: "Settings", path: "/admin/users" }];
-      segments.slice(1).forEach((seg, i) => {
-        const slice = segments.slice(0, i + 2);
-        trail.push({
-          label: adminLabels[seg] || getLabel(seg, segments, i + 1),
-          path: `/${slice.join("/")}`,
-        });
+  if (segments[0] === "admin") {
+    const adminLabels = {
+      users: "Users",
+      roles: "Roles",
+      permissions: "Permissions",
+      "audit-logs": "Audit Logs",
+    };
+    const trail = [{ label: "Dashboard", path: "/" }, { label: "Administration", path: "/admin/users" }];
+    segments.slice(1).forEach((seg, i) => {
+      const slice = segments.slice(0, i + 2);
+      trail.push({
+        label: adminLabels[seg] || getLabel(seg, segments, i + 1),
+        path: `/${slice.join("/")}`,
       });
-      return trail;
-    }
+    });
+    return trail;
+  }
 
-    return [
-      { label: "Dashboard", path: "/" },
-      ...segments.map((seg, i) => ({
-        label: getLabel(seg, segments, i),
-        path: "/" + segments.slice(0, i + 1).join("/"),
-      })),
-    ];
-  })();
+  if (!segments.length) {
+    return [{ label: "Dashboard", path: "/" }];
+  }
+
+  return [
+    { label: "Dashboard", path: "/" },
+    ...segments.map((seg, i) => ({
+      label: getLabel(seg, segments, i),
+      path: "/" + segments.slice(0, i + 1).join("/"),
+    })),
+  ];
+}
+
+/** Current page title from the last breadcrumb segment. */
+export function getPageTitle(pathname) {
+  const trail = getBreadcrumbTrail(pathname);
+  return trail[trail.length - 1]?.label || "Dashboard";
+}
+
+export default function Breadcrumbs({ items: customItems, compact = false, className = "" }) {
+  const { pathname } = useLocation();
+  const items = customItems ?? getBreadcrumbTrail(pathname);
 
   if (items.length <= 1) return null;
 
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 print:hidden">
+    <nav
+      aria-label="Breadcrumb"
+      className={`flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 print:hidden ${
+        compact ? "text-xs" : ""
+      } ${className}`}
+    >
       {items.map((item, i) => (
-        <span key={item.path + i} className="flex items-center gap-1.5 min-w-0">
-          {i > 0 && <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />}
+        <span key={item.path + i} className="flex min-w-0 items-center gap-1">
+          {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />}
           {i === items.length - 1 ? (
-            <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
+            <span className="truncate font-medium text-slate-700 dark:text-slate-200">
               {i === 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <Home className="h-4 w-4" aria-hidden />
+                  <Home className="h-3.5 w-3.5" aria-hidden />
                   <span className="sr-only">Dashboard</span>
                 </span>
               ) : (
@@ -127,9 +159,9 @@ export default function Breadcrumbs({ items: customItems }) {
           ) : (
             <Link
               to={item.path}
-              className="hover:text-teal-600 transition-colors flex items-center gap-1 truncate"
+              className="flex items-center gap-1 truncate transition-colors hover:text-teal-700 dark:hover:text-teal-300"
             >
-              {i === 0 ? <Home className="h-4 w-4 shrink-0" aria-hidden /> : item.label}
+              {i === 0 ? <Home className="h-3.5 w-3.5 shrink-0" aria-hidden /> : item.label}
             </Link>
           )}
         </span>

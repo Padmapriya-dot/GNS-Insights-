@@ -28,7 +28,7 @@ import {
 import { exportToCsv, exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import { apiErrorMessage, asArray } from "../../utils/apiError";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 const PAGE_SIZES = [10, 20, 50];
 
 const TABS = [
@@ -75,7 +75,7 @@ function ActionIcons({ onView, onEdit, onSendLedger, onDelete, deleteLabel = "De
         type="button"
         title="View"
         onClick={onView}
-        className="grid h-8 w-8 place-items-center rounded-full bg-[#2d2a4a] text-white hover:bg-[#1a1a1f]"
+        className="grid h-8 w-8 place-items-center rounded-full bg-[#0f6d84] text-white hover:bg-[#1a1a1f]"
       >
         <Eye className="h-3.5 w-3.5" />
       </button>
@@ -83,7 +83,7 @@ function ActionIcons({ onView, onEdit, onSendLedger, onDelete, deleteLabel = "De
         type="button"
         title="Edit"
         onClick={onEdit}
-        className="grid h-8 w-8 place-items-center rounded-full bg-[#2d2a4a] text-white hover:bg-[#1a1a1f]"
+        className="grid h-8 w-8 place-items-center rounded-full bg-[#0f6d84] text-white hover:bg-[#1a1a1f]"
       >
         <Pencil className="h-3.5 w-3.5" />
       </button>
@@ -91,7 +91,7 @@ function ActionIcons({ onView, onEdit, onSendLedger, onDelete, deleteLabel = "De
         type="button"
         title="More"
         onClick={() => setMenuOpen((v) => !v)}
-        className="grid h-8 w-8 place-items-center rounded-full bg-[#2d2a4a] text-white hover:bg-[#1a1a1f]"
+        className="grid h-8 w-8 place-items-center rounded-full bg-[#0f6d84] text-white hover:bg-[#1a1a1f]"
       >
         <MoreVertical className="h-3.5 w-3.5" />
       </button>
@@ -168,7 +168,7 @@ function Pagination({ page, pageSize, total, onPage, onPageSize }) {
             type="button"
             onClick={() => onPage(n)}
             className={`grid h-8 min-w-8 place-items-center rounded px-2 text-[13px] font-bold ${
-              n === page ? "bg-[#F5C518] text-[#1a1a1f]" : "bg-white text-[#1a1a1f] hover:bg-[#f7f7f9]"
+              n === page ? "bg-[#0f6d84] text-white" : "bg-white text-[#1a1a1f] hover:bg-[#f7f7f9]"
             }`}
           >
             {n}
@@ -503,7 +503,7 @@ export default function LedgerV2() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search"
-              className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] placeholder:text-[#9a9aa5] focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-[#F5C518]/25"
+              className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] placeholder:text-[#9a9aa5] focus:border-[#0f6d84] focus:outline-none focus:ring-2 focus:ring-[#0f6d84]/25"
             />
           </div>
 
@@ -512,7 +512,7 @@ export default function LedgerV2() {
               <button
                 type="button"
                 onClick={() => setAddCustomerOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#2d2a4a] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#1a1a1f]"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#0f6d84] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#1a1a1f]"
               >
                 <UserPlus className="h-4 w-4" /> Add Customer
               </button>
@@ -521,7 +521,7 @@ export default function LedgerV2() {
               <button
                 type="button"
                 onClick={() => setAddVendorOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#2d2a4a] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#1a1a1f]"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#0f6d84] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#1a1a1f]"
               >
                 <UserPlus className="h-4 w-4" /> Add Vendor
               </button>
@@ -531,14 +531,14 @@ export default function LedgerV2() {
                 <button
                   type="button"
                   onClick={() => setAdjustOpen(true)}
-                  className="rounded-lg border border-[#2d2a4a] bg-white px-3 py-2.5 text-[13px] font-bold text-[#2d2a4a]"
+                  className="rounded-lg border border-[#0f6d84] bg-white px-3 py-2.5 text-[13px] font-bold text-[#0f6d84]"
                 >
                   Adjust Balance
                 </button>
                 <button
                   type="button"
                   onClick={() => setContraOpen(true)}
-                  className="rounded-lg border border-[#2d2a4a] bg-white px-3 py-2.5 text-[13px] font-bold text-[#2d2a4a]"
+                  className="rounded-lg border border-[#0f6d84] bg-white px-3 py-2.5 text-[13px] font-bold text-[#0f6d84]"
                 >
                   Contra Entry (Bank/Cash Transfer)
                 </button>
@@ -548,7 +548,7 @@ export default function LedgerV2() {
                     setEditCashAccount(null);
                     setBankCashOpen(true);
                   }}
-                  className="rounded-lg bg-[#2d2a4a] px-4 py-2.5 text-[13px] font-bold text-white"
+                  className="rounded-lg bg-[#0f6d84] px-4 py-2.5 text-[13px] font-bold text-white"
                 >
                   Add Bank/Cash
                 </button>
@@ -561,7 +561,7 @@ export default function LedgerV2() {
                   setEditOtherAccount(null);
                   setExpenseIncomeOpen(true);
                 }}
-                className="rounded-lg bg-[#2d2a4a] px-4 py-2.5 text-[13px] font-bold text-white"
+                className="rounded-lg bg-[#0f6d84] px-4 py-2.5 text-[13px] font-bold text-white"
               >
                 Add Expense/Income
               </button>
@@ -570,7 +570,7 @@ export default function LedgerV2() {
             <button
               type="button"
               onClick={() => setDownloadOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#2d2a4a] px-4 py-2.5 text-[13px] font-bold text-white"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#0f6d84] px-4 py-2.5 text-[13px] font-bold text-white"
             >
               <Download className="h-4 w-4" /> Download
             </button>
@@ -578,7 +578,7 @@ export default function LedgerV2() {
               <button
                 type="button"
                 onClick={onMail}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#2d2a4a] bg-white px-4 py-2.5 text-[13px] font-bold text-[#2d2a4a]"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#0f6d84] bg-white px-4 py-2.5 text-[13px] font-bold text-[#0f6d84]"
               >
                 <Mail className="h-4 w-4" /> Send On Mail
               </button>

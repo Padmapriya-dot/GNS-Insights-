@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+﻿import { useEffect, useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Plus, RefreshCw, Briefcase, Tag, MapPin, User, ShieldCheck, X, Save } from "lucide-react";
 
@@ -190,7 +190,7 @@ export default function AssetManagement({ autoOpenCreate }) {
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all animate-none"
+            className="ui-btn-hr"
           >
             <Plus className="h-4 w-4" /> Register Asset
           </button>
@@ -354,7 +354,7 @@ export default function AssetManagement({ autoOpenCreate }) {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm"
+                  className="ui-btn-hr"
                 >
                   <Save className="h-4 w-4" />
                   {saving ? "Saving..." : "Register Asset"}

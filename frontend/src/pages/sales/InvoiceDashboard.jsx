@@ -55,7 +55,7 @@ function Chip({ label, active, onClick, icon: Icon }) {
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition ${
         active
-          ? "bg-[#2d2a4a] text-white"
+          ? "bg-[#0f6d84] text-white"
           : "bg-[#f0f0f3] text-[#4a4a55] hover:bg-[#e4e4ea]"
       }`}
     >
@@ -76,8 +76,8 @@ function FilterSection({ label, children }) {
 
 function SummaryTab({ label, count, amount, active, tone, onClick }) {
   const activeStyles = {
-    blue: "border-[#2563eb] text-[#2563eb]",
-    purple: "border-[#4c1d95] text-[#4c1d95]",
+    blue: "border-[#0f6d84] text-[#0f6d84]",
+    purple: "border-[#0f6d84] text-[#0f6d84]",
     green: "border-[#16a34a] text-[#16a34a]",
     orange: "border-[#ea580c] text-[#ea580c]",
   };
@@ -208,9 +208,11 @@ export default function InvoiceDashboard() {
   if (loading && rows.length === 0) return <Loader label="Loading invoicesΓÇª" />;
 
   return (
-    <div className="min-h-full bg-[#F5F5F5] px-5 py-5 sm:px-6">
-      {/* Title */}
-      <h1 className="mb-4 text-[22px] font-bold tracking-tight text-[#1a1a1f]">Invoice</h1>
+    <div className="min-h-full bg-[#F4F7FE] px-5 py-5 sm:px-6">
+      <div className="mb-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Sales</p>
+        <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[#1a1a1f]">Invoices</h1>
+      </div>
 
       {/* KPI strip */}
       <div className="mb-4 overflow-hidden rounded-xl bg-[#ececf0]">
@@ -258,7 +260,7 @@ export default function InvoiceDashboard() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search"
-            className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] shadow-sm placeholder:text-[#9a9aa5] focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-[#F5C518]/25"
+            className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] shadow-sm placeholder:text-[#9a9aa5] focus:border-[#0f6d84] focus:outline-none focus:ring-2 focus:ring-[#0f6d84]/25"
           />
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -282,7 +284,7 @@ export default function InvoiceDashboard() {
           </div>
           <Link
             to="/sales/invoices/create"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#F5C518] px-4 py-2.5 text-[14px] font-semibold text-[#1a1a1f] shadow-sm hover:bg-[#e6b800]"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#0f6d84] px-4 py-2.5 text-[14px] font-semibold text-white shadow-sm hover:bg-[#0c5a6e]"
           >
             <Plus className="h-4 w-4" strokeWidth={2.5} />
             Create Invoice
@@ -374,7 +376,7 @@ export default function InvoiceDashboard() {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id} className="hover:bg-[#fafafa]">
-                    <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[14px] font-medium text-[#2563eb]">
+                    <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[14px] font-medium text-[#0f6d84]">
                       {r.invoice_number}
                     </td>
                     <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[14px] text-[#4a4a55]">
@@ -399,7 +401,7 @@ export default function InvoiceDashboard() {
                     <td className="border-t border-r border-[#d0d0d8] px-4 py-3">
                       <div className="relative flex flex-wrap items-center gap-3">
                         <Link
-                          to={`/sales/invoices/${r.id}/copy`}
+                          to={`/sales/invoices/${r.id}`}
                           className="text-[12px] font-semibold text-[#4a4a55] hover:underline"
                         >
                           View
@@ -413,7 +415,7 @@ export default function InvoiceDashboard() {
                           </Link>
                         ) : null}
                         <Link
-                          to={`/sales/invoices/${r.id}/copy`}
+                          to={`/sales/invoices/${r.id}`}
                           className="text-[12px] font-semibold text-[#4a4a55] hover:underline"
                         >
                           Print
@@ -426,41 +428,6 @@ export default function InvoiceDashboard() {
                           >
                             Pay
                           </Link>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="rounded p-1 text-[#6b6b76] hover:bg-[#f3f3f6]"
-                          onClick={() => setMenuId((id) => (id === r.id ? null : r.id))}
-                          aria-label="More options"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                        {menuId === r.id ? (
-                          <>
-                            <button
-                              type="button"
-                              className="fixed inset-0 z-10 cursor-default"
-                              aria-label="Close menu"
-                              onClick={() => setMenuId(null)}
-                            />
-                            <div className="absolute right-0 top-7 z-20 min-w-[150px] overflow-hidden rounded-lg border border-[#e4e4ea] bg-white py-1 shadow-lg">
-                              <Link
-                                to={`/sales/invoices/${r.id}/edit`}
-                                className="block px-3 py-2 text-left text-[13px] hover:bg-[#f7f7f9]"
-                                onClick={() => setMenuId(null)}
-                              >
-                                Edit Invoice
-                              </Link>
-                              <button
-                                type="button"
-                                disabled={deletingId === r.id || (r.invoice_status || "active") === "cancelled"}
-                                className="block w-full px-3 py-2 text-left text-[13px] text-[#dc2626] hover:bg-[#fef2f2] disabled:opacity-40"
-                                onClick={() => handleCancelInvoice(r)}
-                              >
-                                {deletingId === r.id ? "CancellingΓÇª" : "Cancel Invoice"}
-                              </button>
-                            </div>
-                          </>
                         ) : null}
                       </div>
                     </td>
@@ -501,7 +468,7 @@ export default function InvoiceDashboard() {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="min-w-[2rem] rounded-md bg-[#F5C518]/70 px-2.5 py-1 text-center text-[13px] font-semibold text-[#1a1a1f]">
+            <span className="min-w-[2rem] rounded-md bg-[#0f6d84] px-2.5 py-1 text-center text-[13px] font-semibold text-white">
               {page}
             </span>
             <button
@@ -729,7 +696,7 @@ export default function InvoiceDashboard() {
                   setFilters(draftFilters);
                   setShowFilters(false);
                 }}
-                className="rounded-xl bg-[#F5C518]/75 py-3 text-[14px] font-semibold text-[#1a1a1f] hover:bg-[#F5C518]"
+                className="rounded-xl bg-[#0f6d84] py-3 text-[14px] font-semibold text-white hover:bg-[#0c5a6e]"
               >
                 Apply Filter
               </button>

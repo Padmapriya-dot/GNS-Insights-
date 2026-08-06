@@ -6,7 +6,7 @@ import { useToast } from "../../context/ToastContext";
 import { getFeatureSetting, putFeatureSetting } from "../../api/bizDocumentsApi";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 const LABEL_GREEN = "#1B5E20";
 const SETTING_KEY = "sector_settings";
 
@@ -163,7 +163,7 @@ export default function SectorSettingsV2() {
 
         <div className="rounded-2xl border border-[#d8d8de] bg-white px-4 py-6 shadow-sm sm:px-8 sm:py-8">
           <div className="mb-6 flex items-start gap-3">
-            <span className="mt-0.5 grid h-9 w-9 place-items-center rounded-lg bg-[#efeaf8] text-[#6b4eff]">
+            <span className="mt-0.5 grid h-9 w-9 place-items-center rounded-lg bg-teal-50 text-[#6b4eff]">
               <Settings2 className="h-4.5 w-4.5 h-[18px] w-[18px]" />
             </span>
             <div>
@@ -197,7 +197,7 @@ export default function SectorSettingsV2() {
                     <span
                       className={`grid h-[18px] w-[18px] place-items-center rounded-full border-2 ${
                         selected
-                          ? "border-[#F5C518] bg-[#F5C518]"
+                          ? "border-[#0f6d84] bg-[#0f6d84]"
                           : "border-[#c4c4cc] bg-white"
                       }`}
                     >

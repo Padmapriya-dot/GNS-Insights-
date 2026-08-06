@@ -3,14 +3,16 @@ import { Plus, RefreshCw, Briefcase, UserCheck, UserMinus, UserPlus, Users, Filt
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
+import EmployeeAddressModal from "../../components/hr/EmployeeAddressModal";
 import EmployeeDetailModal from "../../components/hr/EmployeeDetailModal";
+import { DepartmentFormModal } from "../../components/hr/DepartmentDetailModal";
 import { useToast } from "../../context/ToastContext";
-import { getEmployeeSummary, getEmployeesEnriched, createEmployee, getShifts } from "../../api/hrApi";
+import { getEmployeeSummary, getEmployeesEnriched, createEmployee, getShifts, getDepartments, createDepartment } from "../../api/hrApi";
 import useTenantId from "../../hooks/useTenantId";
 import { DEMO_EMP_SUMMARY, deptColor, formatInr, statusColor } from "../../data/hrMasterData";
 
 const inputClass =
-  "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
+  "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-amber-100 transition-all";
 
 function KpiCard({ label, value, icon: Icon, color, suffix }) {
   return (
@@ -45,6 +47,15 @@ export default function Employees() {
   const [selected, setSelected] = useState(null);
 
   const [shifts, setShifts] = useState([]);
+  const [deptList, setDeptList] = useState([]);
+  const [showDeptForm, setShowDeptForm] = useState(false);
+
+  const loadDepts = useCallback(async () => {
+    try {
+      const res = await getDepartments();
+      if (Array.isArray(res.data)) setDeptList(res.data);
+    } catch { /* keep empty */ }
+  }, []);
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -57,12 +68,14 @@ export default function Employees() {
     email: "",
     phone: "",
     department: "",
+    address: "",
     designation: "",
     shift_name: "",
     reporting_manager: "",
     hire_date: new Date().toISOString().slice(0, 10),
     hourly_rate: "",
   });
+  const [addressOpen, setAddressOpen] = useState(false);
 
   const load = useCallback(
     async (isManual = false) => {
@@ -84,6 +97,7 @@ export default function Employees() {
         if (shiftRes.status === "fulfilled" && Array.isArray(shiftRes.value?.data)) {
           setShifts([...shiftRes.value.data]);
         }
+        await loadDepts();
       } catch {
       } finally {
         setLoading(false);
@@ -99,6 +113,7 @@ export default function Employees() {
   };
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadDepts(); }, [loadDepts]);
 
   const filtered = useMemo(() => {
     let list = rows;
@@ -130,6 +145,7 @@ export default function Employees() {
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         department: form.department.trim() || null,
+        address: form.address.trim() || null,
         designation: form.designation.trim() || null,
         shift_name: form.shift_name.trim() || null,
         reporting_manager: form.reporting_manager.trim() || null,
@@ -145,6 +161,7 @@ export default function Employees() {
         email: "",
         phone: "",
         department: "",
+        address: "",
         designation: "",
         shift_name: "",
         reporting_manager: "",
@@ -175,8 +192,6 @@ export default function Employees() {
     { key: "designation", label: "Designation" },
     { key: "shift", label: "Shift", render: (r) => typeof r.shift === "object" ? (r.shift?.label || r.shift?.id || "—") : (r.shift || "—") },
     { key: "reporting_manager", label: "Manager", render: (r) => r.reporting_manager || "—" },
-    { key: "employment_type", label: "Type", render: (r) => <span className="capitalize">{r.employment_type}</span> },
-    { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
     { key: "phone", label: "Phone" },
     { key: "email", label: "Email" },
     { key: "joining_date", label: "Joining", render: (r) => String(r.joining_date || "").slice(0, 10) || "—" },
@@ -199,7 +214,7 @@ export default function Employees() {
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all"
+            className="ui-btn-hr"
           >
             <Plus className="h-4 w-4" /> Create Employee
           </button>
@@ -220,7 +235,6 @@ export default function Employees() {
         <KpiCard label="On Leave" value={summary.on_leave} icon={Briefcase} color="bg-amber-500" />
         <KpiCard label="Overtime (h)" value={summary.overtime} icon={Clock} color="bg-orange-500" />
         <KpiCard label="Departments" value={summary.departments} icon={Building2} color="bg-indigo-600" />
-        <KpiCard label="Contract" value={summary.contract_employees} icon={FileText} color="bg-teal-600" />
         <KpiCard label="New Joiners" value={summary.new_joiners} icon={UserPlus} color="bg-purple-600" />
       </div>
 
@@ -230,7 +244,7 @@ export default function Employees() {
           <div className="mb-4 grid gap-3 sm:grid-cols-3">
             <select value={filters.department} onChange={(e) => setFilters({ ...filters, department: e.target.value })} className="rounded-lg border px-3 py-2 text-sm">
               <option value="">All Departments</option>
-              {["Production", "Quality", "Maintenance", "Stores", "Human Resources (HR)"].map((d) => <option key={d} value={d}>{d}</option>)}
+              {["Production", "HR", "Sales", "Accountant", "Store Manager", "Operator"].map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
             <select value={filters.employment_type} onChange={(e) => setFilters({ ...filters, employment_type: e.target.value })} className="rounded-lg border px-3 py-2 text-sm">
               <option value="">All Types</option>
@@ -246,6 +260,25 @@ export default function Employees() {
       </div>
 
       {selected && <EmployeeDetailModal employee={selected} onClose={() => setSelected(null)} />}
+
+      {showDeptForm && (
+        <DepartmentFormModal
+          department={{}}
+          onClose={() => setShowDeptForm(false)}
+          onSave={async (formData) => {
+            try {
+              const res = await createDepartment({ ...formData, tenant_id: tenantId, is_active: true });
+              addToast("Department created successfully", "success");
+              await loadDepts();
+              // Auto-select the newly created department
+              if (res?.data?.name) handleFormChange("department", res.data.name);
+            } catch {
+              addToast("Failed to create department", "error");
+            }
+            setShowDeptForm(false);
+          }}
+        />
+      )}
 
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
@@ -284,7 +317,7 @@ export default function Employees() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Full Name *</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Full Name (As per Aadhar) *</label>
                   <input
                     type="text"
                     required
@@ -294,6 +327,24 @@ export default function Employees() {
                     className={inputClass}
                   />
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Address</p>
+                  {form.address ? (
+                    <p className="mt-1 text-sm text-slate-700">{form.address}</p>
+                  ) : (
+                    <p className="mt-1 text-sm text-slate-500">No address added yet.</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAddressOpen(true)}
+                  className="ui-btn-hr px-3 py-2 text-[11px]"
+                >
+                  {form.address ? "Edit Address" : "Add Address"}
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -320,16 +371,30 @@ export default function Employees() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Department</label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Department</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeptForm(true)}
+                      className="text-[11px] font-semibold text-[#2563EB] hover:underline"
+                    >
+                      <Plus className="mr-1 inline h-3 w-3" /> Add Department
+                    </button>
+                  </div>
                   <select
                     value={form.department}
                     onChange={(e) => handleFormChange("department", e.target.value)}
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100"
                   >
                     <option value="">Select Department</option>
-                    {["Production", "Quality", "Maintenance", "Stores", "Human Resources (HR)"].map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
+                    {deptList.length > 0
+                      ? deptList.map((d) => (
+                          <option key={d.id ?? d.name} value={d.name}>{d.name}</option>
+                        ))
+                      : ["Production", "HR", "Sales", "Accountant", "Store Manager", "Operator"].map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))
+                    }
                   </select>
                 </div>
                 <div>
@@ -395,6 +460,13 @@ export default function Employees() {
                 </div>
               </div>
 
+              <EmployeeAddressModal
+                open={addressOpen}
+                onClose={() => setAddressOpen(false)}
+                value={form.address}
+                onSave={(value) => handleFormChange("address", value)}
+              />
+
               <div className="flex justify-end gap-2 border-t pt-4">
                 <button
                   type="button"
@@ -406,7 +478,7 @@ export default function Employees() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm"
+                  className="ui-btn-hr"
                 >
                   <Save className="h-4 w-4" />
                   {saving ? "Saving..." : "Create Employee"}

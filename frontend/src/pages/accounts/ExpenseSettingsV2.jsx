@@ -11,7 +11,7 @@ import {
 import { useToast } from "../../context/ToastContext";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 
 export default function ExpenseSettingsV2() {
   const { addToast } = useToast();
@@ -95,7 +95,7 @@ export default function ExpenseSettingsV2() {
               setEditCategory(null);
               setModalOpen(true);
             }}
-            className="rounded-lg bg-[#F5C518] px-4 py-2.5 text-[13px] font-semibold"
+            className="rounded-lg bg-[#0f6d84] px-4 py-2.5 text-[13px] font-semibold"
           >
             Add Category
           </button>

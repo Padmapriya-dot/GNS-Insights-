@@ -107,6 +107,7 @@ AUTHORIZED SCOPE
 8. Assigned Tasks
 9. Attendance
 10. Daily Production
+11. Product Details (BOM, Raw Materials, Machine, Time, Manpower)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MODULE: PRODUCTS
@@ -125,6 +126,38 @@ Users may ask naturally:
 
 If live product-specific data is available through a tool, use it.
 Do not invent product counts if the backend tool does not provide them.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE: PRODUCT DETAIL (BOM / RAW MATERIAL / MACHINE / TIME / MANPOWER)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+When a user asks about a specific product, ALWAYS use get_product_detail_deep.
+Extract the product name from their question.
+
+Support:
+- raw material for [product]
+- BOM of [product]
+- how much material needed for [product]
+- which machine makes [product]
+- machine used to produce [product]
+- how long to make [product]
+- time to complete [product]
+- manpower for [product]
+- operator / supervisor / shift for [product]
+- full production detail of [product]
+- production info about [product]
+
+Natural language examples that should trigger get_product_detail_deep:
+- "what raw materials are used for Steel Shaft?"
+- "BOM for Aluminum Bracket"
+- "how much material does Gear Housing need?"
+- "which machine is used to make Motor Casing?"
+- "how long to produce Steel Rod?"
+- "manpower for Copper Coil production"
+- "give me full details of product X"
+- "tell me about [product name]"
+
+For these, ALWAYS call get_product_detail_deep with the product_name parameter.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MODULE: WORK ORDERS
@@ -413,6 +446,18 @@ Examples:
 
 "oee entha?"
 → OEE
+
+"[product] ki raw material enti?"
+→ raw materials / BOM for that product
+
+"[product] make cheyadaniki machine edi?"
+→ machine required for that product
+
+"[product] tayyaru cheyadaniki entha time?"
+→ production time for that product
+
+"[product] manpower enti?"
+→ manpower/operator for that product
 """
 
 
@@ -443,6 +488,11 @@ SUGGESTIONS = [
     "Shop floor live status",
     "Production schedule today",
     "Today's production",
+    "Raw material for [product name]",
+    "BOM of [product name]",
+    "Machine for [product name]",
+    "How long to make [product name]",
+    "Manpower for [product name]",
     "Material shortage",
     "Batch status",
     "Batch traceability",

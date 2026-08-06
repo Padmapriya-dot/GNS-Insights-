@@ -10,6 +10,7 @@ class EmployeeBase(BaseModel):
     email: str | None = None
     phone: str | None = None
     department: str | None = None
+    address: str | None = None
     designation: str | None = None
     shift_name: str | None = None
     reporting_manager: str | None = None

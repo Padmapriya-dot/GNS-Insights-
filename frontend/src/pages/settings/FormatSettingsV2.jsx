@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 
 import useSettings from "../../context/SettingsContext";
 
-const YELLOW = "#F5C518";
-const PAGE_BG = "#F3F4F6";
+const ACCENT = "#0f6d84";
+const PAGE_BG = "#F4F7FE";
 const SECTION_BG = "#DBE2F0";
 const LABEL_GREEN = "#2D6A4F";
 const STORAGE_KEY = "gns_format_settings_v2";

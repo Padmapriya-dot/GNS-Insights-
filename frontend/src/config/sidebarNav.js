@@ -114,6 +114,14 @@ export const SIDEBAR_NAV = [
     ],
   },
   {
+    key: "hrMasters",
+    label: "Masters",
+    icon: Layers,
+    children: [
+      { label: "Departments", to: "/masters/departments", module: "hr" },
+    ],
+  },
+  {
     key: "hr",
     labelKey: "erpNav.hr",
     icon: Users,
@@ -127,7 +135,6 @@ export const SIDEBAR_NAV = [
       { label: "Performance", to: "/hr/performance", module: "hr" },
       { labelKey: "erpNav.assetManagement", to: "/hr/assets", module: "hr" },
       { labelKey: "erpNav.incidentReports", to: "/hr/incidents", module: "hr" },
-      { labelKey: "erpNav.hrDocuments", to: "/hr/documents", module: "hr" },
     ],
   },
   {
@@ -200,11 +207,12 @@ export const SIDEBAR_NAV = [
     labelKey: "erpNav.documents",
     icon: FolderOpen,
     children: [
-      { labelKey: "erpNav.allDocuments", to: "/documents", module: "documents", end: true },
-      { labelKey: "erpNav.purchaseDocuments", to: "/documents/purchase", module: "documents" },
-      { labelKey: "erpNav.productionDocuments", to: "/documents/production", module: "documents" },
-      { labelKey: "erpNav.qualityDocuments", to: "/documents/quality", module: "documents" },
-      { labelKey: "erpNav.reportDocuments", to: "/documents/reports", module: "documents" },
+      { labelKey: "erpNav.allDocuments",       to: "/documents",            module: "documents",     end: true },
+      { label: "HR Documents",                 to: "/hr/documents",         module: "hr" },
+      { labelKey: "erpNav.purchaseDocuments",  to: "/documents/purchase",   module: "documents_ops" },
+      { labelKey: "erpNav.productionDocuments",to: "/documents/production", module: "documents_ops" },
+      { labelKey: "erpNav.qualityDocuments",   to: "/documents/quality",    module: "documents_ops" },
+      { labelKey: "erpNav.reportDocuments",    to: "/documents/reports",    module: "documents_ops" },
     ],
   },
   {
@@ -236,6 +244,8 @@ export const SIDEBAR_NAV = [
     labelKey: "erpNav.settings",
     icon: Settings,
     children: [
+      { label: "All Settings", to: "/settings", module: "settings", end: true },
+      { label: "Appearance", to: "/settings/appearance", module: "settings" },
       { label: "Change Template", to: "/settings/change-template", module: "settings" },
       { label: "Invoice Template", to: "/settings/invoice-template", module: "settings" },
       { label: "Quotation Template", to: "/settings/quotation-template", module: "settings" },
@@ -257,7 +267,7 @@ export function isPathActive(pathname, to, end = false) {
 
 export function sectionHasActiveChild(pathname, section) {
   if (!section.children) return false;
-  return section.children.some((c) => isPathActive(pathname, c.to, c.end));
+  return section.children.some((c) => c.to && isPathActive(pathname, c.to, c.end));
 }
 
 /** Flat list of navigable routes for global search (path, label, module, optional section). */

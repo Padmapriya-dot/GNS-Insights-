@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { createPayroll, getEmployees } from "../../api/hrApi";
@@ -147,16 +147,9 @@ export default function CreatePayroll() {
         <button
           type="submit"
           disabled={saving}
-          style={{
-            padding: "10px 16px",
-            background: "#111827",
-            color: "#fff",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-          }}
+          className="ui-btn-hr"
         >
-          {saving ? "Saving..." : "Create"}
+          {saving ? "Saving..." : "Create Payroll"}
         </button>
       </form>
     </div>

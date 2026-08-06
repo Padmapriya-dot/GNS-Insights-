@@ -32,7 +32,7 @@ import { PRODUCT_CATEGORIES } from "../../data/productsMasterData";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 const PAGE_SIZES = [10, 20, 50];
 
 /** Shown when the API returns no inventory items (matches reference UI). */
@@ -217,7 +217,7 @@ function StockAdjustModal({ mode, open, stock, unit, onClose, onSubmit }) {
               value={qty}
               onChange={(e) => setQty(e.target.value)}
               placeholder={isAdd ? "Enter Quantity to Add" : "Enter Quantity to Remove"}
-              className="mt-1.5 w-full rounded-lg border border-[#cfcfd6] bg-white px-3 py-2.5 text-[13px] text-[#1a1a1f] outline-none focus:border-[#2d2a4a]"
+              className="mt-1.5 w-full rounded-lg border border-[#cfcfd6] bg-white px-3 py-2.5 text-[13px] text-[#1a1a1f] outline-none focus:border-[#0f6d84]"
             />
           </label>
           <label className="block text-[12px] font-medium text-[#6b6b76]">
@@ -242,7 +242,7 @@ function StockAdjustModal({ mode, open, stock, unit, onClose, onSubmit }) {
             value={remark}
             onChange={(e) => setRemark(e.target.value)}
             placeholder="Enter Remarks"
-            className="mt-1.5 w-full rounded-lg border border-[#cfcfd6] bg-white px-3 py-2.5 text-[13px] outline-none focus:border-[#2d2a4a]"
+            className="mt-1.5 w-full rounded-lg border border-[#cfcfd6] bg-white px-3 py-2.5 text-[13px] outline-none focus:border-[#0f6d84]"
           />
         </label>
 
@@ -502,7 +502,7 @@ export default function InventoryV2() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search"
-                className="w-full rounded-lg border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] placeholder:text-[#9a9aa5] focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-[#F5C518]/25"
+                className="w-full rounded-lg border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] placeholder:text-[#9a9aa5] focus:border-[#0f6d84] focus:outline-none focus:ring-2 focus:ring-[#0f6d84]/25"
               />
             </div>
 
@@ -570,7 +570,7 @@ export default function InventoryV2() {
                     setEditing(null);
                     setAddOpen(true);
                   }}
-                  className="rounded-lg bg-[#2d2a4a] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#1a1a1f]"
+                  className="rounded-lg bg-[#0f6d84] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#0c5a6e]"
                 >
                   Add Items
                 </button>
@@ -597,7 +597,7 @@ export default function InventoryV2() {
               <button
                 type="button"
                 onClick={() => setCategoryModal(true)}
-                className="rounded-lg bg-[#2d2a4a] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#1a1a1f]"
+                className="rounded-lg bg-[#0f6d84] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#0c5a6e]"
               >
                 Add Category
               </button>
@@ -647,7 +647,7 @@ export default function InventoryV2() {
                             <div className="relative flex items-center gap-1.5">
                               <button
                                 type="button"
-                                className="grid h-8 w-8 place-items-center rounded-full bg-[#2d2a4a] text-white hover:bg-[#1a1a1f]"
+                                className="grid h-8 w-8 place-items-center rounded-full bg-[#0f6d84] text-white hover:bg-[#0c5a6e]"
                                 title="View"
                                 onClick={() => navigate(`/inventory/items/${row.id}`)}
                               >
@@ -655,7 +655,7 @@ export default function InventoryV2() {
                               </button>
                               <button
                                 type="button"
-                                className="grid h-8 w-8 place-items-center rounded-full bg-[#2d2a4a] text-white hover:bg-[#1a1a1f]"
+                                className="grid h-8 w-8 place-items-center rounded-full bg-[#0f6d84] text-white hover:bg-[#0c5a6e]"
                                 title="Edit"
                                 onClick={() => {
                                   setEditing(row);
@@ -666,7 +666,7 @@ export default function InventoryV2() {
                               </button>
                               <button
                                 type="button"
-                                className="grid h-8 w-8 place-items-center rounded-full bg-[#2d2a4a] text-white hover:bg-red-600"
+                                className="grid h-8 w-8 place-items-center rounded-full bg-[#0f6d84] text-white hover:bg-red-600"
                                 title="Delete"
                                 onClick={() => onDelete(row)}
                               >
@@ -674,7 +674,7 @@ export default function InventoryV2() {
                               </button>
                               <button
                                 type="button"
-                                className="grid h-8 w-8 place-items-center rounded-full bg-[#2d2a4a] text-white hover:bg-[#1a1a1f]"
+                                className="grid h-8 w-8 place-items-center rounded-full bg-[#0f6d84] text-white hover:bg-[#0c5a6e]"
                                 onClick={() => setRowMenu(rowMenu === row.id ? null : row.id)}
                               >
                                 <MoreVertical className="h-3.5 w-3.5" />
@@ -772,7 +772,7 @@ export default function InventoryV2() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="grid h-8 min-w-8 place-items-center rounded bg-[#F5C518] px-2 text-[13px] font-bold text-[#1a1a1f]">
+              <span className="grid h-8 min-w-8 place-items-center rounded bg-[#0f6d84] px-2 text-[13px] font-bold text-white">
                 {page}
               </span>
               <button
@@ -844,7 +844,7 @@ export default function InventoryV2() {
             <OutlinedField label="Category name">
               <input
                 autoFocus
-                className="w-full rounded-lg border border-[#cfcfd6] bg-white px-3 py-3 text-sm outline-none focus:border-[#2d2a4a]"
+                className="w-full rounded-lg border border-[#cfcfd6] bg-white px-3 py-3 text-sm outline-none focus:border-[#0f6d84]"
                 placeholder="Category name"
                 value={categoryName}
                 onChange={(e) => setCategoryName(e.target.value)}
