@@ -212,6 +212,24 @@ export default function InvoiceDashboard() {
       {/* Title */}
       <h1 className="mb-4 text-[22px] font-bold tracking-tight text-[#1a1a1f]">Invoice</h1>
 
+      {/* Toolbar row 1: calendar + create */}
+      <div className="mb-4 flex justify-end gap-3">
+        <div className="inline-flex items-center gap-3 rounded-full bg-white px-4 py-3 text-[13px] text-[#4a4a55] shadow-sm shadow-[#00000010]">
+          <Calendar className="h-5 w-5 text-[#6b6b76]" />
+          <span className="text-[14px] font-medium text-[#2c2b3d]">{fmtDisplayDate(dateFrom)}</span>
+          <span className="text-[#9a9aa5]">→</span>
+          <span className="text-[14px] font-medium text-[#2c2b3d]">{fmtDisplayDate(dateTo)}</span>
+          <Calendar className="h-5 w-5 text-[#6b6b76]" />
+        </div>
+        <Link
+          to="/sales/invoices/create"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#F5C518] px-4 py-2.5 text-[14px] font-semibold text-[#1a1a1f] shadow-sm hover:bg-[#e6b800]"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.5} />
+          Create Invoice
+        </Link>
+      </div>
+
       {/* KPI strip */}
       <div className="mb-4 overflow-hidden rounded-xl bg-[#ececf0]">
         <div className="flex flex-wrap">
@@ -250,7 +268,7 @@ export default function InvoiceDashboard() {
         </div>
       </div>
 
-      {/* Toolbar row 1: search | date + create */}
+      {/* Search row: under KPI cards */}
       <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative w-full max-w-xl">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
@@ -260,33 +278,6 @@ export default function InvoiceDashboard() {
             placeholder="Search"
             className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] shadow-sm placeholder:text-[#9a9aa5] focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-[#F5C518]/25"
           />
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="inline-flex items-center gap-2 rounded-lg border border-[#e4e4ea] bg-white px-3 py-2 text-[13px] text-[#4a4a55] shadow-sm">
-            <Calendar className="h-4 w-4 shrink-0 text-[#9a9aa5]" />
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-[118px] border-0 bg-transparent p-0 text-[13px] focus:outline-none"
-              title={fmtDisplayDate(dateFrom)}
-            />
-            <span className="text-[#9a9aa5]">ΓåÆ</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-[118px] border-0 bg-transparent p-0 text-[13px] focus:outline-none"
-              title={fmtDisplayDate(dateTo)}
-            />
-          </div>
-          <Link
-            to="/sales/invoices/create"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#F5C518] px-4 py-2.5 text-[14px] font-semibold text-[#1a1a1f] shadow-sm hover:bg-[#e6b800]"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.5} />
-            Create Invoice
-          </Link>
         </div>
       </div>
 

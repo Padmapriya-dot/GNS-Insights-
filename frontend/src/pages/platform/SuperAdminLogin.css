@@ -1,0 +1,409 @@
+/* ============================================================
+   SuperAdminLogin.css  —  exact match to image.png
+   ============================================================ */
+
+/* ── 1. PAGE ROOT ── */
+.sa-root {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: radial-gradient(circle at 22% 10%, rgba(255,215,100,0.18) 0%, rgba(255,255,255,0) 24%),
+              linear-gradient(180deg, #07142c 0%, #10325d 24%, #204f83 58%, #e7f1fb 96%);
+  font-family: inherit;
+  color: #eef4ff;
+}
+
+/* ── 2. FULL-PAGE BACKGROUND GRADIENT ── */
+.sa-bg-base {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.12) 26%, transparent 62%),
+    radial-gradient(circle at 80% 12%, rgba(255,255,255,0.82) 0%, rgba(209,222,244,0.72) 24%, rgba(209,222,244,0.08) 60%, transparent 92%),
+    linear-gradient(180deg, rgba(15,35,64,0.98) 0%, rgba(23,51,86,0.96) 24%, rgba(42,86,132,0.82) 55%, rgba(236,244,251,0.92) 100%);
+}
+
+.sa-hero-wave {
+  pointer-events: none;
+  position: absolute;
+  left: -22%;
+  top: 6vh;
+  width: 72vw;
+  max-width: 850px;
+  height: 72vw;
+  max-height: 850px;
+  border-radius: 42% 58% 52% 48% / 48% 52% 42% 58%;
+  background: radial-gradient(circle at 22% 24%, rgba(230,190,90,0.20), transparent 50%),
+              linear-gradient(135deg, rgba(255,255,255,0.14), rgba(20,60,120,0.12) 60%);
+  transform: rotate(-11deg);
+  filter: blur(24px);
+  opacity: 0.92;
+}
+
+/* ── 3. TOP-LEFT LARGE ORB ── */
+.sa-orb-tl {
+  pointer-events: none;
+  position: absolute;
+  top: -15vw;
+  left: -14vw;
+  width: 56vw;
+  height: 56vw;
+  min-width: 380px;
+  min-height: 380px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 26% 26%, rgba(250,238,214,0.98) 0%, rgba(255,248,236,0.76) 24%, rgba(234,244,252,0.28) 60%, transparent 100%);
+  border: 1px solid rgba(255,255,255,0.6);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.08), inset 0 0 52px rgba(255,255,255,0.12);
+}
+
+/* ── 4. LEFT-CENTER SOFTER GLASS ORB ── */
+.sa-orb-tr {
+  pointer-events: none;
+  position: absolute;
+  top: 16vw;
+  left: 3vw;
+  width: 26vw;
+  height: 26vw;
+  min-width: 220px;
+  min-height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 52% 50%, rgba(255,255,255,0.96) 0%, rgba(234,244,252,0.46) 42%, transparent 100%);
+  border: 1px solid rgba(255,255,255,0.28);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.1), 0 8px 20px rgba(20,42,80,0.08);
+}
+
+/* ── 5. BOTTOM-LEFT NAVY WAVE (small curve) ── */
+.sa-wave {
+  pointer-events: none;
+  position: absolute;
+  bottom: -0.25rem;
+  left: 0;
+  width: 34%;
+  max-width: 520px;
+  height: 16%;
+  min-height: 150px;
+  z-index: 3;
+}
+
+.sa-wave svg {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+
+/* ── 7. CENTERING WRAPPER ── */
+.sa-center {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2.5rem 1rem;
+}
+
+/* ── 7. CARD ── */
+.sa-card {
+  position: relative;
+  width: 100%;
+  max-width: 34rem;
+  background: rgba(5,23,50,0.82);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 3rem;
+  padding: 3rem 2.4rem 2.4rem;
+  box-shadow:
+    0 42px 92px -32px rgba(4,14,32,0.34),
+    0 20px 42px -24px rgba(7,23,50,0.18);
+  backdrop-filter: blur(26px);
+  overflow: hidden;
+}
+.sa-card::before {
+  content: "";
+  position: absolute;
+  top: -12%;
+  left: 50%;
+  width: 176%;
+  height: 172%;
+  background: radial-gradient(circle at 26% 18%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 36%);
+  filter: blur(54px);
+  transform: translateX(-50%);
+  opacity: 0.78;
+  pointer-events: none;
+}
+.sa-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 55%, rgba(255,255,255,0) 100%);
+  pointer-events: none;
+}
+.sa-card__border {
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(155deg, rgba(255,255,255,0.2), rgba(255,255,255,0) 44%, rgba(226,188,75,0.22) 70%);
+  pointer-events: none;
+}
+.sa-card__topline {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.35rem;
+  right: 1.35rem;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.95), rgba(234,190,103,0.95), rgba(255,255,255,0.82));
+  opacity: 0.82;
+}
+
+.sa-card__header {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 2.2rem;
+  z-index: 1;
+}
+
+.sa-card__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.95rem;
+  border-radius: 999px;
+  background: rgba(250,239,188,0.12);
+  color: #fff4d0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255,229,157,0.35);
+  box-shadow: 0 10px 28px rgba(255,217,104,0.12);
+  margin-bottom: 1rem;
+}
+
+.sa-card__title {
+  margin: 0;
+  font-size: 2.05rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #0f1736;
+  line-height: 1.12;
+}
+
+.sa-card__subtitle {
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #5b6f8d;
+  letter-spacing: 0.01em;
+}
+
+/* ── 8. ERROR BANNER ── */
+.sa-error {
+  margin-bottom: 1.3rem;
+  border-radius: 1.5rem;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  padding: 0.85rem 1rem;
+  font-size: 0.875rem;
+  color: #b91c1c;
+}
+
+/* ── 9. FORM ── */
+.sa-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.sa-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.sa-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.sa-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sa-input-icon {
+  pointer-events: none;
+  position: absolute;
+  left: 1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: #7b8ea8;
+  flex-shrink: 0;
+}
+
+.sa-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 1.8rem;
+  border: 1px solid rgba(131,154,192,0.38);
+  background: rgba(255,255,255,0.92);
+  padding: 1rem 1rem 1rem 2.9rem;
+  font-size: 0.95rem;
+  color: #2c3f5f;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.96), 0 16px 28px rgba(15,23,42,0.06);
+  transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s, background 0.18s;
+  outline: none;
+  backdrop-filter: blur(12px);
+}
+.sa-input:hover {
+  background: rgba(255,255,255,1);
+  border-color: rgba(116,149,205,0.9);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.98), 0 16px 30px rgba(15,23,42,0.08);
+}
+.sa-input::placeholder { color: #8fabc6; }
+.sa-input:focus {
+  border-color: rgba(88,123,180,1);
+  box-shadow: 0 0 0 4px rgba(88,123,180,0.2);
+  transform: translateY(-1px);
+  background: rgba(255,255,255,1);
+}
+.sa-input--pwd { padding-right: 3.5rem; }
+
+.sa-eye-btn {
+  position: absolute;
+  right: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.94);
+  border: 1px solid rgba(255,255,255,0.82);
+  cursor: pointer;
+  color: #4a5f7f;
+  transition: color 0.15s, background 0.15s, transform 0.15s;
+}
+.sa-eye-btn:hover { color: #173960; background: rgba(255,255,255,1); transform: translateY(-1px); }
+.sa-eye-icon { width: 1.05rem; height: 1.05rem; flex-shrink: 0; }
+
+.sa-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  border-radius: 2rem;
+  border: none;
+  background: linear-gradient(90deg, #0d335f 0%, #164b7f 42%, #0f3361 100%);
+  padding: 1rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 24px 62px rgba(15,23,42,0.22), inset 0 -1px 0 rgba(255,255,255,0.18);
+  transition: transform 0.22s, box-shadow 0.22s, filter 0.22s, background 0.22s;
+  margin-top: 0.4rem;
+}
+.sa-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 34px 82px rgba(15,23,42,0.28);
+  background: linear-gradient(90deg, #1755a1 0%, #2966b4 42%, #143f6e 100%);
+}
+
+.sa-footer {
+  margin-top: 1.65rem;
+  font-size: 0.91rem;
+  color: #607392;
+  text-align: center;
+  line-height: 1.7;
+}
+.sa-footer__link {
+  color: #0f3568;
+  text-decoration: none;
+  font-weight: 600;
+}
+.sa-footer__link:hover {
+  text-decoration: underline;
+}
+
+.sa-btn:hover:not(:disabled) {
+  background: linear-gradient(90deg, #154a86 0%, #12537c 45%, #0e3f6d 100%);
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+  box-shadow: 0 28px 52px -12px rgba(13,43,83,0.82);
+}
+.sa-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 16px 30px -12px rgba(13,43,83,0.68);
+}
+.sa-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+.sa-footer {
+  margin-top: 1.4rem;
+  font-size: 0.9rem;
+  color: #5b708f;
+  text-align: center;
+}
+.sa-footer__link {
+  color: #0e5e4b;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+.sa-footer__link:hover {
+  color: #0b4e42;
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .sa-card {
+    padding: 2.2rem 1.6rem 1.9rem;
+  }
+  .sa-card__title {
+    font-size: 1.7rem;
+  }
+  .sa-form {
+    gap: 1.1rem;
+  }
+}
+.sa-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+.sa-btn-arrow {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  transition: transform 0.22s;
+}
+.sa-btn:hover:not(:disabled) .sa-btn-arrow { transform: translateX(4px); }
+
+/* ── 14. FOOTER ── */
+.sa-footer {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+.sa-footer__link {
+  font-weight: 600;
+  color: #1f7c63;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.sa-footer__link:hover { color: #135443; text-decoration: underline; }
+
+/* ── 15. RESPONSIVE ── */
+@media (max-width: 480px) {
+  .sa-card { padding: 2rem 1.4rem; border-radius: 1.8rem; }
+  .sa-card__title { font-size: 1.45rem; }
+  .sa-orb-tl { width: 80vw; height: 80vw; top: -30vw; left: -25vw; }
+  .sa-orb-tr { width: 55vw; height: 55vw; }
+}

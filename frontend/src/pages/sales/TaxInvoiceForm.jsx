@@ -73,6 +73,9 @@ const emptyItem = () => ({
   discount: "",
   discount_type: "₹",
   gst_pct: "",
+  cgst_pct: "",
+  sgst_pct: "",
+  igst_pct: "",
   amount: 0,
 });
 
@@ -397,6 +400,9 @@ export default function TaxInvoiceForm() {
               discount: it.discount ?? 0,
               discount_type: it.discount_type || "₹",
               gst_pct: it.gst_pct ?? 0,
+              cgst_pct: it.cgst_pct ?? "",
+              sgst_pct: it.sgst_pct ?? "",
+              igst_pct: it.igst_pct ?? "",
             }));
           setItems(lineItems.length ? lineItems : [emptyItem(), emptyItem(), emptyItem()]);
         }
@@ -1513,9 +1519,14 @@ export default function TaxInvoiceForm() {
         onClose={() => setAddItemOpen(false)}
         onSaved={(line) => {
           if (!line) return;
+          const gst = Number(line.gst_pct) || 0;
+          const half = gst / 2;
           const withAmount = {
             ...emptyItem(),
             ...line,
+            cgst_pct: useIgst ? "" : half || "",
+            sgst_pct: useIgst ? "" : half || "",
+            igst_pct: useIgst ? gst || "" : "",
             amount: lineTotals(line).total,
           };
           setItems((prev) => {

@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Factory,
   FolderOpen,
+  GitMerge,
   Landmark,
   Layers,
   LayoutDashboard,
@@ -28,13 +29,7 @@ export const SIDEBAR_NAV = [
     module: "dashboard",
     end: true,
   },
-  {
-    key: "manufacturingWorkflow",
-    labelKey: "erpNav.roleWorkflow",
-    to: "/manufacturing/workflow",
-    icon: Factory,
-    module: "dashboard",
-  },
+
   {
     key: "masters",
     labelKey: "erpNav.masters",
@@ -244,6 +239,7 @@ export const SIDEBAR_NAV = [
     labelKey: "erpNav.settings",
     icon: Settings,
     children: [
+      { label: "Workflow", to: "/manufacturing/workflow", module: "dashboard", icon: GitMerge },
       { label: "Change Format", to: "/settings/change-format", module: "settings" },
       { label: "Invoice Settings", to: "/settings/invoice-settings", module: "settings" },
       { label: "Expense Settings", to: "/accounts/expenses/settings", module: "accounts" },

@@ -32,7 +32,6 @@ import { STORE_MANAGER_NAV_ITEMS } from "../../config/storeManagerNavConfig";
 
 const ICON_BY_KEY = {
   dashboard: LayoutDashboard,
-  manufacturingWorkflow: Factory,
   masters: Layers,
   hrMasters: Layers,
   production: Factory,

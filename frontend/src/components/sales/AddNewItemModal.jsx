@@ -6,7 +6,6 @@ import {
   Eye,
   ImagePlus,
   Plus,
-  Search,
   Sparkles,
   X,
 } from "lucide-react";
@@ -36,6 +35,9 @@ const EMPTY = {
   tax_type: "Exclusive",
   unit: "",
   gst_pct: "",
+  cgst_pct: "",
+  sgst_pct: "",
+  igst_pct: "",
   hsn_sac: "",
   cess: "0",
   cess_mode: "Percent Wise",
@@ -307,6 +309,9 @@ export default function AddNewItemModal({
         sale_price: String(item?.selling_price ?? item?.unit_price ?? ""),
         unit: item?.unit || "",
         gst_pct: String(item?.gst_percent ?? ""),
+        cgst_pct: item?.cgst_pct ?? "",
+        sgst_pct: item?.sgst_pct ?? "",
+        igst_pct: item?.igst_pct ?? "",
         hsn_sac: item?.hsn_code || "",
         category: item?.category || "",
         purchase_price: String(item?.purchase_price ?? item?.unit_cost ?? "0"),
@@ -418,6 +423,9 @@ export default function AddNewItemModal({
         discount: "",
         discount_type: "₹",
         gst_pct: form.gst_pct || "",
+        cgst_pct: form.cgst_pct || "",
+        sgst_pct: form.sgst_pct || "",
+        igst_pct: form.igst_pct || "",
         amount: 0,
         product_id: product?.id || null,
       };
@@ -586,7 +594,17 @@ export default function AddNewItemModal({
                 <SoftLabel>GST %</SoftLabel>
                 <select
                   value={form.gst_pct}
-                  onChange={(e) => setForm((f) => ({ ...f, gst_pct: e.target.value }))}
+                  onChange={(e) => {
+                    const g = e.target.value;
+                    const half = g ? Number(g) / 2 : "";
+                    setForm((f) => ({
+                      ...f,
+                      gst_pct: g,
+                      cgst_pct: half,
+                      sgst_pct: half,
+                      igst_pct: g ? Number(g) : "",
+                    }));
+                  }}
                   className={inputClass}
                 >
                   <option value="">Select GST</option>
@@ -598,17 +616,7 @@ export default function AddNewItemModal({
                 </select>
               </label>
               <label className="block">
-                <div className="mb-1.5 flex items-center justify-between">
-                  <SoftLabel>{isGoods ? "HSN" : "SAC"}</SoftLabel>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 text-[12px] font-semibold"
-                    style={{ color: BLUE }}
-                  >
-                    <Search className="h-3.5 w-3.5" />
-                    Search
-                  </button>
-                </div>
+                <SoftLabel>{isGoods ? "HSN" : "SAC"}</SoftLabel>
                 <input
                   value={form.hsn_sac}
                   onChange={(e) => setForm((f) => ({ ...f, hsn_sac: e.target.value }))}
@@ -616,6 +624,26 @@ export default function AddNewItemModal({
                   className={inputClass}
                 />
               </label>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { key: "cgst_pct", label: "CGST %" },
+                { key: "sgst_pct", label: "SGST %" },
+                { key: "igst_pct", label: "IGST %" },
+              ].map(({ key, label }) => (
+                <label key={key} className="block">
+                  <SoftLabel>{label}</SoftLabel>
+                  <input
+                    value={form[key] ?? ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, [key]: e.target.value.replace(/[^\d.]/g, "") }))
+                    }
+                    placeholder="0"
+                    className={inputClass}
+                  />
+                </label>
+              ))}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -761,57 +789,61 @@ export default function AddNewItemModal({
                       className={inputClass}
                     />
                   </label>
-                  <div className="block">
-                    <div className="mb-1.5 flex items-center justify-between gap-2">
-                      <SoftLabel>Barcode / Item Code</SoftLabel>
-                      {form.barcode.trim() ? (
+                </div>
+
+                {/* Barcode — full width card */}
+                <div className="rounded-xl border border-[#e8e8ee] bg-[#fafafa] p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <SoftLabel>Barcode / Item Code</SoftLabel>
+                    {form.barcode.trim() ? (
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setBarcodeOpen(true);
-                          }}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setBarcodeOpen(true); }}
                           className="inline-flex items-center gap-1 text-[12px] font-semibold"
                           style={{ color: BLUE }}
                         >
-                          <Eye className="h-3.5 w-3.5" />
-                          View Barcode
+                          <Eye className="h-3.5 w-3.5" /> View
                         </button>
-                      ) : (
                         <button
                           type="button"
                           onClick={generateBarcode}
-                          className="inline-flex items-center gap-1 text-[12px] font-semibold"
-                          style={{ color: BLUE }}
+                          className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#6b6b76] hover:text-[#2563eb]"
                         >
-                          <Sparkles className="h-3.5 w-3.5" />
-                          Generate Barcode
+                          <Sparkles className="h-3.5 w-3.5" /> Regenerate
                         </button>
-                      )}
-                    </div>
-                    <input
-                      value={form.barcode}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          barcode: e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, ""),
-                        }))
-                      }
-                      placeholder="Item code"
-                      className={inputClass}
-                    />
-                    {form.barcode.trim() ? (
+                      </div>
+                    ) : (
                       <button
                         type="button"
                         onClick={generateBarcode}
-                        className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[#6b6b76] hover:text-[#2563eb]"
+                        className="inline-flex items-center gap-1 text-[12px] font-semibold"
+                        style={{ color: BLUE }}
                       >
-                        <Sparkles className="h-3 w-3" />
-                        Regenerate
+                        <Sparkles className="h-3.5 w-3.5" /> Generate Barcode
                       </button>
-                    ) : null}
+                    )}
                   </div>
+                  <input
+                    value={form.barcode}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        barcode: e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, ""),
+                      }))
+                    }
+                    placeholder="Enter or generate item code"
+                    className={inputClass}
+                  />
+                  {form.barcode.trim() && (() => {
+                    const { svg } = buildCode39Svg(form.barcode);
+                    return (
+                      <div
+                        className="mt-2 flex justify-center overflow-x-auto rounded-lg border border-[#e8e8ee] bg-white p-2"
+                        dangerouslySetInnerHTML={{ __html: svg }}
+                      />
+                    );
+                  })()}
                 </div>
                 <div>
                   <SoftLabel>Track Inventory</SoftLabel>
