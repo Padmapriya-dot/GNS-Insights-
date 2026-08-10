@@ -164,6 +164,7 @@ const PROD_MANAGER_ALLOWED_CHILDREN = new Set([
   "/inventory/stock-transfer",
   "/sales",
   "/sales/orders",
+  "/procurement/vendors",
   "/procurement/material-requests",
   "/quality/in-process",
   "/quality/final",

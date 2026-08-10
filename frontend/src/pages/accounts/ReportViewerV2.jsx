@@ -7,8 +7,8 @@ import { useToast } from "../../context/ToastContext";
 import { getReportView } from "../../data/reportViews";
 import BulkExportReportV2 from "./BulkExportReportV2";
 
-const PAGE_BG = "#F5F5F5";
-const YELLOW = "#F5C518";
+const PAGE_BG = "#F4F7FE";
+const ACCENT = "#0f6d84";
 const BTN_DARK = "#2f323a";
 const PAGE_SIZES = [10, 20, 50, 100];
 
@@ -291,7 +291,7 @@ function PaginationBar({ pageSize, setPageSize, rangeLabel, safePage, totalPages
         <button
           type="button"
           className="grid h-8 min-w-8 place-items-center rounded-md px-2 text-[13px] font-semibold text-[#1a1a1f] shadow-sm"
-          style={{ background: YELLOW }}
+          style={{ background: ACCENT }}
         >
           {safePage}
         </button>
@@ -390,12 +390,12 @@ export default function ReportViewerV2({ reportId }) {
                     className={`absolute inset-x-0 bottom-0 h-[3px] rounded-t ${
                       active ? "bg-[#5b4b8a]" : "bg-transparent"
                     }`}
-                    style={active && tab.id.includes("return") ? { background: YELLOW } : undefined}
+                    style={active && tab.id.includes("return") ? { background: ACCENT } : undefined}
                   />
                   {active && tab.id.includes("return") ? (
                     <span
                       className="absolute inset-x-0 bottom-0 h-[3px] rounded-t"
-                      style={{ background: YELLOW }}
+                      style={{ background: ACCENT }}
                     />
                   ) : null}
                 </button>
@@ -533,4 +533,4 @@ export default function ReportViewerV2({ reportId }) {
   );
 }
 
-export { FloatingDate, formatDisplayDate, defaultDateRange, PAGE_BG, YELLOW, BTN_DARK, PAGE_SIZES };
+export { FloatingDate, formatDisplayDate, defaultDateRange, PAGE_BG, ACCENT, BTN_DARK, PAGE_SIZES };

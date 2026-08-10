@@ -257,6 +257,9 @@ export function storeManagerPathAllowed(pathname) {
   if (path.startsWith("/accounts/ledger")) return true;
   if (path.startsWith("/accounts/expenses")) return true;
   if (path.startsWith("/masters/products")) return true;
+  if (path.startsWith("/procurement/goods-receipt")) return true;
+  if (path.startsWith("/procurement/material-requests")) return true;
+  if (path.startsWith("/procurement/vendors")) return true;
   if (path.startsWith("/masters/vendors")) return true;
   if (path.startsWith("/settings")) return true;
   if (path.startsWith("/alerts")) return true;

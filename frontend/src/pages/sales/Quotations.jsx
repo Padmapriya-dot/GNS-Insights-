@@ -14,8 +14,7 @@ import {
 import { apiErrorMessage } from "../../utils/apiError";
 import { formatInr, statusColor } from "../../data/salesMasterData";
 
-const YELLOW = "#F5C518";
-const PURPLE = "#6b4eff";
+const ACCENT = "#0f6d84";
 const PAGE_SIZES = [10, 20, 50];
 
 const SORT_OPTIONS = [
@@ -45,7 +44,7 @@ function Chip({ label, active, onClick }) {
       onClick={onClick}
       className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-[13px] font-medium transition ${
         active
-          ? "bg-[#2d2a4a] text-white"
+          ? "bg-[#0f6d84] text-white"
           : "bg-[#f0f0f3] text-[#4a4a55] hover:bg-[#e4e4ea]"
       }`}
     >
@@ -234,15 +233,18 @@ export default function Quotations() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-[#F5F5F5]">
+      <div className="flex min-h-[50vh] items-center justify-center bg-[#F4F7FE]">
         <Loader label="Loading quotations..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-full space-y-4 bg-[#F5F5F5] p-4 sm:p-6">
-      <h1 className="text-[22px] font-bold text-[#1a1a1f]">Quotation</h1>
+    <div className="min-h-full space-y-4 bg-[#F4F7FE] p-4 sm:p-6">
+      <div className="mb-1">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Sales</p>
+        <h1 className="mt-0.5 text-[22px] font-bold text-[#1a1a1f]">Quotations</h1>
+      </div>
 
       <div className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-[#f7f7f9]">
         <div className="flex overflow-x-auto">
@@ -297,7 +299,7 @@ export default function Quotations() {
         <Link
           to="/sales/quotations/create"
           className="inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-[14px] font-semibold text-[#1a1a1f] shadow-sm"
-          style={{ background: YELLOW }}
+          style={{ background: ACCENT }}
         >
           <Plus className="h-4 w-4" strokeWidth={2.5} />
           Create Quotation
@@ -311,7 +313,7 @@ export default function Quotations() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search"
-            className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] shadow-sm placeholder:text-[#9a9aa5] focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-[#F5C518]/25"
+            className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] shadow-sm placeholder:text-[#9a9aa5] focus:border-[#0f6d84] focus:outline-none focus:ring-2 focus:ring-[#0f6d84]/25"
           />
         </div>
         <div className="relative flex gap-2">
@@ -394,7 +396,7 @@ export default function Quotations() {
                     <Link
                       to="/sales/quotations/create"
                       className="mt-4 inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-[14px] font-semibold text-[#1a1a1f]"
-                      style={{ background: YELLOW }}
+                      style={{ background: ACCENT }}
                     >
                       <Plus className="h-4 w-4" /> Create Quotation
                     </Link>
@@ -403,7 +405,7 @@ export default function Quotations() {
               ) : (
                 pageRows.map((r) => (
                   <tr key={r.id} className="hover:bg-[#fafafa]">
-                    <td className="border-t border-r border-[#d0d0d8] px-4 py-3 font-semibold" style={{ color: PURPLE }}>
+                    <td className="border-t border-r border-[#d0d0d8] px-4 py-3 font-semibold" style={{ color: ACCENT }}>
                       {r.quote_number}
                     </td>
                     <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[#4a4a55]">{fmtDate(r.quote_date)}</td>
@@ -424,7 +426,7 @@ export default function Quotations() {
                           type="button"
                           onClick={() => setSelected(r)}
                           className="text-[12px] font-semibold hover:underline"
-                          style={{ color: PURPLE }}
+                          style={{ color: ACCENT }}
                         >
                           View
                         </button>
@@ -479,7 +481,7 @@ export default function Quotations() {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="min-w-[2rem] rounded-md bg-[#F5C518]/70 px-2.5 py-1 text-center text-[13px] font-semibold text-[#1a1a1f]">
+            <span className="min-w-[2rem] rounded-md bg-[#0f6d84] px-2.5 py-1 text-center text-[13px] font-semibold text-white">
               {page}
             </span>
             <button
@@ -569,7 +571,7 @@ export default function Quotations() {
                   setShowFilters(false);
                 }}
                 className="rounded-xl py-3 text-[14px] font-semibold text-[#1a1a1f]"
-                style={{ background: YELLOW }}
+                style={{ background: ACCENT }}
               >
                 Apply Filter
               </button>

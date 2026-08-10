@@ -50,15 +50,15 @@ function daysDiff(dueDateStr) {
 
 function KpiCard({ label, value, sub, icon: Icon, color, trend }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+    <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
           <p className="mt-1.5 text-2xl font-bold tabular-nums text-slate-900 truncate">{value}</p>
           {sub && <p className="mt-0.5 text-xs text-slate-400">{sub}</p>}
         </div>
         {Icon && (
-          <div className={`ml-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${color}`}>
+          <div className={`ml-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${color}`}>
             <Icon className="h-5 w-5 text-white" />
           </div>
         )}
@@ -80,7 +80,7 @@ function SectionTab({ id, label, icon: Icon, active, onClick, badge }) {
       onClick={() => onClick(id)}
       className={`flex items-center gap-2 border-b-2 px-5 py-3.5 text-sm font-semibold transition-all whitespace-nowrap ${
         active
-          ? "border-blue-600 text-blue-600"
+          ? "border-teal-700 text-teal-800"
           : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
       }`}
     >
@@ -88,7 +88,7 @@ function SectionTab({ id, label, icon: Icon, active, onClick, badge }) {
       {label}
       {badge != null && (
         <span className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-          active ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"
+          active ? "bg-teal-50 text-teal-800" : "bg-slate-100 text-slate-600"
         }`}>{badge}</span>
       )}
     </button>
@@ -791,24 +791,20 @@ export default function AccountsPayable() {
       <style>{`
         .field-label { display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
         .field-input { width:100%; border-radius:12px; border:1px solid #e2e8f0; background:#fff; padding:10px 14px; font-size:14px; color:#1e293b; transition:border-color .15s,box-shadow .15s; }
-        .field-input:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.12); }
-        .btn-primary { display:inline-flex; align-items:center; gap:6px; border-radius:10px; background:#2563EB; color:#fff; padding:9px 18px; font-size:14px; font-weight:600; transition:background .15s; cursor:pointer; border:none; }
-        .btn-primary:hover { background:#1d4ed8; }
+        .field-input:focus { outline:none; border-color:#0f6d84; box-shadow:0 0 0 3px rgba(15,109,132,.12); }
+        .btn-primary { display:inline-flex; align-items:center; gap:6px; border-radius:10px; background:#0f6d84; color:#fff; padding:9px 18px; font-size:14px; font-weight:600; transition:background .15s; cursor:pointer; border:none; }
+        .btn-primary:hover { background:#0c5a6e; }
         .btn-primary:disabled { opacity:.6; cursor:not-allowed; }
         .btn-outline { display:inline-flex; align-items:center; gap:6px; border-radius:10px; border:1px solid #e2e8f0; background:#fff; color:#374151; padding:9px 18px; font-size:14px; font-weight:600; transition:background .15s; cursor:pointer; }
         .btn-outline:hover { background:#f8fafc; }
       `}</style>
 
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-5 pb-4">
         {/* ── Page Header ── */}
-        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-              <Link to="/accounts" className="hover:text-blue-600">Accounts</Link>
-              <ChevronRight className="h-3.5 w-3.5" />
-              <span className="text-slate-800 font-semibold">Accounts Payable</span>
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900">Accounts Payable</h1>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Finance</p>
+            <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Accounts Payable</h2>
             <p className="mt-1 text-sm text-slate-500">
               Manage vendor bills, supplier payments, and outstanding payables.
             </p>
@@ -827,13 +823,13 @@ export default function AccountsPayable() {
         </header>
 
         {/* ── Finance Workflow Bar ── */}
-        <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50 px-4 py-3 text-[10px] font-medium text-slate-600 sm:text-xs">
+        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-[10px] font-medium text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:text-xs">
           {FINANCE_FLOW.map((s, i) => (
             <span key={s} className="flex items-center gap-1">
-              <span className={`rounded-lg px-2.5 py-1 shadow-sm ${
+              <span className={`rounded-lg px-2.5 py-1 ${
                 ["Vendor Bill","Accounts Payable","Payment"].includes(s)
-                  ? "bg-blue-600 text-white font-semibold"
-                  : "bg-white text-slate-600"
+                  ? "bg-teal-700 text-white font-semibold"
+                  : "bg-slate-50 text-slate-600 ring-1 ring-slate-200/80"
               }`}>{s}</span>
               {i < FINANCE_FLOW.length - 1 && <ChevronRight className="h-3 w-3 text-slate-400" />}
             </span>
@@ -842,12 +838,12 @@ export default function AccountsPayable() {
 
         {/* ── KPI Summary Cards ── */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <KpiCard label="Outstanding Payables" value={formatInr(summary.outstanding_payables)} icon={IndianRupee} color="bg-red-500" />
+          <KpiCard label="Outstanding Payables" value={formatInr(summary.outstanding_payables)} icon={IndianRupee} color="bg-rose-600" />
           <KpiCard label="Due This Week" value={summary.due_this_week} sub="bills" icon={Clock} color="bg-amber-500" />
           <KpiCard label="Overdue Bills" value={summary.overdue_bills} icon={AlertCircle} color="bg-orange-500" />
           <KpiCard label="Paid This Month" value={formatInr(summary.paid_this_month)} icon={CheckCircle2} color="bg-emerald-600" />
           <KpiCard label="Pending Approvals" value={summary.pending_approvals} icon={FileText} color="bg-indigo-600" />
-          <KpiCard label="Active Vendors" value={summary.vendor_count} icon={Building2} color="bg-teal-600" />
+          <KpiCard label="Active Vendors" value={summary.vendor_count} icon={Building2} color="bg-teal-700" />
         </div>
 
         {/* ── Section Navigation ── */}

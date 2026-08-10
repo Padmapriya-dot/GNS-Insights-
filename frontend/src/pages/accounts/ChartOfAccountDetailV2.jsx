@@ -13,7 +13,7 @@ import { fetchManualJournals } from "../../api/manualJournalSync";
 import { useToast } from "../../context/ToastContext";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 const PAGE_SIZES = [10, 20, 50];
 
 function formatInr(amount) {
@@ -77,7 +77,7 @@ function Pagination({ page, pageSize, total, onPage, onPageSize }) {
         <button
           type="button"
           className="grid h-8 min-w-8 place-items-center rounded-md border border-[#e0b400] px-2 text-[13px] font-semibold text-[#1a1a1f]"
-          style={{ background: "#F5C518" }}
+          style={{ background: "#0f6d84" }}
         >
           {page}
         </button>
@@ -384,7 +384,7 @@ export default function ChartOfAccountDetailV2() {
                   type="button"
                   onClick={goNewJournal}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-[#e0b400] px-4 py-2.5 text-[13px] font-bold text-[#1a1a1f]"
-                  style={{ background: "#F5C518" }}
+                  style={{ background: "#0f6d84" }}
                 >
                   <Plus className="h-4 w-4" />
                   New Journal Entry
@@ -395,7 +395,7 @@ export default function ChartOfAccountDetailV2() {
                 type="button"
                 onClick={() => setAddSubOpen(true)}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-[#e0b400] px-4 py-2.5 text-[13px] font-bold text-[#1a1a1f]"
-                style={{ background: "#F5C518" }}
+                style={{ background: "#0f6d84" }}
               >
                 <Plus className="h-4 w-4" />
                 Add Sub-account
@@ -522,7 +522,7 @@ export default function ChartOfAccountDetailV2() {
                           type="button"
                           onClick={goNewJournal}
                           className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-[#e0b400] px-4 py-2.5 text-[13px] font-bold text-[#1a1a1f]"
-                          style={{ background: "#F5C518" }}
+                          style={{ background: "#0f6d84" }}
                         >
                           <Plus className="h-4 w-4" />
                           New Journal Entry

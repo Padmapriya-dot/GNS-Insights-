@@ -55,7 +55,7 @@ function Chip({ label, active, onClick, icon: Icon }) {
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition ${
         active
-          ? "bg-[#2d2a4a] text-white"
+          ? "bg-[#0f6d84] text-white"
           : "bg-[#f0f0f3] text-[#4a4a55] hover:bg-[#e4e4ea]"
       }`}
     >
@@ -76,8 +76,8 @@ function FilterSection({ label, children }) {
 
 function SummaryTab({ label, count, amount, active, tone, onClick }) {
   const activeStyles = {
-    blue: "border-[#2563eb] text-[#2563eb]",
-    purple: "border-[#4c1d95] text-[#4c1d95]",
+    blue: "border-[#0f6d84] text-[#0f6d84]",
+    purple: "border-[#0f6d84] text-[#0f6d84]",
     green: "border-[#16a34a] text-[#16a34a]",
     orange: "border-[#ea580c] text-[#ea580c]",
   };
@@ -276,7 +276,7 @@ export default function InvoiceDashboard() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search"
-            className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] shadow-sm placeholder:text-[#9a9aa5] focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-[#F5C518]/25"
+            className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] shadow-sm placeholder:text-[#9a9aa5] focus:border-[#0f6d84] focus:outline-none focus:ring-2 focus:ring-[#0f6d84]/25"
           />
         </div>
       </div>
@@ -365,7 +365,7 @@ export default function InvoiceDashboard() {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id} className="hover:bg-[#fafafa]">
-                    <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[14px] font-medium text-[#2563eb]">
+                    <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[14px] font-medium text-[#0f6d84]">
                       {r.invoice_number}
                     </td>
                     <td className="border-t border-r border-[#d0d0d8] px-4 py-3 text-[14px] text-[#4a4a55]">
@@ -457,7 +457,7 @@ export default function InvoiceDashboard() {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="min-w-[2rem] rounded-md bg-[#F5C518]/70 px-2.5 py-1 text-center text-[13px] font-semibold text-[#1a1a1f]">
+            <span className="min-w-[2rem] rounded-md bg-[#0f6d84] px-2.5 py-1 text-center text-[13px] font-semibold text-white">
               {page}
             </span>
             <button
@@ -685,7 +685,7 @@ export default function InvoiceDashboard() {
                   setFilters(draftFilters);
                   setShowFilters(false);
                 }}
-                className="rounded-xl bg-[#F5C518]/75 py-3 text-[14px] font-semibold text-[#1a1a1f] hover:bg-[#F5C518]"
+                className="rounded-xl bg-[#0f6d84] py-3 text-[14px] font-semibold text-white hover:bg-[#0c5a6e]"
               >
                 Apply Filter
               </button>

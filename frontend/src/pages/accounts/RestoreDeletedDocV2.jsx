@@ -4,8 +4,8 @@ import { ArrowDownWideNarrow, CalendarDays, ChevronLeft, ChevronRight, Filter, R
 
 import { useToast } from "../../context/ToastContext";
 
-const PAGE_BG = "#F5F5F5";
-const YELLOW = "#F5C518";
+const PAGE_BG = "#F4F7FE";
+const ACCENT = "#0f6d84";
 
 const DOC_TYPES = [
   "All Documents",
@@ -109,7 +109,7 @@ function MonthCalendar({ monthDate, rangeFrom, rangeTo, onPick }) {
               onClick={() => onPick(iso)}
               className={`h-8 rounded-md text-[12px] ${
                 isEdge
-                  ? "bg-[#F5C518] font-semibold text-[#1a1a1f]"
+                  ? "bg-[#0f6d84] font-semibold text-[#1a1a1f]"
                   : inRange
                     ? "bg-[#fff6d0] text-[#1a1a1f]"
                     : "text-[#1a1a1f] hover:bg-[#f3f3f6]"
@@ -277,7 +277,7 @@ function DateRangePicker({ from, to, onChange }) {
                   setOpen(false);
                 }}
                 className="rounded-lg px-4 py-2 text-[13px] font-semibold text-[#1a1a1f]"
-                style={{ background: YELLOW }}
+                style={{ background: ACCENT }}
               >
                 Apply
               </button>
@@ -368,7 +368,7 @@ function FiltersDrawer({ open, onClose, selected, onApply }) {
               onClose();
             }}
             className="rounded-xl py-3 text-[14px] font-semibold text-[#1a1a1f]"
-            style={{ background: YELLOW }}
+            style={{ background: ACCENT }}
           >
             Apply Filter
           </button>
@@ -524,7 +524,7 @@ export default function RestoreDeletedDocV2() {
                 type="button"
                 onClick={restoreSelected}
                 className="inline-flex items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
-                style={{ background: YELLOW }}
+                style={{ background: ACCENT }}
               >
                 <RotateCcw className="h-4 w-4" />
                 Restore ({selected.length})

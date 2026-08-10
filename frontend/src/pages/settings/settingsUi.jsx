@@ -5,10 +5,10 @@ export function SettingsCard({ title, description, icon: Icon, soft, onClick }) 
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full items-start gap-3.5 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-teal-300 hover:bg-teal-50/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30 dark:border-slate-700 dark:bg-slate-800/80 dark:hover:border-teal-600 dark:hover:bg-teal-950/20"
+      className="group flex w-full items-start gap-3.5 rounded-xl border border-slate-200/90 bg-white p-4 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-teal-200 hover:bg-teal-50/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30 dark:border-slate-700 dark:bg-slate-800/80 dark:hover:border-teal-600 dark:hover:bg-teal-950/20"
     >
       <div
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${soft}`}
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${soft}`}
       >
         <Icon className="h-5 w-5" strokeWidth={1.75} />
       </div>
@@ -19,7 +19,7 @@ export function SettingsCard({ title, description, icon: Icon, soft, onClick }) 
           </h3>
           <span
             aria-hidden
-            className="shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-teal-600 dark:text-slate-600 dark:group-hover:text-teal-400"
+            className="shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-teal-700 dark:text-slate-600 dark:group-hover:text-teal-400"
           >
             →
           </span>
@@ -32,14 +32,19 @@ export function SettingsCard({ title, description, icon: Icon, soft, onClick }) 
   );
 }
 
-export function PanelShell({ title, description, children, actions }) {
+export function PanelShell({ title, description, children, actions, eyebrow = "Settings" }) {
   return (
-    <div className="animate-in fade-in slide-in-from-right-2 space-y-6 duration-300">
+    <div className="animate-in fade-in slide-in-from-right-2 space-y-5 duration-300">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+          {eyebrow ? (
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-400">
+              {eyebrow}
+            </p>
+          ) : null}
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-slate-100">
             {title}
-          </h1>
+          </h2>
           {description && (
             <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
               {description}
@@ -56,10 +61,10 @@ export function PanelShell({ title, description, children, actions }) {
 export function SectionCard({ title, children, className = "" }) {
   return (
     <section
-      className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/60 sm:p-6 ${className}`}
+      className={`rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800/60 sm:p-6 ${className}`}
     >
       {title && (
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
           {title}
         </h2>
       )}

@@ -43,6 +43,14 @@ export const createInvoice = (payload) => api.post("/sales/invoices", payload);
 export const updateInvoice = (invoiceId, payload) => api.put(`/sales/invoices/${invoiceId}`, payload);
 export const cancelInvoice = (invoiceId) => api.delete(`/sales/invoices/${invoiceId}`);
 
+export const getInvoiceDocument = (invoiceId) => api.get(`/sales/invoices/${invoiceId}/document`);
+
+export const downloadInvoicePdf = (invoiceId) =>
+  api.get(`/sales/invoices/${invoiceId}/pdf`, { responseType: "blob" });
+
+export const emailInvoice = (invoiceId, payload = {}) =>
+  api.post(`/sales/invoices/${invoiceId}/email`, payload);
+
 export const getPayments = (_tenantId, invoiceId = null) =>
   api.get("/sales/payments", { params: { invoice_id: invoiceId } });
 export const getPayment = (paymentId) => api.get(`/sales/payments/${paymentId}`);

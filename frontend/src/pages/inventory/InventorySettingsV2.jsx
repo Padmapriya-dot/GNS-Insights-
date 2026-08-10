@@ -4,7 +4,7 @@ import { useToast } from "../../context/ToastContext";
 import Loader from "../../components/common/Loader";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 const SETTING_KEY = "inventory_settings";
 
 const DEFAULTS = {
@@ -29,7 +29,7 @@ function Radio({ name, value, checked, onChange, label, hint }) {
       <input
         type="radio"
         name={name}
-        className="mt-1 accent-[#F5C518]"
+        className="mt-1 accent-[#0f6d84]"
         checked={checked}
         onChange={() => onChange(value)}
       />
@@ -43,7 +43,7 @@ function Radio({ name, value, checked, onChange, label, hint }) {
 
 function SectionTitle({ children }) {
   return (
-    <div className="rounded-xl bg-[#efeaf8] px-4 py-2.5 text-[13px] font-bold uppercase tracking-wide text-[#2d2a4a]">
+    <div className="rounded-xl bg-teal-50 px-4 py-2.5 text-[13px] font-bold uppercase tracking-wide text-[#0f6d84]">
       {children}
     </div>
   );
@@ -51,15 +51,15 @@ function SectionTitle({ children }) {
 
 function ToggleRow({ label, on, onChange }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl bg-[#efeaf8] px-4 py-3">
-      <span className="text-[13px] font-bold text-[#2d2a4a]">{label}</span>
+    <div className="flex items-center justify-between gap-3 rounded-xl bg-teal-50 px-4 py-3">
+      <span className="text-[13px] font-bold text-[#0f6d84]">{label}</span>
       <button
         type="button"
         role="switch"
         aria-checked={on}
         onClick={() => onChange(!on)}
         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-          on ? "bg-[#2d2a4a]" : "bg-[#c8c8d0]"
+          on ? "bg-[#0f6d84]" : "bg-[#c8c8d0]"
         }`}
       >
         <span
@@ -138,7 +138,7 @@ export default function InventorySettingsV2() {
             })}
             <span
               aria-hidden
-              className="pointer-events-none absolute bottom-0 left-0 h-[3px] w-1/2 rounded-full bg-[#F5C518] transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+              className="pointer-events-none absolute bottom-0 left-0 h-[3px] w-1/2 rounded-full bg-[#0f6d84] transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
               style={{ transform: tab === "optional" ? "translateX(100%)" : "translateX(0)" }}
             />
           </div>
@@ -316,7 +316,7 @@ export default function InventorySettingsV2() {
               type="button"
               disabled={saving}
               onClick={onSave}
-              className="rounded-lg bg-[#F5C518] px-6 py-2.5 text-sm font-bold text-[#1a1a1f] disabled:opacity-60"
+              className="rounded-lg bg-[#0f6d84] px-6 py-2.5 text-sm font-bold text-white disabled:opacity-60"
             >
               {saving ? "Saving…" : "Save Settings"}
             </button>

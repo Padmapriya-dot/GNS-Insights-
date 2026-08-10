@@ -1,0 +1,404 @@
+/* GNS Insights — Enterprise GST Tax Invoice (original design) */
+
+.gst-invoice {
+  --gst-teal: #0f766e;
+  --gst-teal-light: #ecfdf5;
+  --gst-border: #cbd5e1;
+  --gst-text: #0f172a;
+  --gst-muted: #64748b;
+
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--gst-text);
+  background: #fff;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 12mm 14mm 10mm;
+  box-sizing: border-box;
+  border: 1px solid var(--gst-border);
+}
+
+.gst-invoice__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 3px solid var(--gst-teal);
+  margin-bottom: 12px;
+}
+
+.gst-invoice__brand {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.gst-invoice__logo {
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--gst-border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--gst-teal-light);
+}
+
+.gst-invoice__logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.gst-invoice__logo-fallback {
+  font-weight: 800;
+  color: var(--gst-teal);
+  font-size: 14px;
+}
+
+.gst-invoice__company {
+  margin: 0 0 2px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gst-teal);
+}
+
+.gst-invoice__tagline {
+  margin: 0 0 4px;
+  font-size: 10px;
+  color: var(--gst-muted);
+}
+
+.gst-invoice__address {
+  margin: 0 0 4px;
+  color: var(--gst-muted);
+}
+
+.gst-invoice__ids,
+.gst-invoice__contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 10px;
+}
+
+.gst-invoice__title-block {
+  text-align: right;
+  min-width: 140px;
+}
+
+.gst-invoice__title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--gst-text);
+}
+
+.gst-invoice__einvoice-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--gst-teal);
+  margin-bottom: 4px;
+}
+
+.gst-invoice__qr-wrap {
+  display: inline-block;
+  border: 1px solid var(--gst-border);
+  padding: 4px;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.gst-invoice__qr-placeholder {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  color: var(--gst-muted);
+}
+
+.gst-invoice__irn {
+  margin: 4px 0 0;
+  font-size: 8px;
+  word-break: break-all;
+  max-width: 160px;
+  margin-left: auto;
+}
+
+.gst-invoice__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.gst-invoice__meta-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.gst-invoice__card {
+  border: 1px solid var(--gst-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fafafa;
+}
+
+.gst-invoice__card h3 {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gst-teal);
+  border-bottom: 1px solid var(--gst-border);
+  padding-bottom: 4px;
+}
+
+.gst-invoice__card dl {
+  margin: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.gst-invoice__card dl div {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px;
+}
+
+.gst-invoice__card dt {
+  color: var(--gst-muted);
+  font-weight: 500;
+}
+
+.gst-invoice__card dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.gst-invoice__party-name {
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.gst-invoice__table-wrap {
+  overflow-x: auto;
+  margin-bottom: 10px;
+}
+
+.gst-invoice__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5px;
+}
+
+.gst-invoice__table th,
+.gst-invoice__table td {
+  border: 1px solid var(--gst-border);
+  padding: 5px 6px;
+  vertical-align: top;
+}
+
+.gst-invoice__table thead th {
+  background: var(--gst-teal);
+  color: #fff;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.gst-invoice__table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.gst-invoice__table .bold {
+  font-weight: 700;
+}
+
+.gst-invoice__desc {
+  min-width: 120px;
+}
+
+.gst-invoice__code {
+  display: block;
+  font-size: 8px;
+  color: var(--gst-muted);
+  font-weight: 600;
+}
+
+.gst-invoice__summary-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  align-items: flex-start;
+}
+
+.gst-invoice__words {
+  flex: 1;
+  border: 1px solid var(--gst-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--gst-teal-light);
+}
+
+.gst-invoice__words-text {
+  margin: 4px 0 0;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.gst-invoice__remarks {
+  margin: 8px 0 0;
+  font-size: 9px;
+}
+
+.gst-invoice__totals {
+  min-width: 220px;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.gst-invoice__totals td {
+  border: 1px solid var(--gst-border);
+  padding: 5px 8px;
+}
+
+.gst-invoice__totals td:last-child {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.gst-invoice__grand td {
+  background: var(--gst-teal);
+  color: #fff;
+  font-weight: 800;
+  font-size: 11px;
+}
+
+.gst-invoice__hsn-wrap {
+  margin-bottom: 10px;
+}
+
+.gst-invoice__hsn-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5px;
+}
+
+.gst-invoice__hsn-table th,
+.gst-invoice__hsn-table td {
+  border: 1px solid var(--gst-border);
+  padding: 4px 8px;
+}
+
+.gst-invoice__hsn-table thead th {
+  background: #f1f5f9;
+  font-weight: 700;
+}
+
+.gst-invoice__tax-words {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  border: 1px solid var(--gst-border);
+  border-top: none;
+  font-size: 9px;
+}
+
+.gst-invoice__footer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.gst-invoice__terms ol {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 9px;
+  color: var(--gst-muted);
+}
+
+.gst-invoice__signatures {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--gst-border);
+  font-size: 9px;
+}
+
+.gst-invoice__signatures > div {
+  flex: 1;
+}
+
+.gst-invoice__signatures span {
+  display: block;
+  color: var(--gst-muted);
+  margin-bottom: 24px;
+}
+
+.gst-invoice__signatory {
+  text-align: right;
+}
+
+.gst-invoice__sign-line {
+  margin-top: 28px;
+  font-weight: 700;
+  border-top: 1px solid var(--gst-text);
+  display: inline-block;
+  padding-top: 4px;
+}
+
+.gst-invoice__disclaimer {
+  text-align: center;
+  font-size: 8.5px;
+  color: var(--gst-muted);
+  font-style: italic;
+  margin: 8px 0 0;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .gst-invoice,
+  .gst-invoice * {
+    visibility: visible;
+  }
+
+  .gst-invoice {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 10mm;
+    border: none;
+    box-shadow: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+@media screen {
+  .gst-invoice {
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+    margin: 16px auto;
+  }
+}

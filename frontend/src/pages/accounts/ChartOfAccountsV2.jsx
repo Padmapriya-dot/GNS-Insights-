@@ -14,7 +14,7 @@ import { exportToCsv } from "../../utils/exportUtils";
 import { useToast } from "../../context/ToastContext";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 const PAGE_SIZES = [10, 20, 50];
 
 const SORT_OPTIONS = [
@@ -164,7 +164,7 @@ function Pagination({ page, pageSize, total, onPage, onPageSize }) {
                   ? "border border-[#e0b400] text-[#1a1a1f]"
                   : "border border-[#cfcfd6] bg-white text-[#1a1a1f] hover:bg-[#f7f7f9]"
               }`}
-              style={p === page ? { background: "#F5C518" } : undefined}
+              style={p === page ? { background: "#0f6d84" } : undefined}
             >
               {p}
             </button>
@@ -392,7 +392,7 @@ export default function ChartOfAccountsV2() {
                 setModalOpen(true);
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-[#e0b400] px-4 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
-              style={{ background: "#F5C518" }}
+              style={{ background: "#0f6d84" }}
             >
               + Create Account
             </button>

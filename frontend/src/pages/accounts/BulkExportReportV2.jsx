@@ -4,8 +4,8 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-rea
 import { useToast } from "../../context/ToastContext";
 import { BULK_EXPORT_DOCUMENTS } from "../../data/reportViews";
 
-const PAGE_BG = "#F5F5F5";
-const YELLOW = "#F5C518";
+const PAGE_BG = "#F4F7FE";
+const ACCENT = "#0f6d84";
 const BTN_DARK = "#2f323a";
 const PAGE_SIZES = [10, 20, 50, 100];
 
@@ -235,7 +235,7 @@ export default function BulkExportReportV2() {
               <button
                 type="button"
                 className="grid h-8 min-w-8 place-items-center rounded-md px-2 text-[13px] font-semibold text-[#1a1a1f] shadow-sm"
-                style={{ background: YELLOW }}
+                style={{ background: ACCENT }}
               >
                 {safePage}
               </button>

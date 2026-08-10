@@ -1,10 +1,12 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.core.permissions import require_any_permission, require_permission, tenant_scope, tenant_scope_any
+from app.models.sales import Customer
 from app.models.user import User
 from app.schemas.sales import (
     CustomerCreate,
@@ -24,6 +26,7 @@ from app.schemas.sales import (
     SalesOrderRead,
 )
 from app.schemas.invoice_v2 import (
+    InvoiceEmailRequest,
     InvoiceV2Create,
     InvoiceV2ListResponse,
     InvoiceV2Read,
@@ -554,33 +557,142 @@ def get_invoice_detail_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)),
     db: Session = Depends(get_db),
 ):
-    from app.models.sales import Customer as CustomerModel
     inv = get_invoice_v2(db, tenant_id, invoice_id)
     if not inv:
         raise HTTPException(404, "Invoice not found")
-    cust = db.get(CustomerModel, inv.customer_id)
-    customer_data = None
-    if cust:
-        customer_data = {
-            "id": cust.id,
-            "name": cust.name,
-            "address_line1": cust.address_line1,
-            "address_line2": cust.address_line2,
-            "city": cust.city,
-            "pincode": cust.pincode,
-            "state": cust.state,
-            "state_code": cust.state_code,
-            "gstin": cust.gstin,
-            "email": cust.email,
-            "phone": cust.phone,
+    customer = db.get(Customer, inv.customer_id) if inv.customer_id else None
+    cust_payload = None
+    if customer:
+        cust_payload = {
+            "id": customer.id,
+            "name": customer.name,
+            "contact_name": customer.contact_name,
+            "address_line1": customer.address_line1,
+            "address_line2": customer.address_line2,
+            "city": customer.city,
+            "pincode": customer.pincode,
+            "state": customer.state,
+            "state_code": customer.state_code,
+            "gstin": customer.gstin,
+            "email": customer.email,
+            "phone": customer.phone,
         }
     # Compatibility wrapper for BillDetail / InvoiceCopy pages
     return {
         "found": True,
         "invoice": inv,
         "items": inv.items,
-        "customer": customer_data,
+        "customer": cust_payload
+        or ({"id": inv.customer_id, "name": inv.buyer_name} if inv.buyer_name else None),
     }
+
+
+@router.get("/invoices/{invoice_id}/document")
+def get_invoice_document_endpoint(
+    invoice_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    from app.services.invoice_gst_service import build_invoice_document
+
+    doc = build_invoice_document(db, tenant_id, invoice_id)
+    if not doc:
+        raise HTTPException(404, "Invoice not found")
+    return doc
+
+
+@router.get("/invoices/{invoice_id}/pdf")
+def download_invoice_pdf_endpoint(
+    invoice_id: int,
+    request: Request,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    from app.services.audit_log_service import AuditLogService
+    from app.services.invoice_gst_service import build_invoice_document
+    from app.services.invoice_pdf_service import generate_invoice_pdf
+
+    doc = build_invoice_document(db, tenant_id, invoice_id)
+    if not doc:
+        raise HTTPException(404, "Invoice not found")
+    pdf_bytes = generate_invoice_pdf(doc)
+    inv_no = doc.get("meta", {}).get("invoice_no", str(invoice_id))
+    try:
+        user = getattr(request.state, "user", None)
+        if user:
+            AuditLogService.log(
+                db,
+                request=request,
+                current_user=user,
+                action="invoice_pdf_download",
+                module_name="sales",
+                resource="invoice",
+                resource_id=invoice_id,
+                details=f"Downloaded PDF for invoice {inv_no}",
+            )
+    except Exception:
+        pass
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="Invoice-{inv_no}.pdf"'},
+    )
+
+
+@router.post("/invoices/{invoice_id}/email")
+async def email_invoice_endpoint(
+    invoice_id: int,
+    payload: InvoiceEmailRequest,
+    request: Request,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    from app.services.audit_log_service import AuditLogService
+    from app.services.email_service import EmailDeliveryError, send_email_async
+    from app.services.invoice_gst_service import build_invoice_document
+    from app.services.invoice_pdf_service import generate_invoice_pdf
+
+    doc = build_invoice_document(db, user.tenant_id, invoice_id)
+    if not doc:
+        raise HTTPException(404, "Invoice not found")
+
+    inv_read = get_invoice_v2(db, user.tenant_id, invoice_id)
+    customer = db.get(Customer, inv_read.customer_id) if inv_read and inv_read.customer_id else None
+    to_email = (payload.to_email or (customer.email if customer else "") or "").strip()
+    if not to_email:
+        raise HTTPException(400, "Recipient email is required")
+
+    inv_no = doc.get("meta", {}).get("invoice_no", str(invoice_id))
+    seller = doc.get("seller", {}).get("name", "GNS Insights")
+    subject = payload.subject or f"Tax Invoice {inv_no} from {seller}"
+    message = payload.message or f"Please find attached tax invoice {inv_no}."
+    pdf_bytes = generate_invoice_pdf(doc)
+
+    try:
+        await send_email_async(
+            to_email,
+            subject,
+            message,
+            attachments=[(f"Invoice-{inv_no}.pdf", pdf_bytes, "application/pdf")],
+        )
+    except EmailDeliveryError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+    try:
+        AuditLogService.log(
+            db,
+            request=request,
+            current_user=user,
+            action="invoice_email",
+            module_name="sales",
+            resource="invoice",
+            resource_id=invoice_id,
+            details=f"Emailed invoice {inv_no} to {to_email}",
+        )
+    except Exception:
+        pass
+
+    return {"ok": True, "to": to_email, "invoice_number": inv_no}
 
 
 @router.put("/invoices/{invoice_id}", response_model=InvoiceV2Read)

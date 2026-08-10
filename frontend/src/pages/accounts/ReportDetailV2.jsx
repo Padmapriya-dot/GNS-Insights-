@@ -9,7 +9,7 @@ import BulkExportReportV2 from "./BulkExportReportV2";
 import ProfitLossV2 from "./ProfitLossV2";
 import ReportViewerV2 from "./ReportViewerV2";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 
 function toTitle(id = "") {
   return id
@@ -62,7 +62,7 @@ function GenericReportDetail({ reportId }) {
               <button
                 type="button"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
-                style={{ background: "#F5C518" }}
+                style={{ background: "#0f6d84" }}
               >
                 <FileText className="h-4 w-4" />
                 Generate Report

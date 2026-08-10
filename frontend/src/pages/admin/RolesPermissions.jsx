@@ -138,8 +138,9 @@ export default function RolesPermissions() {
   const isAdminRole = editing?.is_system;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-4">
       <PageHeader
+        eyebrow="Admin"
         title={permissionsOnly ? "Permissions" : "Roles"}
         subtitle={
           permissionsOnly
@@ -151,7 +152,7 @@ export default function RolesPermissions() {
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
+              className="ui-btn-primary"
             >
               <Plus className="h-4 w-4" />
               Add Role
@@ -163,11 +164,11 @@ export default function RolesPermissions() {
       {loading ? (
         <p className="py-10 text-center text-sm text-slate-500">Loading roles…</p>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {roles.map((role) => (
             <div
               key={role.id}
-              className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800"
+              className="flex flex-col rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">

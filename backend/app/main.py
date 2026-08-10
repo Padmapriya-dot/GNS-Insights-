@@ -447,6 +447,7 @@ def on_startup():
     _customer_columns = [
         "ALTER TABLE customers ADD COLUMN customer_code VARCHAR(64)",
         "ALTER TABLE customers ADD COLUMN city VARCHAR(128)",
+        "ALTER TABLE customers ADD COLUMN pincode VARCHAR(16)",
         "ALTER TABLE customers ADD COLUMN state VARCHAR(128)",
         "ALTER TABLE customers ADD COLUMN state_code VARCHAR(16)",
         "ALTER TABLE customers ADD COLUMN credit_limit NUMERIC(14, 2) DEFAULT 0",

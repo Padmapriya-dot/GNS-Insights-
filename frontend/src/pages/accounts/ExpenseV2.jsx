@@ -13,7 +13,7 @@ import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
 import { apiErrorMessage, asArray } from "../../utils/apiError";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 const PAGE_SIZES = [10, 20, 50];
 const ACCENT = "#f97316";
 
@@ -101,7 +101,7 @@ function Pagination({ page, pageSize, total, onPage, onPageSize }) {
         <button
           type="button"
           className="grid h-8 min-w-8 place-items-center rounded px-2 text-[13px] font-semibold text-[#1a1a1f]"
-          style={{ background: "#F5C518" }}
+          style={{ background: "#0f6d84" }}
         >
           {page}
         </button>
@@ -284,7 +284,7 @@ export default function ExpenseV2() {
         <h1 className="text-[22px] font-bold text-[#1a1a1f]">Expense</h1>
         <Link
           to="/accounts/expenses/settings"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-[#2d2a4a] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#1a1a1f]"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#0f6d84] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[#1a1a1f]"
         >
           <Settings className="h-4 w-4" /> Settings
         </Link>
@@ -331,7 +331,7 @@ export default function ExpenseV2() {
                   setPage(1);
                 }}
                 placeholder="Search"
-                className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] outline-none focus:border-[#F5C518] focus:ring-2 focus:ring-[#F5C518]/25"
+                className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] outline-none focus:border-[#0f6d84] focus:ring-2 focus:ring-[#0f6d84]/25"
               />
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-[#e4e4ea] bg-white px-3 py-2 text-[13px]">
@@ -360,7 +360,7 @@ export default function ExpenseV2() {
             <button
               type="button"
               onClick={() => setAddOpen(true)}
-              className="rounded-lg bg-[#2d2a4a] px-4 py-2.5 text-[13px] font-bold text-white"
+              className="rounded-lg bg-[#0f6d84] px-4 py-2.5 text-[13px] font-bold text-white"
             >
               + Add Expense
             </button>

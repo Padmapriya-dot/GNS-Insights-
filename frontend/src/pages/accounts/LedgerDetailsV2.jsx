@@ -9,7 +9,7 @@ import SendLedgerModal from "../../components/accounts/SendLedgerModal";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import { useToast } from "../../context/ToastContext";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "#F4F7FE";
 const PAGE_SIZES = [10, 20, 50];
 const CASH_KEY = "gns_ledger_cash_accounts_v2";
 const OTHER_KEY = "gns_ledger_other_accounts_v3";
@@ -92,7 +92,7 @@ function Pagination({ page, pageSize, total, onPage, onPageSize }) {
         </button>
         <button
           type="button"
-          className="grid h-8 min-w-8 place-items-center rounded bg-[#F5C518] px-2 text-[13px] font-semibold text-[#1a1a1f]"
+          className="grid h-8 min-w-8 place-items-center rounded bg-[#0f6d84] px-2 text-[13px] font-semibold text-[#1a1a1f]"
         >
           {page}
         </button>
@@ -255,7 +255,7 @@ export default function LedgerDetailsV2() {
   const backToLedger = () => navigate("/accounts/ledger");
 
   const darkBtn =
-    "rounded-lg bg-[#2d2a4a] px-3 py-2.5 text-[13px] font-bold text-white hover:bg-[#1a1a1f]";
+    "rounded-lg bg-[#0f6d84] px-3 py-2.5 text-[13px] font-bold text-white hover:bg-[#1a1a1f]";
   const outlineBtn =
     "inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-white px-3 py-2.5 text-[13px] font-bold text-[#1a1a1f] hover:bg-[#fafafa]";
 
@@ -300,7 +300,7 @@ export default function LedgerDetailsV2() {
                   setPage(1);
                 }}
                 placeholder="Search"
-                className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] placeholder:text-[#9a9aa5] focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-[#F5C518]/25"
+                className="w-full rounded-full border border-[#e4e4ea] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1a1a1f] placeholder:text-[#9a9aa5] focus:border-[#0f6d84] focus:outline-none focus:ring-2 focus:ring-[#0f6d84]/25"
               />
             </div>
             <label className="block text-[12px] font-medium text-[#6b6b76]">
@@ -309,7 +309,7 @@ export default function LedgerDetailsV2() {
                 type="date"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
-                className="mt-1 block w-full min-w-[150px] rounded border border-[#e4e4ea] px-3 py-2 text-[13px] outline-none focus:border-[#2d2a4a]"
+                className="mt-1 block w-full min-w-[150px] rounded border border-[#e4e4ea] px-3 py-2 text-[13px] outline-none focus:border-[#0f6d84]"
               />
             </label>
             <label className="block text-[12px] font-medium text-[#6b6b76]">
@@ -318,7 +318,7 @@ export default function LedgerDetailsV2() {
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
-                className="mt-1 block w-full min-w-[150px] rounded border border-[#e4e4ea] px-3 py-2 text-[13px] outline-none focus:border-[#2d2a4a]"
+                className="mt-1 block w-full min-w-[150px] rounded border border-[#e4e4ea] px-3 py-2 text-[13px] outline-none focus:border-[#0f6d84]"
               />
             </label>
           </div>
@@ -435,7 +435,7 @@ export default function LedgerDetailsV2() {
                         <button
                           type="button"
                           title="View"
-                          className="grid h-8 w-8 place-items-center rounded-full bg-[#2d2a4a] text-white"
+                          className="grid h-8 w-8 place-items-center rounded-full bg-[#0f6d84] text-white"
                           onClick={() => {
                             const type = String(row.voucher_type || "").toLowerCase();
                             if (type.includes("journal") || type.includes("contra")) {
@@ -464,7 +464,7 @@ export default function LedgerDetailsV2() {
                         <button
                           type="button"
                           title="More"
-                          className="grid h-8 w-8 place-items-center rounded-full bg-[#2d2a4a] text-white"
+                          className="grid h-8 w-8 place-items-center rounded-full bg-[#0f6d84] text-white"
                           onClick={() => setMenuRowId((v) => (v === row.id ? null : row.id))}
                         >
                           <MoreVertical className="h-3.5 w-3.5" />

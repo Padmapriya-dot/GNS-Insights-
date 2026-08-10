@@ -12,15 +12,15 @@ import { formatInr, statusColor, agingColor } from "../../data/financeMasterData
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
+    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium text-slate-500">{label}</p>
+          <p className="text-[11px] font-medium text-slate-500">{label}</p>
           <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p>
         </div>
         {Icon && (
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
+          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${color}`}>
+            <Icon className="h-4 w-4 text-white" />
           </div>
         )}
       </div>
@@ -144,10 +144,11 @@ export default function AccountsReceivable() {
   if (loading) return <Loader label="Loading accounts receivable..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-5 pb-4">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Accounts Receivable</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Finance</p>
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Accounts Receivable</h2>
           <p className="mt-1 text-sm text-slate-500">
             Customer invoices, collections, and aging analysis for finance team.
           </p>
@@ -155,23 +156,23 @@ export default function AccountsReceivable() {
         <button
           type="button"
           onClick={load}
-          className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
         >
           <RefreshCw className="h-4 w-4" /> Refresh
         </button>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <KpiCard label="Total Receivables" value={formatInr(summary.total_receivables)} icon={IndianRupee} color="bg-blue-600" />
-        <KpiCard label="Received Today" value={formatInr(summary.received_today)} icon={Wallet} color="bg-green-600" />
-        <KpiCard label="Overdue" value={formatInr(summary.overdue)} icon={TrendingDown} color="bg-red-500" />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <KpiCard label="Total Receivables" value={formatInr(summary.total_receivables)} icon={IndianRupee} color="bg-teal-700" />
+        <KpiCard label="Received Today" value={formatInr(summary.received_today)} icon={Wallet} color="bg-emerald-600" />
+        <KpiCard label="Overdue" value={formatInr(summary.overdue)} icon={TrendingDown} color="bg-rose-600" />
         <KpiCard label="Pending Collection" value={formatInr(summary.pending_collection)} icon={IndianRupee} color="bg-amber-500" />
         <KpiCard label="Credit Customers" value={summary.credit_customers} icon={Users} color="bg-indigo-600" />
       </div>
 
       {rows.length > 0 && (
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 font-semibold text-slate-900">Customer Aging Report</h2>
+      <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <h2 className="mb-4 text-sm font-bold text-slate-900">Customer Aging Report</h2>
         <div className="grid gap-4 sm:grid-cols-4">
           {agingData.map((a) => (
             <div key={a.bucket} className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-center">
@@ -188,7 +189,7 @@ export default function AccountsReceivable() {
               <YAxis tickFormatter={(v) => formatInr(v)} tick={{ fontSize: 11 }} />
               <Tooltip formatter={(v) => formatInr(v)} />
               <Legend />
-              <Bar dataKey="amount" name="Outstanding" fill="#2563EB" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="amount" name="Outstanding" fill="#0f6d84" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -207,7 +208,7 @@ export default function AccountsReceivable() {
         searchPlaceholder="Search invoice, customer..."
       />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         {rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <FileText className="h-12 w-12 text-slate-300 mb-4" />
@@ -218,7 +219,7 @@ export default function AccountsReceivable() {
             </p>
             <Link
               to="/sales/invoices/create"
-              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm"
+              className="ui-btn-primary mt-5"
             >
               Create Invoice
             </Link>

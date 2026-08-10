@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -12,6 +11,7 @@ import {
 } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
+import SkeletonCard from "../../components/common/SkeletonCard";
 import ProductionManagerNav from "../../components/production/ProductionManagerNav";
 import { useToast } from "../../context/ToastContext";
 import { getProductionHub } from "../../api/productionApi";
@@ -22,34 +22,59 @@ import {
 } from "../../data/productionHubMasterData";
 import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
+import { useCallback, useEffect, useState } from "react";
+
+function KpiCard({ label, value, accent = false, tone }) {
+  const valueClass =
+    tone === "success"
+      ? "text-emerald-700"
+      : tone === "warning"
+        ? "text-amber-700"
+        : "text-slate-900";
+  return (
+    <div
+      className={`relative overflow-hidden rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ${
+        accent ? "ring-1 ring-teal-200" : ""
+      }`}
+    >
+      {accent ? <span className="absolute inset-x-0 top-0 h-0.5 bg-teal-600" aria-hidden /> : null}
+      <p className="text-[11px] font-medium text-slate-500">{label}</p>
+      <p className={`mt-1 text-3xl font-bold tabular-nums ${valueClass}`}>{value ?? 0}</p>
+    </div>
+  );
+}
 
 function StatusPanel({ title, items, icon: Icon }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="mb-3 flex items-center gap-2">
-        {Icon && <Icon className="h-4 w-4 text-[#2563EB]" />}
-        <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+        {Icon ? (
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-teal-800">
+            <Icon className="h-4 w-4" />
+          </span>
+        ) : null}
+        <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
       </div>
       <dl className="space-y-2">
         {items.map(([label, value, status]) => (
           <div key={label} className="flex items-center justify-between text-sm">
             <dt className="text-slate-500">{label}</dt>
-            <dd className={`font-bold tabular-nums ${hubStatusColor(status)}`}>{value}</dd>
+            <dd className={`font-bold tabular-nums ${hubStatusColor(status)}`}>{value ?? 0}</dd>
           </div>
         ))}
       </dl>
-    </div>
+    </section>
   );
 }
 
-function ModuleCard({ label, to, color }) {
+function ModuleCard({ label, to }) {
   return (
     <Link
       to={to}
-      className={`flex items-center justify-between rounded-xl ${color} px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90`}
+      className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50/50 hover:text-teal-900"
     >
       {label}
-      <ArrowRight className="h-4 w-4" />
+      <ArrowRight className="h-4 w-4 text-slate-400" />
     </Link>
   );
 }
@@ -73,23 +98,41 @@ export default function ProductionDashboard() {
     }
   }, [addToast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
   useManufacturingRefresh(load);
 
-  if (loading) return <Loader label="Loading production hub..." />;
+  if (loading) {
+    return (
+      <div className="space-y-5" aria-busy="true">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+        <Loader label="Loading production hub..." />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5 pb-4">
       <ProductionManagerNav />
 
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Production Hub</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Operations</p>
+          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Production Hub</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Unified production control center — planning, schedule, allocation, shop floor, batches, and quality.
+            Planning, schedule, allocation, shop floor, batches, and quality in one control center.
           </p>
         </div>
-        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={load}
+          className="inline-flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+        >
           <RefreshCw className="h-4 w-4" /> Refresh
         </button>
       </header>
@@ -97,22 +140,10 @@ export default function ProductionDashboard() {
       <ManufacturingWorkflowBar currentStepId="production" />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-[#2563EB] to-indigo-600 p-5 text-white shadow-sm">
-          <p className="text-xs font-medium opacity-80">Running Jobs</p>
-          <p className="mt-1 text-3xl font-bold">{hub.running_jobs}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-medium text-slate-500">Production In Progress</p>
-          <p className="mt-1 text-3xl font-bold text-slate-900">{hub.production_in_progress}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-medium text-slate-500">Completed Today</p>
-          <p className="mt-1 text-3xl font-bold text-green-600">{hub.production_completed_today}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-medium text-slate-500">Quality Passed</p>
-          <p className="mt-1 text-3xl font-bold text-emerald-600">{hub.quality_passed}</p>
-        </div>
+        <KpiCard label="Running Jobs" value={hub.running_jobs} accent />
+        <KpiCard label="Production In Progress" value={hub.production_in_progress} />
+        <KpiCard label="Completed Today" value={hub.production_completed_today} tone="success" />
+        <KpiCard label="Quality Passed" value={hub.quality_passed} tone="success" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -158,57 +189,81 @@ export default function ProductionDashboard() {
             ["Failed", hub.quality_failed, "warning"],
           ]}
         />
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800">
-            <AlertTriangle className="h-4 w-4 text-amber-500" /> Quick Module Access
+        <section className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            Quick Module Access
           </h3>
           <div className="grid gap-2">
             {HUB_MODULES.map((m) => (
-              <ModuleCard key={m.to} {...m} />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="mb-3 text-sm font-bold text-slate-800">Running Jobs</h3>
-          <div className="space-y-2">
-            {(hub.recent_jobs || []).map((j) => (
-              <div key={j.work_order_number} className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">{j.work_order_number}</p>
-                  <p className="text-xs text-slate-500">{j.product} · {j.machine}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-semibold text-green-600">{j.progress_pct}%</p>
-                  <p className="text-[10px] capitalize text-slate-500">{j.status}</p>
-                </div>
-              </div>
+              <ModuleCard key={m.to} label={m.label} to={m.to} />
             ))}
           </div>
         </section>
+      </div>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="mb-3 text-sm font-bold text-slate-800">Machine Status</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {(hub.machine_status || []).map((m) => (
-              <div key={m.code} className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-center">
-                <p className="text-xs font-bold text-slate-800">{m.name}</p>
-                <p className="text-[10px] capitalize text-slate-500">{m.status}</p>
-              </div>
-            ))}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-800">Running Jobs</h3>
+            <Link to="/production/work-orders" className="text-xs font-semibold text-teal-700 hover:underline">
+              View all
+            </Link>
           </div>
+          {(hub.recent_jobs || []).length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-500">No running jobs right now.</p>
+          ) : (
+            <div className="space-y-2">
+              {(hub.recent_jobs || []).map((j) => (
+                <div
+                  key={j.work_order_number}
+                  className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2.5"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{j.work_order_number}</p>
+                    <p className="text-xs text-slate-500">
+                      {j.product} · {j.machine}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-semibold tabular-nums text-teal-800">{j.progress_pct}%</p>
+                    <p className="text-[10px] capitalize text-slate-500">{j.status}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-800">Machine Status</h3>
+            <Link to="/production/machines" className="text-xs font-semibold text-teal-700 hover:underline">
+              View all
+            </Link>
+          </div>
+          {(hub.machine_status || []).length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-500">No machine data available.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {(hub.machine_status || []).map((m) => (
+                <div key={m.code} className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-center">
+                  <p className="text-xs font-bold text-slate-800">{m.name}</p>
+                  <p className="text-[10px] capitalize text-slate-500">{m.status}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-        <p className="mb-2 text-xs font-semibold text-slate-500">Module Integration Flow</p>
-        <div className="flex flex-wrap gap-2">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Module integration flow</p>
+        <div className="flex flex-wrap items-center gap-2">
           {HUB_FLOW.map((step, i) => (
             <span key={step} className="flex items-center gap-2 text-xs text-slate-600">
-              <span className="font-semibold text-[#2563EB]">{step}</span>
-              {i < HUB_FLOW.length - 1 && <span className="text-slate-300">↓</span>}
+              <span className="rounded-md bg-white px-2 py-1 font-semibold text-teal-800 ring-1 ring-slate-200">{step}</span>
+              {i < HUB_FLOW.length - 1 ? <ArrowRight className="h-3 w-3 text-slate-300" aria-hidden /> : null}
             </span>
           ))}
         </div>

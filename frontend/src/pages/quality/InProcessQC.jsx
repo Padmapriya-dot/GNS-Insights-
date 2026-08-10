@@ -86,8 +86,8 @@ export default function InProcessQC() {
     <div className="min-h-full pb-8 print:p-0" style={{ background: "#F5F5F5" }}>
       <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">In-Process Quality Control (QC)</h1>
-          <p className="mt-0.5 text-xs text-slate-500 print:hidden">Real-time quality checks during manufacturing — work order, machine, shift, operator.</p>
+          <h1 className="text-2xl font-bold text-slate-900">In-Process Quality Control (QC)</h1>
+          <p className="mt-1 text-sm text-slate-500 print:hidden">Real-time quality checks during manufacturing — work order, machine, shift, operator.</p>
         </div>
 
 
@@ -99,7 +99,7 @@ export default function InProcessQC() {
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiCard label="Production Running" value={summary.production_running} icon={Cog} color="bg-blue-600" />
-        <KpiCard label="QC Pending" value={summary.qc_pending} icon={Clock} color="bg-orange-500" />
+        <KpiCard label="Quality Control (QC) Pending" value={summary.qc_pending} icon={Clock} color="bg-orange-500" />
         <KpiCard label="Passed" value={summary.passed} icon={CheckCircle} color="bg-green-600" />
         <KpiCard label="Failed" value={summary.failed} icon={XCircle} color="bg-red-500" />
         <KpiCard label="Rework" value={summary.rework} icon={RotateCcw} color="bg-amber-500" />
