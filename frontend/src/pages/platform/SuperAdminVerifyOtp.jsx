@@ -6,6 +6,7 @@ import {
   superAdminVerifyOtp,
 } from "../../api/platformApi";
 import BrandLogo from "../../components/common/BrandLogo";
+import AdminAuthShell from "../../components/platform/AdminAuthShell";
 import OtpInputBoxes from "../../components/auth/OtpInputBoxes";
 import OtpResendTimer from "../../components/auth/OtpResendTimer";
 import { getDashboardPathForRole } from "../../utils/roleRedirect";
@@ -100,13 +101,12 @@ export default function SuperAdminVerifyOtp() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-teal-50/40 to-slate-100 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-8 shadow-xl">
+    <AdminAuthShell>
         <div className="mb-6 flex flex-col items-center text-center">
           <BrandLogo size="lg" />
-          <h1 className="mt-4 text-2xl font-bold text-slate-900">OTP Verification</h1>
+          <h1 className="mt-4 text-[28px] font-bold tracking-tight text-[#002C66]">OTP Verification</h1>
           <p className="mt-2 text-sm text-slate-500">Enter the 6-digit code sent to</p>
-          <p className="mt-1 font-mono text-sm font-semibold tracking-wide text-teal-700">
+          <p className="mt-1 font-mono text-sm font-semibold tracking-wide text-[#0E2F5C]">
             {maskedMobile}
           </p>
         </div>
@@ -154,7 +154,7 @@ export default function SuperAdminVerifyOtp() {
           <button
             type="submit"
             disabled={loading || otp.length !== 6}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0E2F5C] py-2.5 text-sm font-semibold text-white hover:bg-[#0a254a] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading && (
               <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -179,11 +179,10 @@ export default function SuperAdminVerifyOtp() {
         </form>
 
         <p className="mt-6 text-center text-xs text-slate-500">
-          <Link to="/gns-admin/login" className="font-medium text-teal-600 hover:underline">
+          <Link to="/gns-admin/login" className="font-medium text-[#002C66] hover:underline">
             Back to login
           </Link>
         </p>
-      </div>
-    </div>
+    </AdminAuthShell>
   );
 }
