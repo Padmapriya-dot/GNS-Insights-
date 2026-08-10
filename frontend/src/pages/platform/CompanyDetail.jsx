@@ -13,6 +13,42 @@ import {
 } from "../../api/platformApi";
 
 function PortalDecorations() {
+  useEffect(() => {
+    const bubbles = Array.from(document.querySelectorAll(".ap-bubble"));
+    const factors = [0.06, 0.04, 0.08, 0.05, 0.045, 0.055];
+    let raf = null;
+
+    function onMove(e) {
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const nx = (e.clientX - cx) / cx;
+      const ny = (e.clientY - cy) / cy;
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        bubbles.forEach((b, i) => {
+          const f = factors[i] || 0.05;
+          const tx = Math.round(nx * f * window.innerWidth);
+          const ty = Math.round(ny * f * window.innerHeight * -0.35);
+          b.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${1 + f * 0.6})`;
+        });
+      });
+    }
+
+    function onLeave() {
+      bubbles.forEach((b) => { b.style.transform = "translate3d(0px, 0px, 0) scale(1)"; });
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseleave", onLeave);
+    window.addEventListener("blur", onLeave);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseleave", onLeave);
+      window.removeEventListener("blur", onLeave);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
     <>
       <div className="ap-bg" />
@@ -81,11 +117,19 @@ function CompanyDetailContent() {
   return (
     <div className="ap-root">
       <PortalDecorations />
+      <div className="ap-bubble ap-bubble-1" />
+      <div className="ap-bubble ap-bubble-2" />
+      <div className="ap-bubble ap-bubble-3" />
+      <div className="ap-bubble ap-bubble-4" />
+      <div className="ap-bubble ap-bubble-5" />
+      <div className="ap-bubble ap-bubble-6" />
+      <div className="ap-curve ap-curve--white" />
+      <div className="ap-curve ap-curve--gold" />
       <div className="ap-content">
         <header className="ap-header">
           <div className="ap-header__inner">
             <div className="ap-header__brand">
-              <BrandLogo size="sm" />
+              <BrandLogo size="hero" />
               <div>
                 <div className="ap-header__title">GNS Admin Portal</div>
                 <div className="ap-header__sub">Company Detail</div>

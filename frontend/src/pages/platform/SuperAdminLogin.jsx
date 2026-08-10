@@ -79,15 +79,17 @@ export default function SuperAdminLogin() {
     <div className="sa-root">
       {/* ── 1. base gradient ── */}
       <div className="sa-bg-base" />
-      <div className="sa-hero-wave" aria-hidden="true" />
 
-      {/* ── 2. top-left large glassy orb ── */}
+      {/* ── 2. soft blurred shape behind the card ── */}
+      <div className="sa-hero-wave" />
+
+      {/* ── 3. top-left large glassy orb ── */}
       <div className="sa-orb-tl" />
 
-      {/* ── 3. left-center softer glass orb ── */}
+      {/* ── 4. left-center softer glass orb ── */}
       <div className="sa-orb-tr" />
 
-      {/* ── 4. bottom-left small curved wave ── */}
+      {/* ── 5. bottom-left small curved wave ── */}
       <div className="sa-wave" aria-hidden="true">
         <svg
           viewBox="0 0 560 180"
@@ -115,13 +117,12 @@ export default function SuperAdminLogin() {
       {/* ── card ── */}
       <div className="sa-center">
         <div className="sa-card">
-          <div className="sa-card__border" />
-          <div className="sa-card__topline" />
 
           {/* logo + heading */}
           <div className="sa-card__header">
-            <span className="sa-card__badge">Premium Access</span>
-            <BrandLogo size="lg" />
+            <div className="sa-card__logo">
+              <BrandLogo size="lg" />
+            </div>
             <h1 className="sa-card__title">GNS Admin Portal</h1>
             <p className="sa-card__subtitle">Super Admin sign in</p>
           </div>
@@ -136,27 +137,31 @@ export default function SuperAdminLogin() {
 
             {/* email */}
             <div className="sa-field">
-              <label className="sa-label">Company Email</label>
+              <label htmlFor="sa-email" className="sa-label">Company Email</label>
               <div className="sa-input-wrap">
                 <MailIcon />
                 <input
+                  id="sa-email"
+                  name="email"
                   type="email"
                   placeholder="Enter your company email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="sa-input"
                   required
-                  autoComplete="username"
+                  autoComplete="email"
                 />
               </div>
             </div>
 
             {/* password */}
             <div className="sa-field">
-              <label className="sa-label">Password</label>
+              <label htmlFor="sa-password" className="sa-label">Password</label>
               <div className="sa-input-wrap">
                 <LockIcon />
                 <input
+                  id="sa-password"
+                  name="password"
                   type={showPwd ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}

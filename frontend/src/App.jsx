@@ -170,8 +170,9 @@ export default function App() {
   const isFullBleedSales = isInvoiceEditor || isSalesDocList || isEInvoiceLogin;
 
   if (isShellLessRoute(location.pathname)) {
+    const isAdminShell = location.pathname.startsWith("/gns-admin");
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+      <div className={`min-h-screen ${isAdminShell ? "" : "bg-slate-50 dark:bg-slate-900"}`}>
         <Suspense fallback={<RouteFallback />}>
           <AppRoutes />
         </Suspense>
