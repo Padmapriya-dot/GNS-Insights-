@@ -28,28 +28,11 @@ import {
   listInventoryV2Items,
   removeInventoryV2Stock,
 } from "../../api/inventoryV2Api";
-import { PRODUCT_CATEGORIES } from "../../data/productsMasterData";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import { apiErrorMessage } from "../../utils/apiError";
 
 const PAGE_BG = "#F4F7FE";
 const PAGE_SIZES = [10, 20, 50];
-
-/** Shown when the API returns no inventory items (matches reference UI). */
-const DEMO_INVENTORY_ITEM = {
-  id: "demo-product",
-  name: "Demo Product",
-  hsn_code: "",
-  stock_value: 0,
-  purchase_price: 0,
-  selling_price: 100,
-  current_stock: 0,
-  unit: "PCS",
-  category: "No Category",
-  min_stock: 0,
-  gst_percent: 0,
-  description: "",
-};
 
 const SORT_OPTIONS = [
   { id: "name-asc", label: "Item Name A-Z" },

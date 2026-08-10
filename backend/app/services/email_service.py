@@ -76,6 +76,7 @@ def _send_via_smtplib(
     body: str,
     *,
     html: str | None = None,
+    attachments: list[tuple[str, bytes, str]] | None = None,
 ) -> None:
     _require_smtp()
     s = _settings()
@@ -86,6 +87,9 @@ def _send_via_smtplib(
     msg.set_content(body)
     if html:
         msg.add_alternative(html, subtype="html")
+    for filename, content, mime in attachments or []:
+        maintype, _, subtype = (mime or "application/octet-stream").partition("/")
+        msg.add_attachment(content, maintype=maintype, subtype=subtype or "octet-stream", filename=filename)
 
     try:
         with smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=30) as server:
@@ -141,10 +145,11 @@ async def send_email_async(
     body: str,
     *,
     html: str | None = None,
+    attachments: list[tuple[str, bytes, str]] | None = None,
 ) -> None:
     """Send email asynchronously. Prefers FastAPI-Mail; otherwise smtplib."""
     _require_smtp()
-    if _HAS_FASTAPI_MAIL:
+    if _HAS_FASTAPI_MAIL and not attachments:
         try:
             await _send_via_fastapi_mail(to, subject, body, html=html)
             return
@@ -152,7 +157,7 @@ async def send_email_async(
             raise
         except Exception:
             logger.warning("fastapi_mail_failed_falling_back_to_smtplib to=%s", to)
-    await asyncio.to_thread(_send_via_smtplib, to, subject, body, html=html)
+    await asyncio.to_thread(_send_via_smtplib, to, subject, body, html=html, attachments=attachments)
 
 
 def send_email(

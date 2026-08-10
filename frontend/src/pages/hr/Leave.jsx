@@ -5,7 +5,7 @@ import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getLeaveEnriched, getLeaveSummary, updateLeaveRequest, createLeaveRequest, getEmployeesEnriched } from "../../api/hrApi";
-import { DEMO_LEAVE_SUMMARY, LEAVE_TYPES, statusColor } from "../../data/hrMasterData";
+import { LEAVE_TYPES, statusColor } from "../../data/hrMasterData";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
@@ -47,7 +47,7 @@ function KpiCard({ label, value, icon: Icon, color }) {
 export default function Leave() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(DEMO_LEAVE_SUMMARY);
+  const [summary, setSummary] = useState({});
   const [rows, setRows] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
@@ -73,17 +73,25 @@ export default function Leave() {
         getLeaveEnriched(),
         getEmployeesEnriched()
       ]);
-      let hasError = false;
       if (sumRes.status === "fulfilled" && sumRes.value?.data) {
-        setSummary({ ...DEMO_LEAVE_SUMMARY, ...sumRes.value.data });
+        setSummary(sumRes.value.data || {});
+      } else {
+        setSummary({});
       }
       if (listRes.status === "fulfilled" && Array.isArray(listRes.value?.data)) {
         setRows([...listRes.value.data]);
+      } else {
+        setRows([]);
       }
       if (empRes.status === "fulfilled" && Array.isArray(empRes.value?.data)) {
         setEmployees([...empRes.value.data]);
+      } else {
+        setEmployees([]);
       }
     } catch {
+      setSummary({});
+      setRows([]);
+      setEmployees([]);
     } finally {
       setLoading(false);
     }

@@ -160,3 +160,9 @@ class InvoiceV2Read(BaseModel):
     buyer_name: str | None = None
     items: list[InvoiceV2ItemRead] = []
     model_config = ConfigDict(from_attributes=True)
+
+
+class InvoiceEmailRequest(BaseModel):
+    to_email: str | None = None
+    subject: str | None = None
+    message: str | None = None

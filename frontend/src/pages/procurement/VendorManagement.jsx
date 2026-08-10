@@ -30,7 +30,6 @@ import {
   updateVendorApproval,
 } from "../../api/procurementApi";
 import {
-  DEMO_VENDORS,
   IMPORT_TEMPLATE_HEADERS,
   INDIAN_STATES,
   MATERIAL_TYPES,
@@ -198,7 +197,7 @@ export default function VendorManagement() {
 
   const handleDownloadTemplate = () => {
     const header = IMPORT_TEMPLATE_HEADERS.join(",");
-    const blob = new Blob([`${header}\nVEN006,Sample Vendor,John,+919999999999,john@vendor.com,36AABCS1234A1Z1,Hyderabad,Telangana,Net 30,active,Raw Material,Steel`], { type: "text/csv" });
+    const blob = new Blob([`${header}\n`], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "vendors_import_template.csv";
@@ -241,25 +240,9 @@ export default function VendorManagement() {
       loadVendors();
       setFormVendor(null);
       return;
-    } catch {
-      /* local fallback */
-    }
-    if (formVendor?.id) {
-      setVendors((prev) => prev.map((v) => (v.id === formVendor.id ? { ...v, ...form } : v)));
-      addToast("Vendor updated locally");
-    } else {
-      const venCode = form.vendor_code?.trim() || `VEN${String(vendors.length + 1).padStart(3, "0")}`;
-      const newV = {
-        ...enrichApiVendor({ id: `new-${Date.now()}`, ...payload }, vendors.length),
-        id: `new-${Date.now()}`,
-        ...form,
-        vendor_code: venCode,
-        outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
-        rating: form.rating != null && form.rating !== "" ? Number(form.rating) : 4.0,
-        created_at: new Date().toISOString().slice(0, 10),
-      };
-      setVendors((prev) => [...prev, newV]);
-      addToast("Vendor added");
+    } catch (err) {
+      addToast(err?.response?.data?.detail || "Could not save vendor.", "error");
+      return;
     }
     setFormVendor(null);
   };
