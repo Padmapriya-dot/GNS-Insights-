@@ -449,7 +449,7 @@ export default function MakePaymentForm() {
                       className="flex w-full items-center justify-center gap-1 border-t border-[#ececf0] py-3 text-[13px] font-semibold"
                       style={{ background: LAVENDER, color: PURPLE }}
                     >
-                      + Add New Party
+                      + Add Vendor
                     </button>
                   </div>
                 ) : null}
@@ -756,6 +756,7 @@ export default function MakePaymentForm() {
 
       <AddNewPartyModal
         open={addSellerOpen}
+        variant="vendor"
         onClose={() => setAddSellerOpen(false)}
         onSaved={(party) => {
           if (!party) return;
