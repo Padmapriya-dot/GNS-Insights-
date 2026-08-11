@@ -562,7 +562,7 @@ export default function PaymentReceiptForm() {
                       className="flex w-full items-center justify-center gap-1 border-t border-[#ececf0] py-3 text-[13px] font-semibold"
                       style={{ background: LAVENDER, color: PURPLE }}
                     >
-                      + Add New Party
+                      + Add Customer
                     </button>
                   </div>
                 ) : null}

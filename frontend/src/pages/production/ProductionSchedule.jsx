@@ -63,18 +63,16 @@ const VIEWS = [
 function SummaryCard({ label, value, sub, icon: Icon, color }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div className="min-w-0">
-          <div className="text-xs font-medium text-slate-500">{label}</div>
-          <div className="mt-1 truncate text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{value}</div>
-          {sub && <div className="mt-0.5 text-[10px] text-slate-400">{sub}</div>}
-        </div>
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <p className="text-xs font-medium text-slate-500 leading-snug">{label}</p>
         {Icon && (
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
+          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${color}`}>
+            <Icon className="h-3.5 w-3.5 text-white" />
           </div>
         )}
       </div>
+      <div className="truncate text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{value}</div>
+      {sub && <div className="mt-0.5 text-[10px] text-slate-400">{sub}</div>}
     </div>
   );
 }

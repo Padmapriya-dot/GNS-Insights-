@@ -21,16 +21,20 @@ import {
   Boxes,
   CheckCircle2,
   Clock,
+  Cpu,
   Gauge,
   IndianRupee,
   ListTodo,
   Package,
+  Play,
   Plus,
   RefreshCw,
   ShoppingCart,
+  Square,
   Target,
   Users,
   Wrench,
+  X,
   Zap,
 } from "lucide-react";
 
@@ -38,7 +42,9 @@ import EmptyChart from "../../common/EmptyChart";
 import SkeletonCard, { SkeletonChart } from "../../common/SkeletonCard";
 import { quickActionsRef } from "../../../data/referenceDashboardData";
 import { getErpDashboard } from "../../../api/dashboardApi";
+import { getMachines, updateMachineStatus } from "../../../api/productionApi";
 import useAuth from "../../../hooks/useAuth";
+import { useToast } from "../../../context/ToastContext";
 import useManufacturingRefresh from "../../../hooks/useManufacturingRefresh";
 import { userCanAccess, isOperator } from "../../../config/permissions";
 import { CardShell, KpiIcon, StatusBadge, TrendBadge, getKpiAccent } from "./ReferenceParts";
@@ -796,6 +802,331 @@ function TodaysSummary({ items = [] }) {
   );
 }
 
+function MachineControlCard() {
+  const { addToast } = useToast();
+  const { user } = useAuth();
+  const isOp = isOperator(user);
+  const [machines, setMachines] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [reasonModalMachine, setReasonModalMachine] = useState(null);
+  const [reasonInput, setReasonInput] = useState("");
+
+  const fetchMachines = useCallback(async () => {
+    setLoading(true);
+    try {
+      let local = [];
+      try {
+        const stored = localStorage.getItem("smrt_local_machines");
+        if (stored) local = JSON.parse(stored);
+      } catch {}
+
+      const res = await getMachines().catch(() => ({ data: [] }));
+      const apiList = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+
+      if (apiList.length > 0 || local.length > 0) {
+        const merged = [...local, ...apiList];
+        const seen = new Set();
+        const dedupped = merged.filter((m) => {
+          const key = m.id || m.code || m.name;
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setMachines(dedupped);
+      } else {
+        setMachines([]);
+      }
+    } catch {
+      setMachines([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMachines();
+  }, [fetchMachines]);
+
+  const saveMachinesState = (newList) => {
+    setMachines(newList);
+    try {
+      localStorage.setItem("smrt_local_machines", JSON.stringify(newList));
+    } catch {}
+  };
+
+  const handleStartMachine = async (m) => {
+    const updated = machines.map((item) =>
+      (item.id && item.id === m.id) || (item.code && item.code === m.code) || item.name === m.name
+        ? { ...item, status: "running", idle_reason: null }
+        : item
+    );
+    saveMachinesState(updated);
+    if (addToast) addToast(`${m.name} started`, "success");
+    if (typeof m.id === "number") {
+      updateMachineStatus(m.id, null, "running").catch(() => null);
+    }
+  };
+
+  const handleStopMachine = async (m) => {
+    const updated = machines.map((item) =>
+      (item.id && item.id === m.id) || (item.code && item.code === m.code) || item.name === m.name
+        ? { ...item, status: "stopped" }
+        : item
+    );
+    saveMachinesState(updated);
+    if (addToast) addToast(`${m.name} stopped`, "info");
+    if (typeof m.id === "number") {
+      updateMachineStatus(m.id, null, "stopped").catch(() => null);
+    }
+  };
+
+  const handleSaveReason = (e) => {
+    e?.preventDefault();
+    if (!reasonModalMachine) return;
+    const r = reasonInput.trim() || "Maintenance";
+    const updated = machines.map((item) =>
+      (item.id && item.id === reasonModalMachine.id) ||
+      (item.code && item.code === reasonModalMachine.code) ||
+      item.name === reasonModalMachine.name
+        ? { ...item, status: "stopped", idle_reason: r }
+        : item
+    );
+    saveMachinesState(updated);
+    if (addToast) addToast(`Reason for ${reasonModalMachine.name} set to: ${r}`, "success");
+    if (typeof reasonModalMachine.id === "number") {
+      updateMachineStatus(reasonModalMachine.id, null, "stopped", r).catch(() => null);
+    }
+    setReasonModalMachine(null);
+    setReasonInput("");
+  };
+
+  const runningCount = machines.filter((m) => m.status === "running").length;
+  const idleCount = machines.filter((m) => m.status === "idle").length;
+  const stoppedCount = machines.filter(
+    (m) => m.status === "stopped" || m.status === "down" || m.status === "breakdown"
+  ).length;
+
+  return (
+    <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm">
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="text-lg font-bold text-slate-900">Machine Control</h3>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={fetchMachines}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
+            title="Refresh Machines"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+          <Link
+            to="/production/machines"
+            className="text-xs sm:text-sm font-semibold text-[#2563EB] hover:underline flex items-center gap-1"
+          >
+            All Machines &rarr;
+          </Link>
+        </div>
+      </div>
+
+      {/* Summary Pills Bar */}
+      <div className="mb-4 flex flex-wrap items-center justify-around gap-2 rounded-2xl bg-slate-50/90 border border-slate-100 px-4 py-2.5 text-xs font-bold">
+        <span className="flex items-center text-emerald-700">
+          <span className="mr-1.5 h-2 w-2 rounded-full bg-emerald-500" />
+          Running: {runningCount}
+        </span>
+        <span className="flex items-center text-amber-700">
+          <span className="mr-1.5 h-2 w-2 rounded-full bg-amber-500" />
+          Idle: {idleCount}
+        </span>
+        <span className="flex items-center text-rose-700">
+          <span className="mr-1.5 h-2 w-2 rounded-full bg-rose-500" />
+          Stopped: {stoppedCount}
+        </span>
+      </div>
+
+      {/* Machine Cards Container */}
+      {machines.length === 0 ? (
+        <div className="py-10 text-center">
+          <Cpu className="mx-auto h-10 w-10 text-slate-300 mb-2" />
+          <p className="text-sm font-medium text-slate-600">No machines added yet.</p>
+          <p className="text-xs text-slate-400 mt-1 mb-4">Add a machine to monitor and control it here.</p>
+          {!isOp && (
+            <Link
+              to="/production/create-machine"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-teal-700 px-4 py-2 text-xs font-bold text-white hover:bg-teal-800 transition-colors"
+            >
+              <Plus className="h-4 w-4" /> Add Machine
+            </Link>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3.5 max-h-[380px] overflow-y-auto pr-1">
+          {machines.map((m) => {
+            const isRunning = m.status === "running";
+            const isStopped = m.status === "stopped" || m.status === "down" || m.status === "breakdown";
+            const isIdle = m.status === "idle";
+
+            const cardBorderBg = isRunning
+              ? "border-emerald-200/90 bg-emerald-50/20"
+              : isStopped
+              ? "border-rose-200/90 bg-rose-50/20"
+              : "border-amber-200/90 bg-amber-50/20";
+
+            return (
+              <div key={m.id || m.code || m.name} className={`rounded-2xl border ${cardBorderBg} p-4 transition-all`}>
+                {/* Card Header */}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-bold text-slate-900">{m.name}</span>
+                      <span className="rounded-full bg-slate-100/90 px-2 py-0.5 text-[11px] font-semibold text-slate-600 border border-slate-200">
+                        {m.code || m.id}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs font-medium text-slate-500">
+                      {m.department || "Machining"} · {m.production_line || "Line A"}
+                    </p>
+                  </div>
+                  {/* Status Pill Badge */}
+                  {isRunning && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 border border-emerald-200">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      Running
+                    </span>
+                  )}
+                  {isStopped && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-800 border border-rose-200">
+                      <span className="h-2 w-2 rounded-full bg-rose-500" />
+                      Stopped
+                    </span>
+                  )}
+                  {isIdle && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 border border-amber-200">
+                      <span className="h-2 w-2 rounded-full bg-amber-500" />
+                      Idle
+                    </span>
+                  )}
+                </div>
+
+                {m.idle_reason && (
+                  <p className="mt-2 text-xs font-medium text-amber-800 bg-amber-50/80 border border-amber-200 rounded-lg px-2.5 py-1">
+                    Reason: {m.idle_reason}
+                  </p>
+                )}
+
+                {/* Bottom Actions Row */}
+                <div className="mt-3.5 flex items-center justify-between border-t border-slate-100/80 pt-3">
+                  <span className="text-xs font-semibold text-slate-600">
+                    Operator: <strong className="text-slate-900">{m.assigned_operator || m.operator_name || user?.full_name || "Ravi"}</strong>
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    {!isRunning ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleStartMachine(m)}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3.5 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition-colors shadow-xs cursor-pointer"
+                        >
+                          <Play className="h-3.5 w-3.5 fill-current" />
+                          Start Machine
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReasonModalMachine(m);
+                            setReasonInput(m.idle_reason || "");
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors shadow-xs cursor-pointer"
+                        >
+                          <Wrench className="h-3.5 w-3.5" />
+                          Reason
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleStopMachine(m)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-3.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors shadow-xs cursor-pointer"
+                      >
+                        <Square className="h-3.5 w-3.5 fill-current" />
+                        Stop Machine
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Downtime / Reason Modal */}
+      {reasonModalMachine && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h4 className="text-base font-bold text-slate-900">
+                Stop Reason for {reasonModalMachine.name}
+              </h4>
+              <button
+                type="button"
+                onClick={() => setReasonModalMachine(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveReason} className="mt-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                  Select or enter reason:
+                </label>
+                <select
+                  value={reasonInput}
+                  onChange={(e) => setReasonInput(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-amber-400"
+                >
+                  <option value="">-- Select Reason --</option>
+                  <option value="Tooling Maintenance">Tooling Maintenance</option>
+                  <option value="Material Shortage">Material Shortage</option>
+                  <option value="Operator Break">Operator Break</option>
+                  <option value="Scheduled Servicing">Scheduled Servicing</option>
+                  <option value="Quality Inspection">Quality Inspection</option>
+                  <option value="Power Outage">Power Outage</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Or type custom reason..."
+                  value={reasonInput}
+                  onChange={(e) => setReasonInput(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 outline-none focus:border-amber-400"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setReasonModalMachine(null)}
+                  className="rounded-xl border border-slate-200 px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-amber-500 px-4 py-1.5 text-xs font-bold text-white hover:bg-amber-600"
+                >
+                  Save Reason
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ReferenceDashboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -964,8 +1295,13 @@ export default function ReferenceDashboard() {
       {(showProduction || showShopFloor || showTopMachines || (isOp && sectionVisible(sections, "production_overview"))) && (
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
           {(showProduction || (isOp && sectionVisible(sections, "production_overview"))) && (
-            <div className={isOp || (!showShopFloor && !showTopMachines) ? "xl:col-span-12" : "xl:col-span-5"}>
+            <div className={isOp ? "xl:col-span-6" : (!showShopFloor && !showTopMachines) ? "xl:col-span-12" : "xl:col-span-5"}>
               <ProductionOverview chartSets={chartSets} />
+            </div>
+          )}
+          {isOp && (
+            <div className="xl:col-span-6">
+              <MachineControlCard />
             </div>
           )}
           {showShopFloor ? (

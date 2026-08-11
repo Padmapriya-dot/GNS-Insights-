@@ -36,6 +36,7 @@ import useAuth from "../../hooks/useAuth";
 import { isOperator } from "../../config/permissions";
 import {
   completeProductionOrder,
+  createProductionOrder,
   getProductionOrderDetail,
   getProductionOrderStartChecks,
   getProductionOrders,
@@ -70,6 +71,380 @@ import IssueMaterialsModal from "../../components/production/IssueMaterialsModal
 const PAGE_BG = "#F5F5F5";
 const YELLOW = "#F5C518";
 const PAGE_SIZES = [20, 50, 100];
+
+/* ─── Priority dot helper ─── */
+const PRIORITY_DOT = {
+  high: { dot: "🔴", label: "High" },
+  medium: { dot: "🟡", label: "Medium" },
+  low: { dot: "🟢", label: "Low" },
+};
+
+/* ─── Create Production Order Modal ─────────────────────────────── */
+const MODAL_INPUT =
+  "w-full rounded-xl border border-[#dcdce3] bg-[#fafafa] px-3.5 py-2.5 text-[13px] text-[#1a1a1f] placeholder:text-[#b0b0bb] focus:border-[#F5C518] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F5C51830] transition-all";
+const MODAL_SELECT =
+  "w-full rounded-xl border border-[#dcdce3] bg-[#fafafa] px-3.5 py-2.5 text-[13px] text-[#1a1a1f] focus:border-[#F5C518] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F5C51830] transition-all appearance-none cursor-pointer";
+const MODAL_LABEL =
+  "block mb-1 text-[11px] font-bold uppercase tracking-wider text-[#6b6b76]";
+
+function CreateProductionOrderModal({ open, onClose, machines, onCreated }) {
+  const emptyForm = {
+    product_no: "",
+    machine_id: "",
+    operator_name: "",
+    operator_id: "",
+    planned_quantity: "",
+    size: "",
+    priority: "medium",
+    shift: "General",
+    status: "planned",
+    start_date: "",
+    due_date: "",
+  };
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  // Reset when modal opens
+  useEffect(() => {
+    if (open) {
+      setForm(emptyForm);
+      setErrors({});
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((p) => ({ ...p, [name]: value }));
+    if (errors[name]) setErrors((p) => ({ ...p, [name]: "" }));
+  };
+
+  const validate = () => {
+    const errs = {};
+    if (!form.product_no.trim()) errs.product_no = "Product No. is required.";
+    if (!form.planned_quantity || Number(form.planned_quantity) <= 0)
+      errs.planned_quantity = "Enter a valid quantity.";
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validate()) return;
+    setSaving(true);
+    const selectedMachine = machines.find((m) => String(m.id) === String(form.machine_id));
+    const payload = {
+      order_number: form.product_no,
+      product_no: form.product_no,
+      machine_id: form.machine_id ? Number(form.machine_id) : null,
+      machine_name: selectedMachine ? (selectedMachine.name || selectedMachine.code) : undefined,
+      operator_name: form.operator_name,
+      operator_id: form.operator_id,
+      planned_quantity: Number(form.planned_quantity),
+      size: form.size,
+      priority: form.priority,
+      shift: form.shift,
+      status: form.status,
+      start_date: form.start_date || undefined,
+      due_date: form.due_date || undefined,
+    };
+    try {
+      await createProductionOrder(payload);
+      onCreated?.(payload);
+      onClose();
+    } catch {
+      // Save locally if API fails
+      const localOrder = enrichApiOrder({
+        ...payload,
+        id: `local-${Date.now()}`,
+        created_at: new Date().toISOString(),
+      });
+      try {
+        const stored = localStorage.getItem("smrt_local_production_orders");
+        const existing = stored ? JSON.parse(stored) : [];
+        localStorage.setItem(
+          "smrt_local_production_orders",
+          JSON.stringify([localOrder, ...existing])
+        );
+      } catch {}
+      onCreated?.(localOrder);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[9000] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.45)" }}
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-[760px] overflow-hidden rounded-2xl bg-white shadow-2xl"
+        style={{ animation: "modalIn 0.18s cubic-bezier(.4,0,.2,1) both" }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3.5 border-b border-[#f0f0f4] bg-white px-6 py-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFF3C4] text-xl">
+            📋
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-[17px] font-bold text-[#1a1a1f] leading-tight">New Production Order</h2>
+            <p className="text-[12px] text-[#9a9aa5] mt-0.5">Fill in the details to create a production order</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#9a9aa5] hover:bg-[#f5f5f7] hover:text-[#1a1a1f] transition-colors"
+          >
+            <X className="h-4.5 w-4.5" />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit}>
+          <div className="max-h-[70vh] overflow-y-auto px-6 py-5 space-y-4 bg-[#fafbfc]">
+
+            {/* Row 1: Product No + Select Machine */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={MODAL_LABEL}>
+                  Product No <span className="text-red-500 normal-case font-bold">*</span>
+                </label>
+                <input
+                  id="create_modal_product_no"
+                  name="product_no"
+                  type="text"
+                  value={form.product_no}
+                  onChange={handleChange}
+                  placeholder="e.g. PROD-1042"
+                  className={`${MODAL_INPUT} ${errors.product_no ? "border-red-400 focus:border-red-400 focus:ring-red-100" : ""}`}
+                />
+                {errors.product_no && (
+                  <p className="mt-1 text-[11px] text-red-500">{errors.product_no}</p>
+                )}
+              </div>
+              <div>
+                <label className={MODAL_LABEL}>
+                  Select Machine <span className="text-[#9a9aa5] normal-case font-normal">(optional)</span>
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9a9aa5] text-sm">⚙</span>
+                  <select
+                    id="create_modal_machine_id"
+                    name="machine_id"
+                    value={form.machine_id}
+                    onChange={handleChange}
+                    className={`${MODAL_SELECT} pl-8 pr-8`}
+                  >
+                    <option value="">Select machine (optional)</option>
+                    {machines.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name || m.machine_name || `Machine ${m.id}`}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9aa5]">▾</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 2: Operator Name + Operator ID */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={MODAL_LABEL}>Operator Name</label>
+                <input
+                  id="create_modal_operator_name"
+                  name="operator_name"
+                  type="text"
+                  value={form.operator_name}
+                  onChange={handleChange}
+                  placeholder="e.g. Rahul Sharma"
+                  className={MODAL_INPUT}
+                />
+              </div>
+              <div>
+                <label className={MODAL_LABEL}>Operator ID</label>
+                <input
+                  id="create_modal_operator_id"
+                  name="operator_id"
+                  type="text"
+                  value={form.operator_id}
+                  onChange={handleChange}
+                  placeholder="e.g. OP-104"
+                  className={MODAL_INPUT}
+                />
+              </div>
+            </div>
+
+            {/* Row 3: Planned Quantity + Output Quantity Size */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={MODAL_LABEL}>
+                  Planned Quantity <span className="text-red-500 normal-case font-bold">*</span>
+                </label>
+                <input
+                  id="create_modal_planned_quantity"
+                  name="planned_quantity"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={form.planned_quantity}
+                  onChange={handleChange}
+                  placeholder="e.g. 500"
+                  className={`${MODAL_INPUT} ${errors.planned_quantity ? "border-red-400 focus:border-red-400 focus:ring-red-100" : ""}`}
+                />
+                {errors.planned_quantity && (
+                  <p className="mt-1 text-[11px] text-red-500">{errors.planned_quantity}</p>
+                )}
+              </div>
+              <div>
+                <label className={MODAL_LABEL}>Output Quantity Size</label>
+                <input
+                  id="create_modal_size"
+                  name="size"
+                  type="text"
+                  value={form.size}
+                  onChange={handleChange}
+                  placeholder="e.g. Large, XL, 500ml"
+                  className={MODAL_INPUT}
+                />
+              </div>
+            </div>
+
+            {/* Row 4: Priority + Shift */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={MODAL_LABEL}>Priority</label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm leading-none">
+                    {PRIORITY_DOT[form.priority]?.dot || "🟡"}
+                  </span>
+                  <select
+                    id="create_modal_priority"
+                    name="priority"
+                    value={form.priority}
+                    onChange={handleChange}
+                    className={`${MODAL_SELECT} pl-9 pr-8`}
+                  >
+                    {PRIORITIES.map((p) => (
+                      <option key={p} value={p}>
+                        {PRIORITY_DOT[p]?.label || p}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9aa5]">▾</span>
+                </div>
+              </div>
+              <div>
+                <label className={MODAL_LABEL}>Shift</label>
+                <div className="relative">
+                  <select
+                    id="create_modal_shift"
+                    name="shift"
+                    value={form.shift}
+                    onChange={handleChange}
+                    className={`${MODAL_SELECT} pr-8`}
+                  >
+                    {SHIFTS.map((s) => {
+                      const id = typeof s === "object" ? s.id : s;
+                      const label = typeof s === "object" ? s.label : s;
+                      const timing = typeof s === "object" ? s.timing : "";
+                      return (
+                        <option key={id} value={id}>
+                          {label}{timing ? ` (${timing})` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9aa5]">▾</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 5: Status (full width) */}
+            <div>
+              <label className={MODAL_LABEL}>Status</label>
+              <div className="relative">
+                <select
+                  id="create_modal_status"
+                  name="status"
+                  value={form.status}
+                  onChange={handleChange}
+                  className={`${MODAL_SELECT} pr-8`}
+                >
+                  {["planned", "draft", "material_ready", "in_progress", "completed", "cancelled"].map((s) => (
+                    <option key={s} value={s}>
+                      {s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </option>
+                  ))}
+                </select>
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9aa5]">▾</span>
+              </div>
+            </div>
+
+            {/* Row 6: Start Date & Time + Due Date & Time */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={MODAL_LABEL}>Start Date &amp; Time</label>
+                <input
+                  id="create_modal_start_date"
+                  name="start_date"
+                  type="datetime-local"
+                  value={form.start_date}
+                  onChange={handleChange}
+                  className={MODAL_INPUT}
+                />
+              </div>
+              <div>
+                <label className={MODAL_LABEL}>Due Date &amp; Time</label>
+                <input
+                  id="create_modal_due_date"
+                  name="due_date"
+                  type="datetime-local"
+                  value={form.due_date}
+                  onChange={handleChange}
+                  className={MODAL_INPUT}
+                />
+              </div>
+            </div>
+
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-3 border-t border-[#f0f0f4] bg-white px-6 py-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-[#dcdce3] bg-white px-5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#f5f5f7] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-[13px] font-bold text-[#1a1a1f] shadow-sm hover:brightness-95 disabled:opacity-60 transition-all"
+              style={{ background: YELLOW }}
+            >
+              <CheckCircle className="h-4 w-4" />
+              {saving ? "Creating…" : "Create Production Order"}
+            </button>
+          </div>
+        </form>
+      </div>
+      <style>{`
+        @keyframes modalIn {
+          from { opacity: 0; transform: scale(0.96) translateY(8px); }
+          to   { opacity: 1; transform: scale(1)   translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 function SummaryCard({ label, value, icon: Icon, color, onClick }) {
   const displayVal =
@@ -231,6 +606,7 @@ export default function ProductionPlanning() {
   const [createdToastOrder, setCreatedToastOrder] = useState(null);
   const [quickWoOrder, setQuickWoOrder] = useState(null);
   const [issueModalOrder, setIssueModalOrder] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -807,11 +1183,34 @@ export default function ProductionPlanning() {
             className="hidden"
           />
 
-          <div>
-            <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Production Planning</h1>
-            <p className="mt-0.5 text-xs text-slate-500 print:hidden">
-              Plan, schedule, and monitor production orders across machines, materials, and operators.
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
+            <div>
+              <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Production Planning</h1>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Plan, schedule, and monitor production orders across machines, materials, and operators.
+              </p>
+            </div>
+            {!isOperator(user) && (
+              <div className="flex items-center gap-2 print:hidden">
+                <button
+                  type="button"
+                  onClick={load}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#e4e4ea] bg-white px-4 py-2 text-[13px] font-semibold text-[#1a1a1f] shadow-sm hover:bg-[#f3f3f6] transition-colors"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-bold text-[#1a1a1f] shadow-sm hover:brightness-95 transition-all"
+                  style={{ background: YELLOW }}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Production Order
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="print:hidden">
@@ -840,9 +1239,9 @@ export default function ProductionPlanning() {
             />
           </div>
 
-          {/* Main Card Container styled like Customers page */}
+          {/* Main Container */}
           <div className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5 print:p-0 print:border-none print:shadow-none">
-            {/* Top Action Bar: Search on left, Action Buttons & Yellow + New Production Order on right */}
+            {/* Action Bar */}
             <div className="mb-4 flex flex-wrap items-center gap-2.5 print:hidden">
               <div className="relative min-w-[220px] flex-1">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
@@ -893,24 +1292,6 @@ export default function ProductionPlanning() {
                 <Printer className="h-4 w-4" />
                 Print
               </button>
-              <button
-                type="button"
-                onClick={load}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </button>
-              {!isOperator(user) && (
-                <Link
-                  to="/production/create"
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
-                  style={{ background: YELLOW }}
-                >
-                  <Plus className="h-4 w-4" />
-                  New Production Order
-                </Link>
-              )}
             </div>
 
             {showAdvanced && (
@@ -956,7 +1337,11 @@ export default function ProductionPlanning() {
                   <div className="py-12 text-center">
                     <ClipboardList className="mx-auto h-12 w-12 text-slate-300" />
                     <p className="mt-4 text-sm font-medium text-slate-600">No production orders found.</p>
-                    <Link to="/production/create" className="ui-btn-primary mt-4 inline-flex print:hidden">Create Production Order</Link>
+                    {!isOperator(user) && (
+                      <button type="button" onClick={() => setShowCreateModal(true)} className="ui-btn-primary mt-4 inline-flex print:hidden">
+                        Create Production Order
+                      </button>
+                    )}
                   </div>
                 }
               />
@@ -1154,6 +1539,17 @@ export default function ProductionPlanning() {
           onClose={() => setCreatedToastOrder(null)}
         />
       )}
+
+      <CreateProductionOrderModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        machines={machines}
+        onCreated={(newOrder) => {
+          addToast("Production order created!", "success");
+          setCreatedToastOrder(newOrder);
+          load();
+        }}
+      />
 
       {/* Global CSS for Print Optimization */}
       <style>{`
