@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Plus, RefreshCw, Briefcase, Tag, MapPin, User, ShieldCheck, X, Save } from "lucide-react";
+import usePageRefresh from "../../hooks/usePageRefresh";
+import { Plus, Briefcase, Tag, MapPin, User, ShieldCheck, X, Save } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -84,6 +85,8 @@ export default function AssetManagement({ autoOpenCreate }) {
   const handleRefresh = async () => {
     await loadData();
   };
+
+  usePageRefresh(handleRefresh);
 
   useEffect(() => {
     loadData();
@@ -183,7 +186,6 @@ export default function AssetManagement({ autoOpenCreate }) {
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-sans">HR Asset Management</h1>
           <p className="mt-1 text-sm text-slate-500">Track company assets, IT gear, and tooling assigned to employees and operational locations.</p>
         </div>
         <div className="flex gap-2">
@@ -193,13 +195,6 @@ export default function AssetManagement({ autoOpenCreate }) {
             className="ui-btn-hr"
           >
             <Plus className="h-4 w-4" /> Register Asset
-          </button>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
       </header>

@@ -1,20 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  AlertTriangle,
-  ArrowLeftRight,
-  Building2,
-  ClipboardList,
-  History,
-  Package,
-  PackageMinus,
-  PackagePlus,
-  PackageX,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  Warehouse,
-} from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, Building2, ClipboardList, History, Package, PackageMinus, PackagePlus, PackageX, RotateCcw, Search, Warehouse } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import StoreManagerNav from "../../components/inventory/StoreManagerNav";
@@ -185,13 +171,6 @@ export default function InventoryDashboard() {
             Stock health, warehouses, and daily store operations at a glance.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          className="inline-flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-        >
-          <RefreshCw className="h-4 w-4" /> Refresh
-        </button>
       </header>
 
       <div className="relative">

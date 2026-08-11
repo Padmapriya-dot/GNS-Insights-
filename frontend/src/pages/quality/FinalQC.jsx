@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle, Clock, FileCheck, Package, RefreshCw, Truck, XCircle } from "lucide-react";
+import usePageRefresh from "../../hooks/usePageRefresh";
+import { CheckCircle, Clock, FileCheck, Package, Truck, XCircle } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import QualityFilters from "../../components/quality/QualityFilters";
@@ -48,6 +49,9 @@ export default function FinalQC() {
         setRows(listRes.value.data);
       } else {
         setRows([]);
+
+  usePageRefresh(load);
+
       }
     } catch {
       setSummary({ pending_final: 0, passed_today: 0, rejected_today: 0, fg_released: 0, avg_inspection_time: "0 min" });
@@ -87,14 +91,11 @@ export default function FinalQC() {
     <div className="min-h-full pb-8 print:p-0" style={{ background: "#F5F5F5" }}>
       <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Final QC</h1>
           <p className="mt-0.5 text-xs text-slate-500 print:hidden">Pre-dispatch quality check — customer, sales order, packing, and QC certificate approval.</p>
         </div>
 
-
         <div className="mb-0 flex flex-wrap items-center justify-between gap-2 print:hidden">
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={load} className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"><RefreshCw className="h-4 w-4" /> Refresh</button>
           </div>
         </div>
 

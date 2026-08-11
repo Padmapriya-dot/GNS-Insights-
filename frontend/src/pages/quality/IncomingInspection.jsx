@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle, Clock, FileSearch, RefreshCw, Timer, XCircle } from "lucide-react";
+import usePageRefresh from "../../hooks/usePageRefresh";
+import { AlertCircle, CheckCircle, Clock, FileSearch, Timer, XCircle } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import QualityFilters from "../../components/quality/QualityFilters";
@@ -43,6 +44,9 @@ export default function IncomingInspection() {
         setRows(listRes.value.data);
       } else {
         setRows([]);
+
+  usePageRefresh(load);
+
       }
     } catch {
       setSummary({ todays_inspections: 0, pending_grn: 0, passed: 0, rejected: 0, vendor_rejection_rate: "0%" });
@@ -105,10 +109,8 @@ export default function IncomingInspection() {
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Incoming Inspection</h1>
           <p className="mt-1 text-sm text-slate-500">IQC for raw materials — PO, vendor, batch verification before inventory receipt.</p>
         </div>
-        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

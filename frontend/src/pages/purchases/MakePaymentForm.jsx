@@ -291,9 +291,6 @@ export default function MakePaymentForm() {
   return (
     <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col bg-[#F5F5F5]">
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#e4e4ea] bg-white px-5 py-3.5">
-          <h1 className="text-[20px] font-bold text-[#1a1a1f]">
-            {isEdit ? "Edit Payment" : "Make Payment"}
-          </h1>
         <div className="flex items-center gap-2">
           <button
             type="button"

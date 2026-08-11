@@ -1,29 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  Activity,
-  ChevronLeft,
-  ChevronRight,
-  Cpu,
-  Download,
-  FileSpreadsheet,
-  FileText,
-  Grid3X3,
-  LayoutList,
-  Plus,
-  Printer,
-  RefreshCw,
-  Search,
-  Thermometer,
-  Upload,
-  Wrench,
-  Zap,
-} from "lucide-react";
+import { Activity, ChevronLeft, ChevronRight, Cpu, Download, FileSpreadsheet, FileText, Grid3X3, LayoutList, Plus, Printer, Search, Thermometer, Upload, Wrench, Zap } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import MachineDetailModal from "../../components/production/MachineDetailModal";
 import { useToast } from "../../context/ToastContext";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import useTenantId from "../../hooks/useTenantId";
 import useAuth from "../../hooks/useAuth";
 import { isOperator } from "../../config/permissions";
@@ -194,6 +177,7 @@ export default function MachineStatus() {
     }
   }, []);
 
+  usePageRefresh(loadMachines);
 
   useEffect(() => {
     loadMachines();
@@ -348,7 +332,6 @@ export default function MachineStatus() {
     <div className="min-h-full pb-8" style={{ background: PAGE_BG }}>
       <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Machine Management</h1>
           <p className="mt-0.5 text-xs text-slate-500">Digital profiles · Live status · OEE · Production integration</p>
         </div>
 
@@ -410,13 +393,6 @@ export default function MachineStatus() {
                 </button>
               </>
             )}
-            <button
-              type="button"
-              onClick={loadMachines}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
-            >
-              <RefreshCw className="h-4 w-4" /> Refresh
-            </button>
             {!operatorMode && (
               <Link
                 to="/production/machines/create"

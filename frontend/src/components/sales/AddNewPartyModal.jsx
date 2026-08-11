@@ -416,7 +416,7 @@ export default function AddNewPartyModal({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-[#ececf0] px-6 py-4">
-          <h2 className="text-[38px] font-bold text-[#1a1a1f]">
+          <h2 className="text-[17px] font-bold text-[#1a1a1f]">
             {isEdit ? "Edit Party" : "Add New Party"}
           </h2>
           <button

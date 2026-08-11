@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Filter, Plus, RefreshCw, ShoppingCart, Truck } from "lucide-react";
+import { Download, Filter, Plus, ShoppingCart, Truck } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -186,7 +186,6 @@ export default function PurchaseOrders() {
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Purchase Orders</h1>
           <p className="mt-1 text-sm text-slate-500">
             Approve Purchase Orders (POs) from material requests, then receive goods via Goods Receipt Note (GRN).
           </p>
@@ -207,13 +206,6 @@ export default function PurchaseOrders() {
             className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             <Download className="h-4 w-4" /> Export
-          </button>
-          <button
-            type="button"
-            onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
       </header>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Download, RefreshCw, Repeat } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, Repeat } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -84,10 +84,9 @@ export default function StockLedger() {
     <div className="space-y-6 p-4 sm:p-6">
       {storeMode ? <StoreManagerNav /> : null}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-900">Inventory Reports</h1><p className="mt-1 text-sm text-slate-500">Stock movement history for warehouse and store operations.</p></div>
+        <div><p className="mt-1 text-sm text-slate-500">Stock movement history for warehouse and store operations.</p></div>
         <div className="flex gap-2">
           <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "stock-ledger")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
         </div>
       </header>
 

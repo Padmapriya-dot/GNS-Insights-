@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, RefreshCw, Briefcase, UserCheck, UserMinus, UserPlus, Users, Filter, X, Save, Clock, Building2, FileText } from "lucide-react";
+import { Plus, Briefcase, UserCheck, UserMinus, UserPlus, Users, Filter, X, Save, Clock, Building2, FileText } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -9,6 +9,7 @@ import { DepartmentFormModal } from "../../components/hr/DepartmentDetailModal";
 import { useToast } from "../../context/ToastContext";
 import { getEmployeeSummary, getEmployeesEnriched, createEmployee, getShifts, getDepartments, createDepartment } from "../../api/hrApi";
 import useTenantId from "../../hooks/useTenantId";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { deptColor, formatInr, statusColor } from "../../data/hrMasterData";
 
 const inputClass =
@@ -113,11 +114,7 @@ export default function Employees() {
     []
   );
 
-  const handleRefresh = async () => {
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 350));
-    await load();
-  };
+  usePageRefresh(load);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadDepts(); }, [loadDepts]);
@@ -213,24 +210,13 @@ export default function Employees() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-sans">Employees</h1>
-          <p className="mt-1 text-sm text-slate-500">Enterprise employee management with 360° profile, shift, and payroll integration.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 lg:ml-auto">
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
             className="ui-btn-hr"
           >
             <Plus className="h-4 w-4" /> Create Employee
-          </button>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
       </header>

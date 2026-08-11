@@ -1,23 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  ArrowDownUp,
-  Box,
-  Download,
-  FileText,
-  Layers,
-  Plus,
-  Printer,
-  RefreshCw,
-  Upload,
-  Warehouse,
-} from "lucide-react";
+import { AlertTriangle, ArrowDownUp, Box, Download, FileText, Layers, Plus, Printer, Upload, Warehouse } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import WarehouseDetailModal, { WarehouseFormModal } from "../../components/inventory/WarehouseDetailModal";
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import {
   createWarehouseFull,
   deactivateWarehouse,
@@ -113,6 +102,7 @@ export default function Warehouses() {
     }
   }, []);
 
+  usePageRefresh(loadWarehouses);
 
   useEffect(() => {
     loadWarehouses();
@@ -323,7 +313,6 @@ export default function Warehouses() {
     <div className="space-y-6 pb-8">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Warehouse Management</h1>
           <p className="mt-1 text-sm text-slate-500">
             Multi-warehouse inventory, bin management, transfers, and utilization tracking.
           </p>
@@ -343,9 +332,6 @@ export default function Warehouses() {
           </button>
           <button type="button" onClick={handleExportPdf} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <Printer className="h-4 w-4" /> Print
-          </button>
-          <button type="button" onClick={loadWarehouses} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
       </header>

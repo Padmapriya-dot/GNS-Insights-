@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle, ClipboardList, RefreshCw, User } from "lucide-react";
+import usePageRefresh from "../../hooks/usePageRefresh";
+import { AlertTriangle, CheckCircle, ClipboardList, User } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import QualityFilters from "../../components/quality/QualityFilters";
@@ -57,6 +58,9 @@ export default function DefectTracking() {
         setRows(listRes.value.data);
       } else {
         setRows([]);
+
+  usePageRefresh(load);
+
       }
     } catch {
       setSummary({ total_defects: 0, critical: 0, major: 0, minor: 0, defect_rate: "0%", top_cause: "None" });
@@ -120,14 +124,12 @@ export default function DefectTracking() {
     <div className="min-h-full pb-8 print:p-0" style={{ background: "#F5F5F5" }}>
       <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Defect Tracking & CAPA</h1>
           <p className="mt-0.5 text-xs text-slate-500 print:hidden">Non-conformance, root cause analysis, corrective/preventive actions, and NCR workflow.</p>
         </div>
 
 
         <div className="mb-0 flex flex-wrap items-center justify-between gap-2 print:hidden">
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={load} className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"><RefreshCw className="h-4 w-4" /> Refresh</button>
           </div>
         </div>
 

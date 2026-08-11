@@ -1,19 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  ClipboardList,
-  Package,
-  RefreshCw,
-  ShoppingCart,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Package, ShoppingCart } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { useToast } from "../../context/ToastContext";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { runMrp } from "../../api/productionApi";
 import { fetchProductsWithFallback } from "../../utils/productOptions";
 import {
@@ -66,6 +60,8 @@ export default function MaterialRequirementPlanning() {
       setLoadingProducts(false);
     }
   }, [productId]);
+
+  usePageRefresh(loadProducts);
 
   useEffect(() => {
     loadProducts();
@@ -209,9 +205,6 @@ const YELLOW = "#F5C518";
           subtitle="Explode BOM against stock. Shortages automatically create a Purchase Request."
           action={
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={loadProducts} className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]">
-                <RefreshCw className="h-4 w-4" /> Refresh products
-              </button>
               <Link to="/procurement/material-requests" className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]">
                 <ShoppingCart className="h-4 w-4" /> Purchase Requests
               </Link>

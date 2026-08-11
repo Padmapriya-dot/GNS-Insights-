@@ -1,22 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  Download,
-  FileSpreadsheet,
-  FileText,
-  Pause,
-  Play,
-  Plus,
-  Printer,
-  RefreshCw,
-  Search,
-  Star,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Download, FileSpreadsheet, FileText, Pause, Play, Plus, Printer, Search, Star } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -552,7 +536,6 @@ export default function WorkOrders() {
             <Link to="/production/mrp" className="hover:text-[#2563EB]">MRP</Link>
             {" → Work Orders"}
           </p>
-          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Work Orders</h1>
           <p className="mt-0.5 text-xs text-slate-500">
             Issue materials, assign machine/operator, run production, complete with QC and finished goods.
           </p>
@@ -614,14 +597,6 @@ export default function WorkOrders() {
             >
               <FileSpreadsheet className="h-4 w-4" />
               Export Excel
-            </button>
-            <button
-              type="button"
-              onClick={load}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
             </button>
             {!isOperator(user) && (
               <button

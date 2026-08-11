@@ -1,25 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  AlertTriangle,
-  Bell,
-  CheckCircle2,
-  Eye,
-  Filter,
-  Printer,
-  RefreshCw,
-  Search,
-  ShieldAlert,
-  Trash2,
-  X,
-  Plus,
-  Info,
-  Clock,
-  User,
-  Calendar,
-  Save,
-  Tag,
-} from "lucide-react";
+import { AlertTriangle, Bell, CheckCircle2, Eye, Filter, Printer, Search, ShieldAlert, Trash2, X, Plus, Info, Clock, User, Calendar, Save, Tag } from "lucide-react";
 
 import SkeletonTable from "../../components/common/SkeletonTable";
 import EmptyState from "../../components/common/EmptyState";
@@ -28,6 +9,7 @@ import ExportButtons from "../../components/finance/ExportButtons";
 import { useNetworkStatus } from "../../context/NetworkStatusContext";
 import { useToast } from "../../context/ToastContext";
 import useAuth from "../../hooks/useAuth";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import {
   acknowledgeAlert,
   createAlert,
@@ -200,6 +182,8 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
         getAlerts(params),
         getEmployees(),
       ]);
+
+  usePageRefresh(load);
 
       let apiAlerts = [];
       if (alertsRes.status === "fulfilled") {
@@ -414,19 +398,11 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
       <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between print:hidden">
           <div>
-            <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">{title || "All Alerts"}</h1>
             <p className="mt-0.5 text-xs text-slate-500 print:hidden">
               {subtitle || "Monitor, acknowledge, and resolve system alerts across modules."}
             </p>
           </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition-all"
-          >
-            <RefreshCw className="h-4 w-4 text-slate-500" /> Refresh
-          </button>
           {canWrite && (
             <button
               type="button"

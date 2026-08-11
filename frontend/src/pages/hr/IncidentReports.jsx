@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Plus, RefreshCw, AlertTriangle, ShieldCheck, HeartPulse, ShieldAlert, X, Save } from "lucide-react";
+import usePageRefresh from "../../hooks/usePageRefresh";
+import { Plus, AlertTriangle, ShieldCheck, HeartPulse, ShieldAlert, X, Save } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -100,6 +101,8 @@ export default function IncidentReports({ autoOpenCreate }) {
     await loadData();
   };
 
+  usePageRefresh(handleRefresh);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -191,7 +194,6 @@ export default function IncidentReports({ autoOpenCreate }) {
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-sans">Workplace Safety & Incidents</h1>
           <p className="mt-1 text-sm text-slate-500">Record, investigate, and audit occupational health and safety incidents and near misses.</p>
         </div>
         <div className="flex gap-2">
@@ -201,13 +203,6 @@ export default function IncidentReports({ autoOpenCreate }) {
             className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 shadow-sm transition-all animate-none"
           >
             <Plus className="h-4 w-4" /> Report Incident
-          </button>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
       </header>
