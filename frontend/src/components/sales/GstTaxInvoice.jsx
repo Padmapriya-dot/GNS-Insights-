@@ -21,7 +21,7 @@ function fmtInr(n) {
 }
 
 /**
- * Enterprise GST Tax Invoice — original GNS Insights layout.
+ * Enterprise GST Tax Invoice — original Insights Iva layout.
  * Accepts unified `data` from mapDetailToInvoiceCopy / backend /document API.
  */
 export default function GstTaxInvoice({ data }) {

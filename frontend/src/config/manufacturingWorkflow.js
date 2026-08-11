@@ -13,7 +13,7 @@ import {
   Users,
 } from "lucide-react";
 
-/** End-to-end manufacturing workflow steps for GNS Insights. */
+/** End-to-end manufacturing workflow steps for Insights Iva. */
 
 export const MANUFACTURING_WORKFLOW_STEPS = [
   { id: "sales_order", label: "Sales Order", shortLabel: "Sales Order", path: "/sales/orders" },

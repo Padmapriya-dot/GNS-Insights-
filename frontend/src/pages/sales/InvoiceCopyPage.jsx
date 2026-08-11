@@ -96,7 +96,7 @@ export default function InvoiceCopyPage() {
   const handleWhatsApp = useCallback(() => {
     const phone = (copyData?.buyer?.phone || "").replace(/\D/g, "");
     const text = encodeURIComponent(
-      `Tax Invoice ${invoiceNo} from ${copyData?.seller?.name || "GNS Insights"}. Total: ₹${copyData?.summary?.grand_total ?? copyData?.grandTotal ?? 0}`
+      `Tax Invoice ${invoiceNo} from ${copyData?.seller?.name || "Insights Iva"}. Total: ₹${copyData?.summary?.grand_total ?? copyData?.grandTotal ?? 0}`
     );
     const url = phone
       ? `https://wa.me/${phone.startsWith("91") ? phone : `91${phone}`}?text=${text}`

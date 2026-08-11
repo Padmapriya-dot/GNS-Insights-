@@ -44,7 +44,7 @@ export const SAMPLE_INVOICE_COPY = {
   e_invoice_enabled: true,
   irn: "",
   seller: {
-    name: "GNS Insights Pvt Ltd",
+    name: "Insights Iva Pvt Ltd",
     tagline: "Enterprise Manufacturing ERP",
     address: "Hyderabad, Telangana - 500032",
     gstin: "36AABCG1234A1Z5",
@@ -217,7 +217,7 @@ export function mapDetailToInvoiceCopy(detail, companySettings = {}) {
     e_invoice_enabled: Boolean(companySettings.e_invoice_enabled),
     irn: companySettings.irn || "",
     seller: {
-      name: companySettings.company_name || companySettings.name || "GNS Insights",
+      name: companySettings.company_name || companySettings.name || "Insights Iva",
       logo: companySettings.logo_url || "",
       tagline: companySettings.tagline || "",
       address: [companySettings.address_line1, companySettings.address_line2, companySettings.city, companySettings.state, companySettings.pincode].filter(Boolean).join(", ") || "India",

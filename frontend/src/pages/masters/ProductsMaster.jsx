@@ -22,8 +22,9 @@ import { enrichApiProduct } from "../../data/productsMasterData";
 import { exportToExcel } from "../../utils/exportUtils";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F5F5F5";
-const YELLOW = "#F5C518";
+import { theme } from "../../styles/theme";
+
+const PAGE_BG = theme.bg;
 const PAGE_SIZES = [20, 50, 100];
 
 const SCREENSHOT_DEMO = [];
@@ -183,15 +184,15 @@ export default function ProductsMaster() {
     <div className="min-h-full" style={{ background: PAGE_BG }}>
       <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8">
 
-        <div className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5">
+        <div className="ui-card p-4 sm:p-5">
           <div className="mb-4 flex flex-wrap items-center gap-2.5">
             <div className="relative min-w-[220px] flex-1">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-icon)]" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search"
-                className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] py-2.5 pl-10 pr-4 text-[13px] text-[#1a1a1f] outline-none placeholder:text-[#a0a0ab] focus:border-[#d0d0d8] focus:bg-white"
+                className="ui-input !rounded-full !pl-10"
               />
             </div>
             {!isPM && (
@@ -201,7 +202,7 @@ export default function ProductsMaster() {
                     ? "/inventory/products/bulk-import"
                     : "/masters/products/bulk-import"
                 }
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+                className="ui-btn-secondary"
               >
                 <Upload className="h-4 w-4" />
                 Bulk Import
@@ -210,7 +211,7 @@ export default function ProductsMaster() {
             <button
               type="button"
               onClick={onExport}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              className="ui-btn-secondary"
             >
               <FileSpreadsheet className="h-4 w-4" />
               Export (xlsx)
@@ -222,8 +223,7 @@ export default function ProductsMaster() {
                   setEditing(null);
                   setAddOpen(true);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
-                style={{ background: YELLOW }}
+                className="ui-btn-primary"
               >
                 <Plus className="h-4 w-4" />
                 Create Product
@@ -231,11 +231,11 @@ export default function ProductsMaster() {
             )}
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-[#ececf0]">
+          <div className="ui-table-wrap">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[880px] border-collapse text-left text-[13px]">
                 <thead>
-                  <tr className="border-b border-[#e8e8ee] bg-[#f5f5f5] text-[12px] font-medium text-[#6b6b76]">
+                  <tr className="border-b border-[var(--color-border-soft)] bg-[var(--color-surface-thead)] text-[12px] font-medium text-[var(--color-text-muted)]">
                     <th className="px-4 py-3 font-medium">Product Name</th>
                     <th className="px-4 py-3 font-medium">Description</th>
                     <th className="px-4 py-3 font-medium">HSN</th>

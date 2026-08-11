@@ -75,8 +75,8 @@ function CompanyDetailContent() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [c, u, s] = await Promise.all([
         getCompany(tenantId),
@@ -90,6 +90,8 @@ function CompanyDetailContent() {
       setLoading(false);
     }
   }, [tenantId]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     load();
@@ -132,7 +134,7 @@ function CompanyDetailContent() {
             <div className="ap-header__brand">
               <BrandLogo size="hero" />
               <div>
-                <div className="ap-header__title">GNS Admin Portal</div>
+                <div className="ap-header__title">Insights Iva Admin Portal</div>
                 <div className="ap-header__sub">Company Detail</div>
               </div>
             </div>
@@ -261,7 +263,6 @@ function Item({ label, value }) {
 }
 
 export default function CompanyDetail() {
-  usePageRefresh(load);
 
   return (
     <PlatformProtectedRoute>

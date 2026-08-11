@@ -56,6 +56,6 @@ describe("EnterpriseDashboard", () => {
         <EnterpriseDashboard />
       </MemoryRouter>
     );
-    expect(await screen.findByText("GNS Insights Command Center")).toBeInTheDocument();
+    expect(await screen.findByText("Insights Iva Command Center")).toBeInTheDocument();
   });
 });

@@ -48,7 +48,7 @@ import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import QuickWorkOrderModal from "../../components/production/QuickWorkOrderModal";
 import IssueMaterialsModal from "../../components/production/IssueMaterialsModal";
 
-const PAGE_BG = "#EFF2FC";
+const PAGE_BG = "var(--color-bg)";
 const DECO_BG = "#EDF3FD";
 const NAVY = "#002C66";
 const PRIMARY_BLUE = "#0025D4";
@@ -996,7 +996,7 @@ export default function ProductionPlanning() {
               <span className="font-bold text-blue-600 text-xs tracking-wide">Production</span>
               {(user?.full_name || user?.name) && <span className="ml-2.5 text-slate-600">Welcome, {user.full_name || user.name}</span>}
             </div>
-            <span className="font-bold text-blue-600 text-xs tracking-wide">GNS Insights</span>
+            <span className="font-bold text-blue-600 text-xs tracking-wide">Insights Iva</span>
           </div>
           <div className="border-b-2 border-slate-900 pb-4 mb-6">
             <h1 className="print-title text-4xl font-black uppercase tracking-wide text-black">Production Order Details</h1>

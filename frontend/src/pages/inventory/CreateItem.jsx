@@ -35,7 +35,7 @@ const DEFAULT_WAREHOUSES = [
   "Warehouse 1",
 ];
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "var(--color-bg)";
 const YELLOW = "#F5C518";
 
 /* ─── Collapsible Section Component (matching Create Production) ─────────────── */

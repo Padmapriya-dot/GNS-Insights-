@@ -80,12 +80,11 @@ export default function BomMaster() {
     created_by: "",
   });
 
-  const loadBoms = useCallback(async () => {
-    setLoading(true);
+  const loadBoms = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [bomRes, prodRes] = await Promise.all([getBillOfMaterials(), getProducts()]);
 
-  usePageRefresh(loadBoms);
 
       const apiRows = bomRes.data || [];
       const apiProducts = Array.isArray(prodRes) ? prodRes : (prodRes.data || []);
@@ -123,6 +122,8 @@ export default function BomMaster() {
       setLoading(false);
     }
   }, [tenantId]);
+
+  usePageRefresh(() => loadBoms(true));
 
   useEffect(() => {
     try {

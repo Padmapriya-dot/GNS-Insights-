@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 /**
- * GNS Insights sidebar structure. Children are filtered by RBAC per-item `module`.
+ * Insights Iva sidebar structure. Children are filtered by RBAC per-item `module`.
  * Routes map to existing pages where available; others use /erp/* placeholders.
  */
 export const SIDEBAR_NAV = [

@@ -111,18 +111,21 @@ function SuperAdminDashboardContent() {
   const [actionId, setActionId] = useState(null);
   const [actionError, setActionError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     setError("");
     try {
       const data = await listCompanies();
       setCompanies(Array.isArray(data) ? data : []);
-    } catch {
-      setError("Failed to load companies.");
+    } catch (err) {
+      if (!isRefresh) setError("Failed to load companies.");
+      if (isRefresh) throw err;
     } finally {
       setLoading(false);
     }
   }, []);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => { load(); }, [load]);
 
@@ -163,7 +166,7 @@ function SuperAdminDashboardContent() {
             <div className="ap-header__brand">
               <BrandLogo size="hero" />
               <div>
-                <div className="ap-header__title">GNS Admin Portal</div>
+                <div className="ap-header__title">Insights Iva Admin Portal</div>
                 <div className="ap-header__sub">Super Admin — Company Management</div>
               </div>
             </div>
@@ -303,8 +306,6 @@ function SuperAdminDashboardContent() {
 }
 
 export default function SuperAdminDashboard() {
-  usePageRefresh(load);
-
   return (
     <PlatformProtectedRoute>
       <SuperAdminDashboardContent />
