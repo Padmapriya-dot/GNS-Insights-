@@ -11,9 +11,11 @@ const EMPTY = { name: "", email: "", phone: "" };
 
 export default function AddContactPersonModal({ open, onClose, onSave, initial }) {
   const [form, setForm] = useState(EMPTY);
+  const [nameError, setNameError] = useState("");
 
   useEffect(() => {
     if (!open) return;
+    setNameError("");
     setForm({
       name: initial?.name || "",
       email: initial?.email || "",
@@ -26,7 +28,15 @@ export default function AddContactPersonModal({ open, onClose, onSave, initial }
   const handleSave = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!form.name.trim()) return;
+    if (!form.name.trim()) {
+      setNameError("Contact Person name is required and cannot be only whitespace.");
+      return;
+    }
+    if (!/[a-zA-Z]/.test(form.name)) {
+      setNameError("Contact Person name must contain at least one letter.");
+      return;
+    }
+    setNameError("");
     onSave?.({
       name: form.name.trim(),
       email: form.email.trim() || null,
@@ -71,10 +81,16 @@ export default function AddContactPersonModal({ open, onClose, onSave, initial }
               autoFocus
               required
               value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, name: e.target.value }));
+                if (nameError) setNameError("");
+              }}
               placeholder="Enter Name"
-              className={inputClass}
+              className={`${inputClass}${nameError ? " border-[#e11d48] focus:border-[#e11d48] focus:ring-[#fecdd3]" : ""}`}
             />
+            {nameError && (
+              <p className="mt-1 text-[11px] font-medium text-[#e11d48]">{nameError}</p>
+            )}
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">

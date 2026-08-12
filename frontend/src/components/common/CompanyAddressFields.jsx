@@ -172,17 +172,17 @@ export default function CompanyAddressFields({
   }, []);
 
   const formatPinError =
-    pin && isIndia && pin.length === 6 ? validateIndianPin(pin) : "";
+    pin && isIndia ? validateIndianPin(pin) : "";
   const pinError =
     errors[pinKey] ||
     errors.pincode ||
     errors.pin_code ||
-    (formatPinError ? "Invalid PIN Code." : "") ||
-    (pinLookupError === "Invalid PIN Code." ? pinLookupError : "") ||
+    formatPinError ||
+    pinLookupError ||
     "";
 
   const serviceError =
-    pinLookupError && pinLookupError !== "Invalid PIN Code." ? pinLookupError : "";
+    pinLookupError && pinLookupError !== "Invalid PIN Code." && pinLookupError !== formatPinError ? pinLookupError : "";
 
   const locationLocked = isIndia && autoFilled && !manualLocation && Boolean(state && city);
 
@@ -408,7 +408,7 @@ export function validateCompanyAddress(form, { pinKey = "pincode" } = {}) {
   const isIndia = String(form.country || "India").trim().toLowerCase() === "india";
   if (isIndia) {
     const pinMsg = validateIndianPin(pin);
-    if (pinMsg) errors[pinKey] = pinMsg.includes("required") ? pinMsg : "Invalid PIN Code.";
+    if (pinMsg) errors[pinKey] = pinMsg;
   } else if (!String(pin).trim()) {
     errors[pinKey] = "PIN / Postal code is required.";
   }

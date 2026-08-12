@@ -337,13 +337,31 @@ export default function AddNewPartyModal({
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    const phoneVal = form.phone.trim();
-    if (phoneVal && /\D/.test(phoneVal)) {
-      addToast("Mobile No. must contain only numeric digits (0-9)", "error");
+    if (!form.name.trim()) {
+      addToast("Company Name is required", "error");
       return;
     }
-    const gstinVal = form.gstin ? form.gstin.trim().toUpperCase() : "";
+    if (!/[a-zA-Z]/.test(form.name)) {
+      addToast("Company Name must contain at least one letter", "error");
+      return;
+    }
+    const phoneVal = form.phone.trim();
+    if (phoneVal) {
+      if (/\D/.test(phoneVal)) {
+        addToast("Mobile No. must contain only numeric digits (0-9)", "error");
+        return;
+      }
+      if (phoneVal.length !== 10) {
+        addToast("Mobile No. must be exactly 10 digits", "error");
+        return;
+      }
+    }
+    const gstinVal = form.gstin ? form.gstin.trim() : "";
     if (gstinVal) {
+      if (/[a-z]/.test(gstinVal)) {
+        addToast("GSTIN must contain only uppercase letters and numeric values", "error");
+        return;
+      }
       if (gstinVal.length !== 15) {
         addToast("GSTIN must be exactly 15 characters (e.g. 27AAAAA0000A1Z5)", "error");
         return;
@@ -406,7 +424,7 @@ export default function AddNewPartyModal({
           tenant_id: tenantId,
           name: form.name.trim(),
           contact: form.name.trim(),
-          gstin: form.gstin.trim().toUpperCase() || null,
+          gstin: form.gstin.trim() || null,
           phone: form.phone.trim(),
           email,
           address_line1: address.address_line1 || null,
@@ -437,7 +455,7 @@ export default function AddNewPartyModal({
       const payload = {
         tenant_id: tenantId,
         name: form.name.trim(),
-        gstin: form.gstin.trim().toUpperCase() || null,
+        gstin: form.gstin.trim() || null,
         phone: form.phone.trim() || null,
         email: basicDetails?.email?.trim() || party?.email || null,
         address_line1: address.address_line1 || null,
@@ -501,7 +519,7 @@ export default function AddNewPartyModal({
                 <input
                   value={form.gstin}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))
+                    setForm((f) => ({ ...f, gstin: e.target.value }))
                   }
                   placeholder="Enter GSTIN"
                   className={inputClass}
