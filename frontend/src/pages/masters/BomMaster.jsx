@@ -256,6 +256,9 @@ export default function BomMaster() {
         if (!sProdName) {
           addToast("Product Name is required and cannot be blank or contain only spaces", "error");
           return;
+        } else if (!/[a-zA-Z0-9]/.test(sProdName)) {
+          addToast("Please enter a valid product name.", "error");
+          return;
         }
         if (!sBomNo) {
           addToast("BOM No is required and cannot be blank or contain only spaces", "error");
@@ -264,6 +267,21 @@ export default function BomMaster() {
         if (!sProdCode) {
           addToast("Product Code is required and cannot be blank or contain only spaces", "error");
           return;
+        }
+
+        if (sProdName && sProdCode && products && products.length > 0) {
+          const matchByName = products.find(
+            (x) => (x.name || "").toLowerCase().trim() === sProdName.toLowerCase()
+          );
+          const matchByCode = products.find(
+            (x) =>
+              (x.product_code || "").toLowerCase().trim() === sProdCode.toLowerCase() ||
+              (x.sku || "").toLowerCase().trim() === sProdCode.toLowerCase()
+          );
+          if (matchByName && matchByCode && matchByName.id !== matchByCode.id) {
+            addToast(`Product Code "${sProdCode}" belongs to "${matchByCode.name}", not "${sProdName}". Please select matching product details.`, "error");
+            return;
+          }
         }
 
         const sanitizedBom = {

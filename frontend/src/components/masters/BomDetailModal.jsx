@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   ArrowDown,
@@ -71,14 +72,195 @@ function WorkflowStep({ step, index, total }) {
   );
 }
 
+function AddComponentModal({ open, onClose, onAdd, bomId }) {
+  const [form, setForm] = useState({
+    component: "",
+    item_code: "",
+    category: "Raw Material",
+    unit: "Nos",
+    qty: 1,
+    unit_cost: 0,
+  });
+  const [busy, setBusy] = useState(false);
+  const { addToast } = useToast();
+
+  if (!open) return null;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const name = form.component.trim();
+    if (!name) {
+      addToast("Component name is required.", "error");
+      return;
+    }
+    const quantity = Number(form.qty);
+    if (isNaN(quantity) || quantity <= 0) {
+      addToast("Quantity must be greater than 0.", "error");
+      return;
+    }
+    const cost = Number(form.unit_cost) || 0;
+    if (cost < 0) {
+      addToast("Unit cost cannot be negative.", "error");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const newComp = {
+        id: Date.now(),
+        component: name,
+        item_code: form.item_code.trim() || `RM-${Date.now().toString().slice(-4)}`,
+        category: form.category || "Raw Material",
+        unit: form.unit || "Nos",
+        qty: quantity,
+        unit_cost: cost,
+        total_cost: quantity * cost,
+      };
+
+      if (bomId && typeof bomId === "number") {
+        try {
+          await addBomItem({
+            bom_id: bomId,
+            component_id: newComp.id,
+            qty: quantity,
+            unit_cost: cost,
+          });
+        } catch {
+          // ignore offline / demo fallback
+        }
+      }
+
+      onAdd(newComp);
+      addToast("Component added successfully.");
+      onClose();
+    } catch (err) {
+      addToast("Failed to add component.", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold text-slate-800">Add Component</h3>
+          <button type="button" onClick={onClose} className="rounded-full p-1 text-slate-400 hover:bg-slate-100">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Component Name *</label>
+          <input
+            required
+            value={form.component}
+            onChange={(e) => setForm((f) => ({ ...f, component: e.target.value }))}
+            placeholder="e.g. Active Ingredient / Raw Material"
+            className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm outline-none focus:border-blue-500"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Item Code</label>
+            <input
+              value={form.item_code}
+              onChange={(e) => setForm((f) => ({ ...f, item_code: e.target.value }))}
+              placeholder="e.g. RM-001"
+              className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm outline-none focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Category</label>
+            <select
+              value={form.category}
+              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+              className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm outline-none focus:border-blue-500"
+            >
+              <option value="Raw Material">Raw Material</option>
+              <option value="Semi-Finished">Semi-Finished</option>
+              <option value="Consumables">Consumables</option>
+              <option value="Spare Parts">Spare Parts</option>
+              <option value="Packaging">Packaging</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Unit</label>
+            <select
+              value={form.unit}
+              onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+              className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm outline-none focus:border-blue-500"
+            >
+              {PRODUCT_UNITS.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Qty *</label>
+            <input
+              type="number"
+              min="0.001"
+              step="any"
+              required
+              value={form.qty}
+              onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
+              className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm outline-none focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Unit Cost (₹)</label>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={form.unit_cost}
+              onChange={(e) => setForm((f) => ({ ...f, unit_cost: e.target.value }))}
+              className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm outline-none focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {busy ? "Adding..." : "Add Component"}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body
+  );
+}
+
 export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete, onPrint, onRefresh }) {
   const [tab, setTab] = useState("overview");
+  const [addComponentOpen, setAddComponentOpen] = useState(false);
+  const [localComponents, setLocalComponents] = useState(bom?.components || []);
   const { addToast } = useToast();
+
+  useEffect(() => {
+    setLocalComponents(bom?.components || []);
+  }, [bom?.components]);
 
   if (!bom) return null;
 
   const formatInr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
-  const componentCount = bom.components?.length || 0;
+  const componentCount = localComponents.length;
 
   const handleDeleteLine = async (lineId) => {
     if (!window.confirm("Remove this component line?")) return;
@@ -86,6 +268,8 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
       if (typeof lineId === "number") {
         await deleteBomItem(lineId);
       }
+      setLocalComponents((prev) => prev.filter((c) => c.id !== lineId));
+      if (bom) bom.components = (bom.components || []).filter((c) => c.id !== lineId);
       addToast("Component removed");
       onRefresh?.();
     } catch {
@@ -161,6 +345,16 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
 
           {tab === "components" && (
             <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-800">BOM Components</h3>
+                <button
+                  type="button"
+                  onClick={() => setAddComponentOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Component
+                </button>
+              </div>
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase text-slate-500">
@@ -176,10 +370,10 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
                     </tr>
                   </thead>
                   <tbody>
-                    {(bom.components || []).length === 0 ? (
+                    {localComponents.length === 0 ? (
                       <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-400">No components added yet</td></tr>
                     ) : (
-                      (bom.components || []).map((c, i) => (
+                      localComponents.map((c, i) => (
                         <tr key={c.id || i} className="border-t border-slate-100">
                           <td className="px-3 py-2 font-medium">{c.component}</td>
                           <td className="px-3 py-2">{c.item_code}</td>
@@ -372,6 +566,16 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
           </button>
         </div>
       </div>
+      <AddComponentModal
+        open={addComponentOpen}
+        onClose={() => setAddComponentOpen(false)}
+        onAdd={(newComp) => {
+          setLocalComponents((prev) => [...prev, newComp]);
+          if (bom) bom.components = [...(bom.components || []), newComp];
+          onRefresh?.();
+        }}
+        bomId={bom?.id}
+      />
     </div>
   );
 }
@@ -589,9 +793,31 @@ export function BomFormModal({ bom, onClose, onSave, existingBoms = [] }) {
     }
     if (!prodName) {
       errs.product_name = "Product Name is required and cannot be blank or contain only spaces.";
+    } else if (!/[a-zA-Z0-9]/.test(prodName)) {
+      errs.product_name = "Please enter a valid product name.";
     }
     if (!version) {
       errs.version = "Version is required and cannot be blank or contain only spaces.";
+    }
+
+    if (prodName && prodCode && productOptions && productOptions.length > 0) {
+      const matchByName = productOptions.find(
+        (x) => (x.name || "").toLowerCase().trim() === prodName.toLowerCase()
+      );
+      const matchByCode = productOptions.find(
+        (x) =>
+          (x.product_code || "").toLowerCase().trim() === prodCode.toLowerCase() ||
+          (x.sku || "").toLowerCase().trim() === prodCode.toLowerCase()
+      );
+
+      if (matchByName && matchByCode && matchByName.id !== matchByCode.id) {
+        errs.product_code = `Product Code "${prodCode}" belongs to "${matchByCode.name}", not "${prodName}".`;
+      } else if (matchByName && !matchByCode) {
+        const expectedCode = matchByName.product_code || matchByName.sku || (matchByName.id ? `PRD-${String(matchByName.id).padStart(3, "0")}` : "");
+        if (expectedCode && expectedCode.toLowerCase() !== prodCode.toLowerCase()) {
+          errs.product_code = `Product Code "${prodCode}" does not match selected Product Name "${prodName}". Expected "${expectedCode}".`;
+        }
+      }
     }
 
     setErrors(errs);

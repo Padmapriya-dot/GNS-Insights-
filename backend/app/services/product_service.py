@@ -52,6 +52,21 @@ def _assert_no_product_duplicates(
 
 
 def create_product(db: Session, payload: ProductCreate) -> Product:
+    if payload.unit_cost is not None and payload.unit_cost < 0:
+        raise HTTPException(status_code=400, detail="Purchase Price cannot be negative.")
+    if payload.unit_price is not None and payload.unit_price < 0:
+        raise HTTPException(status_code=400, detail="Selling price cannot be negative.")
+    if payload.current_stock is not None and payload.current_stock < 0:
+        raise HTTPException(status_code=400, detail="Current Stock cannot be negative.")
+    if (
+        payload.unit_cost is not None
+        and payload.unit_price is not None
+        and payload.unit_price < payload.unit_cost
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Selling Price cannot be lower than Purchase Price.",
+        )
     _assert_no_product_duplicates(
         db, payload.tenant_id, name=payload.name, sku=payload.sku
     )
@@ -65,6 +80,21 @@ def create_product(db: Session, payload: ProductCreate) -> Product:
 def update_product(
     db: Session, tenant_id: int, product_id: int, payload: ProductUpdate
 ) -> Product | None:
+    if payload.unit_cost is not None and payload.unit_cost < 0:
+        raise HTTPException(status_code=400, detail="Purchase Price cannot be negative.")
+    if payload.unit_price is not None and payload.unit_price < 0:
+        raise HTTPException(status_code=400, detail="Selling price cannot be negative.")
+    if payload.current_stock is not None and payload.current_stock < 0:
+        raise HTTPException(status_code=400, detail="Current Stock cannot be negative.")
+    if (
+        payload.unit_cost is not None
+        and payload.unit_price is not None
+        and payload.unit_price < payload.unit_cost
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Selling Price cannot be lower than Purchase Price.",
+        )
     product = get_product(db, tenant_id, product_id)
     if not product:
         return None

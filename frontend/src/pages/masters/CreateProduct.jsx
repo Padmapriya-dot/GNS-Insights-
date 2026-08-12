@@ -136,6 +136,18 @@ export default function CreateProduct() {
     }
     if (!numericOk(form.min_stock)) errs.min_stock = "Enter a valid number";
     if (!numericOk(form.current_stock)) errs.current_stock = "Enter a valid number";
+    if (form.current_stock !== "" && !isNaN(Number(form.current_stock)) && Number(form.current_stock) < 0) {
+      const msg = "Current Stock cannot be negative.";
+      setError(msg);
+      addToast(msg, "error");
+      return;
+    }
+    if (form.min_stock !== "" && !isNaN(Number(form.min_stock)) && Number(form.min_stock) < 0) {
+      const msg = "Min Stock cannot be negative.";
+      setError(msg);
+      addToast(msg, "error");
+      return;
+    }
     setFieldErrors(errs);
     if (Object.keys(errs).length) return;
 

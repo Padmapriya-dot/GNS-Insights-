@@ -238,7 +238,7 @@ export function ProductFormModal({ product, onClose, onSave }) {
       return;
     }
     if (!form.price_per_unit || isNaN(ppu) || ppu <= 0) {
-      window.alert("Please enter a valid Price per Unit (must be a positive number).");
+      window.alert(ppu < 0 ? "Purchase Price cannot be negative." : "Please enter a valid Price per Unit (must be a positive number).");
       return;
     }
     if (!form.quantity || isNaN(qty) || qty <= 0) {
