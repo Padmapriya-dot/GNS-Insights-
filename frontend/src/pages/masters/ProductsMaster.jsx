@@ -141,6 +141,7 @@ export default function ProductsMaster() {
       filtered,
       [
         { key: "name", label: "Product Name" },
+        { key: "category", label: "Category" },
         { key: "description", label: "Description" },
         { key: "hsn_code", label: "HSN" },
         { key: "unit", label: "Unit" },
@@ -237,6 +238,7 @@ export default function ProductsMaster() {
                 <thead>
                   <tr className="border-b border-[var(--color-border-soft)] bg-[var(--color-surface-thead)] text-[12px] font-medium text-[var(--color-text-muted)]">
                     <th className="px-4 py-3 font-medium">Product Name</th>
+                    <th className="px-4 py-3 font-medium">Category</th>
                     <th className="px-4 py-3 font-medium">Description</th>
                     <th className="px-4 py-3 font-medium">HSN</th>
                     <th className="px-4 py-3 font-medium">Unit</th>
@@ -248,6 +250,7 @@ export default function ProductsMaster() {
                 </thead>
                 <tbody>
                   {rows.map((p) => {
+                    const category = p.category || "Finished Goods";
                     const desc = blankOr(p.description);
                     const hsn = blankOr(p.hsn_code);
                     const unit = blankOr(p.unit);
@@ -265,6 +268,11 @@ export default function ProductsMaster() {
                     return (
                       <tr key={p.id} className="border-b border-[#f0f0f4] text-[#1a1a1f] last:border-b-0">
                         <td className="px-4 py-3.5 font-normal">{p.name || ""}</td>
+                        <td className="px-4 py-3.5 text-[#4a4a55]">
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                            {category}
+                          </span>
+                        </td>
                         <td className="px-4 py-3.5 text-[#4a4a55]">{desc}</td>
                         <td className="px-4 py-3.5 text-[#4a4a55]">{hsn}</td>
                         <td className="px-4 py-3.5 text-[#4a4a55]">{unit}</td>
