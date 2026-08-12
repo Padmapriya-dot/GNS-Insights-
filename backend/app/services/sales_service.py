@@ -762,24 +762,9 @@ def update_lead_status(
 
 
 def _next_quotation_number(db: Session, tenant_id: int) -> str:
-    today = date.today()
-    prefix = f"QT-{today.strftime('%Y%m%d')}-"
-    existing = list(
-        db.scalars(
-            select(Quotation.quote_number).where(
-                Quotation.tenant_id == tenant_id,
-                Quotation.quote_number.like(f"{prefix}%"),
-            )
-        ).all()
-    )
-    seq = 1
-    for num in existing:
-        try:
-            tail = str(num).rsplit("-", 1)[-1]
-            seq = max(seq, int(tail) + 1)
-        except (TypeError, ValueError):
-            continue
-    return f"{prefix}{seq:03d}"
+    from app.services.document_builder_service import allocate_next_quotation_number
+
+    return allocate_next_quotation_number(db, tenant_id)
 
 
 def create_quotation(db: Session, payload: QuotationCreate) -> Quotation:
@@ -808,6 +793,11 @@ def create_quotation(db: Session, payload: QuotationCreate) -> Quotation:
         db, tenant_id
     )
 
+    meta_json = data.get("meta_json")
+    if meta_json is not None and not isinstance(meta_json, str):
+        import json as _json
+        meta_json = _json.dumps(meta_json)
+
     quote = Quotation(
         tenant_id=tenant_id,
         quote_number=quote_number,
@@ -821,6 +811,7 @@ def create_quotation(db: Session, payload: QuotationCreate) -> Quotation:
         notes=data.get("notes"),
         sales_person=data.get("sales_person"),
         discount=float(data.get("discount") or 0),
+        meta_json=meta_json,
     )
     db.add(quote)
     db.commit()
@@ -866,9 +857,14 @@ def update_quotation(
         "notes",
         "sales_person",
         "discount",
+        "meta_json",
     ):
         if key in data and data[key] is not None:
-            setattr(quote, key, data[key])
+            if key == "meta_json" and not isinstance(data[key], str):
+                import json as _json
+                setattr(quote, key, _json.dumps(data[key]))
+            else:
+                setattr(quote, key, data[key])
     db.commit()
     db.refresh(quote)
     return quote

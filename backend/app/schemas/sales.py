@@ -229,6 +229,7 @@ class QuotationCreate(BaseModel):
     notes: str | None = None
     sales_person: str | None = None
     discount: float = 0
+    meta_json: dict | str | None = None
 
 
 class QuotationUpdate(BaseModel):
@@ -241,6 +242,7 @@ class QuotationUpdate(BaseModel):
     notes: str | None = None
     sales_person: str | None = None
     discount: float | None = None
+    meta_json: dict | str | None = None
 
 
 class QuotationRead(QuotationBase):

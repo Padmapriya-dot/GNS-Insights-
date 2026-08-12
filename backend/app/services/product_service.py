@@ -10,8 +10,14 @@ from app.models.sales import SalesOrderLine
 from app.schemas.product import BomItemCreate, ProductCreate, ProductUpdate
 
 
-def list_products(db: Session, tenant_id: int) -> list[Product]:
-    stmt = select(Product).where(Product.tenant_id == tenant_id).order_by(Product.id.desc())
+def list_products(db: Session, tenant_id: int, *, limit: int = 500, offset: int = 0) -> list[Product]:
+    stmt = (
+        select(Product)
+        .where(Product.tenant_id == tenant_id)
+        .order_by(Product.id.desc())
+        .offset(max(0, offset))
+        .limit(max(1, min(limit, 2000)))
+    )
     return list(db.scalars(stmt).all())
 
 

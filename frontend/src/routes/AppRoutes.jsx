@@ -71,14 +71,6 @@ export default function AppRoutes() {
         }
       />
       <Route
-        path="/production/batches"
-        element={
-          <ProtectedRoute>
-            <P.BatchTracking />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/production/machines"
         element={
           <ProtectedRoute>
@@ -123,14 +115,6 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <P.MachineAllocation />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/production/assign-tasks"
-        element={
-          <ProtectedRoute>
-            <P.TaskManagement />
           </ProtectedRoute>
         }
       />
@@ -483,6 +467,14 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/sales/quotations/:id"
+        element={
+          <ProtectedRoute>
+            <P.QuotationCopyPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/sales/dispatch"
         element={
           <ProtectedRoute>
@@ -660,6 +652,7 @@ export default function AppRoutes() {
       <Route path="/purchases" element={<ProtectedRoute><P.Purchases /></ProtectedRoute>} />
       <Route path="/purchases/create" element={<ProtectedRoute><P.PurchaseForm /></ProtectedRoute>} />
       <Route path="/purchases/:id/edit" element={<ProtectedRoute><P.PurchaseForm /></ProtectedRoute>} />
+      <Route path="/purchases/:id" element={<ProtectedRoute><P.PurchaseCopyPage /></ProtectedRoute>} />
       <Route path="/purchases/payments-made" element={<ProtectedRoute><P.PaymentsMade /></ProtectedRoute>} />
       <Route path="/purchases/payments-made/create" element={<ProtectedRoute><P.MakePaymentForm /></ProtectedRoute>} />
       <Route path="/purchases/payments-made/:id/edit" element={<ProtectedRoute><P.MakePaymentForm /></ProtectedRoute>} />

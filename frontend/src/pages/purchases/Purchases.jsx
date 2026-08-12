@@ -314,15 +314,13 @@ export default function Purchases() {
                       <td className="border-t border-[#d0d0d8] px-4 py-3">
                         <div className="flex flex-wrap gap-2">
                           <Link
-                            to={`/purchases/${r.id}/edit`}
-                            state={{ viewId: r.id, document: r }}
+                            to={`/purchases/${r.id}`}
                             className="text-[12px] font-semibold text-[#6b4eff] hover:underline"
                           >
                             View
                           </Link>
                           <Link
                             to={`/purchases/${r.id}/edit`}
-                            state={{ viewId: r.id, document: r }}
                             className="text-[12px] font-semibold text-[#4a4a55] hover:underline"
                           >
                             Edit

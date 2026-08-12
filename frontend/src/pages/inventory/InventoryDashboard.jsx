@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, ArrowLeftRight, Building2, ClipboardList, History, Package, PackageMinus, PackagePlus, PackageX, RotateCcw, Search, Warehouse } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
+import PageHeader from "../../components/common/PageHeader";
 import StoreManagerNav from "../../components/inventory/StoreManagerNav";
 import useAuth from "../../hooks/useAuth";
 import { isProductionManager } from "../../config/permissions";
@@ -171,18 +172,10 @@ export default function InventoryDashboard() {
     <div className="space-y-5 pb-4">
       <StoreManagerNav />
 
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="ui-eyebrow">Inventory</p>
-          <h2 className="mt-0.5 ui-title">Store Dashboard</h2>
-          <p className="ui-subtitle">
-            Stock health, warehouses, and daily store operations at a glance.
-          </p>
-        </div>
-      </header>
+      <PageHeader subtitle="Stock health, warehouses, and daily store operations at a glance." />
 
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 z-10" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-icon)] z-10" />
         <input
           type="search"
           value={search}
@@ -191,16 +184,16 @@ export default function InventoryDashboard() {
           className="ui-input w-full !pl-10"
         />
         {searchResults.length > 0 && (
-          <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+          <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-lg">
             {searchResults.map((p) => (
               <li key={p.id}>
                 <Link
                   to="/masters/products"
-                  className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-slate-50"
+                  className="flex items-center justify-between px-4 py-2.5 text-[var(--text-sm)] hover:bg-[var(--color-surface-muted)]"
                   onClick={() => setSearch("")}
                 >
-                  <span className="font-medium text-slate-800">{p.name}</span>
-                  <span className="text-xs text-slate-500">
+                  <span className="font-medium text-[var(--color-text)]">{p.name}</span>
+                  <span className="text-[var(--text-xs)] text-[var(--color-text-muted)]">
                     {p.product_code} · {p.current_stock} {p.unit}
                   </span>
                 </Link>

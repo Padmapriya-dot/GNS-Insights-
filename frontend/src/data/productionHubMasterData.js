@@ -22,7 +22,6 @@ export const HUB_MODULES = [
   { label: "Schedule", to: "/production/schedule", color: "bg-indigo-500" },
   { label: "Machine Allocation", to: "/production/tasks", color: "bg-violet-500" },
   { label: "Shop Floor", to: "/factory-monitor/live-production", color: "bg-teal-500" },
-  { label: "Batch Tracking", to: "/production/batches", color: "bg-amber-500" },
   { label: "Quality", to: "/quality/inspection", color: "bg-green-500" },
   { label: "Finished Goods", to: "/inventory/finished-goods", color: "bg-emerald-500" },
 ];

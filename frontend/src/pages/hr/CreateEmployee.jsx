@@ -160,7 +160,7 @@ export default function CreateEmployee() {
               <button
                 type="button"
                 onClick={() => setAddressOpen(true)}
-                className="inline-flex items-center gap-2 rounded-lg border border-[#2563EB] bg-white px-3 py-2 text-sm font-semibold text-[#2563EB] hover:bg-blue-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#2563EB] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-blue-50"
               >
                 <MapPin className="h-4 w-4" />
                 {form.address ? "Edit Address" : "Add Address"}

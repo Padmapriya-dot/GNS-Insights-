@@ -5,7 +5,6 @@ import { AlertTriangle, CheckCircle2, ClipboardList, Package, ShoppingCart } fro
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
-import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { useToast } from "../../context/ToastContext";
 import usePageRefresh from "../../hooks/usePageRefresh";
 import { runMrp } from "../../api/productionApi";
@@ -217,8 +216,6 @@ const YELLOW = "#F5C518";
             </div>
           }
         />
-
-      <ManufacturingWorkflowBar currentStepId="mrp" />
 
       <form
         onSubmit={handleRun}

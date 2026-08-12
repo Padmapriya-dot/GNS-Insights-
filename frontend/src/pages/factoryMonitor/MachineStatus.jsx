@@ -134,11 +134,14 @@ export default function MachineStatus() {
           </span>
         </div>
         <div className="p-4">
-          {machines.length === 0 ? (
+              {machines.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 py-16 text-center">
               <Cpu className="mx-auto h-12 w-12 text-slate-300 dark:text-slate-600" />
-              <p className="mt-2 text-slate-600 dark:text-slate-400">
-                No machines configured
+              <p className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                No machines found.
+              </p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Add a machine to get started.
               </p>
               <Link
                 to="/production/machines/create"

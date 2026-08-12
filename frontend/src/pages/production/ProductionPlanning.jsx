@@ -4,7 +4,6 @@ import { AlertTriangle, Ban, CheckCircle, CheckCircle2, ChevronLeft, ChevronRigh
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
-import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import ProductionOrderDetailModal, {
   CompleteWorkflowModal,
   StartCheckModal,
@@ -15,7 +14,6 @@ import { notifyManufacturingSpine, MANUFACTURING_EVENTS } from "../../utils/manu
 import useAuth from "../../hooks/useAuth";
 import useTenantId from "../../hooks/useTenantId";
 import { isOperator } from "../../config/permissions";
-import { PLANNING_SPINE_STEP_IDS } from "../../config/manufacturingWorkflow";
 import {
   completeProductionOrder,
   createProductionOrder,
@@ -35,7 +33,6 @@ import {
   ORDER_STATUSES,
   PRIORITIES,
   SHIFTS,
-  STATUS_FLOW,
   canPause,
   canStart,
   calculateProgressPct,
@@ -767,27 +764,6 @@ export default function ProductionPlanning() {
             className="hidden"
           />
 
-          <div>
-            <nav className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-slate-500 print:hidden" aria-label="Breadcrumb">
-              <Link to="/" className="hover:text-[#002C66]">Home</Link>
-              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
-              <Link to="/production" className="hover:text-[#002C66]">Production</Link>
-              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
-              <span className="font-medium text-[#002C66]">Production Planning</span>
-            </nav>
-            <p className="mt-1.5 text-sm text-slate-500 print:hidden">
-              Plan, schedule, and monitor production orders across machines, materials, and operators.
-            </p>
-          </div>
-
-          <div className="print:hidden">
-            <ManufacturingWorkflowBar
-              currentStepId="production_planning"
-              filterByRole={false}
-              stepIds={PLANNING_SPINE_STEP_IDS}
-            />
-          </div>
-
           <div className="flex flex-wrap gap-2 print:hidden">
             <Link
               to="/production/mrp"
@@ -962,27 +938,6 @@ export default function ProductionPlanning() {
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
-            </div>
-          </div>
-
-          <div className="print:hidden">
-            <ManufacturingWorkflowBar
-              currentStepId="production_planning"
-              compact
-              filterByRole={false}
-              stepIds={PLANNING_SPINE_STEP_IDS}
-            />
-          </div>
-
-          <div className="rounded-xl border border-[#d7e6f8] bg-white px-4 py-3 print:hidden">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Status Flow</p>
-            <div className="flex flex-wrap items-center gap-2">
-              {STATUS_FLOW.map((s, i) => (
-                <span key={s} className="flex items-center gap-2 text-xs text-[#002C66]">
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600">{s}</span>
-                  {i < STATUS_FLOW.length - 1 && <span className="text-slate-300">→</span>}
-                </span>
-              ))}
             </div>
           </div>
         </div>

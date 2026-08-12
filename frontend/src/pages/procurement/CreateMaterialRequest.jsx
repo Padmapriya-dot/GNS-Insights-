@@ -4,7 +4,6 @@ import { ArrowLeft } from "lucide-react";
 
 import PageHeader from "../../components/common/PageHeader";
 import InventoryLineItems from "../../components/common/InventoryLineItems";
-import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { createMaterialRequest } from "../../api/procurementApi";
 import { getInventoryDashboard } from "../../api/inventoryApi";
 import useTenantId from "../../hooks/useTenantId";
@@ -128,7 +127,6 @@ export default function CreateMaterialRequest() {
         <ArrowLeft className="h-4 w-4" />
         Back to material requests
       </Link>
-      <ManufacturingWorkflowBar currentStepId="purchase_request" compact />
       <PageHeader
         title="New material request"
         subtitle="Request raw materials for production. Convert to a purchase order when ready."

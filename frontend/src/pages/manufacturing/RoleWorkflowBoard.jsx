@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { Check, ChevronRight, Circle, Lock } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
-import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { useToast } from "../../context/ToastContext";
 import useAuth from "../../hooks/useAuth";
 import usePageRefresh from "../../hooks/usePageRefresh";
@@ -141,11 +140,6 @@ export default function RoleWorkflowBoard() {
           })}
         </div>
       </section>
-
-      <ManufacturingWorkflowBar
-        currentStepId={detail?.current_stage_id || roleStages[0]?.id || "sales_order"}
-        filterByRole
-      />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
