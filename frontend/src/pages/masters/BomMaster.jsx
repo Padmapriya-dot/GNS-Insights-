@@ -15,7 +15,7 @@ import {
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
-import BomDetailModal, { BomFormModal } from "../../components/masters/BomDetailModal";
+import BomDetailModal, { BomFormModal, checkDuplicateBom } from "../../components/masters/BomDetailModal";
 import { useToast } from "../../context/ToastContext";
 import { addBomItem, deleteBomItem, getBillOfMaterials } from "../../api/bomApi";
 import { getProducts } from "../../api/productsApi";
@@ -79,52 +79,68 @@ export default function BomMaster() {
     created_by: "",
   });
 
+  const getCustomBomsFromStorage = useCallback(() => {
+    try {
+      const keys = [
+        `gns_custom_boms_${tenantId}`,
+        "gns_custom_boms_1",
+        "gns_custom_boms_default",
+        "gns_custom_boms",
+      ];
+      for (const key of keys) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error reading custom BOMs from localStorage:", e);
+    }
+    return [];
+  }, [tenantId]);
+
+  const saveCustomBomsToStorage = useCallback((list) => {
+    try {
+      const json = JSON.stringify(list);
+      localStorage.setItem(`gns_custom_boms_${tenantId || 1}`, json);
+      localStorage.setItem("gns_custom_boms_1", json);
+      localStorage.setItem("gns_custom_boms", json);
+    } catch (e) {
+      console.error("Error saving custom BOMs to localStorage:", e);
+    }
+  }, [tenantId]);
+
   const loadBoms = useCallback(async () => {
     setLoading(true);
+    const customBoms = getCustomBomsFromStorage();
+
     try {
       const [bomRes, prodRes] = await Promise.all([getBillOfMaterials(), getProducts()]);
       const apiRows = bomRes.data || [];
       const apiProducts = Array.isArray(prodRes) ? prodRes : (prodRes.data || []);
       const groupedApi = groupApiBomRows(apiRows);
 
-      let customBoms = [];
-      try {
-        const storedKey = `gns_custom_boms_${tenantId}`;
-        const stored = localStorage.getItem(storedKey);
-        if (stored) customBoms = JSON.parse(stored);
-      } catch (e) {
-        console.error(e);
-      }
-
-      const combined = [...groupedApi];
-      for (const cb of customBoms) {
-        if (!combined.some((b) => b.id === cb.id || b.bom_number === cb.bom_number)) {
-          combined.push(cb);
+      const combined = [...customBoms];
+      for (const apiBom of groupedApi) {
+        if (!combined.some((b) => String(b.id) === String(apiBom.id) || String(b.bom_number).trim().toLowerCase() === String(apiBom.bom_number).trim().toLowerCase())) {
+          combined.push(apiBom);
         }
       }
 
       setBoms(combined);
       setTotalProducts(Math.max(apiProducts.length, combined.length));
     } catch {
-      let customBoms = [];
-      try {
-        const storedKey = `gns_custom_boms_${tenantId}`;
-        const stored = localStorage.getItem(storedKey);
-        if (stored) customBoms = JSON.parse(stored);
-      } catch (e) {}
-
       setBoms(customBoms);
       setTotalProducts(Math.max(0, customBoms.length));
     } finally {
       setLoading(false);
     }
-  }, [tenantId]);
+  }, [getCustomBomsFromStorage]);
 
   useEffect(() => {
-    try {
-      localStorage.removeItem("gns_custom_boms");
-      localStorage.removeItem("gns_deleted_demo_boms");
-    } catch {}
     loadBoms();
   }, [loadBoms]);
 
@@ -212,13 +228,9 @@ export default function BomMaster() {
   const handleDelete = async (bom) => {
     if (!window.confirm(`Delete BOM "${bom.bom_number || bom.product_name}"?`)) return;
     try {
-      const storedKey = `gns_custom_boms_${tenantId}`;
-      const stored = localStorage.getItem(storedKey);
-      if (stored) {
-        let list = JSON.parse(stored);
-        list = list.filter((b) => b.id !== bom.id && b.bom_number !== bom.bom_number);
-        localStorage.setItem(storedKey, JSON.stringify(list));
-      }
+      let list = getCustomBomsFromStorage();
+      list = list.filter((b) => String(b.id) !== String(bom.id) && String(b.bom_number).trim().toLowerCase() !== String(bom.bom_number).trim().toLowerCase());
+      saveCustomBomsToStorage(list);
 
       const lineIds = (bom.components || []).map((c) => c.id).filter((id) => typeof id === "number");
       if (lineIds.length > 0) {
@@ -235,69 +247,66 @@ export default function BomMaster() {
   const handleSave = async (savedBom) => {
     if (savedBom && savedBom.id) {
       try {
-        const storedKey = `gns_custom_boms_${tenantId}`;
-        const stored = localStorage.getItem(storedKey);
-        let list = stored ? JSON.parse(stored) : [];
+        let list = getCustomBomsFromStorage();
 
         const sProdName = String(savedBom.product_name || savedBom.product || "").trim();
         const sBomNo = String(savedBom.bom_number || "").trim();
         const sProdCode = String(savedBom.product_code || "").trim();
 
         if (!sProdName) {
-          addToast("Product Name is required and cannot be blank", "error");
+          addToast("Product Name is required and cannot be blank or contain only spaces", "error");
           return;
         }
         if (!sBomNo) {
-          addToast("BOM No is required and cannot be blank", "error");
+          addToast("BOM No is required and cannot be blank or contain only spaces", "error");
           return;
         }
         if (!sProdCode) {
-          addToast("Product Code is required and cannot be blank", "error");
+          addToast("Product Code is required and cannot be blank or contain only spaces", "error");
           return;
         }
 
+        const sanitizedBom = {
+          ...savedBom,
+          product_name: sProdName,
+          product: sProdName,
+          bom_number: sBomNo,
+          product_code: sProdCode,
+        };
+
         // Uniqueness check 1: reject if another BOM (different id) already has this bom_number
         const dupBomNo = boms.find(
-          (b) => String(b.id) !== String(savedBom.id) &&
+          (b) => String(b.id) !== String(sanitizedBom.id) &&
                  b.bom_number &&
-                 String(b.bom_number).trim().toLowerCase() === String(savedBom.bom_number).trim().toLowerCase()
+                 String(b.bom_number).trim().toLowerCase() === String(sanitizedBom.bom_number).trim().toLowerCase()
         );
         if (dupBomNo) {
-          addToast(`BOM No "${savedBom.bom_number}" already exists. Please use a unique BOM No.`, "error");
+          addToast(`BOM No "${sanitizedBom.bom_number}" already exists. Please use a unique BOM No.`, "error");
           return;
         }
 
         // Uniqueness check 2: reject if another BOM (different id) has same Product Name/Code and Version
-        const sProdNameLower = sProdName.toLowerCase();
-        const sProdCodeLower = sProdCode.toLowerCase();
-        const sVersion = String(savedBom.version || "V1.0").trim().toLowerCase();
+        const isDupProdVer = checkDuplicateBom(
+          { id: sanitizedBom.id, product_name: sProdName, product_code: sProdCode, version: sanitizedBom.version },
+          boms,
+          sanitizedBom.id
+        );
 
-        const dupProdVer = boms.find((b) => {
-          if (String(b.id) === String(savedBom.id)) return false;
-          const bProdName = String(b.product_name || b.product || "").trim().toLowerCase();
-          const bProdCode = String(b.product_code || "").trim().toLowerCase();
-          const bVersion = String(b.version || "V1.0").trim().toLowerCase();
-
-          const matchProduct = (sProdNameLower && bProdName === sProdNameLower) || (sProdCodeLower && bProdCode === sProdCodeLower);
-          const matchVersion = bVersion === sVersion;
-          return matchProduct && matchVersion;
-        });
-
-        if (dupProdVer) {
+        if (isDupProdVer) {
           addToast(
-            `A BOM for product "${savedBom.product_name}" with version "${savedBom.version || "V1.0"}" already exists. Duplicate BOMs for the same product and version are not allowed.`,
+            `A BOM for product "${sanitizedBom.product_name}" with version "${sanitizedBom.version || "V1.0"}" already exists. Duplicate BOMs for the same product and version are not allowed.`,
             "error"
           );
           return;
         }
 
-        const idx = list.findIndex((b) => b.id === savedBom.id || b.bom_number === savedBom.bom_number);
+        const idx = list.findIndex((b) => String(b.id) === String(sanitizedBom.id) || String(b.bom_number).trim().toLowerCase() === String(sanitizedBom.bom_number).trim().toLowerCase());
         if (idx >= 0) {
-          list[idx] = savedBom;
+          list[idx] = sanitizedBom;
         } else {
-          list.unshift(savedBom);
+          list.unshift(sanitizedBom);
         }
-        localStorage.setItem(storedKey, JSON.stringify(list));
+        saveCustomBomsToStorage(list);
       } catch (e) {
         console.error("LocalStorage save error:", e);
       }
@@ -474,7 +483,12 @@ export default function BomMaster() {
       )}
 
       {formBom && (
-        <BomFormModal bom={formBom} onClose={() => setFormBom(null)} onSave={handleSave} />
+        <BomFormModal
+          bom={formBom}
+          existingBoms={boms}
+          onClose={() => setFormBom(null)}
+          onSave={handleSave}
+        />
       )}
     </div>
   );

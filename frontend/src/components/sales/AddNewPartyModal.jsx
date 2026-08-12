@@ -6,13 +6,14 @@ import AddBasicDetailsModal from "./AddBasicDetailsModal";
 import AddCustomFieldModal from "./AddCustomFieldModal";
 import AddOtherDetailsModal from "./AddOtherDetailsModal";
 import SearchableSelect from "../common/SearchableSelect";
-import { createCustomer, updateCustomer } from "../../api/salesApi";
+import { createCustomer, getCustomers, updateCustomer } from "../../api/salesApi";
 import {
   createMastersVendor,
+  listMastersVendors,
   updateMastersVendor,
 } from "../../api/mastersVendorsApi";
 import { lookupIndianPincode } from "../../api/addressLookupApi";
-import { INDIAN_STATES } from "../../data/customersMasterData";
+import { INDIAN_STATES, CITIES_BY_STATE } from "../../data/indiaLocations";
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
 
@@ -103,12 +104,22 @@ function AddressModal({ open, onClose, initial, onSave }) {
 
   useEffect(() => {
     if (!open) return;
-    setAddress({
+    const initAddr = {
       ...EMPTY_ADDRESS,
       ...(initial || {}),
-    });
-    setCities(initial?.city ? [initial.city] : []);
+    };
+    setAddress(initAddr);
+
+    const stateCities = CITIES_BY_STATE[initAddr.state] || [];
+    const initialCityList = [...new Set([...(initAddr.city ? [initAddr.city] : []), ...stateCities])];
+    setCities(initialCityList);
   }, [open, initial]);
+
+  useEffect(() => {
+    if (!address.state) return;
+    const stateCities = CITIES_BY_STATE[address.state] || [];
+    setCities((prev) => [...new Set([...stateCities, ...prev])]);
+  }, [address.state]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,7 +133,8 @@ function AddressModal({ open, onClose, initial, onSave }) {
         if (data.city) opts.push(data.city);
         if (data.district && data.district !== data.city) opts.push(data.district);
         if (data.post_office) opts.push(data.post_office);
-        setCities([...new Set(opts.filter(Boolean))]);
+        const stateCities = CITIES_BY_STATE[data.state] || [];
+        setCities([...new Set([...opts, ...stateCities].filter(Boolean))]);
         setAddress((prev) => ({
           ...prev,
           city: data.city || data.district || prev.city,
@@ -181,31 +193,34 @@ function AddressModal({ open, onClose, initial, onSave }) {
               />
             </SoftField>
             <SoftField label="City">
-              <select
+              <input
+                list="party-address-city-list"
                 value={address.city}
                 onChange={(e) => setAddress((p) => ({ ...p, city: e.target.value }))}
+                placeholder="Enter or select City"
                 className={inputClass}
-              >
-                <option value="">Select City</option>
+              />
+              <datalist id="party-address-city-list">
                 {cities.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
+                  <option key={c} value={c} />
                 ))}
-                {address.city && !cities.includes(address.city) ? (
-                  <option value={address.city}>{address.city}</option>
-                ) : null}
-              </select>
+              </datalist>
             </SoftField>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <SoftField label="State">
               <SearchableSelect
                 value={address.state}
-                onChange={(v) => setAddress((p) => ({ ...p, state: v }))}
+                onChange={(v) => {
+                  setAddress((p) => {
+                    const stateCities = CITIES_BY_STATE[v] || [];
+                    const defaultCity = p.city && stateCities.includes(p.city) ? p.city : (stateCities[0] || p.city);
+                    return { ...p, state: v, city: defaultCity };
+                  });
+                }}
                 options={INDIAN_STATES}
                 placeholder="Select State"
-                className="!rounded-lg !border-[#d0d0d8] !bg-white !py-2.5 !text-[13px] !shadow-none"
+                className="!rounded-lg !border-[#d0d0d8] !bg-[#f3f3f6] !py-2.5 !text-[13px] !shadow-none"
               />
             </SoftField>
             <SoftField label="Country">
@@ -269,8 +284,30 @@ export default function AddNewPartyModal({
   const [customFields, setCustomFields] = useState([]);
   const [customOpen, setCustomOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [existingParties, setExistingParties] = useState([]);
 
   const isEdit = Boolean(party);
+
+  useEffect(() => {
+    if (!open) return;
+    let mounted = true;
+    if (isVendor) {
+      listMastersVendors()
+        .then((res) => {
+          if (mounted && Array.isArray(res?.data)) setExistingParties(res.data);
+        })
+        .catch(() => {});
+    } else {
+      getCustomers()
+        .then((res) => {
+          if (mounted && Array.isArray(res?.data)) setExistingParties(res.data);
+        })
+        .catch(() => {});
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [open, isVendor]);
 
   useEffect(() => {
     if (!open) return;
@@ -300,14 +337,41 @@ export default function AddNewPartyModal({
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) {
-      addToast("Company Name is required", "error");
+    const phoneVal = form.phone.trim();
+    if (phoneVal && /\D/.test(phoneVal)) {
+      addToast("Mobile No. must contain only numeric digits (0-9)", "error");
       return;
+    }
+    const gstinVal = form.gstin ? form.gstin.trim().toUpperCase() : "";
+    if (gstinVal) {
+      if (gstinVal.length !== 15) {
+        addToast("GSTIN must be exactly 15 characters (e.g. 27AAAAA0000A1Z5)", "error");
+        return;
+      }
+      const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Zz0-9A-Z]{1}[0-9A-Z]{1}$/;
+      if (!gstinRegex.test(gstinVal)) {
+        addToast("Invalid GSTIN format. Standard GSTIN format is required (e.g. 27AAAAA0000A1Z5)", "error");
+        return;
+      }
+
+      // Prevent creation/update if GSTIN already belongs to another party
+      const dup = existingParties.find(
+        (p) =>
+          String(p.id) !== String(party?.id) &&
+          p.gstin &&
+          p.gstin.trim().toUpperCase() === gstinVal
+      );
+      if (dup) {
+        addToast(
+          `A ${isVendor ? "vendor" : "customer"} with GSTIN "${gstinVal}" already exists.`,
+          "error"
+        );
+        return;
+      }
     }
     if (isVendor) {
       const email = basicDetails?.email?.trim() || party?.email || "";
-      const phone = form.phone.trim();
-      if (!phone) {
+      if (!phoneVal) {
         addToast("Mobile No. is required for vendors", "error");
         return;
       }

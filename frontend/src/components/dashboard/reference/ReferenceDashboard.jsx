@@ -38,6 +38,7 @@ import SkeletonCard, { SkeletonChart } from "../../common/SkeletonCard";
 import { quickActionsRef } from "../../../data/referenceDashboardData";
 import { getErpDashboard } from "../../../api/dashboardApi";
 import useAuth from "../../../hooks/useAuth";
+import MachineControlCard from "../MachineControlCard";
 import useManufacturingRefresh from "../../../hooks/useManufacturingRefresh";
 import { userCanAccess, isOperator } from "../../../config/permissions";
 import { CardShell, KpiIconWell, StatusBadge, TrendBadge, getKpiAccent } from "./ReferenceParts";
@@ -951,10 +952,15 @@ export default function ReferenceDashboard() {
         {(showProduction || showShopFloor || showTopMachines || (isOpProfile && sectionVisible(sections, "production_overview"))) && (
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
             {(showProduction || (isOpProfile && sectionVisible(sections, "production_overview"))) && (
-              <div className={isOpProfile || (!showShopFloor && !showTopMachines) ? "xl:col-span-12" : "xl:col-span-5"}>
+              <div className={isOpProfile ? "xl:col-span-6" : (!showShopFloor && !showTopMachines) ? "xl:col-span-12" : "xl:col-span-5"}>
                 <ProductionOverview chartSets={chartSets} />
               </div>
             )}
+            {isOpProfile ? (
+              <div className="xl:col-span-6">
+                <MachineControlCard initialMachines={apiData?.top_machines || apiData?.machines} onRefreshData={() => load(true)} />
+              </div>
+            ) : null}
             {showShopFloor ? (
               <div className="xl:col-span-3">
                 <ShopFloorStatus statusData={apiData?.shop_floor_status || []} />

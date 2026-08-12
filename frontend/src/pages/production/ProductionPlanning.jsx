@@ -5,6 +5,7 @@ import { AlertTriangle, Ban, CheckCircle, CheckCircle2, ChevronLeft, ChevronRigh
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
+import CreateProductionOrderModal from "../../components/production/CreateProductionOrderModal";
 import ProductionOrderDetailModal, {
   CompleteWorkflowModal,
   StartCheckModal,
@@ -217,6 +218,8 @@ export default function ProductionPlanning() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const [createdToastOrder, setCreatedToastOrder] = useState(null);
+  const [createOrderModalOpen, setCreateOrderModalOpen] = useState(false);
+  const [editModalOrder, setEditModalOrder] = useState(null);
   const [quickWoOrder, setQuickWoOrder] = useState(null);
   const [issueModalOrder, setIssueModalOrder] = useState(null);
 
@@ -722,7 +725,7 @@ export default function ProductionPlanning() {
         return (
           <div className="flex flex-wrap gap-1 text-xs print:hidden">
             <button type="button" title="View" onClick={() => openOrder(r)} className="font-semibold text-[#2563EB] hover:underline">👁 View</button>
-            <Link to={`/production/create?id=${r.id}&product_id=${r.product_id || ""}&order_number=${encodeURIComponent(r.order_number || "")}&buyer_company=${encodeURIComponent(r.buyer_company || r.customer_name || "")}&operator_name=${encodeURIComponent(r.operator_name || "")}&operator_id=${encodeURIComponent(r.operator_id || "")}&bom_version=${encodeURIComponent(r.bom_version || "BOM v1.0")}&planned_quantity=${r.planned_quantity || ""}&produced_quantity=${r.produced_quantity ?? 0}&priority=${r.priority || "medium"}&shift=${encodeURIComponent(shiftStr)}&machine_id=${r.machine_id || ""}&start_date=${r.start_date || ""}&due_date=${r.due_date || ""}&size=${encodeURIComponent(r.size || "")}&status=${encodeURIComponent(r.status || "planned")}&progress=${calculateProgressPct(r)}`} className="font-semibold text-slate-600 hover:underline">✏ Edit</Link>
+            <button type="button" title="Edit" onClick={() => { setEditModalOrder(r); setCreateOrderModalOpen(true); }} className="font-semibold text-slate-600 hover:underline">✏ Edit</button>
             <button type="button" onClick={() => handleIndividualPrint(r)} className="font-semibold text-slate-500 hover:underline">🖨 Print</button>
             {canStart(r.status) && (
               <button type="button" onClick={() => handleStartClick(r)} className="font-semibold text-green-700 hover:underline">▶ Start</button>
@@ -859,14 +862,18 @@ export default function ProductionPlanning() {
                 Print
               </button>
               {!isOperator(user) && (
-                <Link
-                  to="/production/create"
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold text-white"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditModalOrder(null);
+                    setCreateOrderModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
                   style={{ background: PRIMARY_BLUE }}
                 >
                   <Plus className="h-4 w-4" />
                   New Production Order
-                </Link>
+                </button>
               )}
             </div>
 
@@ -1115,6 +1122,20 @@ export default function ProductionPlanning() {
           onClose={() => setCreatedToastOrder(null)}
         />
       )}
+
+      <CreateProductionOrderModal
+        open={createOrderModalOpen}
+        onClose={() => {
+          setCreateOrderModalOpen(false);
+          setEditModalOrder(null);
+        }}
+        initialOrder={editModalOrder}
+        machinesList={machines}
+        onSaved={(newOrder) => {
+          load({ isRefresh: true });
+          setCreatedToastOrder(newOrder);
+        }}
+      />
 
       {/* Global CSS for Print Optimization */}
       <style>{`

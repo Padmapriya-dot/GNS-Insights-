@@ -28,7 +28,32 @@ from app.schemas.sales_extended import DeliveryChallanRead, DispatchShipmentCrea
 
 
 
+def _assert_no_customer_duplicates(
+    db: Session,
+    tenant_id: int,
+    *,
+    gstin: str | None,
+    exclude_id: int | None = None,
+) -> None:
+    if gstin and gstin.strip():
+        clean_gst = gstin.strip().upper()
+        from sqlalchemy import func, or_
+        q = select(Customer).where(
+            Customer.tenant_id == tenant_id,
+            func.upper(Customer.gstin) == clean_gst,
+            or_(Customer.status.is_(None), Customer.status != "inactive"),
+        )
+        if exclude_id:
+            q = q.where(Customer.id != exclude_id)
+        if db.scalars(q).first():
+            raise HTTPException(
+                status_code=400,
+                detail=f"A customer with GSTIN '{clean_gst}' already exists.",
+            )
+
+
 def create_customer(db: Session, payload: CustomerCreate) -> Customer:
+    _assert_no_customer_duplicates(db, payload.tenant_id, gstin=payload.gstin)
     c = Customer(**payload.model_dump())
     db.add(c)
     db.commit()
@@ -59,7 +84,10 @@ def update_customer(
     c = get_customer(db, tenant_id, customer_id)
     if not c:
         return None
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    if "gstin" in data and data["gstin"]:
+        _assert_no_customer_duplicates(db, tenant_id, gstin=data["gstin"], exclude_id=customer_id)
+    for key, value in data.items():
         setattr(c, key, value)
     db.commit()
     db.refresh(c)

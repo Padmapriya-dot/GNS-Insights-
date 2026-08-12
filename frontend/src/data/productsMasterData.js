@@ -59,18 +59,31 @@ export function guessCategory(sku = "", name = "") {
 }
 
 export function enrichApiProduct(apiRow) {
-  let category = apiRow.category;
-  if (!category || category === "Finished Goods" || category === "No Category") {
-    const descMatch = apiRow.description?.match(/Category:\s*([^|]+)/i);
-    if (descMatch && descMatch[1]?.trim()) {
-      category = descMatch[1].trim();
+  let category = apiRow.category || apiRow.product_type;
+  
+  // Try extracting explicit Category from description tag if category is default or missing
+  const descMatch = apiRow.description?.match(/Category:\s*([^|]+)/i);
+  if (descMatch && descMatch[1]?.trim()) {
+    category = descMatch[1].trim();
+  }
+
+  if (category) {
+    const cLower = String(category).trim().toLowerCase();
+    if (cLower === "raw material" || cLower === "raw_material" || cLower === "rm") {
+      category = "Raw Material";
+    } else if (cLower.includes("wip") || cLower.includes("work in progress") || cLower === "semi-finished") {
+      category = "WIP";
+    } else if (cLower.includes("spare") || cLower.includes("parts")) {
+      category = "Spare Parts";
+    } else if (cLower.includes("consumable")) {
+      category = "Consumables";
+    } else if (cLower.includes("finished")) {
+      category = "Finished Goods";
     }
   }
+
   if (!category || category === "No Category") {
     category = "Finished Goods";
-  }
-  if (category === "Work in Progress (WIP)" || category === "Work In Progress") {
-    category = "WIP";
   }
   const stock = apiRow.current_stock != null ? Number(apiRow.current_stock) : 0;
   const minStock = apiRow.min_stock != null ? Number(apiRow.min_stock) : 0;

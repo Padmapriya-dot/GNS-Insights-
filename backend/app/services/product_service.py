@@ -1,4 +1,5 @@
-from sqlalchemy import or_, select
+from fastapi import HTTPException
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -21,7 +22,39 @@ def get_product(db: Session, tenant_id: int, product_id: int) -> Product | None:
     ).first()
 
 
+def _assert_no_product_duplicates(
+    db: Session,
+    tenant_id: int,
+    *,
+    name: str | None = None,
+    sku: str | None = None,
+    exclude_id: int | None = None,
+) -> None:
+    if name and name.strip():
+        clean_name = name.strip()
+        import re
+        if not re.search(r"[a-zA-Z0-9]", clean_name):
+            raise HTTPException(
+                status_code=400,
+                detail="Product Name must contain at least one letter or number and cannot consist only of special characters.",
+            )
+        q = select(Product).where(
+            Product.tenant_id == tenant_id,
+            func.lower(Product.name) == clean_name.lower(),
+        )
+        if exclude_id:
+            q = q.where(Product.id != exclude_id)
+        if db.scalars(q).first():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Product Name '{clean_name}' already exists. Duplicate product names are not allowed.",
+            )
+
+
 def create_product(db: Session, payload: ProductCreate) -> Product:
+    _assert_no_product_duplicates(
+        db, payload.tenant_id, name=payload.name, sku=payload.sku
+    )
     product = Product(**payload.model_dump())
     db.add(product)
     db.commit()
@@ -35,7 +68,13 @@ def update_product(
     product = get_product(db, tenant_id, product_id)
     if not product:
         return None
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    name = data.get("name", product.name)
+    sku = data.get("sku", product.sku)
+    _assert_no_product_duplicates(
+        db, tenant_id, name=name, sku=sku, exclude_id=product_id
+    )
+    for field, value in data.items():
         setattr(product, field, value)
     db.commit()
     db.refresh(product)

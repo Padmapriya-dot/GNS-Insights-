@@ -107,14 +107,6 @@ export const SIDEBAR_NAV = [
     ],
   },
   {
-    key: "hrMasters",
-    label: "Masters",
-    icon: Layers,
-    children: [
-      { label: "Departments", to: "/masters/departments", module: "hr" },
-    ],
-  },
-  {
     key: "hr",
     labelKey: "erpNav.hr",
     icon: Users,

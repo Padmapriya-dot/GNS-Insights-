@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import AddCustomFieldModal from "./AddCustomFieldModal";
-import { createProduct, updateProduct } from "../../api/productsApi";
+import { createProduct, getProducts, updateProduct } from "../../api/productsApi";
 import { PRODUCT_CATEGORIES, PRODUCT_UNITS } from "../../data/productsMasterData";
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
@@ -288,8 +288,25 @@ export default function AddNewItemModal({
   const [customOpen, setCustomOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [barcodeOpen, setBarcodeOpen] = useState(false);
+  const [existingProducts, setExistingProducts] = useState([]);
 
   const isGoods = form.item_type === "goods";
+
+  useEffect(() => {
+    if (!open) {
+      setBarcodeOpen(false);
+      return;
+    }
+    let mounted = true;
+    getProducts()
+      .then((res) => {
+        if (mounted && Array.isArray(res?.data)) setExistingProducts(res.data);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -363,6 +380,21 @@ export default function AddNewItemModal({
       addToast("Item Name is required", "error");
       return;
     }
+    if (!/[a-zA-Z0-9]/.test(form.name.trim())) {
+      addToast("Product Name must contain at least one letter or number and cannot consist only of special characters", "error");
+      return;
+    }
+    const cleanName = form.name.trim().toLowerCase();
+    const dup = existingProducts.find(
+      (p) =>
+        String(p.id) !== String(item?.id) &&
+        p.name &&
+        p.name.trim().toLowerCase() === cleanName
+    );
+    if (dup) {
+      addToast(`Product Name "${form.name.trim()}" already exists.`, "error");
+      return;
+    }
     if (!form.sale_price && form.sale_price !== "0") {
       addToast("Sale Price is required", "error");
       return;
@@ -379,6 +411,7 @@ export default function AddNewItemModal({
         sku,
         name: form.name.trim(),
         category: form.category || "Finished Goods",
+        product_type: form.category || "Finished Goods",
         description: [
           form.description.trim(),
           form.item_type === "services" ? "Type: Service" : "Type: Goods",
@@ -745,11 +778,11 @@ export default function AddNewItemModal({
                     <span className="flex items-center pl-3 text-[13px] text-[#6b6b76]">₹</span>
                     <input
                       value={form.purchase_price}
-                      onFocus={(e) => { const t = e.target; setTimeout(() => t.select(), 0); }}
+                      onFocus={(e) => { const t = e.target; setTimeout(() => t?.select?.(), 0); }}
                       onChange={(e) =>
                         setForm((f) => {
                           let val = e.target.value.replace(/[^\d.]/g, "");
-                          if (/^0+[1-9]/.test(val)) val = val.replace(/^0+/, "");
+                          val = val.replace(/^0+(?=[0-9])/, "");
                           return { ...f, purchase_price: val };
                         })
                       }
@@ -782,11 +815,11 @@ export default function AddNewItemModal({
                     <SoftLabel>Opening Stock</SoftLabel>
                     <input
                       value={form.opening_stock}
-                      onFocus={(e) => { const t = e.target; setTimeout(() => t.select(), 0); }}
+                      onFocus={(e) => { const t = e.target; setTimeout(() => t?.select?.(), 0); }}
                       onChange={(e) =>
                         setForm((f) => {
                           let val = e.target.value.replace(/[^\d.]/g, "");
-                          if (/^0+[1-9]/.test(val)) val = val.replace(/^0+/, "");
+                          val = val.replace(/^0+(?=[0-9])/, "");
                           return { ...f, opening_stock: val };
                         })
                       }

@@ -376,10 +376,40 @@ export default function BomDetailModal({ bom, onClose, onEdit, onCopy, onDelete,
   );
 }
 
+export function normalizeVersion(v) {
+  if (!v) return "1.0";
+  return String(v).trim().toUpperCase().replace(/^V/, "") || "1.0";
+}
+
+export function checkDuplicateBom(candidateBom, existingBoms, currentBomId = null) {
+  if (!candidateBom || !Array.isArray(existingBoms)) return false;
+
+  const candId = String(currentBomId || candidateBom.id || "");
+  const candName = String(candidateBom.product_name || candidateBom.product || candidateBom.name || "").trim().toLowerCase();
+  const candCode = String(candidateBom.product_code || candidateBom.product_id || candidateBom.sku || "").trim().toLowerCase();
+  const candVer = normalizeVersion(candidateBom.version);
+
+  return existingBoms.some((b) => {
+    const bId = String(b.id || "");
+    if (candId && bId && candId === bId) return false;
+
+    const bName = String(b.product_name || b.product || b.name || "").trim().toLowerCase();
+    const bCode = String(b.product_code || b.product_id || b.sku || "").trim().toLowerCase();
+    const bVer = normalizeVersion(b.version);
+
+    if (candVer !== bVer) return false;
+
+    const nameMatches = candName && bName && candName === bName;
+    const codeMatches = candCode && bCode && candCode === bCode;
+
+    return nameMatches || codeMatches;
+  });
+}
+
 /**
  * BomFormModal — Create or edit a full Bill of Materials.
  */
-export function BomFormModal({ bom, onClose, onSave }) {
+export function BomFormModal({ bom, onClose, onSave, existingBoms = [] }) {
   const { addToast } = useToast();
 
   const [form, setForm] = useState({
@@ -392,12 +422,17 @@ export function BomFormModal({ bom, onClose, onSave }) {
     description: bom?.description || "",
   });
 
+  const [errors, setErrors] = useState({});
   const [productOptions, setProductOptions] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [existingBomNumbers, setExistingBomNumbers] = useState([]);
   const [query, setQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const wrapperRef = useRef(null);
+
+  const [nameQuery, setNameQuery] = useState("");
+  const [nameDropdownOpen, setNameDropdownOpen] = useState(false);
+  const nameWrapperRef = useRef(null);
 
   const [saving, setSaving] = useState(false);
 
@@ -434,11 +469,14 @@ export function BomFormModal({ bom, onClose, onSave }) {
     return () => (mounted = false);
   }, []);
 
-  // close dropdown when clicking outside
+  // close dropdowns when clicking outside
   useEffect(() => {
     const onDocClick = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setDropdownOpen(false);
+      }
+      if (nameWrapperRef.current && !nameWrapperRef.current.contains(e.target)) {
+        setNameDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", onDocClick);
@@ -455,8 +493,42 @@ export function BomFormModal({ bom, onClose, onSave }) {
     );
   });
 
+  const nq = (nameQuery || form.product_name || "").toLowerCase().trim();
+  const filteredNameOptions = productOptions.filter((p) => {
+    if (!nq) return true;
+    return (
+      (p.name || "").toLowerCase().includes(nq) ||
+      (p.product_code || "").toLowerCase().includes(nq) ||
+      (p.sku || "").toLowerCase().includes(nq)
+    );
+  });
+
+  const handleSelectProduct = (p) => {
+    if (!p) return;
+    const code = p.product_code || p.sku || (p.id ? `PRD-${String(p.id).padStart(3, "0")}` : "");
+    const name = (p.name || "").trim();
+
+    setForm((prev) => ({
+      ...prev,
+      product_code: code || prev.product_code,
+      product_name: name || prev.product_name,
+      total_cost: p.selling_price ?? p.total_cost ?? p.price_per_unit ?? p.purchase_price ?? p.unit_cost ?? prev.total_cost,
+      status: p.status || prev.status || "active",
+      description: p.description || prev.description,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      ...(code ? { product_code: null } : {}),
+      ...(name ? { product_name: null } : {}),
+    }));
+  };
+
   const handleSelectProductCode = (code) => {
     setField("product_code", code);
+    if (code && errors.product_code) {
+      setErrors((prev) => ({ ...prev, product_code: null }));
+    }
     if (!code) return;
     const p = productOptions.find(
       (x) =>
@@ -465,11 +537,27 @@ export function BomFormModal({ bom, onClose, onSave }) {
         String(x.id) === String(code)
     );
     if (p) {
-      setField("product_name", p.name || "");
-      const costVal = p.selling_price ?? p.total_cost ?? p.price_per_unit ?? p.purchase_price ?? p.unit_cost ?? "";
-      setField("total_cost", costVal);
-      setField("status", p.status || "active");
-      setField("description", p.description || "");
+      handleSelectProduct(p);
+    }
+  };
+
+  const handleProductNameChange = (val) => {
+    setField("product_name", val);
+    setNameQuery(val);
+    setNameDropdownOpen(true);
+    if (errors.product_name && val.trim() !== "") {
+      setErrors((prev) => ({ ...prev, product_name: null }));
+    }
+
+    if (val.trim()) {
+      const match = productOptions.find(
+        (x) =>
+          (x.name || "").toLowerCase().trim() === val.toLowerCase().trim() ||
+          (x.product_code || "").toLowerCase().trim() === val.toLowerCase().trim()
+      );
+      if (match) {
+        handleSelectProduct(match);
+      }
     }
   };
 
@@ -486,32 +574,45 @@ export function BomFormModal({ bom, onClose, onSave }) {
     return () => (mounted = false);
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    // Validate mandatory fields (strictly reject empty strings or whitespace-only inputs)
+  const validateForm = () => {
+    const errs = {};
     const bomNo = String(form.bom_number || "").trim();
     const prodCode = String(form.product_code || "").trim();
     const prodName = String(form.product_name || "").trim();
-    const version = String(form.version || "V1.0").trim();
+    const version = String(form.version || "").trim();
 
     if (!bomNo) {
-      addToast("Please enter a valid BOM No (cannot be blank)", "error");
-      return;
+      errs.bom_number = "BOM No is required and cannot be blank or contain only spaces.";
     }
     if (!prodCode) {
-      addToast("Please enter a valid Product Code (cannot be blank)", "error");
-      return;
+      errs.product_code = "Product Code is required and cannot be blank or contain only spaces.";
     }
     if (!prodName) {
-      addToast("Please enter a valid Product Name (cannot be blank)", "error");
-      return;
+      errs.product_name = "Product Name is required and cannot be blank or contain only spaces.";
     }
     if (!version) {
-      addToast("Please enter a valid Version (cannot be blank)", "error");
+      errs.version = "Version is required and cannot be blank or contain only spaces.";
+    }
+
+    setErrors(errs);
+    return { isValid: Object.keys(errs).length === 0, errs, bomNo, prodCode, prodName, version };
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const { isValid, errs, bomNo, prodCode, prodName, version } = validateForm();
+
+    if (!isValid) {
+      const firstKey = Object.keys(errs)[0];
+      if (firstKey && errs[firstKey]) {
+        addToast(errs[firstKey], "error");
+      }
       return;
     }
 
     const existingList = [
+      ...(existingBoms || []),
       ...(bom?._existingBoms || []),
       ...allExistingBoms,
     ];
@@ -524,26 +625,19 @@ export function BomFormModal({ bom, onClose, onSave }) {
              String(b.bom_number).trim().toLowerCase() === entered.toLowerCase()
     );
     if (dupBomNo) {
+      setErrors((prev) => ({ ...prev, bom_number: `BOM No "${entered}" already exists.` }));
       addToast("BOM No already exists — please choose a unique BOM No", "error");
       return;
     }
 
     // Validate Product + Version uniqueness
-    const dupProdVer = existingList.find((b) => {
-      if (String(b.id) === String(bom?.id)) return false;
-      const bProdName = String(b.product_name || b.product || "").trim().toLowerCase();
-      const bProdCode = String(b.product_code || "").trim().toLowerCase();
-      const bVersion = String(b.version || "V1.0").trim().toLowerCase();
+    const isDup = checkDuplicateBom(
+      { id: bom?.id, product_name: prodName, product_code: prodCode, version },
+      existingList,
+      bom?.id
+    );
 
-      const matchProduct =
-        (prodName && bProdName === prodName.toLowerCase()) ||
-        (prodCode && bProdCode === prodCode.toLowerCase());
-      const matchVersion = bVersion === version.toLowerCase();
-
-      return matchProduct && matchVersion;
-    });
-
-    if (dupProdVer) {
+    if (isDup) {
       addToast(
         `A BOM for product "${prodName}" with version "${version}" already exists. Duplicate BOMs for the same product and version are not allowed.`,
         "error"
@@ -556,10 +650,10 @@ export function BomFormModal({ bom, onClose, onSave }) {
 
     const savedBom = {
       id: bom?.id || `bom-custom-${Date.now()}`,
-      bom_number: bomNo || `BOM-${String(Date.now()).slice(-4)}`,
+      bom_number: bomNo,
       product_name: prodName,
       product: prodName,
-      product_code: prodCode || `PRD-${String(Date.now()).slice(-4)}`,
+      product_code: prodCode,
       version: version || "V1.0",
       status: form.status || "active",
       category: bom?.category || "Finished Goods",
@@ -588,6 +682,7 @@ export function BomFormModal({ bom, onClose, onSave }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <form
+        noValidate
         onSubmit={handleSubmit}
         className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl space-y-4"
       >
@@ -612,10 +707,21 @@ export function BomFormModal({ bom, onClose, onSave }) {
           </label>
           <input
             value={form.bom_number}
-            onChange={(e) => setField("bom_number", e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setField("bom_number", val);
+              if (errors.bom_number && val.trim() !== "") {
+                setErrors((prev) => ({ ...prev, bom_number: null }));
+              }
+            }}
             placeholder="e.g. BOM-2024-001"
-            className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all placeholder:text-slate-400"
+            className={`w-full rounded-2xl border ${
+              errors.bom_number ? "border-red-500 ring-1 ring-red-500" : "border-slate-200"
+            } px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all placeholder:text-slate-400`}
           />
+          {errors.bom_number && (
+            <p className="mt-1 text-xs font-medium text-red-500">{errors.bom_number}</p>
+          )}
         </div>
 
         {/* Row 2: Product Code */}
@@ -629,13 +735,27 @@ export function BomFormModal({ bom, onClose, onSave }) {
               <input
                 value={form.product_code}
                 onChange={(e) => {
-                  setField("product_code", e.target.value);
-                  setQuery(e.target.value);
+                  const val = e.target.value;
+                  setField("product_code", val);
+                  setQuery(val);
                   setDropdownOpen(true);
+                  if (errors.product_code && val.trim() !== "") {
+                    setErrors((prev) => ({ ...prev, product_code: null }));
+                  }
+                  if (val.trim()) {
+                    const match = productOptions.find(
+                      (x) =>
+                        (x.product_code || "").toLowerCase().trim() === val.toLowerCase().trim() ||
+                        (x.sku || "").toLowerCase().trim() === val.toLowerCase().trim()
+                    );
+                    if (match) handleSelectProduct(match);
+                  }
                 }}
                 onFocus={() => setDropdownOpen(true)}
-                placeholder={loadingProducts ? "Loading products..." : "Select a product"}
-                className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
+                placeholder={loadingProducts ? "Loading products..." : "Select or type product code"}
+                className={`w-full rounded-2xl border ${
+                  errors.product_code ? "border-red-500 ring-1 ring-red-500" : "border-slate-200"
+                } px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all`}
               />
               <button type="button" onClick={() => setDropdownOpen((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
                 ▾
@@ -650,16 +770,15 @@ export function BomFormModal({ bom, onClose, onSave }) {
                   ) : (
                     filteredOptions.map((p) => (
                       <li
-                        key={p.product_code || p.id}
+                        key={`code-opt-${p.product_code || p.id}`}
                         onMouseDown={() => {
-                          // use onMouseDown to avoid losing focus before click
-                          handleSelectProductCode(p.product_code);
-                          setQuery(p.product_code);
+                          handleSelectProduct(p);
+                          setQuery(p.product_code || "");
                           setDropdownOpen(false);
                         }}
                         className="cursor-pointer rounded-lg px-3 py-2 hover:bg-slate-50"
                       >
-                        <div className="text-sm font-bold text-slate-800">{p.product_code}</div>
+                        <div className="text-sm font-bold text-slate-800">{p.product_code || p.sku}</div>
                         <div className="text-xs text-slate-500">{p.name}</div>
                       </li>
                     ))
@@ -668,32 +787,86 @@ export function BomFormModal({ bom, onClose, onSave }) {
               </div>
             )}
           </div>
+          {errors.product_code && (
+            <p className="mt-1 text-xs font-medium text-red-500">{errors.product_code}</p>
+          )}
         </div>
 
         {/* Row 3: Product Name & Version */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="col-span-2">
+          <div className="col-span-2 relative" ref={nameWrapperRef}>
             <label className="block text-xs font-medium text-slate-600 mb-1">
               Product Name *
             </label>
-            <input
-              required
-              value={form.product_name}
-              onChange={(e) => setField("product_name", e.target.value)}
-              className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
-            />
+            <div className="relative">
+              <input
+                value={form.product_name}
+                onChange={(e) => handleProductNameChange(e.target.value)}
+                onFocus={() => setNameDropdownOpen(true)}
+                placeholder={loadingProducts ? "Loading products..." : "Select or type product name"}
+                className={`w-full rounded-2xl border ${
+                  errors.product_name ? "border-red-500 ring-1 ring-red-500" : "border-slate-200"
+                } px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all`}
+              />
+              <button
+                type="button"
+                onClick={() => setNameDropdownOpen((s) => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500"
+              >
+                ▾
+              </button>
+            </div>
+
+            {nameDropdownOpen && (
+              <div className="absolute z-40 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-slate-100 bg-white shadow-lg">
+                <ul className="p-2">
+                  {filteredNameOptions.length === 0 ? (
+                    <li className="px-3 py-2 text-sm text-slate-400">No products found</li>
+                  ) : (
+                    filteredNameOptions.map((p) => (
+                      <li
+                        key={`name-opt-${p.product_code || p.id}`}
+                        onMouseDown={() => {
+                          handleSelectProduct(p);
+                          setNameQuery(p.name || "");
+                          setNameDropdownOpen(false);
+                        }}
+                        className="cursor-pointer rounded-lg px-3 py-2 hover:bg-slate-50"
+                      >
+                        <div className="text-sm font-bold text-slate-800">{p.name}</div>
+                        <div className="text-xs text-slate-500">Code: {p.product_code || p.sku || "N/A"}</div>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            )}
+
+            {errors.product_name && (
+              <p className="mt-1 text-xs font-medium text-red-500">{errors.product_name}</p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">
               Version *
             </label>
             <input
-              required
               value={form.version}
-              onChange={(e) => setField("version", e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setField("version", val);
+                if (errors.version && val.trim() !== "") {
+                  setErrors((prev) => ({ ...prev, version: null }));
+                }
+              }}
               placeholder="e.g. V1.0"
-              className="w-full rounded-2xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all placeholder:text-slate-400"
+              className={`w-full rounded-2xl border ${
+                errors.version ? "border-red-500 ring-1 ring-red-500" : "border-slate-200"
+              } px-3.5 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all placeholder:text-slate-400`}
             />
+            {errors.version && (
+              <p className="mt-1 text-xs font-medium text-red-500">{errors.version}</p>
+            )}
           </div>
         </div>
 
