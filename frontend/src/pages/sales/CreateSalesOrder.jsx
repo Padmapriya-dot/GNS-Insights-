@@ -31,6 +31,10 @@ function QuickAddProductModal({ onClose, onAdded }) {
 
   const handleSave = async () => {
     if (!name.trim() || saving) return;
+    if (unit_price !== "" && !isNaN(Number(unit_price)) && Number(unit_price) < 0) {
+      alert("Price cannot be negative.");
+      return;
+    }
     setSaving(true);
     try {
       const generatedSku = sku.trim() || `SKU-${Date.now()}`;

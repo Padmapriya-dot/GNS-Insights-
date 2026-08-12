@@ -146,6 +146,18 @@ export default function AddLedgerCustomerModal({ open, onClose, onSaved, custome
       addToast("Company Name is required", "error");
       return;
     }
+    const gstinVal = form.gstin ? form.gstin.trim().toUpperCase() : "";
+    if (gstinVal) {
+      if (gstinVal.length !== 15) {
+        addToast("GSTIN must be exactly 15 characters (e.g. 27AAAAA0000A1Z5)", "error");
+        return;
+      }
+      const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Zz0-9A-Z]{1}[0-9A-Z]{1}$/;
+      if (!gstinRegex.test(gstinVal)) {
+        addToast("Invalid GSTIN format. Standard GSTIN format is required (e.g. 27AAAAA0000A1Z5)", "error");
+        return;
+      }
+    }
     setSaving(true);
     try {
       const opening = form.opening_balance ? Number(form.opening_balance) : 0;
@@ -268,7 +280,7 @@ export default function AddLedgerCustomerModal({ open, onClose, onSaved, custome
                 className={field}
                 placeholder="Enter Contact Phone No."
                 value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
+                onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
               />
             </OutlinedField>
             <OutlinedField label="Contact Email Id" className="sm:col-span-2">

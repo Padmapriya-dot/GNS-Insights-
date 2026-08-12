@@ -26,6 +26,7 @@ export function Input({
   type = "text",
   className = "",
   onFocus,
+  onChange,
   ...props
 }) {
   const [visible, setVisible] = useState(false);
@@ -33,8 +34,26 @@ export function Input({
   const inputType = isPassword ? (visible ? "text" : "password") : type;
 
   const handleFocus = (e) => {
-    e.target.select();
+    const target = e.target;
     onFocus?.(e);
+    if (type === "number" || target.value === "0" || target.value === 0) {
+      setTimeout(() => {
+        try {
+          if (target && typeof target.select === "function") {
+            target.select();
+          }
+        } catch (err) {}
+      }, 0);
+    }
+  };
+
+  const handleChange = (e) => {
+    if ((type === "number" || props.inputMode === "numeric") && typeof e.target.value === "string" && e.target.value !== "") {
+      if (/^0+(?=[0-9])/.test(e.target.value)) {
+        e.target.value = e.target.value.replace(/^0+(?=[0-9])/, "");
+      }
+    }
+    onChange?.(e);
   };
 
   return (
@@ -46,8 +65,9 @@ export function Input({
         <input
           type={inputType}
           className={`ui-input ${Icon ? "pl-10" : ""} ${isPassword ? "pr-11" : ""} ${error ? "is-error" : ""} ${className}`.trim()}
-          onFocus={handleFocus}
           {...props}
+          onFocus={handleFocus}
+          onChange={handleChange}
         />
         {isPassword ? (
           <button

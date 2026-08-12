@@ -26,6 +26,7 @@ import {
   hubStatusColor,
 } from "../../data/productionHubMasterData";
 import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
+import MachineControlCard from "../../components/dashboard/MachineControlCard";
 import { useCallback, useEffect, useState } from "react";
 
 
@@ -206,26 +207,7 @@ export default function ProductionDashboard() {
           )}
         </section>
 
-        <section className="ui-card p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-800">Machine Status</h3>
-            <Link to="/production/machines" className="text-xs font-semibold text-teal-700 hover:underline">
-              View all
-            </Link>
-          </div>
-          {(hub.machine_status || []).length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-500">No machine data available.</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {(hub.machine_status || []).map((m) => (
-                <div key={m.code} className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-center">
-                  <p className="text-xs font-bold text-slate-800">{m.name}</p>
-                  <p className="text-[10px] capitalize text-slate-500">{m.status}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+        <MachineControlCard onRefreshData={() => load(true)} />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">

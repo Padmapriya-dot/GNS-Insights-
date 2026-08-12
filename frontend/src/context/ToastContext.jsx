@@ -34,7 +34,9 @@ export function ToastProvider({ children }) {
       if (
         lower.includes("permission") ||
         lower.includes("access to") ||
-        lower.includes("not allowed")
+        lower.includes("not allowed") ||
+        lower.includes("network error") ||
+        lower.includes("failed to fetch")
       ) {
         return;
       }
