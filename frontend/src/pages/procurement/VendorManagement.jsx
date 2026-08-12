@@ -1,18 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  AlertCircle,
-  Building2,
-  Download,
-  FileText,
-  Plus,
-  Printer,
-  RefreshCw,
-  Star,
-  Upload,
-  UserCheck,
-  UserX,
-  Wallet,
-} from "lucide-react";
+import { AlertCircle, Building2, Download, FileText, Plus, Printer, Star, Upload, UserCheck, UserX, Wallet } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -20,6 +7,7 @@ import VendorDetailModal, { VendorFormModal } from "../../components/procurement
 import { useToast } from "../../context/ToastContext";
 import usePermissions from "../../hooks/usePermissions";
 import useTenantId from "../../hooks/useTenantId";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import {
   createVendor,
   deactivateVendor,
@@ -30,7 +18,6 @@ import {
   updateVendorApproval,
 } from "../../api/procurementApi";
 import {
-  DEMO_VENDORS,
   IMPORT_TEMPLATE_HEADERS,
   INDIAN_STATES,
   MATERIAL_TYPES,
@@ -51,7 +38,7 @@ function SummaryCard({ label, value, icon: Icon, color, format }) {
       <div className="flex items-center justify-between">
         <div className="min-w-0">
           <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className="mt-1 truncate text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{display}</p>
+          <p className="mt-1 truncate text-xl font-bold tabular-nums text-[var(--color-text)] sm:text-2xl">{display}</p>
         </div>
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${color}`}>
           <Icon className="h-5 w-5 text-white" />
@@ -120,6 +107,7 @@ export default function VendorManagement() {
     }
   }, []);
 
+  usePageRefresh(loadVendors);
 
   useEffect(() => {
     loadVendors();
@@ -198,7 +186,7 @@ export default function VendorManagement() {
 
   const handleDownloadTemplate = () => {
     const header = IMPORT_TEMPLATE_HEADERS.join(",");
-    const blob = new Blob([`${header}\nVEN006,Sample Vendor,John,+919999999999,john@vendor.com,36AABCS1234A1Z1,Hyderabad,Telangana,Net 30,active,Raw Material,Steel`], { type: "text/csv" });
+    const blob = new Blob([`${header}\n`], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "vendors_import_template.csv";
@@ -241,25 +229,9 @@ export default function VendorManagement() {
       loadVendors();
       setFormVendor(null);
       return;
-    } catch {
-      /* local fallback */
-    }
-    if (formVendor?.id) {
-      setVendors((prev) => prev.map((v) => (v.id === formVendor.id ? { ...v, ...form } : v)));
-      addToast("Vendor updated locally");
-    } else {
-      const venCode = form.vendor_code?.trim() || `VEN${String(vendors.length + 1).padStart(3, "0")}`;
-      const newV = {
-        ...enrichApiVendor({ id: `new-${Date.now()}`, ...payload }, vendors.length),
-        id: `new-${Date.now()}`,
-        ...form,
-        vendor_code: venCode,
-        outstanding: form.outstanding != null && form.outstanding !== "" ? Number(form.outstanding) : 0,
-        rating: form.rating != null && form.rating !== "" ? Number(form.rating) : 4.0,
-        created_at: new Date().toISOString().slice(0, 10),
-      };
-      setVendors((prev) => [...prev, newV]);
-      addToast("Vendor added");
+    } catch (err) {
+      addToast(err?.response?.data?.detail || "Could not save vendor.", "error");
+      return;
     }
     setFormVendor(null);
   };
@@ -358,8 +330,7 @@ export default function VendorManagement() {
     <div className="space-y-6 pb-8">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Vendor Management</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="ui-subtitle">
             Manage vendors, purchase history, outstanding payables, and performance ratings.
           </p>
         </div>
@@ -378,9 +349,6 @@ export default function VendorManagement() {
           </button>
           <button type="button" onClick={handlePrint} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <Printer className="h-4 w-4" /> Print
-          </button>
-          <button type="button" onClick={loadVendors} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
       </header>

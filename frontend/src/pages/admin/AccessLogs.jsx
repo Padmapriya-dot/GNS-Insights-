@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
+
 
 import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
 import AccessDenied from "../../components/admin/AccessDenied";
 import usePermissions from "../../hooks/usePermissions";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { useToast } from "../../context/ToastContext";
 import { getAccessLogs } from "../../api/adminApi";
 
@@ -48,13 +49,20 @@ export default function AccessLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    getAccessLogs()
-      .then((r) => setLogs(r.data || []))
-      .catch(() => addToast("Failed to load activity logs", "error"))
-      .finally(() => setLoading(false));
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    try {
+      const r = await getAccessLogs();
+      setLogs(r.data || []);
+    } catch (err) {
+      if (!isRefresh) addToast("Failed to load activity logs", "error");
+      if (isRefresh) throw err;
+    } finally {
+      setLoading(false);
+    }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     if (isAdmin) load();
@@ -91,19 +99,9 @@ export default function AccessLogs() {
         eyebrow="Admin"
         title="Audit Logs"
         subtitle="Audit trail of administrative actions across users, roles, and permissions."
-        action={
-          <button
-            type="button"
-            onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </button>
-        }
       />
 
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800 sm:p-6">
+      <div className="ui-card p-4 sm:p-6">
         {loading ? (
           <p className="py-10 text-center text-sm text-slate-500">Loading activity…</p>
         ) : (

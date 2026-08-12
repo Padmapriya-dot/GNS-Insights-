@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link } from "react-router-dom";
 import { Calendar, ChevronLeft, ChevronRight, Filter, ListFilter, Plus, Search, ShoppingCart, X } from "lucide-react";
 
@@ -77,8 +78,8 @@ export default function Purchases() {
   const [draftDocUpload, setDraftDocUpload] = useState("all");
   const [docUpload, setDocUpload] = useState("all");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const res = await listBizDocuments({
         module: "purchases",
@@ -88,6 +89,8 @@ export default function Purchases() {
       });
       const items = res?.data?.items || res?.data || [];
       setRows(Array.isArray(items) ? items : []);
+
+
     } catch {
       addToast("Failed to load purchases", "error");
       setRows([]);
@@ -95,6 +98,8 @@ export default function Purchases() {
       setLoading(false);
     }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     load();
@@ -161,7 +166,6 @@ export default function Purchases() {
   return (
     <div className="min-h-full" style={{ background: PAGE_BG }}>
       <div className="flex items-center gap-3 p-4 sm:p-6">
-          <h1 className="text-[22px] font-bold text-[#1a1a1f]">Purchase</h1>
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="inline-flex items-center gap-2 rounded-lg border border-[#e4e4ea] bg-white px-3 py-2 text-[13px] text-[#4a4a55]">
             <Calendar className="h-4 w-4 shrink-0 text-[#9a9aa5]" />

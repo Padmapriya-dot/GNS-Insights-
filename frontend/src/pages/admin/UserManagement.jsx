@@ -8,6 +8,7 @@ import AdminModal from "../../components/admin/AdminModal";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import AccessDenied from "../../components/admin/AccessDenied";
 import usePermissions from "../../hooks/usePermissions";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { useToast } from "../../context/ToastContext";
 import {
   getUsers,
@@ -63,16 +64,21 @@ export default function UserManagement() {
   const [deleting, setDeleting] = useState(false);
   const [resettingId, setResettingId] = useState(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    Promise.all([getUsers(), getRoles()])
-      .then(([u, r]) => {
-        setUsers(u.data || []);
-        setRoles(r.data || []);
-      })
-      .catch(() => addToast("Failed to load users", "error"))
-      .finally(() => setLoading(false));
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    try {
+      const [u, r] = await Promise.all([getUsers(), getRoles()]);
+      setUsers(u.data || []);
+      setRoles(r.data || []);
+    } catch (err) {
+      if (!isRefresh) addToast("Failed to load users", "error");
+      if (isRefresh) throw err;
+    } finally {
+      setLoading(false);
+    }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     if (isAdmin) load();
@@ -317,7 +323,7 @@ export default function UserManagement() {
         />
       </div>
 
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800 sm:p-6">
+      <div className="ui-card p-4 sm:p-6">
         {loading ? (
           <p className="py-10 text-center text-sm text-slate-500">Loading users…</p>
         ) : (
@@ -479,13 +485,13 @@ export default function UserManagement() {
 
 function StatCard({ label, value, icon: Icon }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800">
+    <div className="flex items-center gap-3 ui-card p-4">
       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-700 text-white">
         <Icon className="h-4 w-4" />
       </div>
       <div>
         <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</div>
-        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{label}</div>
+        <div className="text-[11px] font-medium text-[var(--color-text-muted)] dark:text-slate-400">{label}</div>
       </div>
     </div>
   );

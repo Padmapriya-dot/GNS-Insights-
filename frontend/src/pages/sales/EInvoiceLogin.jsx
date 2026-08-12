@@ -67,18 +67,14 @@ export default function EInvoiceLogin() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-[#F5F5F5]">
+      <div className="flex min-h-[50vh] items-center justify-center bg-[var(--color-bg)]">
         <Loader label="Loading…" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-full min-h-[calc(100vh-3.5rem)] flex-col bg-[#F5F5F5]">
-      <div className="flex shrink-0 items-center gap-2 border-b border-[#e4e4ea] bg-white px-5 py-3.5">
-        <h1 className="text-[22px] font-bold tracking-tight text-[#1a1a1f]">E-Invoice</h1>
-      </div>
-
+    <div className="flex h-full min-h-[calc(100vh-3.5rem)] flex-col bg-[var(--color-bg)]">
       <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[#3b3887] px-4 py-10">
         {/* Soft purple waves */}
         <div

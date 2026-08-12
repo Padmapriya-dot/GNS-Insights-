@@ -75,7 +75,7 @@ export default function Login() {
                 <div className="mb-4 flex justify-center">
                   <BrandLogo size="xl" />
                 </div>
-                <h1 className="text-4xl font-bold text-gray-900 mb-2">GNS Insights</h1>
+                <h1 className="text-4xl font-bold text-gray-900 mb-2">Insights Iva</h1>
                 <p className="text-gray-600 text-sm">Business Intelligence • Analytics • AI</p>
               </div>
 

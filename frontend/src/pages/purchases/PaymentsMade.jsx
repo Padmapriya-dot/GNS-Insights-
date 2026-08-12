@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link } from "react-router-dom";
 import { Calendar, ChevronLeft, ChevronRight, ListFilter, Plus, Receipt, Search } from "lucide-react";
 
@@ -92,8 +93,8 @@ export default function PaymentsMade() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const res = await listBizDocuments({
         module: "purchases",
@@ -119,10 +120,14 @@ export default function PaymentsMade() {
     } catch {
       addToast("Failed to load payments made", "error");
       setRows([]);
+
+
     } finally {
       setLoading(false);
     }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     load();
@@ -195,7 +200,6 @@ export default function PaymentsMade() {
 
   return (
     <div className="min-h-full space-y-4 bg-[#F5F5F5] p-4 sm:p-6">
-      <h1 className="text-[22px] font-bold text-[#1a1a1f]">Payments Made</h1>
 
       <div className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-[#efeaf8]">
         <div className="flex overflow-x-auto">

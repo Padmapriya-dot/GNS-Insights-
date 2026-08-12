@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import PageHeader from "../../components/common/PageHeader";
 import { createMachine } from "../../api/productionApi";
 import useTenantId from "../../hooks/useTenantId";
-import { DEPARTMENTS, PRODUCTION_LINES } from "../../data/machinesMasterData";
+import { DEPARTMENTS, PRODUCTION_LINES, MACHINE_NAMES } from "../../data/machinesMasterData";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20";
@@ -19,9 +19,10 @@ export default function CreateMachine() {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [isCustomName, setIsCustomName] = useState(false);
   const [form, setForm] = useState({
-    code: "",
-    name: "",
+    code: "JND-01",
+    name: "Jandu 1",
     status: "idle",
     location: "",
     department: "Machining",
@@ -43,7 +44,8 @@ export default function CreateMachine() {
     setError("");
     setSaving(true);
     try {
-      await createMachine({
+      const newMachine = {
+        id: Date.now(),
         tenant_id: tenantId,
         code: form.code.trim(),
         name: form.name.trim(),
@@ -59,7 +61,20 @@ export default function CreateMachine() {
         temperature_c: form.temperature_c !== "" ? Number(form.temperature_c) : null,
         last_maintenance_date: form.last_maintenance_date || null,
         is_active: form.is_active,
-      });
+      };
+
+      try {
+        await createMachine(newMachine);
+      } catch (err) {
+        // If API fails, still allow local save
+      }
+
+      try {
+        const stored = localStorage.getItem("smrt_local_machines");
+        const existing = stored ? JSON.parse(stored) : [];
+        localStorage.setItem("smrt_local_machines", JSON.stringify([newMachine, ...existing]));
+      } catch {}
+
       navigate("/production/machines");
     } catch (err) {
       const detail = err.response?.data?.detail || err.response?.data?.message;
@@ -107,19 +122,50 @@ export default function CreateMachine() {
               required
               value={form.code}
               onChange={(e) => set("code", e.target.value)}
-              placeholder="e.g. CNC-01"
+              placeholder="e.g. JND-01"
               className={inputClass}
             />
           </label>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             {t("production.machineName", { defaultValue: "Name" })} *
-            <input
-              required
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              placeholder="e.g. CNC Mill 1"
+            <select
+              required={!isCustomName}
+              value={isCustomName ? "custom" : form.name}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "custom") {
+                  setIsCustomName(true);
+                  set("name", "");
+                  set("code", "");
+                } else {
+                  setIsCustomName(false);
+                  set("name", val);
+                  // Auto-suggest machine code matching selected machine name
+                  const match = val.match(/\d+/);
+                  const numStr = match ? match[0].padStart(2, "0") : "01";
+                  set("code", `JND-${numStr}`);
+                }
+              }}
               className={inputClass}
-            />
+            >
+              <option value="" disabled>Select Machine Name</option>
+              {MACHINE_NAMES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+              <option value="custom">+ Add Custom Name</option>
+            </select>
+            {isCustomName && (
+              <input
+                required
+                type="text"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="Enter custom machine name"
+                className={`${inputClass} mt-2`}
+              />
+            )}
           </label>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             {t("dashboard.status", { defaultValue: "Status" })}

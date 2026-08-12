@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link } from "react-router-dom";
 import { Calendar, ChevronLeft, ChevronRight, FileText, Filter, ListFilter, Plus, Search, X } from "lucide-react";
 
@@ -9,7 +10,7 @@ import { apiErrorMessage } from "../../utils/apiError";
 import { formatInr } from "../../data/salesMasterData";
 
 const YELLOW = "#F5C518";
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "var(--color-bg)";
 const PAGE_SIZES = [10, 20, 50];
 
 const SORT_OPTIONS = [
@@ -125,8 +126,8 @@ export default function CreditNotes() {
   const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const res = await getInvoicesV2({
         page: 1,
@@ -141,10 +142,14 @@ export default function CreditNotes() {
     } catch {
       addToast("Failed to load credit notes", "error");
       setRows([]);
+
+
     } finally {
       setLoading(false);
     }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     load();
@@ -234,7 +239,6 @@ export default function CreditNotes() {
   return (
     <div className="min-h-full" style={{ background: PAGE_BG }}>
       <div className="space-y-4 p-4 sm:p-6">
-        <h1 className="text-[22px] font-bold text-[#1a1a1f]">Credit Note</h1>
 
         <div className="overflow-hidden rounded-xl border border-[#e4e4ea] bg-[#efeaf8]">
           <div className="flex flex-wrap">

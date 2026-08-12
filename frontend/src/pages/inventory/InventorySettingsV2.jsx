@@ -4,7 +4,7 @@ import { useToast } from "../../context/ToastContext";
 import Loader from "../../components/common/Loader";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F4F7FE";
+const PAGE_BG = "var(--color-bg)";
 const SETTING_KEY = "inventory_settings";
 
 const DEFAULTS = {
@@ -113,7 +113,6 @@ export default function InventorySettingsV2() {
 
   return (
     <div className="min-h-full" style={{ background: PAGE_BG }}>
-      <h1 className="text-[17px] font-bold">Inventory Settings</h1>
 
       <div className="mx-auto max-w-5xl p-4 sm:p-6">
         <div className="overflow-hidden rounded-2xl border border-[#e4e4ea] bg-white">

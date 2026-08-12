@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Filter, LayoutGrid, List, PhoneCall, Plus, RefreshCw, Target, TrendingUp, UserPlus, Users, XCircle } from "lucide-react";
+import { Filter, LayoutGrid, List, PhoneCall, Plus, Target, TrendingUp, UserPlus, Users, XCircle } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -8,6 +8,7 @@ import CreateLeadModal from "../../components/sales/CreateLeadModal";
 import LeadDetailModal from "../../components/sales/LeadDetailModal";
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import {
   convertLeadToQuotation,
   createLead,
@@ -16,8 +17,6 @@ import {
   updateLeadStatus,
 } from "../../api/salesApi";
 import {
-  DEMO_LEAD_LIST,
-  DEMO_LEAD_SUMMARY,
   KANBAN_COLUMNS,
   LEAD_INDUSTRIES,
   LEAD_REGIONS,
@@ -30,10 +29,10 @@ import { exportToExcel } from "../../utils/exportUtils";
 
 function KpiCard({ label, value, icon: Icon, color, suffix }) {
   return (
-    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="ui-card p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-[11px] font-medium text-slate-500">{label}</p>
+          <p className="text-[11px] font-medium text-[var(--color-text-muted)]">{label}</p>
           <p className="mt-1 text-xl font-bold text-slate-900">{value}{suffix || ""}</p>
         </div>
         {Icon && (
@@ -55,53 +54,54 @@ export default function Leads() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [rows, setRows] = useState([]);
+  const [summaryState, setSummaryState] = useState(null);
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [view, setView] = useState("table");
   const [selected, setSelected] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
-      const [, listRes] = await Promise.allSettled([getLeadSummary(), getLeadsEnriched()]);
-      const stored = localStorage.getItem("smrt_leads");
-      const localLeads = stored ? JSON.parse(stored) : [];
-      let baseLeads = DEMO_LEAD_LIST || [];
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length) {
-        baseLeads = listRes.value.data;
+      const [summaryRes, listRes] = await Promise.allSettled([getLeadSummary(), getLeadsEnriched()]);
+
+
+      const liveRows = listRes.status === "fulfilled" && Array.isArray(listRes.value?.data)
+        ? listRes.value.data
+        : [];
+      const liveSummary = summaryRes.status === "fulfilled" && summaryRes.value?.data
+        ? summaryRes.value.data
+        : null;
+      setRows(liveRows);
+      if (liveSummary) {
+        setSummaryState(liveSummary);
       }
-      const leadMap = new Map();
-      baseLeads.forEach((item) => {
-        const key = String(item.lead_id || item.id || item.customer_name || "");
-        if (key) leadMap.set(key, item);
-      });
-      localLeads.forEach((item) => {
-        const key = String(item.lead_id || item.id || item.customer_name || "");
-        if (key) leadMap.set(key, item);
-      });
-      setRows(Array.from(leadMap.values()));
     } catch {
-      const stored = localStorage.getItem("smrt_leads");
-      const localLeads = stored ? JSON.parse(stored) : [];
-      const leadMap = new Map();
-      (DEMO_LEAD_LIST || []).forEach((item) => {
-        const key = String(item.lead_id || item.id || item.customer_name || "");
-        if (key) leadMap.set(key, item);
-      });
-      localLeads.forEach((item) => {
-        const key = String(item.lead_id || item.id || item.customer_name || "");
-        if (key) leadMap.set(key, item);
-      });
-      setRows(Array.from(leadMap.values()));
+      setRows([]);
+      setSummaryState(null);
+      addToast("Could not load leads from the server.", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => { load(); }, [load]);
 
   const summary = useMemo(() => {
+    if (summaryState) {
+      return {
+        total_leads: Number(summaryState.total_leads ?? summaryState.total ?? rows.length) || 0,
+        new_leads: Number(summaryState.new_leads ?? 0) || 0,
+        contacted_leads: Number(summaryState.contacted_leads ?? 0) || 0,
+        qualified_leads: Number(summaryState.qualified_leads ?? 0) || 0,
+        won_customers: Number(summaryState.won_customers ?? summaryState.won ?? 0) || 0,
+        lost_leads: Number(summaryState.lost_leads ?? 0) || 0,
+        conversion_rate: summaryState.conversion_rate ?? 0,
+      };
+    }
     const total_leads = rows.length;
     const new_leads = rows.filter((r) => String(r.status || "").toLowerCase() === "new").length;
     const contacted_leads = rows.filter((r) => String(r.status || "").toLowerCase() === "contacted").length;
@@ -110,7 +110,7 @@ export default function Leads() {
     const lost_leads = rows.filter((r) => String(r.status || "").toLowerCase() === "lost").length;
     const conversion_rate = total_leads > 0 ? ((won_customers / total_leads) * 100).toFixed(1) : 0;
     return { total_leads, new_leads, contacted_leads, qualified_leads, won_customers, lost_leads, conversion_rate };
-  }, [rows]);
+  }, [rows, summaryState]);
 
   const filtered = useMemo(() => {
     let list = rows;
@@ -199,9 +199,9 @@ export default function Leads() {
     <div className="space-y-5 pb-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Sales</p>
-          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Leads (CRM)</h2>
-          <p className="mt-1 text-sm text-slate-500">Enterprise CRM pipeline with Kanban view, 360° lead profile, and opportunity tracking.</p>
+          <p className="ui-eyebrow">Sales</p>
+          <h2 className="mt-0.5 ui-title">Leads (CRM)</h2>
+          <p className="ui-subtitle">Enterprise CRM pipeline with Kanban view, 360° lead profile, and opportunity tracking.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -211,7 +211,6 @@ export default function Leads() {
           >
             <Plus className="h-4 w-4" /> New Lead
           </button>
-          <button type="button" onClick={async () => { setRefreshing(true); await load(); setRefreshing(false); }} disabled={refreshing} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"><RefreshCw className={`h-4 w-4 transition-transform ${refreshing ? "animate-spin" : ""}`} /> Refresh</button>
         </div>
       </header>
 
@@ -224,7 +223,7 @@ export default function Leads() {
         <KpiCard label="Conversion Rate" value={summary.conversion_rate} suffix="%" icon={TrendingUp} color="bg-emerald-600" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-xs font-medium text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="flex flex-wrap items-center gap-2 ui-card px-4 py-3 text-xs font-medium text-slate-600">
         {["Lead", "Qualification", "Opportunity", "Quotation", "Sales Order"].map((s, i, arr) => (
           <span key={s} className="flex items-center gap-2">
             <span className="rounded-lg bg-slate-50 px-2 py-1 font-bold text-slate-800 ring-1 ring-slate-200/80">{s}</span>
@@ -233,7 +232,7 @@ export default function Leads() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="ui-card p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700"><Filter className="h-4 w-4" /> Advanced Filters</button>
           <div className="flex gap-1 rounded-lg bg-slate-100 p-0.5">

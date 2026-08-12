@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { IndianRupee, RefreshCw, TrendingDown, Users, Wallet } from "lucide-react";
+import usePageRefresh from "../../hooks/usePageRefresh";
+import { IndianRupee, TrendingDown, Users, Wallet } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 import DataTable from "../../components/common/DataTable";
@@ -15,7 +16,7 @@ function KpiCard({ label, value, icon: Icon, color }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-[var(--color-text)]">{value}</p>
         </div>
         {Icon && (
           <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
@@ -49,10 +50,12 @@ export default function AccountsReceivable() {
   const [month, setMonth] = useState("All Months");
   const [branch, setBranch] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getARSummary(), getAREnriched()]);
+
+
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary(sumRes.value.data);
       if (listRes.status === "fulfilled" && listRes.value?.data) setRows(listRes.value.data);
     } catch {
@@ -63,6 +66,8 @@ export default function AccountsReceivable() {
       setLoading(false);
     }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => { load(); }, [load]);
 
@@ -146,18 +151,10 @@ export default function AccountsReceivable() {
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Accounts Receivable</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="ui-subtitle">
             Customer invoices, collections, and aging analysis for finance team.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          <RefreshCw className="h-4 w-4" /> Refresh
-        </button>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">

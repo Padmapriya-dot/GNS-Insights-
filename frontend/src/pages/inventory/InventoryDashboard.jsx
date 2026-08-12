@@ -1,20 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  AlertTriangle,
-  ArrowLeftRight,
-  Building2,
-  ClipboardList,
-  History,
-  Package,
-  PackageMinus,
-  PackagePlus,
-  PackageX,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  Warehouse,
-} from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, Building2, ClipboardList, History, Package, PackageMinus, PackagePlus, PackageX, RotateCcw, Search, Warehouse } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import StoreManagerNav from "../../components/inventory/StoreManagerNav";
@@ -48,15 +34,17 @@ function Kpi({ label, value, icon: Icon, tone = "slate", to }) {
     orange: "bg-orange-500",
   };
   const card = (
-    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium text-slate-500">{label}</p>
-          <p className="mt-1 truncate text-xl font-bold tabular-nums text-slate-900">{value ?? "—"}</p>
-        </div>
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tones[tone]}`}>
-          <Icon className="h-4 w-4 text-white" />
-        </div>
+    <div className="ui-card p-4 min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden transition hover:-translate-y-0.5" title={typeof label === "string" ? label : undefined}>
+      <div className="flex items-center justify-between gap-1.5 min-w-0">
+        <p className="truncate text-[11px] font-medium text-[var(--color-text-muted)] leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
+        {Icon && (
+          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${tones[tone]}`}>
+            <Icon className="h-3.5 w-3.5 text-white" />
+          </div>
+        )}
+      </div>
+      <div className="mt-2">
+        <p className="truncate text-xl font-bold tabular-nums text-[var(--color-text)] leading-none sm:text-2xl">{value ?? "—"}</p>
       </div>
     </div>
   );
@@ -67,7 +55,7 @@ function QuickAction({ to, icon: Icon, label, hint }) {
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-teal-200 hover:bg-teal-50/40"
+      className="flex items-center gap-3 ui-card p-4 transition hover:border-teal-200 hover:bg-teal-50/40"
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-800">
         <Icon className="h-5 w-5" />
@@ -104,8 +92,8 @@ export default function InventoryDashboard() {
   const [search, setSearch] = useState("");
   const [prBusy, setPrBusy] = useState(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [dRes, sumRes, invRes, prodRes, vendorRes] = await Promise.allSettled([
         getStoreDashboard(),
@@ -114,6 +102,12 @@ export default function InventoryDashboard() {
         getMasterProducts(),
         getVendorSummary(),
       ]);
+      const anyRejected = [dRes, sumRes, invRes, prodRes, vendorRes].every(
+        (r) => r.status === "rejected"
+      );
+      if (anyRejected && isRefresh) {
+        throw new Error("Failed to refresh inventory data");
+      }
       setDash(dRes.status === "fulfilled" ? dRes.value?.data || {} : {});
       setWhSummary(sumRes.status === "fulfilled" ? sumRes.value?.data : null);
       setInvItems(invRes.status === "fulfilled" ? invRes.value?.data || [] : []);
@@ -135,7 +129,7 @@ export default function InventoryDashboard() {
     load();
   }, [load]);
 
-  useManufacturingRefresh(load);
+  useManufacturingRefresh(() => load(true));
 
   const lowStockItems = useMemo(
     () => (invItems || []).filter((i) => i.needs_reorder).slice(0, 5),
@@ -179,29 +173,22 @@ export default function InventoryDashboard() {
 
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Inventory</p>
-          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Store Dashboard</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="ui-eyebrow">Inventory</p>
+          <h2 className="mt-0.5 ui-title">Store Dashboard</h2>
+          <p className="ui-subtitle">
             Stock health, warehouses, and daily store operations at a glance.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          className="inline-flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-        >
-          <RefreshCw className="h-4 w-4" /> Refresh
-        </button>
       </header>
 
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 z-10" />
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search products by name, code, category, or warehouse…"
-          className="ui-input w-full pl-10"
+          className="ui-input w-full !pl-10"
         />
         {searchResults.length > 0 && (
           <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
@@ -254,7 +241,7 @@ export default function InventoryDashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <section className="ui-card p-5">
           <h3 className="text-sm font-semibold text-slate-800">Low stock alerts</h3>
           {lowStockItems.length === 0 ? (
             <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-700">
@@ -287,7 +274,7 @@ export default function InventoryDashboard() {
           )}
         </section>
 
-        <section className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <section className="ui-card p-5">
           <h3 className="mb-3 text-sm font-semibold text-slate-800">Daily store workflow</h3>
           <ol className="flex flex-wrap items-center gap-2">
             {WORKFLOW.map((step, i) => (

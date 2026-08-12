@@ -146,7 +146,7 @@ export default function Register() {
                 <div className="mb-4 flex justify-center">
                   <BrandLogo size="xl" />
                 </div>
-                <h1 className="mb-2 text-4xl font-bold text-gray-900">GNS Insights</h1>
+                <h1 className="mb-2 text-4xl font-bold text-gray-900">Insights Iva</h1>
                 <p className="text-sm text-gray-600">Business Intelligence • Analytics • AI</p>
                 <p className="mt-1 text-xs text-gray-500">
                   Create your company account with a company email

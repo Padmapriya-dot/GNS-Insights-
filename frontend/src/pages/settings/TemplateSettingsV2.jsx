@@ -5,7 +5,7 @@ import { Check, Settings2 } from "lucide-react";
 
 import { useToast } from "../../context/ToastContext";
 
-const PAGE_BG = "#F4F7FE";
+const PAGE_BG = "var(--color-bg)";
 const ACCENT = "#0f6d84";
 const BTN_DARK = "#2f323a";
 const STORAGE_KEY = "gns_template_settings_v2";
@@ -1798,12 +1798,6 @@ export default function TemplateSettingsV2() {
   return (
     <div className="min-h-full" style={{ background: PAGE_BG }}>
       <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">
-            Template Settings
-          </h1>
-        </div>
-
         <div className="mb-5 flex flex-wrap gap-2">
           {TABS.map((t) => {
             const active = tab === t.id;

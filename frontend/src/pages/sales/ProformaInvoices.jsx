@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link, useLocation } from "react-router-dom";
 import { Calendar, ChevronLeft, ChevronRight, FileText, Filter, ListFilter, Plus, Search, X } from "lucide-react";
 
@@ -9,7 +10,7 @@ import { apiErrorMessage } from "../../utils/apiError";
 import { formatInr } from "../../data/salesMasterData";
 
 const YELLOW = "#F5C518";
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "var(--color-bg)";
 const PAGE_SIZES = [10, 20, 50];
 
 const SORT_OPTIONS = [
@@ -125,8 +126,8 @@ export default function ProformaInvoices() {
   const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const res = await getInvoicesV2({ page: 1, page_size: 500 });
       const items = res?.data?.items || res?.data || [];
@@ -139,10 +140,14 @@ export default function ProformaInvoices() {
     } catch {
       addToast("Failed to load proforma invoices", "error");
       setRows([]);
+
+
     } finally {
       setLoading(false);
     }
   }, [addToast, exportOnly]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     load();
@@ -212,7 +217,6 @@ export default function ProformaInvoices() {
   return (
     <div className="min-h-full" style={{ background: PAGE_BG }}>
       <div className="space-y-4 p-4 sm:p-6">
-        <h1 className="text-[22px] font-bold text-[#1a1a1f]">{pageTitle}</h1>
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-[200px] rounded-xl border border-[#e4e4ea] border-b-[3px] border-b-[#3d3560] bg-white px-5 py-3.5 shadow-sm">

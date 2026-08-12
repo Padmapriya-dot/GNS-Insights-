@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, CheckCircle, CreditCard, IndianRupee, Plus, RefreshCw, Users, XCircle } from "lucide-react";
+import usePageRefresh from "../../hooks/usePageRefresh";
+import { Banknote, CheckCircle, CreditCard, IndianRupee, Plus, Users, XCircle } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import FinanceFilters from "../../components/finance/FinanceFilters";
@@ -11,11 +12,11 @@ import { formatInr, statusColor } from "../../data/financeMasterData";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="ui-card p-4">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-[var(--color-text)]">{value}</p>
         </div>
         {Icon && (
           <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
@@ -52,10 +53,12 @@ export default function PaymentTracking() {
   const [branch, setBranch] = useState("");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getPaymentSummary(), getPaymentsEnriched()]);
+
+
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...INITIAL_PAY_SUMMARY, ...sumRes.value.data });
       // Use API data only — no localStorage fallback
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) {
@@ -71,6 +74,8 @@ export default function PaymentTracking() {
       setLoading(false);
     }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => { load(); }, [load]);
 
@@ -174,9 +179,9 @@ export default function PaymentTracking() {
     <div className="space-y-5 pb-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Finance</p>
-          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Payment Tracking</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="ui-eyebrow">Finance</p>
+          <h2 className="mt-0.5 ui-title">Payment Tracking</h2>
+          <p className="ui-subtitle">
             Customer receipts and vendor payments — UPI, NEFT, RTGS, cash, and bank transfers.
           </p>
         </div>
@@ -187,13 +192,6 @@ export default function PaymentTracking() {
             className="ui-btn-primary"
           >
             <Plus className="h-4 w-4" /> Record Payment
-          </button>
-          <button
-            type="button"
-            onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
       </header>
@@ -219,7 +217,7 @@ export default function PaymentTracking() {
         searchPlaceholder="Search payment, UTR, party..."
       />
 
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="ui-card p-4">
         <DataTable columns={columns} data={filtered} searchPlaceholder="" searchKeys={[]} />
       </div>
 

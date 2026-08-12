@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 
 import {
   deleteLoginHistory,
@@ -7,6 +7,7 @@ import {
   getMyLoginHistory,
 } from "../../api/loginHistoryApi";
 import useAuth from "../../hooks/useAuth";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { useToast } from "../../context/ToastContext";
 
 function statusClass(status) {
@@ -40,14 +41,16 @@ export default function LoginHistoryPanel() {
     setScope(isAdmin ? "company" : "me");
   }, [isAdmin]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const res =
         scope === "company" && isAdmin
           ? await getCompanyLoginHistory({ limit: 200 })
           : await getMyLoginHistory({ limit: 200 });
       setRows(Array.isArray(res.data) ? res.data : []);
+
+
     } catch (err) {
       setRows([]);
       addToast(err?.response?.data?.detail || "Failed to load login history", "error");
@@ -55,6 +58,8 @@ export default function LoginHistoryPanel() {
       setLoading(false);
     }
   }, [scope, isAdmin, addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     load();
@@ -113,14 +118,6 @@ export default function LoginHistoryPanel() {
               </button>
             </div>
           )}
-          <button
-            type="button"
-            onClick={load}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
-          </button>
         </div>
       </div>
 

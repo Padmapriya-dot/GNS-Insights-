@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { PackageMinus, RefreshCw } from "lucide-react";
+import { PackageMinus } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import StoreManagerNav from "../../components/inventory/StoreManagerNav";
@@ -10,6 +10,7 @@ import {
   recordStockMovement,
 } from "../../api/inventoryApi";
 import useTenantId from "../../hooks/useTenantId";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { isStoreManager } from "../../config/permissions";
 import useAuth from "../../hooks/useAuth";
 
@@ -37,8 +38,8 @@ export default function StockMovement() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [itemsRes, whRes] = await Promise.all([
         getInventoryDashboard(),
@@ -46,10 +47,13 @@ export default function StockMovement() {
       ]);
       setItems(itemsRes.data || []);
       setWarehouses(whRes.data || []);
-    } catch {
-      setItems([]);
-      setWarehouses([]);
-      addToast("Could not load stock data", "error");
+    } catch (err) {
+      if (!isRefresh) {
+        setItems([]);
+        setWarehouses([]);
+        addToast("Could not load stock data", "error");
+      }
+      if (isRefresh) throw err;
     } finally {
       setLoading(false);
     }
@@ -59,6 +63,8 @@ export default function StockMovement() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
+
+  usePageRefresh(() => load(true));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -90,24 +96,17 @@ export default function StockMovement() {
     );
   }
 
+
   return (
     <div className="space-y-6 pb-8">
       {storeMode ? <StoreManagerNav /> : null}
 
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Stock Out</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="ui-subtitle">
             Issue material from a warehouse to production or another department.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          <RefreshCw className="h-4 w-4" /> Refresh
-        </button>
       </header>
 
       <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

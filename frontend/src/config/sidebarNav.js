@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 /**
- * GNS Insights sidebar structure. Children are filtered by RBAC per-item `module`.
+ * Insights Iva sidebar structure. Children are filtered by RBAC per-item `module`.
  * Routes map to existing pages where available; others use /erp/* placeholders.
  */
 export const SIDEBAR_NAV = [
@@ -27,13 +27,6 @@ export const SIDEBAR_NAV = [
     icon: LayoutDashboard,
     module: "dashboard",
     end: true,
-  },
-  {
-    key: "manufacturingWorkflow",
-    labelKey: "erpNav.roleWorkflow",
-    to: "/manufacturing/workflow",
-    icon: Factory,
-    module: "dashboard",
   },
   {
     key: "masters",
@@ -246,10 +239,6 @@ export const SIDEBAR_NAV = [
     children: [
       { label: "All Settings", to: "/settings", module: "settings", end: true },
       { label: "Appearance", to: "/settings/appearance", module: "settings" },
-      { label: "Change Template", to: "/settings/change-template", module: "settings" },
-      { label: "Invoice Template", to: "/settings/invoice-template", module: "settings" },
-      { label: "Quotation Template", to: "/settings/quotation-template", module: "settings" },
-      { label: "Purchase Template", to: "/settings/purchase-template", module: "settings" },
       { label: "Change Format", to: "/settings/change-format", module: "settings" },
       { label: "Invoice Settings", to: "/settings/invoice-settings", module: "settings" },
       { label: "Expense Settings", to: "/accounts/expenses/settings", module: "accounts" },

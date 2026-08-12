@@ -8,6 +8,7 @@ import AdminModal from "../../components/admin/AdminModal";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import AccessDenied from "../../components/admin/AccessDenied";
 import usePermissions from "../../hooks/usePermissions";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { countModulePermissions, permissionLabel } from "../../config/permissions";
 import { useToast } from "../../context/ToastContext";
 import {
@@ -37,16 +38,21 @@ export default function RolesPermissions() {
   const [toDelete, setToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    Promise.all([getRoles(), getModules()])
-      .then(([r, m]) => {
-        setRoles(r.data || []);
-        setModules(m.data || []);
-      })
-      .catch(() => addToast("Failed to load roles", "error"))
-      .finally(() => setLoading(false));
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    try {
+      const [r, m] = await Promise.all([getRoles(), getModules()]);
+      setRoles(r.data || []);
+      setModules(m.data || []);
+    } catch (err) {
+      if (!isRefresh) addToast("Failed to load roles", "error");
+      if (isRefresh) throw err;
+    } finally {
+      setLoading(false);
+    }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     if (isAdmin) load();
@@ -168,7 +174,7 @@ export default function RolesPermissions() {
           {roles.map((role) => (
             <div
               key={role.id}
-              className="flex flex-col rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-800"
+              className="flex flex-col ui-card p-5"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">

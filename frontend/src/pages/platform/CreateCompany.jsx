@@ -494,9 +494,9 @@ function PageHeader() {
   return (
     <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3.5 sm:px-6">
-        <BrandLogo size="sm" />
+        <BrandLogo size="hero" />
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900">GNS Admin Portal</p>
+          <p className="text-sm font-semibold text-slate-900">Insights Iva Admin Portal</p>
           <p className="text-xs text-slate-500">Company provisioning</p>
         </div>
       </div>

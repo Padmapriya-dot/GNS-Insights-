@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { CheckCircle, FileText, Plus, TrendingUp, Download, RefreshCw, Search } from "lucide-react";
+import { CheckCircle, FileText, Plus, TrendingUp, Download, Search } from "lucide-react";
 import DataTable from "../../components/common/DataTable";
 import BillFormModal from "../../components/sales/BillFormModal";
 import { exportToExcel } from "../../utils/exportUtils";
 import api from "../../api/axiosConfig";
 import { getInvoices } from "../../api/salesApi";
 import { useToast } from "../../context/ToastContext";
+import usePageRefresh from "../../hooks/usePageRefresh";
 
 const fmt = (v) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(v) || 0);
@@ -42,7 +43,6 @@ export default function SalesBills() {
   const { addToast } = useToast();
   const [bills, setBills] = useState([]);
   const [loadingBills, setLoadingBills] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -68,6 +68,8 @@ export default function SalesBills() {
       setLoadingBills(false);
     }
   }, [addToast]);
+
+  usePageRefresh(fetchBills);
 
   // Reload every time user navigates to this page
   useEffect(() => {
@@ -234,9 +236,9 @@ export default function SalesBills() {
     <div className="space-y-5 pb-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Sales</p>
-          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Bills</h2>
-          <p className="mt-1 text-sm text-slate-500">Manage your billing records.</p>
+          <p className="ui-eyebrow">Sales</p>
+          <h2 className="mt-0.5 ui-title">Bills</h2>
+          <p className="ui-subtitle">Manage your billing records.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/sales/bills/create" className="ui-btn-primary">
@@ -266,25 +268,21 @@ export default function SalesBills() {
             className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             <Download className="h-4 w-4" /> Export
           </button>
-          <button type="button" onClick={async () => { setRefreshing(true); await fetchBills(); setRefreshing(false); }} disabled={refreshing}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
-            <RefreshCw className={`h-4 w-4 transition-transform ${refreshing ? "animate-spin" : ""}`} /> Refresh
-          </button>
         </div>
       </header>
 
       {/* KPI Cards */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="flex items-center justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-          <div><p className="text-[11px] font-medium text-slate-500">Total Bills</p><p className="mt-1 text-xl font-bold text-slate-900">{bills.length}</p></div>
+        <div className="flex items-center justify-between ui-card p-4">
+          <div><p className="text-[11px] font-medium text-[var(--color-text-muted)]">Total Bills</p><p className="mt-1 text-xl font-bold text-slate-900">{bills.length}</p></div>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-700"><FileText className="h-4 w-4 text-white" /></div>
         </div>
-        <div className="flex items-center justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-          <div><p className="text-[11px] font-medium text-slate-500">Paid / Pending</p><p className="mt-1 text-xl font-bold text-slate-900">{paidCount} <span className="text-base font-normal text-slate-400">/ {pendingCount}</span></p></div>
+        <div className="flex items-center justify-between ui-card p-4">
+          <div><p className="text-[11px] font-medium text-[var(--color-text-muted)]">Paid / Pending</p><p className="mt-1 text-xl font-bold text-slate-900">{paidCount} <span className="text-base font-normal text-slate-400">/ {pendingCount}</span></p></div>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600"><CheckCircle className="h-4 w-4 text-white" /></div>
         </div>
-        <div className="flex items-center justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-          <div><p className="text-[11px] font-medium text-slate-500">Combined Total</p><p className="mt-1 text-xl font-bold text-teal-800">{fmt(totalAmount)}</p></div>
+        <div className="flex items-center justify-between ui-card p-4">
+          <div><p className="text-[11px] font-medium text-[var(--color-text-muted)]">Combined Total</p><p className="mt-1 text-xl font-bold text-teal-800">{fmt(totalAmount)}</p></div>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600"><TrendingUp className="h-4 w-4 text-white" /></div>
         </div>
       </div>
@@ -302,10 +300,10 @@ export default function SalesBills() {
         </div>
 
         {bills.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200/90 bg-white py-20 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="flex flex-col items-center justify-center ui-card py-20 text-center">
             <FileText className="mx-auto mb-4 h-12 w-12 text-slate-300" />
             <p className="text-lg font-semibold text-slate-700">No bills yet</p>
-            <p className="mt-1 text-sm text-slate-500">Create your first bill to get started.</p>
+            <p className="ui-subtitle">Create your first bill to get started.</p>
             <Link to="/sales/bills/create" className="ui-btn-primary mt-6">
               <Plus className="h-4 w-4" /> Create Bill
             </Link>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Pencil, Trash2, X } from "lucide-react";
@@ -15,7 +16,7 @@ import {
 import { exportToPdf } from "../../utils/exportUtils";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "var(--color-bg)";
 
 function todayLabel() {
   const d = new Date();
@@ -202,41 +203,15 @@ export default function InventoryItemDetailV2() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
-      if (String(id) === "demo-product") {
-        setItem({
-          id: "demo-product",
-          name: "Demo Product",
-          hsn_code: "",
-          stock_value: 0,
-          purchase_price: 0,
-          selling_price: 100,
-          current_stock: 0,
-          unit: "PCS",
-          category: "No Category",
-          min_stock: 0,
-          gst_percent: 0,
-          description: "",
-          wholesale_price: 0,
-        });
-        setTimeline([
-          {
-            id: "opening",
-            activity: "First Stock",
-            subtitle: "Opening Stock",
-            date: todayLabel(),
-            change: 0,
-            final: 0,
-          },
-        ]);
-        return;
-      }
       const res = await getInventoryV2Item(id);
       const data = res.data || {};
       setItem(data);
       setTimeline(Array.isArray(data.timeline) ? data.timeline : []);
+
+
     } catch (err) {
       addToast(apiErrorMessage(err, "Could not load item."), "error");
       setItem(null);
@@ -244,6 +219,8 @@ export default function InventoryItemDetailV2() {
       setLoading(false);
     }
   }, [id, addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     load();
@@ -256,10 +233,6 @@ export default function InventoryItemDetailV2() {
   const stockValue = useMemo(() => stockQty * salePrice, [stockQty, salePrice]);
 
   const onStockSubmit = async ({ qty, remark, unit }) => {
-    if (String(id) === "demo-product") {
-      addToast("Add a real inventory item to adjust stock.", "error");
-      return;
-    }
     try {
       const fn = stockModal === "add" ? addInventoryV2Stock : removeInventoryV2Stock;
       await fn(id, { quantity: qty, remark, unit });
@@ -277,9 +250,7 @@ export default function InventoryItemDetailV2() {
     if (deleteBusy) return;
     setDeleteBusy(true);
     try {
-      if (String(id) !== "demo-product") {
-        await deleteInventoryV2Item(id);
-      }
+      await deleteInventoryV2Item(id);
       addToast("Product deleted.");
       navigate("/inventory", { replace: true });
     } catch (err) {
@@ -340,10 +311,6 @@ export default function InventoryItemDetailV2() {
 
   return (
     <div className="min-h-full" style={{ background: PAGE_BG }}>
-      <div className="px-4 pt-4 sm:px-6 sm:pt-6">
-        <h1 className="text-[22px] font-bold text-[#1a1a1f]">Inventory Item</h1>
-      </div>
-
       <div className="mx-4 mb-6 mt-4 rounded-2xl border border-[#e4e4ea] bg-white p-4 sm:mx-6 sm:p-5">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">

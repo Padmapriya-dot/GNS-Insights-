@@ -1,11 +1,12 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
-import { Award, Calendar, CheckCircle, Clock, Coffee, HeartPulse, Plus, RefreshCw, XCircle, X, Save } from "lucide-react";
+import { Award, Calendar, CheckCircle, Clock, Coffee, HeartPulse, Plus, XCircle, X, Save } from "lucide-react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getLeaveEnriched, getLeaveSummary, updateLeaveRequest, createLeaveRequest, getEmployeesEnriched } from "../../api/hrApi";
-import { DEMO_LEAVE_SUMMARY, LEAVE_TYPES, statusColor } from "../../data/hrMasterData";
+import { LEAVE_TYPES, statusColor } from "../../data/hrMasterData";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
@@ -47,7 +48,7 @@ function KpiCard({ label, value, icon: Icon, color }) {
 export default function Leave() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(DEMO_LEAVE_SUMMARY);
+  const [summary, setSummary] = useState({});
   const [rows, setRows] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
@@ -73,17 +74,25 @@ export default function Leave() {
         getLeaveEnriched(),
         getEmployeesEnriched()
       ]);
-      let hasError = false;
       if (sumRes.status === "fulfilled" && sumRes.value?.data) {
-        setSummary({ ...DEMO_LEAVE_SUMMARY, ...sumRes.value.data });
+        setSummary(sumRes.value.data || {});
+      } else {
+        setSummary({});
       }
       if (listRes.status === "fulfilled" && Array.isArray(listRes.value?.data)) {
         setRows([...listRes.value.data]);
+      } else {
+        setRows([]);
       }
       if (empRes.status === "fulfilled" && Array.isArray(empRes.value?.data)) {
         setEmployees([...empRes.value.data]);
+      } else {
+        setEmployees([]);
       }
     } catch {
+      setSummary({});
+      setRows([]);
+      setEmployees([]);
     } finally {
       setLoading(false);
     }
@@ -94,6 +103,8 @@ export default function Leave() {
     await new Promise((r) => setTimeout(r, 350));
     await load();
   };
+
+  usePageRefresh(handleRefresh);
 
   useEffect(() => { load(); }, [load]);
 
@@ -179,8 +190,7 @@ export default function Leave() {
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-sans">Leave Management</h1>
-          <p className="mt-1 text-sm text-slate-500">Leave calendar, multi-level approval workflow, and balance tracking.</p>
+          <p className="ui-subtitle">Leave calendar, multi-level approval workflow, and balance tracking.</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -189,13 +199,6 @@ export default function Leave() {
             className="ui-btn-hr"
           >
             <Plus className="h-4 w-4" /> Request Leave
-          </button>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
       </header>

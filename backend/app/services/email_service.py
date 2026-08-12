@@ -76,6 +76,7 @@ def _send_via_smtplib(
     body: str,
     *,
     html: str | None = None,
+    attachments: list[tuple[str, bytes, str]] | None = None,
 ) -> None:
     _require_smtp()
     s = _settings()
@@ -86,6 +87,9 @@ def _send_via_smtplib(
     msg.set_content(body)
     if html:
         msg.add_alternative(html, subtype="html")
+    for filename, content, mime in attachments or []:
+        maintype, _, subtype = (mime or "application/octet-stream").partition("/")
+        msg.add_attachment(content, maintype=maintype, subtype=subtype or "octet-stream", filename=filename)
 
     try:
         logger.info("email_send_start to=%s subject=%s via=smtplib", to, subject)
@@ -118,7 +122,7 @@ async def _send_via_fastapi_mail(
         MAIL_FROM=s.smtp_from_email,
         MAIL_PORT=s.smtp_port,
         MAIL_SERVER=s.smtp_host,
-        MAIL_FROM_NAME="GNS Insights",
+        MAIL_FROM_NAME="Insights Iva",
         MAIL_STARTTLS=True,
         MAIL_SSL_TLS=False,
         USE_CREDENTIALS=True,
@@ -145,10 +149,11 @@ async def send_email_async(
     body: str,
     *,
     html: str | None = None,
+    attachments: list[tuple[str, bytes, str]] | None = None,
 ) -> None:
     """Send email asynchronously. Prefers FastAPI-Mail; otherwise smtplib."""
     _require_smtp()
-    if _HAS_FASTAPI_MAIL:
+    if _HAS_FASTAPI_MAIL and not attachments:
         try:
             await _send_via_fastapi_mail(to, subject, body, html=html)
             return
@@ -156,7 +161,7 @@ async def send_email_async(
             raise
         except Exception:
             logger.warning("fastapi_mail_failed_falling_back_to_smtplib to=%s", to)
-    await asyncio.to_thread(_send_via_smtplib, to, subject, body, html=html)
+    await asyncio.to_thread(_send_via_smtplib, to, subject, body, html=html, attachments=attachments)
 
 
 def send_email(
@@ -186,7 +191,7 @@ def _password_reset_content(token: str) -> tuple[str, str, str]:
     s = _settings()
     link = f"{s.frontend_base_url.rstrip('/')}/reset-password?token={token}"
     minutes = s.password_reset_expire_minutes
-    subject = "Reset Your GNS Insights Password"
+    subject = "Reset Your Insights Iva Password"
     text_body = (
         "Hello,\n\n"
         "A password reset request was received.\n\n"
@@ -195,7 +200,7 @@ def _password_reset_content(token: str) -> tuple[str, str, str]:
         f"This link expires in {minutes} minutes.\n\n"
         "If you did not request this change, please ignore this email.\n\n"
         "Regards,\n"
-        "GNS Insights Team\n"
+        "Insights Iva Team\n"
     )
     html_body = f"""\
 <html>
@@ -213,7 +218,7 @@ def _password_reset_content(token: str) -> tuple[str, str, str]:
     <p style="word-break: break-all; font-size: 13px; color: #4b5563;">{link}</p>
     <p>This link expires in {minutes} minutes.</p>
     <p>If you did not request this change, please ignore this email.</p>
-    <p>Regards,<br/>GNS Insights Team</p>
+    <p>Regards,<br/>Insights Iva Team</p>
   </body>
 </html>
 """
@@ -237,8 +242,8 @@ def send_verification_email(to: str, token: str) -> None:
     link = f"{s.frontend_base_url.rstrip('/')}/verify-email?token={token}"
     send_email(
         to,
-        "Verify your GNS Insights account",
-        f"Welcome to GNS Insights.\n\nVerify your email by opening this link "
+        "Verify your Insights Iva account",
+        f"Welcome to Insights Iva.\n\nVerify your email by opening this link "
         f"(expires in {s.email_verification_expire_hours}h):\n{link}\n",
     )
 
@@ -256,13 +261,13 @@ def send_company_welcome_email(
 ) -> None:
     s = _settings()
     login_url = f"{s.frontend_base_url.rstrip('/')}/login"
-    subject = f"Welcome to GNS Insights — {company_name}"
+    subject = f"Welcome to Insights Iva — {company_name}"
     plan_line = f"Subscription Plan: {(subscription_plan or 'trial').title()}\n"
     billing_line = f"Billing Cycle: {(billing_cycle or '—').title()}\n" if billing_cycle else ""
     trial_line = f"Trial Expiry: {trial_expires_at}\n" if trial_expires_at else ""
     body = (
         f"Hello,\n\n"
-        f"Your company has been provisioned on GNS Insights ERP.\n\n"
+        f"Your company has been provisioned on Insights Iva ERP.\n\n"
         f"Company Name: {company_name}\n"
         f"Company ID: {company_id}\n"
         f"{plan_line}"
@@ -272,6 +277,6 @@ def send_company_welcome_email(
         f"Temporary Password: {temporary_password}\n"
         f"Login URL: {login_url}\n\n"
         f"Please sign in and change your password after first login.\n\n"
-        f"— GNS Insights Platform Team\n"
+        f"— Insights Iva Platform Team\n"
     )
     send_email(to, subject, body)

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import {
@@ -28,28 +29,11 @@ import {
   listInventoryV2Items,
   removeInventoryV2Stock,
 } from "../../api/inventoryV2Api";
-import { PRODUCT_CATEGORIES } from "../../data/productsMasterData";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F4F7FE";
+const PAGE_BG = "var(--color-bg)";
 const PAGE_SIZES = [10, 20, 50];
-
-/** Shown when the API returns no inventory items (matches reference UI). */
-const DEMO_INVENTORY_ITEM = {
-  id: "demo-product",
-  name: "Demo Product",
-  hsn_code: "",
-  stock_value: 0,
-  purchase_price: 0,
-  selling_price: 100,
-  current_stock: 0,
-  unit: "PCS",
-  category: "No Category",
-  min_stock: 0,
-  gst_percent: 0,
-  description: "",
-};
 
 const SORT_OPTIONS = [
   { id: "name-asc", label: "Item Name A-Z" },
@@ -294,13 +278,15 @@ export default function InventoryV2() {
   const [deleting, setDeleting] = useState(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [itemsRes, catsRes] = await Promise.all([
         listInventoryV2Items(),
         listInventoryV2Categories(),
       ]);
+
+
       const rows = Array.isArray(itemsRes.data) ? itemsRes.data : [];
       setProducts(rows);
       const cats = Array.isArray(catsRes.data) ? catsRes.data : [];
@@ -313,6 +299,8 @@ export default function InventoryV2() {
       setLoading(false);
     }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     load();
@@ -453,10 +441,6 @@ export default function InventoryV2() {
 
   return (
     <div className="min-h-full" style={{ background: PAGE_BG }}>
-      <div className="px-4 pt-4 sm:px-6 sm:pt-6">
-        <h1 className="text-[22px] font-bold text-[#1a1a1f]">Inventory</h1>
-      </div>
-
       <div className="mx-4 mb-6 mt-4 overflow-hidden rounded-2xl border border-[#e4e4ea] bg-white sm:mx-6">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e4e4ea] px-2 pt-2 sm:px-3">
           <div className="relative flex min-w-0 flex-1 gap-1">

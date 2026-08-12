@@ -11,7 +11,7 @@ import {
 import { useToast } from "../../context/ToastContext";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const PAGE_BG = "#F4F7FE";
+const PAGE_BG = "var(--color-bg)";
 
 export default function ExpenseSettingsV2() {
   const { addToast } = useToast();
@@ -85,7 +85,6 @@ export default function ExpenseSettingsV2() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Link>
-          <h1 className="text-[20px] font-bold text-[#1a1a1f]">Expense Settings</h1>
         </div>
 
         <div className="mb-4 flex justify-end">

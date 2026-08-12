@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookOpen, Building2, IndianRupee, Landmark, RefreshCw, Scale, TrendingUp } from "lucide-react";
+import usePageRefresh from "../../hooks/usePageRefresh";
+import { BookOpen, Building2, IndianRupee, Landmark, Scale, TrendingUp } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import FinanceFilters from "../../components/finance/FinanceFilters";
@@ -10,11 +11,11 @@ import { COST_CENTERS, GL_PLANNED_FEATURES, formatInr } from "../../data/finance
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="ui-card p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-[11px] font-medium text-slate-500">{label}</p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p>
+          <p className="text-[11px] font-medium text-[var(--color-text-muted)]">{label}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-[var(--color-text)]">{value}</p>
         </div>
         {Icon && (
           <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${color}`}>
@@ -45,10 +46,11 @@ export default function GeneralLedger() {
     revenue: 0, expenses: 0, cash_balance: 0,
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getGLSummary(), getGLEnriched()]);
+
 
       // Use API data only — no localStorage fallback
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) {
@@ -70,6 +72,8 @@ export default function GeneralLedger() {
       setLoading(false);
     }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => { load(); }, [load]);
 
@@ -119,11 +123,10 @@ export default function GeneralLedger() {
     <div className="space-y-5 pb-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Finance</p>
-          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">General Ledger</h2>
-          <p className="mt-1 text-sm text-slate-500">Central accounting ledger — vouchers, journal entries, and cost center allocation.</p>
+          <p className="ui-eyebrow">Finance</p>
+          <h2 className="mt-0.5 ui-title">General Ledger</h2>
+          <p className="ui-subtitle">Central accounting ledger — vouchers, journal entries, and cost center allocation.</p>
         </div>
-        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -168,7 +171,7 @@ export default function GeneralLedger() {
         </div>
       </FinanceFilters>
 
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="ui-card p-4">
         <DataTable columns={columns} data={filtered} searchPlaceholder="" searchKeys={[]} />
       </div>
     </div>

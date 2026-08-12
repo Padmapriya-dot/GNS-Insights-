@@ -5,6 +5,7 @@ import { AlertCircle, Calendar, ChevronDown, ChevronLeft, ChevronRight, Plus, Ro
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { getPayments } from "../../api/salesApi";
 import {
   createBizDocument,
@@ -324,8 +325,8 @@ export default function RefundVouchers() {
   const [pageSize, setPageSize] = useState(25);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [custRes, payRes, docRes] = await Promise.allSettled([
         fetchCustomersWithFallback(),
@@ -337,6 +338,8 @@ export default function RefundVouchers() {
           page_size: 200,
         }),
       ]);
+
+
       setCustomers(custRes.status === "fulfilled" ? custRes.value || [] : []);
       const payments = payRes.status === "fulfilled" ? payRes.value?.data || [] : [];
       const map = {};
@@ -370,6 +373,8 @@ export default function RefundVouchers() {
       setLoading(false);
     }
   }, [addToast, tenantId]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     load();
@@ -444,15 +449,14 @@ export default function RefundVouchers() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-[#F5F5F5]">
+      <div className="flex min-h-[50vh] items-center justify-center bg-[var(--color-bg)]">
         <Loader label="Loading refund vouchers..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-full space-y-4 bg-[#F5F5F5] p-4 sm:p-6">
-      <h1 className="text-[22px] font-bold text-[#1a1a1f]">Refund Vouchers</h1>
+    <div className="min-h-full space-y-4 bg-[var(--color-bg)] p-4 sm:p-6">
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative w-full max-w-xl">

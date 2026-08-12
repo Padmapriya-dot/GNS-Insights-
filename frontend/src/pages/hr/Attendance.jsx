@@ -1,27 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Calendar, Clock, Filter, Moon, RefreshCw, Timer, UserCheck, UserMinus, UserX } from "lucide-react";
+import usePageRefresh from "../../hooks/usePageRefresh";
+import { Calendar, Clock, Filter, Moon, Timer, UserCheck, UserMinus, UserX } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { clockIn, clockOut, getAttendanceEnriched, getAttendanceSummary, getEmployeesEnriched, getShifts } from "../../api/hrApi";
-import { DEMO_ATT_SUMMARY, sourceLabel, statusColor } from "../../data/hrMasterData";
+import { sourceLabel, statusColor } from "../../data/hrMasterData";
 
 function KpiCard({ label, value, icon: Icon, color, suffix }) {
   return (
-    <div className="group rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-400 font-sans">{label}</p>
-          <p className="mt-1 text-lg sm:text-xl font-black tracking-tight text-slate-900 tabular-nums truncate" title={`${value}${suffix || ""}`}>
-            {value}{suffix || ""}
-          </p>
-        </div>
+    <div className="group ui-card p-4 min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden transition-all duration-200 hover:-translate-y-0.5" title={typeof label === "string" ? label : undefined}>
+      <div className="flex items-center justify-between gap-1.5 min-w-0">
+        <p className="truncate text-[11px] font-medium text-[var(--color-text-muted)] leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
         {Icon && (
-          <div className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-transform duration-200 group-hover:scale-105 ${color}`}>
-            <Icon className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-white shrink-0" />
+          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-transform duration-200 group-hover:scale-105 ${color}`}>
+            <Icon className="h-3.5 w-3.5 text-white shrink-0" />
           </div>
         )}
+      </div>
+      <div className="mt-2">
+        <p className="truncate text-xl font-bold tabular-nums text-[var(--color-text)] leading-none sm:text-2xl" title={`${value}${suffix || ""}`}>
+          {value}{suffix || ""}
+        </p>
       </div>
     </div>
   );
@@ -34,7 +35,7 @@ function todayStr() {
 export default function Attendance() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(DEMO_ATT_SUMMARY);
+  const [summary, setSummary] = useState({});
   const [rows, setRows] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [shifts, setShifts] = useState([]);
@@ -52,16 +53,22 @@ export default function Attendance() {
         getEmployeesEnriched(),
         getShifts(),
       ]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_ATT_SUMMARY, ...sumRes.value.data });
+      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary(sumRes.value.data || {});
+      else setSummary({});
       if (listRes.status === "fulfilled" && listRes.value?.data) {
         setRows([...listRes.value.data]);
       } else {
         setRows([]);
       }
       if (empRes.status === "fulfilled") setEmployees([...(empRes.value?.data || [])]);
+      else setEmployees([]);
       if (shiftRes.status === "fulfilled") setShifts([...(shiftRes.value?.data || [])]);
+      else setShifts([]);
     } catch {
+      setSummary({});
       setRows([]);
+      setEmployees([]);
+      setShifts([]);
     } finally {
       setLoading(false);
     }
@@ -72,6 +79,8 @@ export default function Attendance() {
     await new Promise((r) => setTimeout(r, 350));
     await load();
   };
+
+  usePageRefresh(handleRefresh);
 
   useEffect(() => { load(); }, [load]);
 
@@ -171,8 +180,7 @@ export default function Attendance() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <header>
-        <h1 className="text-2xl font-bold text-slate-900">Attendance</h1>
-        <p className="mt-1 text-sm text-slate-500">Biometric, RFID, GPS, QR integration with shift-wise tracking.</p>
+        <p className="ui-subtitle">Biometric, RFID, GPS, QR integration with shift-wise tracking.</p>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 2xl:grid-cols-7">
@@ -217,13 +225,6 @@ export default function Attendance() {
           <button type="button" onClick={() => setView("table")} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${view === "table" ? "bg-white text-[#2563EB] shadow-sm" : "text-slate-500"}`}>Table</button>
           <button type="button" onClick={() => setView("calendar")} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${view === "calendar" ? "bg-white text-[#2563EB] shadow-sm" : "text-slate-500"}`}><Calendar className="inline h-3.5 w-3.5" /> Summary</button>
         </div>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="inline-flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          <RefreshCw className="h-4 w-4" /> Refresh
-        </button>
       </div>
 
       {view === "table" ? (

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, ClipboardCheck, Plus, RefreshCw, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Plus, XCircle } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import StoreManagerNav from "../../components/inventory/StoreManagerNav";
 import { useToast } from "../../context/ToastContext";
 import useAuth from "../../hooks/useAuth";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { isStoreManager } from "../../config/permissions";
 import {
   createStockAdjustment,
@@ -42,14 +43,16 @@ export default function StockAdjustment() {
   const [submitting, setSubmitting] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [adjRes, whRes, itemsRes] = await Promise.allSettled([
         getStockAdjustments(),
         getWarehouses(),
         getInventoryDashboard(),
       ]);
+
+
       if (adjRes.status === "fulfilled" && adjRes.value?.data) {
         setAdjustments(adjRes.value.data);
       } else {
@@ -61,6 +64,8 @@ export default function StockAdjustment() {
       setLoading(false);
     }
   }, []);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     load();
@@ -188,8 +193,7 @@ export default function StockAdjustment() {
     <div className="space-y-6 p-4 sm:p-6">
       {storeMode ? <StoreManagerNav /> : null}
       <header>
-        <h1 className="text-2xl font-bold text-slate-900">Stock Adjustment</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="ui-subtitle">
           Audit-ready stock corrections with multi-level approval workflow.
         </p>
       </header>
@@ -295,13 +299,6 @@ export default function StockAdjustment() {
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-4 flex justify-between">
             <h2 className="text-sm font-bold text-slate-800">Adjustment History</h2>
-            <button
-              type="button"
-              onClick={load}
-              className="text-xs font-semibold text-slate-600 hover:text-slate-900"
-            >
-              <RefreshCw className="inline h-3 w-3" /> Refresh
-            </button>
           </div>
           <DataTable columns={columns} data={adjustments} showSearch={false} />
         </section>

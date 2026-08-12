@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link } from "react-router-dom";
 import { Calendar, ChevronLeft, ChevronRight, FileText, Filter, ListFilter, Plus, Search, X } from "lucide-react";
 
@@ -127,13 +128,15 @@ export default function Quotations() {
   const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([
         getQuotationSummary(),
         getQuotationsEnriched(),
       ]);
+
+
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary(sumRes.value.data);
       else setSummary({});
       if (listRes.status === "fulfilled") setRows(listRes.value?.data || []);
@@ -144,6 +147,8 @@ export default function Quotations() {
       setLoading(false);
     }
   }, []);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     load();
@@ -233,17 +238,16 @@ export default function Quotations() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-[#F4F7FE]">
+      <div className="flex min-h-[50vh] items-center justify-center bg-[var(--color-bg)]">
         <Loader label="Loading quotations..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-full space-y-4 bg-[#F4F7FE] p-4 sm:p-6">
+    <div className="min-h-full space-y-4 bg-[var(--color-bg)] p-4 sm:p-6">
       <div className="mb-1">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Sales</p>
-        <h1 className="mt-0.5 text-[22px] font-bold text-[#1a1a1f]">Quotations</h1>
+        <p className="ui-eyebrow">Sales</p>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-[#d0d0d8] bg-[#f7f7f9]">

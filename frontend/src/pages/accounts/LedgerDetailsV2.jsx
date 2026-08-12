@@ -9,7 +9,7 @@ import SendLedgerModal from "../../components/accounts/SendLedgerModal";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import { useToast } from "../../context/ToastContext";
 
-const PAGE_BG = "#F4F7FE";
+const PAGE_BG = "var(--color-bg)";
 const PAGE_SIZES = [10, 20, 50];
 const CASH_KEY = "gns_ledger_cash_accounts_v2";
 const OTHER_KEY = "gns_ledger_other_accounts_v3";
@@ -270,7 +270,6 @@ export default function LedgerDetailsV2() {
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[22px] font-bold text-[#1a1a1f]">Ledger Details</h1>
       </div>
 
       <div className="mx-4 mb-6 mt-4 rounded-2xl border border-[#e4e4ea] bg-white p-4 sm:mx-6 sm:p-5">

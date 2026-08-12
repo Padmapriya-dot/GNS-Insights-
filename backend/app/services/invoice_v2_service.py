@@ -8,7 +8,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.models.sales import Invoice, InvoiceItem, SalesOrder
+from app.models.sales import Customer, Invoice, InvoiceItem, SalesOrder
 from app.schemas.invoice_v2 import (
     InvoiceV2Create,
     InvoiceV2ItemRead,
@@ -17,6 +17,12 @@ from app.schemas.invoice_v2 import (
     InvoiceV2Read,
     InvoiceV2SummaryBucket,
     InvoiceV2SummaryRead,
+)
+from app.services.company_settings_service import get_or_create_settings
+from app.services.invoice_gst_service import (
+    allocate_next_invoice_number,
+    apply_header_gst,
+    resolve_tax_mode,
 )
 from app.services.journal_service import post_sales_invoice_journal
 
@@ -362,8 +368,19 @@ def create_invoice_v2(db: Session, payload: InvoiceV2Create) -> Invoice:
         doc = "debit_note"
 
     full_number = f"{payload.invoice_prefix or ''}{payload.invoice_number}".strip()
-    if not full_number:
-        full_number = payload.invoice_number
+    if not full_number or full_number.upper() in ("AUTO", "AUTO-GENERATE"):
+        prefix, full_number = allocate_next_invoice_number(db, payload.tenant_id)
+        if not payload.invoice_prefix:
+            payload.invoice_prefix = prefix
+
+    company = get_or_create_settings(db, payload.tenant_id)
+    customer = db.get(Customer, payload.customer_id) if payload.customer_id else None
+    tax_mode = resolve_tax_mode(
+        document_type=doc,
+        seller_state_code=company.state_code,
+        buyer_state_code=customer.state_code if customer else None,
+        force_igst=float(payload.igst_pct or 0) > 0 and float(payload.cgst_pct or 0) == 0,
+    )
 
     inv = Invoice(
         tenant_id=payload.tenant_id,
@@ -382,7 +399,7 @@ def create_invoice_v2(db: Session, payload: InvoiceV2Create) -> Invoice:
         discount=_money(payload.discount),
         other_charge=_money(payload.other_charge),
         round_off=_money(payload.round_off),
-        cgst_pct=float(payload.csgst_pct or 0),
+        cgst_pct=float(payload.cgst_pct or 0),
         sgst_pct=float(payload.sgst_pct or 0),
         igst_pct=float(payload.igst_pct or 0),
         status=payload.status or "issued",
@@ -462,21 +479,10 @@ def create_invoice_v2(db: Session, payload: InvoiceV2Create) -> Invoice:
         taxable_sum += oc
 
     inv.subtotal = _money(taxable_sum)
-    use_igst = doc == "export_invoice" or float(payload.igst_pct or 0) > 0
-    if use_igst:
-        inv.igst_amount = _money(gst_sum)
-        inv.cgst_amount = 0
-        inv.sgst_amount = 0
-        if not inv.igst_pct:
-            inv.igst_pct = 18
-    else:
-        inv.cgst_amount = _money(gst_sum / 2)
-        inv.sgst_amount = _money(gst_sum / 2)
-        inv.igst_amount = 0
-        if not inv.cgst_pct:
-            inv.cgst_pct = 9
-        if not inv.sgst_pct:
-            inv.sgst_pct = 9
+    default_gst = float(company.default_gst_pct or 18)
+    apply_header_gst(inv, gst_sum=gst_sum, tax_mode=tax_mode, default_gst_pct=default_gst)
+    if not inv.place_of_supply and customer:
+        inv.place_of_supply = customer.state
 
     inv.grand_total = _money(
         taxable_sum + gst_sum - float(inv.discount or 0) + float(inv.round_off or 0)
@@ -656,22 +662,20 @@ def update_invoice_v2(db: Session, tenant_id: int, invoice_id: int, payload: Inv
         )
         taxable_sum += oc
 
+    company = get_or_create_settings(db, tenant_id)
+    customer = db.get(Customer, payload.customer_id) if payload.customer_id else None
+    tax_mode = resolve_tax_mode(
+        document_type=doc,
+        seller_state_code=company.state_code,
+        buyer_state_code=customer.state_code if customer else None,
+        force_igst=float(payload.igst_pct or 0) > 0 and float(payload.cgst_pct or 0) == 0,
+    )
+
     inv.subtotal = _money(taxable_sum)
-    use_igst = doc == "export_invoice" or float(payload.igst_pct or 0) > 0
-    if use_igst:
-        inv.igst_amount = _money(gst_sum)
-        inv.cgst_amount = 0
-        inv.sgst_amount = 0
-        if not inv.igst_pct:
-            inv.igst_pct = 18
-    else:
-        inv.cgst_amount = _money(gst_sum / 2)
-        inv.sgst_amount = _money(gst_sum / 2)
-        inv.igst_amount = 0
-        if not inv.cgst_pct:
-            inv.cgst_pct = 9
-        if not inv.sgst_pct:
-            inv.sgst_pct = 9
+    default_gst = float(company.default_gst_pct or 18)
+    apply_header_gst(inv, gst_sum=gst_sum, tax_mode=tax_mode, default_gst_pct=default_gst)
+    if not inv.place_of_supply and customer:
+        inv.place_of_supply = customer.state
 
     inv.grand_total = _money(
         taxable_sum + gst_sum - float(inv.discount or 0) + float(inv.round_off or 0)

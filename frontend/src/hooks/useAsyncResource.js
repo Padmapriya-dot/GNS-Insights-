@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { useNetworkStatus } from "../context/NetworkStatusContext";
+import usePageRefresh from "./usePageRefresh";
 
 export default function useAsyncResource(fetcher, deps = []) {
   const { online, markRequestStart, markRequestEnd, registerRetry } = useNetworkStatus();
@@ -15,13 +16,15 @@ export default function useAsyncResource(fetcher, deps = []) {
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
+  const reload = useCallback(async (opts = {}) => {
+    const soft = opts === true || opts?.soft === true;
+    if (!soft) setLoading(true);
     setError("");
     markRequestStart();
     try {
       const result = await fetcher();
       setData(result);
+      return result;
     } catch (err) {
       const detail = err?.response?.data?.detail;
       setError(
@@ -31,6 +34,7 @@ export default function useAsyncResource(fetcher, deps = []) {
             ? "You appear to be offline."
             : "Failed to load data. Please try again."
       );
+      throw err;
     } finally {
       markRequestEnd();
       setLoading(false);
@@ -38,11 +42,14 @@ export default function useAsyncResource(fetcher, deps = []) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
+  const softReload = useCallback(() => reload({ soft: true }), [reload]);
+
   useEffect(() => {
-    reload();
+    reload().catch(() => {});
   }, [reload]);
 
   useEffect(() => registerRetry(reload), [registerRetry, reload]);
+  usePageRefresh(softReload);
 
   return {
     loading,
@@ -50,6 +57,7 @@ export default function useAsyncResource(fetcher, deps = []) {
     data,
     setData,
     reload,
+    softReload,
     online,
     isOfflineError: Boolean(error) && !online,
   };

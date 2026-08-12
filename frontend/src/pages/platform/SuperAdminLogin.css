@@ -1,0 +1,328 @@
+/* ============================================================
+   SuperAdminLogin.css — pixel-perfect match to screenshot
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ─── PAGE ROOT ─── */
+html:has(.sa-root),
+body:has(.sa-root) {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.sa-root {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background-image: url('/images/super-admin-bg.jpg') !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: top left !important;
+  background-attachment: scroll !important;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* hide decorative elements */
+.sa-bg-base,
+.sa-hero-wave,
+.sa-orb-tl,
+.sa-orb-tr,
+.sa-wave {
+  display: none !important;
+}
+
+/* ─── CENTERING WRAPPER ─── */
+.sa-center {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem 1rem;
+}
+
+/* ═══════════════════════════════════════════════
+   CARD
+   • Background : rgba(255,255,255,0.88) — 
+     semi-transparent white so the blue bg image
+     subtly shows through, exactly as in screenshot
+   • Border     : 1px solid #c8d8ef — clearly
+     visible soft blue-gray line
+   • Radius     : 22px — gently rounded corners
+   ═══════════════════════════════════════════════ */
+.sa-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: #E4EFFB !important;      /* exact card background color */
+  border: 6px solid #FBFCFD !important;   /* thick card border */
+  border-radius: 22px !important;
+  padding: 40px 40px 32px 40px;
+  box-shadow:
+    0 4px 24px rgba(30, 60, 120, 0.10),
+    0 1px 4px  rgba(30, 60, 120, 0.06);
+}
+
+.sa-card::before,
+.sa-card::after,
+.sa-card__border,
+.sa-card__topline {
+  display: none !important;
+}
+
+/* ─── HEADER: logo + title + subtitle ─── */
+.sa-card__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.sa-card__logo {
+  margin-bottom: 14px;
+}
+
+/* ─── TITLE "Insights Iva Admin Portal" ─── */
+.sa-card__title {
+  margin: 0;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 1.75rem !important;       /* bold, prominent */
+  font-weight: 600 !important;
+  letter-spacing: -0.02em;
+  color: #0c2461 !important;           /* deep navy blue */
+  line-height: 1.2;
+}
+
+/* ─── SUBTITLE "Super Admin sign in" ─── */
+.sa-card__subtitle {
+  margin-top: 6px;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.9rem !important;
+  font-weight: 400 !important;
+  color: #4a6fa5 !important;           /* medium blue */
+  letter-spacing: 0;
+}
+
+/* ─── ERROR BANNER ─── */
+.sa-error {
+  margin-bottom: 16px;
+  border-radius: 10px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  padding: 12px 14px;
+  font-size: 0.85rem;
+  color: #b91c1c;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* ─── FORM ─── */
+.sa-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sa-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/* ─── LABELS "Company Email" / "Password" ─── */
+.sa-label {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.825rem !important;
+  font-weight: 700 !important;
+  color: #0c2461 !important;           /* same deep navy as title */
+  letter-spacing: 0;
+}
+
+/* ─── INPUT WRAPPER ─── */
+.sa-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* icon */
+.sa-input-icon {
+  pointer-events: none;
+  position: absolute;
+  left: 14px;
+  width: 16px;
+  height: 16px;
+  color: #7ba7d0 !important;           /* muted steel blue icon */
+  flex-shrink: 0;
+}
+
+/* ─── INPUT FIELDS ─── */
+/* Pure white on the semi-transparent card,
+   with a clearly visible light border */
+.sa-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px !important;
+  border: 1px solid #c4d8f0 !important;
+  background: #ffffff !important;      /* pure white */
+  padding: 13px 14px 13px 44px;
+  font-size: 0.88rem !important;
+  font-weight: 400;
+  color: #1a3668 !important;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  box-shadow: none;
+}
+
+.sa-input::placeholder {
+  color: #9ab4d4 !important;
+  font-weight: 400;
+}
+
+.sa-input:hover {
+  border-color: #8ab2da !important;
+}
+
+.sa-input:focus {
+  border-color: #4a90d9 !important;
+  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.14) !important;
+}
+
+.sa-input--pwd {
+  padding-right: 50px;
+}
+
+/* ─── EYE BUTTON ─── */
+.sa-eye-btn {
+  position: absolute;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #7ba7d0;
+  transition: color 0.15s;
+  padding: 0;
+}
+
+.sa-eye-btn:hover {
+  color: #1c4080;
+}
+
+.sa-eye-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════
+   CONTINUE BUTTON
+   • Dark navy solid background #1c2d5a
+   • Fully pill-shaped (border-radius: 50px)
+   • Full width, white text + arrow on right
+   ═══════════════════════════════════════════════ */
+.sa-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px;
+  width: 100% !important;
+  border-radius: 50px !important;      /* pill shape — exact match */
+  border: none !important;
+  background: #1c2d5a !important;      /* solid deep navy */
+  padding: 15px 24px !important;
+  min-height: 52px;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.15s;
+  margin-top: 4px;
+  box-shadow: 0 4px 18px rgba(28, 45, 90, 0.32) !important;
+}
+
+.sa-btn:hover:not(:disabled) {
+  background: #253f7e !important;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 26px rgba(28, 45, 90, 0.40) !important;
+}
+
+.sa-btn:active:not(:disabled) {
+  transform: translateY(0);
+  background: #16264e !important;
+}
+
+.sa-btn:disabled {
+  opacity: 0.60;
+  cursor: not-allowed;
+}
+
+/* arrow icon inside button */
+.sa-btn-arrow {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.sa-btn:hover:not(:disabled) .sa-btn-arrow {
+  transform: translateX(4px);
+}
+
+/* ─── FOOTER "Company users? Sign in here" ─── */
+.sa-footer {
+  margin-top: 22px;
+  text-align: center;
+  font-size: 0.855rem !important;
+  font-weight: 400;
+  color: #4a6fa5 !important;           /* medium blue matching subtitle */
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+.sa-footer__link {
+  font-weight: 600;
+  color: #2f6bbf !important;           /* blue hyperlink — exact from screenshot */
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.sa-footer__link:hover {
+  color: #1e50a0 !important;
+  text-decoration: underline;
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 640px) {
+  .sa-card {
+    padding: 28px 24px 22px !important;
+    border-radius: 18px !important;
+    max-width: 100%;
+  }
+  .sa-card__title {
+    font-size: 1.4rem !important;
+  }
+}
+
+@media (max-width: 400px) {
+  .sa-card {
+    padding: 22px 18px 18px !important;
+    border-radius: 14px !important;
+  }
+  .sa-card__title {
+    font-size: 1.25rem !important;
+  }
+}

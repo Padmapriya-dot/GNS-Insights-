@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Check, Info, ScrollText } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
@@ -16,15 +17,22 @@ export default function DigitalSignatureSetup() {
   const [form, setForm] = useState({ signatory_name: "", aadhaar_last4: "" });
   const [showForm, setShowForm] = useState(false);
 
-  const load = () =>
-    getDigitalSignatureStatus()
+  const load = (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    return getDigitalSignatureStatus()
       .then((r) => setStatus(r.data))
-      .catch(() => setStatus({ is_setup: false, promo_credits: 3 }))
+      .catch((err) => {
+        setStatus({ is_setup: false, promo_credits: 3 });
+        if (isRefresh) throw err;
+      })
       .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
     load();
   }, []);
+
+  usePageRefresh(() => load(true));
 
   const onSetup = async (e) => {
     e.preventDefault();
@@ -43,10 +51,10 @@ export default function DigitalSignatureSetup() {
 
   if (loading) return <Loader label="Loading…" />;
 
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-[#fff8e1] via-white to-white px-4 py-6">
       <header className="mb-8 flex items-center gap-2">
-        <h1 className="text-xl font-bold text-slate-900">Digital Signature</h1>
       </header>
 
       <div className="mx-auto max-w-lg rounded-2xl border border-slate-100 bg-white p-8 shadow-lg">

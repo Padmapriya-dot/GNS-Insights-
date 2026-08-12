@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { createPortal } from "react-dom";
-import { Calendar, FileDown, FileText, Info, RefreshCw, X } from "lucide-react";
+import { Calendar, FileDown, FileText, Info, X } from "lucide-react";
 
 import { getBalanceSheet } from "../../api/accountsApi";
 import { REPORT_TYPES, addAccountingReport } from "../../data/accountingReports";
@@ -205,19 +206,24 @@ export default function BalanceSheetV2() {
   const [assets,      setAssets]      = useState([]);   // [{label, amount}]
 
   /* ── fetch from backend ── */
-  const load = () => {
-    setLoading(true);
-    getBalanceSheet()
+  const load = (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    return getBalanceSheet()
       .then((res) => {
         const d = res.data || {};
         setLiabilities(d.liabilities || []);
         setAssets(d.assets      || []);
       })
-      .catch(() => { setLiabilities([]); setAssets([]); })
+      .catch((err) => {
+        if (!isRefresh) { setLiabilities([]); setAssets([]); }
+        if (isRefresh) throw err;
+      })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
+
+  usePageRefresh(() => load(true));
 
   /* ── totals: sum only heading-row amounts (consistent with displayed data) ── */
   const totalLiab  = liabilities
@@ -329,10 +335,6 @@ export default function BalanceSheetV2() {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between",
                     flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
         <div>
-          <h1 style={{ fontSize: 18, fontWeight: 700, color: "#111", margin: "0 0 2px",
-                       padding: 0, border: "none", background: "none" }}>
-            Balance Sheet
-          </h1>
           <p style={{ fontSize: 12, color: "#555", margin: 0, padding: 0 }}>{fyRange}</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -422,16 +424,6 @@ export default function BalanceSheetV2() {
           </table>
         </div>
       )}
-
-      {/* refresh button */}
-      <button onClick={load} title="Refresh"
-        style={{ position: "fixed", bottom: 24, right: 24, zIndex: 30,
-                 width: 44, height: 44, borderRadius: 12,
-                 border: "1px solid #d0d0d8", background: "#fff",
-                 display: "grid", placeItems: "center", cursor: "pointer",
-                 boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}>
-        <RefreshCw size={18} color="#2563eb" />
-      </button>
 
       <GenerateModal
         open={modalOpen}

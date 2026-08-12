@@ -1,14 +1,16 @@
 import { useCallback, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, Link } from "react-router-dom";
 import {
   setPlatformSession,
   superAdminResendOtp,
   superAdminVerifyOtp,
 } from "../../api/platformApi";
 import BrandLogo from "../../components/common/BrandLogo";
+import AdminAuthShell from "../../components/platform/AdminAuthShell";
 import OtpInputBoxes from "../../components/auth/OtpInputBoxes";
 import OtpResendTimer from "../../components/auth/OtpResendTimer";
 import { getDashboardPathForRole } from "../../utils/roleRedirect";
+import "./SuperAdminLogin.css";
 
 const RESEND_SECONDS = 60;
 
@@ -100,13 +102,24 @@ export default function SuperAdminVerifyOtp() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-teal-50/40 to-slate-100 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-8 shadow-xl">
+    <div className="sa-root">
+      <div className="sa-bg-base" />
+      <div className="sa-orb-tl" />
+      <div className="sa-orb-tr" />
+      <div className="sa-wave" aria-hidden="true">
+        <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+          <path d="M0,900 L0,560 C60,530 130,490 220,468 C340,440 460,448 570,430 C680,412 760,370 860,355 C960,340 1060,352 1160,368 C1260,384 1360,404 1440,415 L1440,900 Z" fill="#173b72" />
+          <path d="M0,900 L0,620 C80,595 170,568 270,552 C390,533 510,538 620,522 C730,506 810,468 910,455 C1010,442 1110,452 1210,466 C1310,480 1390,498 1440,508 L1440,900 Z" fill="#1a4280" opacity="0.55" />
+          <path d="M0,562 C60,532 130,492 220,470 C340,442 460,450 570,432 C680,414 760,372 860,357 C960,342 1060,354 1160,370 C1260,386 1360,406 1440,417" fill="none" stroke="#e8c96a" strokeWidth="2.5" opacity="0.90" />
+        </svg>
+      </div>
+      <div className="sa-center">
+      <div className="sa-card">
         <div className="mb-6 flex flex-col items-center text-center">
           <BrandLogo size="lg" />
-          <h1 className="mt-4 text-2xl font-bold text-slate-900">OTP Verification</h1>
+          <h1 className="mt-4 text-[28px] font-bold tracking-tight text-[#002C66]">OTP Verification</h1>
           <p className="mt-2 text-sm text-slate-500">Enter the 6-digit code sent to</p>
-          <p className="mt-1 font-mono text-sm font-semibold tracking-wide text-teal-700">
+          <p className="mt-1 font-mono text-sm font-semibold tracking-wide text-[#0E2F5C]">
             {maskedMobile}
           </p>
         </div>
@@ -154,7 +167,7 @@ export default function SuperAdminVerifyOtp() {
           <button
             type="submit"
             disabled={loading || otp.length !== 6}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0E2F5C] py-2.5 text-sm font-semibold text-white hover:bg-[#0a254a] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading && (
               <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -179,10 +192,11 @@ export default function SuperAdminVerifyOtp() {
         </form>
 
         <p className="mt-6 text-center text-xs text-slate-500">
-          <Link to="/gns-admin/login" className="font-medium text-teal-600 hover:underline">
+          <Link to="/gns-admin/login" className="sa-footer__link">
             Back to login
           </Link>
         </p>
+      </div>
       </div>
     </div>
   );

@@ -20,7 +20,7 @@ export default function Invoice({ data }) {
   if (!data) return null;
 
   /* ── seller ── */
-  const sName  = data.seller?.name    || "GNS INSIGHTS PRIVATE LIMITED";
+  const sName  = data.seller?.name    || "INSIGHTS IVA PRIVATE LIMITED";
   const sAddr  = data.seller?.address || "Hyderabad, Telangana";
   const sGstin = data.seller?.gstin   || "";
   const sState = data.seller?.state   || "Telangana";

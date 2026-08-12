@@ -1,22 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  Download,
-  FileSpreadsheet,
-  FileText,
-  Pause,
-  Play,
-  Plus,
-  Printer,
-  RefreshCw,
-  Search,
-  Star,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Download, FileSpreadsheet, FileText, Pause, Play, Plus, Printer, Search, Star } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -67,7 +51,7 @@ import {
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import { printWorkOrder } from "../../utils/printUtils";
 
-const PAGE_BG = "#F5F5F5";
+const PAGE_BG = "var(--color-bg)";
 const YELLOW = "#F5C518";
 const PAGE_SIZES = [20, 50, 100];
 
@@ -82,13 +66,13 @@ function SummaryCard({ label, value, icon: Icon, color, onClick }) {
   return (
     <div
       onClick={onClick}
-      className={`rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden ${
+      className={`ui-card p-4 min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden ${
         onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""
       }`}
       title={typeof label === "string" ? label : undefined}
     >
       <div className="flex items-center justify-between gap-1.5 min-w-0">
-        <p className="truncate text-[11px] font-medium text-slate-500 leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
+        <p className="truncate text-[11px] font-medium text-[var(--color-text-muted)] leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
         {Icon && (
           <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${color}`}>
             <Icon className="h-3.5 w-3.5 text-white" />
@@ -96,7 +80,7 @@ function SummaryCard({ label, value, icon: Icon, color, onClick }) {
         )}
       </div>
       <div className="mt-2">
-        <p className="truncate text-xl font-extrabold tabular-nums text-slate-900 leading-none">{displayVal}</p>
+        <p className="truncate text-xl font-bold tabular-nums text-[var(--color-text)] leading-none">{displayVal}</p>
       </div>
     </div>
   );
@@ -552,7 +536,6 @@ export default function WorkOrders() {
             <Link to="/production/mrp" className="hover:text-[#2563EB]">MRP</Link>
             {" → Work Orders"}
           </p>
-          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Work Orders</h1>
           <p className="mt-0.5 text-xs text-slate-500">
             Issue materials, assign machine/operator, run production, complete with QC and finished goods.
           </p>
@@ -587,8 +570,9 @@ export default function WorkOrders() {
           <SummaryCard label="High Priority" value={summary.high_priority_orders} icon={Star} color="bg-purple-500" />
         </div>
 
-        {/* Card Container styled like Production Planning */}
-        <div className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5">
+        {/* Card Container */}
+        <div className="ui-card p-4 sm:p-5">
+          {/* Action Bar */}
           <div className="mb-4 flex flex-wrap items-center gap-2.5">
             <div className="relative min-w-[220px] flex-1">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
@@ -617,11 +601,11 @@ export default function WorkOrders() {
             </button>
             <button
               type="button"
-              onClick={load}
+              onClick={() => window.print()}
               className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
             >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
+              <Printer className="h-4 w-4" />
+              Print
             </button>
             {!isOperator(user) && (
               <button
@@ -678,7 +662,9 @@ export default function WorkOrders() {
                 <div className="py-12 text-center">
                   <ClipboardList className="mx-auto h-12 w-12 text-slate-300" />
                   <p className="mt-4 text-sm font-medium text-slate-600">No work orders found.</p>
-                  <button type="button" onClick={() => setShowQuickModal(true)} className="ui-btn-primary mt-4 inline-flex">Create Work Order</button>
+                  {!isOperator(user) && (
+                    <button type="button" onClick={() => setShowQuickModal(true)} className="ui-btn-primary mt-4 inline-flex">Create Work Order</button>
+                  )}
                 </div>
               }
             />

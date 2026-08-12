@@ -23,6 +23,7 @@ import {
   Users,
   UserRound,
   Wallet,
+  Workflow,
   X,
 } from "lucide-react";
 
@@ -41,6 +42,7 @@ const ICONS = {
   Palette,
   Package,
   Factory,
+  Workflow,
   Wallet,
   FileText,
   Puzzle,
@@ -66,7 +68,7 @@ const SETTINGS_GROUPS = [
   {
     id: "operations",
     title: "Operations",
-    ids: ["inventory", "production", "finance", "documents"],
+    ids: ["inventory", "production", "role-workflow", "finance", "documents"],
   },
   {
     id: "system",
@@ -137,13 +139,10 @@ export default function SettingsHome() {
       <header className="space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-400">
+            <p className="ui-eyebrow">
               System
             </p>
-            <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-slate-100">
-              Settings
-            </h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p className="ui-subtitle dark:text-slate-400">
               Company, users, security, and system preferences.
             </p>
           </div>
@@ -191,7 +190,7 @@ export default function SettingsHome() {
         <div className="space-y-7">
           {groups.map((group) => (
             <section key={group.id} className="space-y-3">
-              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-teal-700/80 dark:text-teal-400/80">
+              <h2 className="ui-eyebrow">
                 {group.title}
               </h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -204,7 +203,7 @@ export default function SettingsHome() {
                       description={cat.description}
                       icon={Icon}
                       soft={cat.soft}
-                      onClick={() => navigate(`/settings/${cat.id}`)}
+                      onClick={() => navigate(cat.href || `/settings/${cat.id}`)}
                     />
                   );
                 })}

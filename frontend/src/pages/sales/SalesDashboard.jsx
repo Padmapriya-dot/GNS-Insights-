@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, IndianRupee, RefreshCw, ShoppingCart, Truck, Users } from "lucide-react";
+import { AlertTriangle, IndianRupee, ShoppingCart, Truck, Users } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
@@ -10,11 +10,11 @@ import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="ui-card p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-[11px] font-medium text-slate-500">{label}</p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value ?? 0}</p>
+          <p className="text-[11px] font-medium text-[var(--color-text-muted)]">{label}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-[var(--color-text)]">{value ?? 0}</p>
         </div>
         {Icon && (
           <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${color}`}>
@@ -42,14 +42,15 @@ export default function SalesDashboard() {
   const [loading, setLoading] = useState(true);
   const [hub, setHub] = useState(emptyHub);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const res = await getSalesHub();
       if (res.data) setHub({ ...emptyHub, ...res.data });
       else throw new Error("empty");
-    } catch {
-      // Build KPIs from localStorage so dashboard isn't all zeros
+    } catch (err) {
+      if (isRefresh) throw err;
+      // Build KPIs from localStorage so dashboard isn't all zeros on first load only
       const orders = JSON.parse(localStorage.getItem("smrt_sales_orders") || "[]");
       const customers = JSON.parse(localStorage.getItem("smrt_customers") || "[]");
       const invoices = [
@@ -71,7 +72,7 @@ export default function SalesDashboard() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  useManufacturingRefresh(load);
+  useManufacturingRefresh(() => load(true));
 
   if (loading) return <Loader label="Loading sales dashboard..." />;
 
@@ -79,17 +80,10 @@ export default function SalesDashboard() {
     <div className="space-y-5 pb-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Sales</p>
-          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Sales Dashboard</h2>
-          <p className="mt-1 text-sm text-slate-500">Revenue, orders, dispatch, payments, and sales executive performance.</p>
+          <p className="ui-eyebrow">Sales</p>
+          <h2 className="mt-0.5 ui-title">Sales Dashboard</h2>
+          <p className="ui-subtitle">Revenue, orders, dispatch, payments, and sales executive performance.</p>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-        >
-          <RefreshCw className="h-4 w-4" /> Refresh
-        </button>
       </header>
 
       <ManufacturingWorkflowBar currentStepId="dashboard" />
@@ -103,7 +97,7 @@ export default function SalesDashboard() {
         <KpiCard label="New Customers" value={hub.new_customers} icon={Users} color="bg-emerald-600" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-[10px] font-medium text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:text-xs">
+      <div className="flex flex-wrap items-center gap-1 ui-card px-4 py-3 text-[10px] font-medium text-slate-600 sm:text-xs">
         {SALES_FLOW.map((s, i) => (
           <span key={s} className="flex items-center gap-1">
             <span className="rounded bg-slate-50 px-1.5 py-0.5 ring-1 ring-slate-200/80">{s}</span>
@@ -113,7 +107,7 @@ export default function SalesDashboard() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <div className="ui-card p-5">
           <h2 className="mb-4 text-sm font-bold text-slate-900">Top Customers</h2>
           <ul className="space-y-2">
             {(hub.top_customers || []).map((c) => (
@@ -128,7 +122,7 @@ export default function SalesDashboard() {
           </Link>
         </div>
 
-        <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <div className="ui-card p-5">
           <h2 className="mb-4 text-sm font-bold text-slate-900">Sales Executive Performance</h2>
           <ul className="space-y-2">
             {(hub.sales_executive_performance || []).map((e) => (
@@ -143,7 +137,7 @@ export default function SalesDashboard() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="ui-card p-5">
         <h2 className="mb-4 text-sm font-bold text-slate-900">Notifications</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {(hub.alerts || []).map((a, i) => {
@@ -176,7 +170,7 @@ function QuickLink({ to, label }) {
   return (
     <Link
       to={to}
-      className="rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-teal-200 hover:bg-teal-50/40 hover:text-teal-800"
+      className="ui-card px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]"
     >
       {label} →
     </Link>

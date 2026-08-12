@@ -1,42 +1,105 @@
 import { useCallback, useEffect, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  Building2,
-  Loader2,
-  LogOut,
-  PauseCircle,
-  PlayCircle,
-  Plus,
-  RefreshCw,
-  Trash2,
-  Users,
-} from "lucide-react";
+import { Building2, Loader2, LogOut, PauseCircle, PlayCircle, Plus, Trash2, Users } from "lucide-react";
 
 import BrandLogo from "../../components/common/BrandLogo";
 import PlatformProtectedRoute from "../../components/layout/PlatformProtectedRoute";
 import {
-  activateCompany,
-  clearPlatformSession,
-  deleteCompany,
-  listCompanies,
-  suspendCompany,
+  activateCompany, clearPlatformSession, deleteCompany,
+  listCompanies, suspendCompany,
 } from "../../api/platformApi";
+import "./AdminPortal.css";
 
 function StatusBadge({ status }) {
   const key = (status || "").toLowerCase();
-  const colors = {
-    active: "bg-green-100 text-green-700",
-    trial: "bg-sky-100 text-sky-700",
-    suspended: "bg-amber-100 text-amber-800",
-    expired: "bg-orange-100 text-orange-700",
-    cancelled: "bg-slate-100 text-slate-600",
-    deleted: "bg-red-100 text-red-700",
-    pending: "bg-amber-100 text-amber-700",
-  };
   return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[key] || "bg-slate-100 text-slate-600"}`}>
+    <span className={`ap-badge ap-badge--${key || "cancelled"}`}>
       {status || "unknown"}
     </span>
+  );
+}
+
+/* ── Wave decoration (shared) ── */
+function PortalDecorations() {
+  useEffect(() => {
+    const bubbles = Array.from(document.querySelectorAll(".ap-bubble"));
+    const factors = [0.06, 0.04, 0.08, 0.05, 0.045, 0.055];
+    let raf = null;
+
+    function onMove(e) {
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const nx = (e.clientX - cx) / cx; // -1 .. 1
+      const ny = (e.clientY - cy) / cy; // -1 .. 1
+
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        bubbles.forEach((b, i) => {
+          const f = factors[i] || 0.05;
+          const tx = Math.round(nx * f * window.innerWidth);
+          const ty = Math.round(ny * f * window.innerHeight * -0.35);
+          b.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${1 + f * 0.6})`;
+        });
+      });
+    }
+
+    function onLeave() {
+      bubbles.forEach((b) => {
+        b.style.transform = "translate3d(0px, 0px, 0) scale(1)";
+      });
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseleave", onLeave);
+    window.addEventListener("blur", onLeave);
+
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseleave", onLeave);
+      window.removeEventListener("blur", onLeave);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  return (
+    <>
+      <div className="ap-bg" />
+      <div className="ap-orb-tl" />
+      <div className="ap-orb-tr" />
+      {/* glass bubbles */}
+      <div className="ap-bubble ap-bubble-1" />
+      <div className="ap-bubble ap-bubble-2" />
+      <div className="ap-bubble ap-bubble-3" />
+      <div className="ap-bubble ap-bubble-4" />
+      <div className="ap-bubble ap-bubble-5" />
+      <div className="ap-bubble ap-bubble-6" />
+      {/* white curve accents */}
+      <div className="ap-curve ap-curve--white" />
+      <div className="ap-curve ap-curve--gold" />
+      <div className="ap-wave" aria-hidden="true">
+        <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M0,900 L0,560 C60,530 130,490 220,468 C340,440 460,448 570,430
+               C680,412 760,370 860,355 C960,340 1060,352 1160,368
+               C1260,384 1360,404 1440,415 L1440,900 Z"
+            fill="#173b72"
+          />
+          <path
+            d="M0,900 L0,620 C80,595 170,568 270,552 C390,533 510,538 620,522
+               C730,506 810,468 910,455 C1010,442 1110,452 1210,466
+               C1310,480 1390,498 1440,508 L1440,900 Z"
+            fill="#1a4280" opacity="0.55"
+          />
+          <path
+            d="M0,562 C60,532 130,492 220,470 C340,442 460,450 570,432
+               C680,414 760,372 860,357 C960,342 1060,354 1160,370
+               C1260,386 1360,406 1440,417"
+            fill="none" stroke="#e8c96a" strokeWidth="2.5" opacity="0.90"
+          />
+        </svg>
+      </div>
+    </>
   );
 }
 
@@ -48,37 +111,35 @@ function SuperAdminDashboardContent() {
   const [actionId, setActionId] = useState(null);
   const [actionError, setActionError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     setError("");
     try {
       const data = await listCompanies();
       setCompanies(Array.isArray(data) ? data : []);
-    } catch {
-      setError("Failed to load companies.");
+    } catch (err) {
+      if (!isRefresh) setError("Failed to load companies.");
+      if (isRefresh) throw err;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  usePageRefresh(() => load(true));
+
+  useEffect(() => { load(); }, [load]);
 
   const handleLogout = () => {
     clearPlatformSession();
     navigate("/gns-admin/login", { replace: true });
   };
 
-  const runAction = async (id, action, successHint) => {
+  const runAction = async (id, action) => {
     setActionError("");
     setActionId(id);
     try {
       await action(id);
       await load();
-      if (successHint) {
-        // brief non-blocking feedback via clearing action state
-      }
     } catch (err) {
       const detail = err?.response?.data?.detail;
       setActionError(typeof detail === "string" ? detail : "Action failed. Please try again.");
@@ -88,194 +149,158 @@ function SuperAdminDashboardContent() {
   };
 
   const handleActivate = (id) => runAction(id, activateCompany);
-  const handleSuspend = (id) => runAction(id, suspendCompany);
-
-  const handleDelete = async (id, name) => {
+  const handleSuspend  = (id) => runAction(id, suspendCompany);
+  const handleDelete   = async (id, name) => {
     if (!window.confirm(`Delete company "${name}"? This cannot be undone.`)) return;
     await runAction(id, deleteCompany);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <BrandLogo size="sm" />
+    <div className="ap-root">
+      <PortalDecorations />
+      <div className="ap-content">
+
+        {/* Header */}
+        <header className="ap-header">
+          <div className="ap-header__inner">
+            <div className="ap-header__brand">
+              <BrandLogo size="hero" />
+              <div>
+                <div className="ap-header__title">Insights Iva Admin Portal</div>
+                <div className="ap-header__sub">Super Admin — Company Management</div>
+              </div>
+            </div>
+            <button type="button" onClick={handleLogout} className="ap-header__logout">
+              <LogOut size={14} /> Logout
+            </button>
+          </div>
+        </header>
+
+        {/* Main */}
+        <main className="ap-main">
+          <div className="ap-title-row">
             <div>
-              <h1 className="text-lg font-bold text-slate-900">GNS Admin Portal</h1>
-              <p className="text-xs text-slate-500">Super Admin — Company Management</p>
+              <h2>Companies</h2>
+              <p>Provision and manage tenant companies</p>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <Link to="/gns-admin/companies/new" className="ap-btn ap-btn--primary">
+                <Plus size={14} /> Create Company
+              </Link>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </button>
-        </div>
-      </header>
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">Companies</h2>
-            <p className="text-sm text-slate-500">Provision and manage tenant companies</p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={load}
-              disabled={loading || actionId != null}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
-            <Link
-              to="/gns-admin/companies/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
-            >
-              <Plus className="h-4 w-4" />
-              Create Company
-            </Link>
-          </div>
-        </div>
+          {error       && <div className="ap-alert ap-alert--error">{error}</div>}
+          {actionError && <div className="ap-alert ap-alert--warn">{actionError}</div>}
 
-        {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-        {actionError && (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="alert">
-            {actionError}
-          </div>
-        )}
-
-        <div className="overflow-x-auto overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">Company ID</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">Company</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">Admin</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">Plan</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">Users</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">Status</th>
-                <th className="px-4 py-3 text-right font-semibold text-slate-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                    <span className="inline-flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading companies...
-                    </span>
-                  </td>
-                </tr>
-              ) : companies.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                    No companies yet. Create your first company.
-                  </td>
-                </tr>
-              ) : (
-                companies.map((c) => {
-                  const busy = actionId === c.id;
-                  const status = (c.status || "").toLowerCase();
-                  return (
-                    <tr key={c.id} className="hover:bg-slate-50/80">
-                      <td className="px-4 py-3 font-mono text-xs text-slate-700">
-                        {c.company_code}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-teal-600" />
-                          <div>
-                            <p className="font-medium text-slate-900">{c.company_name}</p>
-                            <p className="text-xs text-slate-500">{c.company_email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        <p>{c.admin_name || "—"}</p>
-                        <p className="text-xs text-slate-400">{c.admin_email}</p>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 capitalize">
-                        {c.subscription_plan || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        <span className="inline-flex items-center gap-1">
-                          <Users className="h-3.5 w-3.5" />
-                          {c.user_count}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={c.status} />
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1">
-                          {busy ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs text-slate-500">
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              Working…
-                            </span>
-                          ) : (
-                            <>
-                              <Link
-                                to={`/gns-admin/companies/${c.id}`}
-                                className="rounded px-2 py-1 text-xs font-medium text-teal-600 hover:bg-teal-50"
-                              >
-                                View
-                              </Link>
-                              {status === "suspended" || status === "cancelled" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleActivate(c.id)}
-                                  disabled={actionId != null}
-                                  className="rounded p-1 text-green-600 hover:bg-green-50 disabled:opacity-40"
-                                  title="Activate"
-                                >
-                                  <PlayCircle className="h-4 w-4" />
-                                </button>
-                              ) : status !== "deleted" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleSuspend(c.id)}
-                                  disabled={actionId != null}
-                                  className="rounded p-1 text-amber-600 hover:bg-amber-50 disabled:opacity-40"
-                                  title="Suspend"
-                                >
-                                  <PauseCircle className="h-4 w-4" />
-                                </button>
-                              ) : null}
-                              {c.id !== 1 && status !== "deleted" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(c.id, c.company_name)}
-                                  disabled={actionId != null}
-                                  className="rounded p-1 text-red-600 hover:bg-red-50 disabled:opacity-40"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              ) : null}
-                            </>
-                          )}
-                        </div>
+          <div className="ap-card">
+            <div className="ap-table-wrap">
+              <table className="ap-table">
+                <thead>
+                  <tr>
+                    <th>Company ID</th>
+                    <th>Company</th>
+                    <th>Admin</th>
+                    <th>Plan</th>
+                    <th>Users</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: "right" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={7} className="ap-loading">
+                        <Loader2 size={16} className="animate-spin" /> Loading companies…
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </main>
+                  ) : companies.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="ap-empty">
+                        No companies yet. Create your first company.
+                      </td>
+                    </tr>
+                  ) : (
+                    companies.map((c) => {
+                      const busy   = actionId === c.id;
+                      const status = (c.status || "").toLowerCase();
+                      return (
+                        <tr key={c.id}>
+                          <td style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>
+                            {c.company_code}
+                          </td>
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                              <Building2 size={15} style={{ color: "#1a4280", flexShrink: 0 }} />
+                              <div>
+                                <div style={{ fontWeight: 600, color: "#0f172a" }}>{c.company_name}</div>
+                                <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{c.company_email}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div>{c.admin_name || "—"}</div>
+                            <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>{c.admin_email}</div>
+                          </td>
+                          <td style={{ textTransform: "capitalize" }}>{c.subscription_plan || "—"}</td>
+                          <td>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                              <Users size={13} /> {c.user_count}
+                            </span>
+                          </td>
+                          <td><StatusBadge status={c.status} /></td>
+                          <td>
+                            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.25rem" }}>
+                              {busy ? (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem", color: "#64748b", padding: "0.25rem 0.5rem" }}>
+                                  <Loader2 size={13} className="animate-spin" /> Working…
+                                </span>
+                              ) : (
+                                <>
+                                  <Link
+                                    to={`/gns-admin/companies/${c.id}`}
+                                    style={{ borderRadius: "0.5rem", padding: "0.25rem 0.6rem", fontSize: "0.75rem", fontWeight: 600, color: "#1a4280", textDecoration: "none" }}
+                                    className="ap-btn"
+                                  >
+                                    View
+                                  </Link>
+                                  {status === "suspended" || status === "cancelled" ? (
+                                    <button type="button" onClick={() => handleActivate(c.id)} disabled={actionId != null}
+                                      style={{ borderRadius: "0.5rem", padding: "0.25rem", background: "transparent", border: "none", cursor: "pointer", color: "#16a34a" }}
+                                      title="Activate"
+                                    >
+                                      <PlayCircle size={16} />
+                                    </button>
+                                  ) : status !== "deleted" ? (
+                                    <button type="button" onClick={() => handleSuspend(c.id)} disabled={actionId != null}
+                                      style={{ borderRadius: "0.5rem", padding: "0.25rem", background: "transparent", border: "none", cursor: "pointer", color: "#d97706" }}
+                                      title="Suspend"
+                                    >
+                                      <PauseCircle size={16} />
+                                    </button>
+                                  ) : null}
+                                  {c.id !== 1 && status !== "deleted" ? (
+                                    <button type="button" onClick={() => handleDelete(c.id, c.company_name)} disabled={actionId != null}
+                                      style={{ borderRadius: "0.5rem", padding: "0.25rem", background: "transparent", border: "none", cursor: "pointer", color: "#dc2626" }}
+                                      title="Delete"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  ) : null}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

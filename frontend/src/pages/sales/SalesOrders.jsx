@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link } from "react-router-dom";
-import { Download, Filter, IndianRupee, Plus, RefreshCw, ShoppingCart, Truck } from "lucide-react";
+import { Download, Filter, IndianRupee, Plus, ShoppingCart, Truck } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
@@ -16,11 +17,11 @@ import { exportToExcel } from "../../utils/exportUtils";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="ui-card p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-[11px] font-medium text-slate-500">{label}</p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p>
+          <p className="text-[11px] font-medium text-[var(--color-text-muted)]">{label}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-[var(--color-text)]">{value}</p>
         </div>
         {Icon && (
           <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${color}`}>
@@ -75,6 +76,9 @@ export default function SalesOrders() {
       setLoading(false);
     }
   }, [markRequestStart, markRequestEnd]);
+
+  usePageRefresh(load);
+
 
   useEffect(() => { load(); }, [load]);
 
@@ -188,9 +192,9 @@ export default function SalesOrders() {
     <div className="space-y-5 pb-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Sales</p>
-          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Sales Orders</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="ui-eyebrow">Sales</p>
+          <h2 className="mt-0.5 ui-title">Sales Orders</h2>
+          <p className="ui-subtitle">
             Manage orders from quotation to dispatch with production and inventory integration.
           </p>
         </div>
@@ -211,14 +215,6 @@ export default function SalesOrders() {
           >
             <Download className="h-4 w-4" /> Export
           </button>
-          <button
-            type="button"
-            onClick={async () => { setRefreshing(true); await load(); setRefreshing(false); }}
-            disabled={loading || refreshing}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 transition-transform ${refreshing ? "animate-spin" : ""}`} /> Refresh
-          </button>
         </div>
       </header>
 
@@ -235,7 +231,7 @@ export default function SalesOrders() {
         <KpiCard label="Revenue" value={formatInr(summary.revenue ?? 0)} icon={IndianRupee} color="bg-emerald-700" />
       </div>
 
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="ui-card p-4">
         <button
           type="button"
           onClick={() => setShowAdvanced(!showAdvanced)}

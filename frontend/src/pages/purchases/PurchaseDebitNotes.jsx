@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link } from "react-router-dom";
 import { Calendar, ChevronLeft, ChevronRight, FileText, Filter, ListFilter, Plus, Search, X } from "lucide-react";
 
@@ -131,8 +132,8 @@ export default function PurchaseDebitNotes() {
   const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const res = await listBizDocuments({
         module: "purchases",
@@ -142,6 +143,8 @@ export default function PurchaseDebitNotes() {
       });
       const items = res?.data?.items || res?.data || [];
       setRows(Array.isArray(items) ? items : []);
+
+
     } catch {
       addToast("Failed to load debit notes", "error");
       setRows([]);
@@ -149,6 +152,8 @@ export default function PurchaseDebitNotes() {
       setLoading(false);
     }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => {
     load();
@@ -240,7 +245,6 @@ export default function PurchaseDebitNotes() {
   return (
     <div className="min-h-full" style={{ background: PAGE_BG }}>
       <div className="space-y-4 p-4 sm:p-6">
-        <h1 className="text-[22px] font-bold text-[#1a1a1f]">Debit Note</h1>
 
         <div className="overflow-hidden rounded-xl border border-[#e4e4ea] bg-[#efeaf8]">
           <div className="flex flex-wrap">

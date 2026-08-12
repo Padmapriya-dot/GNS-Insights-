@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link } from "react-router-dom";
-import { AlertCircle, Building2, Clock, FileText, IndianRupee, RefreshCw } from "lucide-react";
+import { AlertCircle, Building2, Clock, FileText, IndianRupee } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import FinanceFilters from "../../components/finance/FinanceFilters";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getAPEnriched, getAPSummary } from "../../api/accountsApi";
-import { DEMO_AP_LIST, DEMO_AP_SUMMARY, FINANCE_FLOW, formatInr, statusColor } from "../../data/financeMasterData";
+import { FINANCE_FLOW, formatInr, statusColor } from "../../data/financeMasterData";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p></div>
+        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-[var(--color-text)]">{value}</p></div>
         {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
       </div>
     </div>
@@ -23,25 +24,41 @@ function KpiCard({ label, value, icon: Icon, color }) {
 export default function AccountsPayable() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(DEMO_AP_SUMMARY);
+  const [summary, setSummary] = useState({
+    outstanding_payables: 0,
+    due_this_week: 0,
+    overdue_bills: 0,
+    paid_this_month: 0,
+    pending_approvals: 0,
+    vendor_count: 0,
+  });
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [financialYear, setFinancialYear] = useState("2025-26");
   const [month, setMonth] = useState("All Months");
   const [branch, setBranch] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getAPSummary(), getAPEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_AP_SUMMARY, ...sumRes.value.data });
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows([]);
+
+
+      if (sumRes.status === "fulfilled" && sumRes.value?.data) {
+        setSummary((prev) => ({ ...prev, ...sumRes.value.data }));
+      }
+      if (listRes.status === "fulfilled" && Array.isArray(listRes.value?.data)) {
+        setRows(listRes.value.data);
+      } else {
+        setRows([]);
+      }
     } catch {
     } finally {
       setLoading(false);
     }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => { load(); }, [load]);
 
@@ -82,12 +99,10 @@ export default function AccountsPayable() {
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Accounts Payable</h1>
-          <p className="mt-1 text-sm text-slate-500">Vendor bills, payment scheduling, and outstanding payables management.</p>
+          <p className="ui-subtitle">Vendor bills, payment scheduling, and outstanding payables management.</p>
         </div>
         <div className="flex gap-2">
           <Link to="/purchases/payments-made/create" className="inline-flex items-center rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">Record Payment</Link>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
         </div>
       </header>
 

@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link } from "react-router-dom";
-import {
-  Cpu,
-  Download,
-  GripVertical,
-  RefreshCw,
-  Settings,
-  Users,
-  Wrench,
-} from "lucide-react";
+import { Cpu, Download, GripVertical, Settings, Users, Wrench } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -32,9 +25,9 @@ import { exportToExcel } from "../../utils/exportUtils";
 
 function SummaryCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden" title={typeof label === "string" ? label : undefined}>
+    <div className="ui-card p-4 min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden" title={typeof label === "string" ? label : undefined}>
       <div className="flex items-center justify-between gap-1.5 min-w-0">
-        <p className="truncate text-[11px] font-medium text-slate-500 leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
+        <p className="truncate text-[11px] font-medium text-[var(--color-text-muted)] leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
         {Icon && (
           <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${color}`}>
             <Icon className="h-3.5 w-3.5 text-white" />
@@ -42,7 +35,7 @@ function SummaryCard({ label, value, icon: Icon, color }) {
         )}
       </div>
       <div className="mt-2">
-        <p className="truncate text-xl font-extrabold tabular-nums text-slate-900 leading-none">{value}</p>
+        <p className="truncate text-xl font-bold tabular-nums text-[var(--color-text)] leading-none">{value}</p>
       </div>
     </div>
   );
@@ -57,8 +50,8 @@ export default function MachineAllocation() {
   const [unassigned, setUnassigned] = useState(DEMO_UNASSIGNED);
   const [dragWo, setDragWo] = useState(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       let localAllocations = [];
       try {
@@ -85,6 +78,8 @@ export default function MachineAllocation() {
         getAllocations(),
         getAllocationMachines(),
       ]);
+
+
       if (sumRes.status === "fulfilled" && sumRes.value?.data) {
         setSummary({ ...DEMO_ALLOC_SUMMARY, ...sumRes.value.data });
       }
@@ -119,6 +114,8 @@ export default function MachineAllocation() {
       setLoading(false);
     }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => { load(); }, [load]);
 
@@ -210,12 +207,10 @@ export default function MachineAllocation() {
     <div className="min-h-full pb-8 print:p-0" style={{ background: "#F5F5F5" }}>
       <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Machine Allocation</h1>
           <p className="mt-0.5 text-xs text-slate-500 print:hidden">
             Assign work orders to machines, operators, shifts, and supervisors.
           </p>
         </div>
-
 
         <div className="mb-0 flex flex-wrap items-center justify-between gap-2 print:hidden">
           <div className="flex flex-wrap gap-2">
@@ -224,9 +219,6 @@ export default function MachineAllocation() {
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={handleExport} className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]">
               <Download className="h-4 w-4" /> Export
-            </button>
-            <button type="button" onClick={load} className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]">
-              <RefreshCw className="h-4 w-4" /> Refresh
             </button>
           </div>
         </div>

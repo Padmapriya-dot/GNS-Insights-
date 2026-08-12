@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Package, RefreshCw, Truck, X } from "lucide-react";
+import { MapPin, Package, Truck, X } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -21,10 +21,10 @@ import {
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="ui-card p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-[11px] font-medium text-slate-500">{label}</p>
+          <p className="text-[11px] font-medium text-[var(--color-text-muted)]">{label}</p>
           <p className="mt-1 text-xl font-bold text-slate-900">{value ?? 0}</p>
         </div>
         {Icon && (
@@ -281,9 +281,9 @@ export default function Dispatch() {
     <div className="space-y-5 pb-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700">Sales</p>
-          <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Dispatch & Logistics</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="ui-eyebrow">Sales</p>
+          <h2 className="mt-0.5 ui-title">Dispatch & Logistics</h2>
+          <p className="ui-subtitle">
             Packing, delivery challans, FG stock-out on ship, then invoice.
           </p>
         </div>
@@ -291,13 +291,6 @@ export default function Dispatch() {
           <Link to="/sales/orders" className="ui-btn-primary">
             <Truck className="h-4 w-4" /> View Sales Orders
           </Link>
-          <button
-            type="button"
-            onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </button>
         </div>
       </header>
 
@@ -316,7 +309,7 @@ export default function Dispatch() {
         <KpiCard label="Delayed" value={summary.delayed} icon={Truck} color="bg-rose-600" />
       </div>
 
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="ui-card p-4">
         <DataTable
           columns={columns}
           data={rows}

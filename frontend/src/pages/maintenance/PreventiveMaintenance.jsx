@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Calendar, CheckCircle, Clock, Cog, RefreshCw, Wrench } from "lucide-react";
+import usePageRefresh from "../../hooks/usePageRefresh";
+import { AlertTriangle, Calendar, CheckCircle, Clock, Cog, Wrench } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import MaintenanceErrorState from "../../components/maintenance/MaintenanceErrorState";
@@ -12,9 +13,9 @@ import { DEMO_PREVENTIVE_LIST, DEMO_PREVENTIVE_SUMMARY, MAINTENANCE_FLOW, mntSta
 
 function KpiCard({ label, value, icon: Icon, color, suffix }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden" title={typeof label === "string" ? label : undefined}>
+    <div className="ui-card p-4 min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden" title={typeof label === "string" ? label : undefined}>
       <div className="flex items-center justify-between gap-1.5 min-w-0">
-        <p className="truncate text-[11px] font-medium text-slate-500 leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
+        <p className="truncate text-[11px] font-medium text-[var(--color-text-muted)] leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
         {Icon && (
           <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${color}`}>
             <Icon className="h-3.5 w-3.5 text-white" />
@@ -22,7 +23,7 @@ function KpiCard({ label, value, icon: Icon, color, suffix }) {
         )}
       </div>
       <div className="mt-2">
-        <p className="truncate text-xl font-extrabold tabular-nums text-slate-900 leading-none">{value}{suffix || ""}</p>
+        <p className="truncate text-xl font-bold tabular-nums text-[var(--color-text)] leading-none">{value}{suffix || ""}</p>
       </div>
     </div>
   );
@@ -37,11 +38,13 @@ export default function PreventiveMaintenance() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     setError(null);
     try {
       const [sumRes, listRes] = await Promise.allSettled([getPreventiveSummary(), getPreventiveEnriched()]);
+
+
       if (sumRes.status === "rejected" && listRes.status === "rejected") throw new Error("Network error");
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_PREVENTIVE_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
@@ -54,6 +57,8 @@ export default function PreventiveMaintenance() {
       setLoading(false);
     }
   }, [addToast]);
+
+  usePageRefresh(() => load(true));
 
   useEffect(() => { load(); }, [load]);
 
@@ -94,14 +99,12 @@ export default function PreventiveMaintenance() {
     <div className="min-h-full pb-8 print:p-0" style={{ background: "#F5F5F5" }}>
       <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-[#1a1a1f]">Preventive Maintenance</h1>
           <p className="mt-0.5 text-xs text-slate-500 print:hidden">Schedule and track recurring maintenance tasks across all machines.</p>
         </div>
 
 
         <div className="mb-0 flex flex-wrap items-center justify-between gap-2 print:hidden">
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={load} className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"><RefreshCw className="h-4 w-4" /> Refresh</button>
           </div>
         </div>
 
@@ -125,7 +128,7 @@ export default function PreventiveMaintenance() {
 
       <MaintenanceFilters search={search} onSearchChange={setSearch} statusFilter={statusFilter} onStatusFilterChange={setStatusFilter} searchPlaceholder="Search machine, engineer, task..." />
 
-      <div className="rounded-xl border border-[#e4e4ea] bg-white p-4 shadow-sm sm:p-5">
+      <div className="ui-card p-4 sm:p-5">
         <DataTable columns={columns} data={filtered} searchPlaceholder="" searchKeys={[]} />
       </div>
       </div>
