@@ -113,7 +113,7 @@ export default function TaxInvoiceCopy({ data, showPrintButton = true }) {
       {/* Inline styles: typography, grid lines, print tuning */}
       <style>{`
         /* Typography */
-        .tax-invoice-copy { font-family: Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0b1220; -webkit-font-smoothing:antialiased; }
+        .tax-invoice-copy { font-family: 'IBM Plex Sans', 'Segoe UI', 'Noto Sans', Calibri, Arial, Helvetica, sans-serif; color: #0b1220; -webkit-font-smoothing:antialiased; }
         .tax-invoice-copy h1 { letter-spacing: .06em; }
 
         /* Table and lines */

@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 
 import { fetchCustomersWithFallback } from "../../utils/customerOptions";
 
+import Button from "../common/Button";
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -213,9 +214,9 @@ export default function CreateQuotationModal({ open, onClose, onSubmit, saving }
             <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-sm font-semibold text-slate-700">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="ui-btn-primary disabled:opacity-60">
+            <Button variant="primary" type="submit" disabled={saving} className="disabled:opacity-60">
               {saving ? "Saving…" : "Create Quotation"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

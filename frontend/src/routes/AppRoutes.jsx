@@ -4,7 +4,6 @@ import PlaceholderPage from "../components/common/PlaceholderPage";
 import ProtectedRoute from "../components/layout/ProtectedRoute";
 /* Pages are lazy-loaded via lazyPages – see vite.config manualChunks for vendor splits */
 import * as P from "./lazyPages";
-import LiveProduction from "../pages/factoryMonitor/LiveProduction";
 import MachineStatus from "../pages/factoryMonitor/MachineStatus";
 import ProductionLines from "../pages/factoryMonitor/ProductionLines";
 
@@ -802,7 +801,7 @@ export default function AppRoutes() {
       <Route path="/finance/payment-tracking" element={<ProtectedRoute><P.PaymentTracking /></ProtectedRoute>} />
       <Route path="/finance/general-ledger" element={<ProtectedRoute><P.GeneralLedger /></ProtectedRoute>} />
       <Route path="/finance" element={<ProtectedRoute><Navigate to="/accounts" replace /></ProtectedRoute>} />
-      <Route path="/factory-monitor/live-production" element={<ProtectedRoute><LiveProduction /></ProtectedRoute>} />
+      <Route path="/factory-monitor/live-production" element={<ProtectedRoute><Navigate to="/factory-monitor/machine-status" replace /></ProtectedRoute>} />
       <Route path="/factory-monitor/machine-status" element={<ProtectedRoute><MachineStatus /></ProtectedRoute>} />
       <Route path="/factory-monitor/production-lines" element={<ProtectedRoute><ProductionLines /></ProtectedRoute>} />
       <Route path="/iot" element={<ProtectedRoute><P.IotDashboard /></ProtectedRoute>} />

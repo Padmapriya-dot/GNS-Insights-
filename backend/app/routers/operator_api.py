@@ -11,7 +11,6 @@ from app.schemas.operator import (
     BatchUpdateRequest,
     MachineBreakdownRequest,
     OperatorLoginRequest,
-    ShopFloorUpdateRequest,
     WorkOrderActionRequest,
     WorkOrderProgressRequest,
 )
@@ -284,6 +283,16 @@ def api_breakdown_machines(user_tenant: tuple[User, int] = Depends(require_tenan
     return success_response("Breakdown machines retrieved", _svc(db, tenant_id).list_breakdown_machines())
 
 
+@router.post("/machines/breakdown")
+def api_report_breakdown(
+    payload: MachineBreakdownRequest,
+    user_tenant: tuple[User, int] = Depends(require_tenant("machines")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    return success_response("Machine breakdown reported", _svc(db, tenant_id).report_breakdown(user, payload))
+
+
 @router.get("/machines/{machine_id}")
 def api_get_machine(
     machine_id: int,
@@ -398,47 +407,6 @@ def api_update_progress(
 ):
     user, tenant_id = user_tenant
     return success_response("Production progress updated", _svc(db, tenant_id).update_production_progress(user, payload))
-
-
-# ── Shop Floor ─────────────────────────────────────────────────────────────
-
-
-@router.get("/shopfloor")
-def api_shopfloor(user_tenant: tuple[User, int] = Depends(require_tenant("shopfloor")), db: Session = Depends(get_db)):
-    _, tenant_id = user_tenant
-    return success_response("Shop floor retrieved", _svc(db, tenant_id).get_shop_floor())
-
-
-@router.get("/shopfloor/live")
-def api_shopfloor_live(user_tenant: tuple[User, int] = Depends(require_tenant("shopfloor")), db: Session = Depends(get_db)):
-    _, tenant_id = user_tenant
-    return success_response("Live shop floor retrieved", _svc(db, tenant_id).get_shop_floor_live())
-
-
-@router.get("/shopfloor/status")
-def api_shopfloor_status(user_tenant: tuple[User, int] = Depends(require_tenant("shopfloor")), db: Session = Depends(get_db)):
-    _, tenant_id = user_tenant
-    return success_response("Shop floor status retrieved", _svc(db, tenant_id).get_shop_floor_status())
-
-
-@router.post("/shopfloor/update")
-def api_shopfloor_update(
-    payload: ShopFloorUpdateRequest,
-    user_tenant: tuple[User, int] = Depends(require_tenant("shopfloor")),
-    db: Session = Depends(get_db),
-):
-    user, tenant_id = user_tenant
-    return success_response("Shop floor updated", _svc(db, tenant_id).update_shop_floor(user, payload))
-
-
-@router.post("/shopfloor/breakdown")
-def api_report_breakdown(
-    payload: MachineBreakdownRequest,
-    user_tenant: tuple[User, int] = Depends(require_tenant("shopfloor")),
-    db: Session = Depends(get_db),
-):
-    user, tenant_id = user_tenant
-    return success_response("Machine breakdown reported", _svc(db, tenant_id).report_breakdown(user, payload))
 
 
 # ── Machine Allocation ─────────────────────────────────────────────────────

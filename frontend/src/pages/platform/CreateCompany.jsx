@@ -17,6 +17,7 @@ import CompanyAddressFields, {
 import PlatformProtectedRoute from "../../components/layout/PlatformProtectedRoute";
 import { createCompany } from "../../api/platformApi";
 
+import Button from "../../components/common/Button";
 const PLANS = [
   { id: "trial", label: "Trial" },
   { id: "growth", label: "Growth" },
@@ -502,12 +503,8 @@ function CreateCompanyForm() {
             >
               Cancel
             </Link>
-            <button
-              type="submit"
-              form="create-company-form"
-              disabled={loading}
-              className="ui-btn-primary inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
-            >
+            <Button variant="primary" type="submit" form="create-company-form"
+       disabled={loading} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none">
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -516,7 +513,7 @@ function CreateCompanyForm() {
               ) : (
                 "Create Company"
               )}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { Plus } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
@@ -10,6 +9,7 @@ import useTenantId from "../../hooks/useTenantId";
 import useManufacturingRefresh from "../../hooks/useManufacturingRefresh";
 import { formatInr } from "../../data/salesMasterData";
 
+import Button from "../../components/common/Button";
 export default function PaymentTracking() {
   const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
@@ -42,9 +42,9 @@ export default function PaymentTracking() {
       <PageHeader
         subtitle="Payments update invoice balances, income, and AR journal entries."
         action={
-          <Link to="/sales/payments/create" className="ui-btn-primary">
+          <Button variant="primary" to="/sales/payments/create">
             <Plus className="h-4 w-4" /> Record Payment
-          </Link>
+          </Button>
         }
       />
 

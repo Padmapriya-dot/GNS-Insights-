@@ -5,6 +5,7 @@ import { Check, MoreVertical, Pencil, Plus, Trash2, X } from "lucide-react";
 import AddBasicDetailsModal from "./AddBasicDetailsModal";
 import AddCustomFieldModal from "./AddCustomFieldModal";
 import AddOtherDetailsModal from "./AddOtherDetailsModal";
+import Button from "../common/Button";
 import SearchableSelect from "../common/SearchableSelect";
 import { createCustomer, getCustomers, updateCustomer } from "../../api/salesApi";
 import {
@@ -17,7 +18,6 @@ import { INDIAN_STATES, CITIES_BY_STATE } from "../../data/indiaLocations";
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
 
-const YELLOW = "var(--color-primary)";
 const PURPLE = "#6b4eff";
 
 const inputClass =
@@ -236,24 +236,20 @@ function AddressModal({ open, onClose, initial, onSave }) {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 border-t border-[#ececf0] px-5 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg bg-[#eff0f4] py-2.5 text-[14px] font-semibold text-[#1a1a1f]"
-          >
+          <Button type="button" variant="secondary" onClick={onClose} fullWidth>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="primary"
+            fullWidth
             onClick={() => {
               onSave?.(address);
               onClose?.();
             }}
-            className="rounded-lg py-2.5 text-[14px] font-semibold text-white"
-            style={{ background: YELLOW }}
           >
             Save
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -655,21 +651,12 @@ export default function AddNewPartyModal({
         </div>
 
         <div className="grid shrink-0 grid-cols-2 gap-4 border-t border-[#ececf0] px-6 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-[#d8d8e0] bg-[#e8e8ee] py-3 text-[14px] font-semibold text-[#1a1a1f]"
-          >
+          <Button type="button" variant="secondary" onClick={onClose} fullWidth>
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-xl py-3 text-[14px] font-semibold text-white disabled:opacity-60"
-            style={{ background: YELLOW }}
-          >
+          </Button>
+          <Button type="submit" variant="primary" loading={saving} disabled={saving} fullWidth>
             {saving ? "Saving…" : "Submit"}
-          </button>
+          </Button>
         </div>
       </form>
 

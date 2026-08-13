@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Banknote, Bookmark, Building2, ChevronDown, MoreVertical, Pencil, Search, Star, Trash2, CircleMinus } from "lucide-react";
 
+import Button from "../../components/common/Button";
 import Loader from "../../components/common/Loader";
 import AddNewPartyModal from "../../components/sales/AddNewPartyModal";
 import AddPaymentModeModal from "../../components/sales/AddPaymentModeModal";
@@ -30,7 +31,6 @@ import {
 import { formatInr } from "../../data/salesMasterData";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const YELLOW = "var(--color-primary)";
 const PURPLE = "#6b4eff";
 const LAVENDER = "#efeaf8";
 const ACCOUNTS_KEY = "gns_payment_accounts";
@@ -407,21 +407,12 @@ export default function PaymentReceiptForm() {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => navigate("/sales/payment-receipts")}
-            className="rounded-lg border border-[#e4e4ea] bg-white px-4 py-2 text-[13px] font-semibold"
-          >
+          <Button type="button" variant="secondary" onClick={() => navigate("/sales/payment-receipts")}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-lg px-5 py-2 text-[13px] font-semibold disabled:opacity-60 text-white"
-            style={{ background: YELLOW }}
-          >
+          </Button>
+          <Button type="submit" variant="primary" loading={saving} disabled={saving}>
             {saving ? "Saving…" : isEdit ? "Update" : "Save"}
-          </button>
+          </Button>
         </div>
       </div>
 

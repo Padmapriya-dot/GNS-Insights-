@@ -43,6 +43,7 @@ function StatusBadge({ status }) {
 export default function Table({ columns, data, emptyState, sortable }) {
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
+  const rows = Array.isArray(data) ? data : [];
 
   const handleSort = (key) => {
     if (!sortable || !key) return;
@@ -51,7 +52,7 @@ export default function Table({ columns, data, emptyState, sortable }) {
     setSortDir(nextDir);
   };
 
-  const sortedData = [...data];
+  const sortedData = [...rows];
   if (sortKey && sortable) {
     sortedData.sort((a, b) => {
       const aVal = a[sortKey];

@@ -7,9 +7,11 @@
   --gst-text: #0f172a;
   --gst-muted: #64748b;
 
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "IBM Plex Sans", "Segoe UI", "Noto Sans", Calibri, Arial, Helvetica, sans-serif;
   font-size: 11px;
   line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   color: var(--gst-text);
   background: #fff;
   width: 210mm;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { createPortal } from "react-dom";
 
+import Button from "../../components/common/Button";
 import Loader from "../../components/common/Loader";
 import AddNewPartyModal from "../../components/sales/AddNewPartyModal";
 import { useToast } from "../../context/ToastContext";
@@ -22,7 +23,7 @@ import { exportToExcel } from "../../utils/exportUtils";
 import { apiErrorMessage } from "../../utils/apiError";
 
 const PAGE_BG = "var(--color-bg)";
-const ACCENT = "#0f6d84";
+const ACCENT = "var(--color-action-teal)"; /* #0F6D84 */
 const PAGE_SIZES = [20, 50, 100];
 
 function blankOr(value) {
@@ -49,22 +50,12 @@ function DeleteConfirmModal({ open, onClose, onConfirm, busy }) {
           This action is not reversible.
         </p>
         <div className="mt-7 grid grid-cols-2 gap-4">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onClose}
-            className="rounded-xl bg-[#eceef4] py-3 text-[15px] font-semibold text-[#1a1a1f] disabled:opacity-60"
-          >
+          <Button type="button" variant="secondary" disabled={busy} onClick={onClose} fullWidth>
             No
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onConfirm}
-            className="rounded-xl bg-[#ef5350] py-3 text-[15px] font-semibold text-white disabled:opacity-60"
-          >
+          </Button>
+          <Button type="button" variant="danger" disabled={busy} loading={busy} onClick={onConfirm} fullWidth>
             {busy ? "Deleting…" : "Delete"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -200,33 +191,32 @@ export default function Customers() {
                 className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] py-2.5 pl-10 pr-4 text-[13px] outline-none placeholder:text-[#a0a0ab] focus:border-[#d0d0d8] focus:bg-white"
               />
             </div>
-            <Link
+            <Button
+              variant="outline"
               to="/sales/customers/bulk-import"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              leftIcon={<Upload className="h-4 w-4" />}
             >
-              <Upload className="h-4 w-4" />
               Bulk Import
-            </Link>
-            <button
+            </Button>
+            <Button
+              variant="outline"
               type="button"
               onClick={onExport}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              leftIcon={<FileSpreadsheet className="h-4 w-4" />}
             >
-              <FileSpreadsheet className="h-4 w-4" />
               Export (xlsx)
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               type="button"
               onClick={() => {
                 setEditing(null);
                 setPartyOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
-              style={{ background: ACCENT, color: "#fff" }}
+              leftIcon={<Plus className="h-4 w-4" />}
             >
-              <Plus className="h-4 w-4" />
               Create Customer
-            </button>
+            </Button>
           </div>
 
           <div className="overflow-hidden rounded-lg border border-[#ececf0]">
@@ -321,8 +311,8 @@ export default function Customers() {
               </button>
               <button
                 type="button"
-                className="grid h-8 min-w-8 place-items-center rounded border border-[var(--color-primary)] px-2 text-[13px] font-semibold"
-                style={{ background: "#fff2b8" }}
+                className="grid h-8 min-w-8 place-items-center rounded border border-[var(--color-action-teal)] px-2 text-[13px] font-semibold text-white"
+                style={{ background: ACCENT }}
               >
                 {page}
               </button>
