@@ -1,8 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Download, FileSpreadsheet, FileText, Pause, Play, Plus, Printer, Search, Star } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Eye,
+  FileSpreadsheet,
+  FileText,
+  MoreVertical,
+  Pause,
+  Play,
+  Plus,
+  Printer,
+  Search,
+  Star,
+} from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
+import EmptyState from "../../components/common/EmptyState";
 import KpiCard from "../../components/common/KpiCard";
 import Loader from "../../components/common/Loader";
 import { calculateProgressPct } from "../../data/productionPlanningMasterData";
@@ -52,12 +69,110 @@ import { printWorkOrder } from "../../utils/printUtils";
 
 const PAGE_SIZES = [20, 50, 100];
 
+function isServerWoId(id) {
+  return typeof id === "number" || (typeof id === "string" && /^\d+$/.test(id));
+}
+
 function PriorityPill({ priority }) {
   const p = priorityBadge(priority);
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${p.bg} ${p.text}`}>
-      {p.dot} {p.label}
+      <span className={`h-1.5 w-1.5 rounded-full ${priority === "high" || priority === "urgent" ? "bg-rose-500" : priority === "low" ? "bg-emerald-500" : "bg-amber-500"}`} />
+      {p.label}
     </span>
+  );
+}
+
+/** Compact row actions — primary buttons + overflow menu (no emoji clutter). */
+function WoRowActions({
+  row,
+  onView,
+  onIssue,
+  onStart,
+  onPause,
+  onStop,
+  onPrint,
+  onPdf,
+  issuing,
+}) {
+  const [open, setOpen] = useState(false);
+  const serverId = isServerWoId(row.id);
+
+  const more = [];
+  if (canWoIssueMaterials(row.status, row.materials_issued)) {
+    more.push({
+      label: issuing ? "Issuing…" : "Issue Materials",
+      onClick: () => onIssue(row),
+      disabled: issuing,
+    });
+  }
+  if (canWoPause(row.status)) more.push({ label: "Pause", onClick: () => onPause(row) });
+  if (canWoStop(row.status)) more.push({ label: "Stop", onClick: () => onStop(row) });
+  more.push({ label: "Print", onClick: () => onPrint(row) });
+  more.push({ label: "Export PDF", onClick: () => onPdf(row) });
+
+  return (
+    <div className="flex items-center gap-1 whitespace-nowrap">
+      <button type="button" onClick={() => onView(row)} className="ui-btn-ghost !px-2 !py-1 text-xs" title="View">
+        <Eye className="h-3.5 w-3.5" />
+        View
+      </button>
+      {serverId ? (
+        <Link
+          to={`/production/job-card?id=${row.id}`}
+          className="ui-btn-ghost !px-2 !py-1 text-xs"
+          title="Open Job Card"
+        >
+          <ClipboardList className="h-3.5 w-3.5" />
+          Job Card
+        </Link>
+      ) : null}
+      {canWoStart(row.status) ? (
+        <button type="button" onClick={() => onStart(row)} className="ui-btn-primary !px-2 !py-1 text-xs" title="Start">
+          <Play className="h-3.5 w-3.5" />
+          Start
+        </button>
+      ) : null}
+      {row.materials_issued ? (
+        <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">Mat ✓</span>
+      ) : null}
+      {more.length ? (
+        <div className="relative">
+          <button
+            type="button"
+            className="ui-btn-ghost !px-1.5 !py-1"
+            aria-label="More actions"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen((v) => !v);
+            }}
+          >
+            <MoreVertical className="h-4 w-4" />
+          </button>
+          {open ? (
+            <>
+              <button type="button" className="fixed inset-0 z-40 cursor-default" aria-label="Close menu" onClick={() => setOpen(false)} />
+              <div className="absolute right-0 z-50 mt-1 w-44 rounded-lg border border-[var(--color-border)] bg-white py-1 shadow-lg">
+                {more.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    disabled={item.disabled}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    onClick={() => {
+                      setOpen(false);
+                      item.onClick?.();
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -77,7 +192,7 @@ function ProgressCell({ row }) {
         <span>{pct}%</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
-        <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${Math.min(pct, 100)}%` }} />
+        <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
     </div>
   );
@@ -162,7 +277,13 @@ export default function WorkOrders() {
       } catch (e) {}
 
       const poId = poFilter ? Number(poFilter) : undefined;
-      const wRes = await getWorkOrders(poId).catch(() => ({ data: [] }));
+      let wRes;
+      try {
+        wRes = await getWorkOrders(poId);
+      } catch (e) {
+        addToast(e?.response?.data?.detail || "Could not load work orders", "error");
+        wRes = { data: [] };
+      }
       const apiRows = wRes.data || [];
       const apiEnriched = apiRows.map((r, i) => enrichApiWorkOrder(r, i));
 
@@ -187,10 +308,11 @@ export default function WorkOrders() {
       setWorkOrders(enriched);
     } catch {
       setWorkOrders([]);
+      addToast("Could not load work orders", "error");
     } finally {
       setLoading(false);
     }
-  }, [poFilter]);
+  }, [poFilter, addToast]);
 
   const [machines, setMachines] = useState([]);
 
@@ -246,7 +368,21 @@ export default function WorkOrders() {
       // When navigated from Pending Orders widget, only show non-completed orders
       if (pendingView && !PENDING_VIEW_STATUSES.has(w.status)) return false;
       if (poFilter && String(w.production_order_id) !== poFilter) return false;
-      if (filters.work_order_number && !w.work_order_number.toLowerCase().includes(filters.work_order_number.toLowerCase())) return false;
+      if (filters.work_order_number) {
+        const q = filters.work_order_number.toLowerCase();
+        const hay = [
+          w.work_order_number,
+          w.production_order_number,
+          w.product_name,
+          w.customer_name,
+          w.machine_name,
+          w.operator_name,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       if (filters.production_order && !String(w.production_order_number || "").toLowerCase().includes(filters.production_order.toLowerCase())) return false;
       if (filters.product && !String(w.product_name || "").toLowerCase().includes(filters.product.toLowerCase())) return false;
       if (filters.customer && !String(w.customer_name || "").toLowerCase().includes(filters.customer.toLowerCase())) return false;
@@ -341,29 +477,31 @@ export default function WorkOrders() {
   };
 
   const handlePause = async (wo) => {
+    const label = wo.work_order_number || wo.id;
     if (typeof wo.id === "number") {
       try {
         await pauseWorkOrder(wo.id);
-        addToast("Paused");
+        addToast(`Paused ${label}`, "success");
         load();
-      } catch { addToast("Pause failed", "error"); }
+      } catch { addToast(`Pause failed for ${label}`, "error"); }
       return;
     }
     setWorkOrders((prev) => prev.map((w) => (w.id === wo.id ? { ...w, status: "paused" } : w)));
-    addToast("Paused");
+    addToast(`Paused ${label}`, "success");
   };
 
   const handleStop = async (wo) => {
+    const label = wo.work_order_number || wo.id;
     if (typeof wo.id === "number") {
       try {
         await stopWorkOrder(wo.id);
-        addToast("Stopped");
+        addToast(`Stopped ${label}`, "success");
         load();
-      } catch { addToast("Stop failed", "error"); }
+      } catch { addToast(`Stop failed for ${label}`, "error"); }
       return;
     }
     setWorkOrders((prev) => prev.map((w) => (w.id === wo.id ? { ...w, status: "planned", machine_status: "idle" } : w)));
-    addToast("Stopped");
+    addToast(`Stopped ${label}`, "success");
   };
 
   const handleIssueMaterials = (wo) => {
@@ -456,7 +594,11 @@ export default function WorkOrders() {
       render: (r) => (
         <span className="inline-flex flex-col gap-0.5">
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold capitalize">{woStatusLabel(r.status)}</span>
-          {r.is_delayed && <span className="text-[10px] font-semibold text-red-600">🔴 Delayed</span>}
+          {r.is_delayed && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-600">
+              <AlertTriangle className="h-3 w-3" /> Delayed
+            </span>
+          )}
         </span>
       ),
     },
@@ -465,27 +607,17 @@ export default function WorkOrders() {
       label: "Actions",
       sortable: false,
       render: (r) => (
-        <div className="flex flex-wrap gap-1 text-xs">
-          <button type="button" onClick={() => openWo(r)} className="font-semibold text-[#2563EB] hover:underline">👁 View</button>
-          {canWoIssueMaterials(r.status, r.materials_issued) && (
-            <button
-              type="button"
-              disabled={issuingId === r.id}
-              onClick={() => handleIssueMaterials(r)}
-              className="font-semibold text-cyan-700 hover:underline disabled:opacity-50"
-            >
-              {issuingId === r.id ? "Issuing…" : "📦 Issue Materials"}
-            </button>
-          )}
-          {r.materials_issued && (
-            <span className="text-[10px] font-semibold text-emerald-600">Materials ✔</span>
-          )}
-          {canWoStart(r.status) && <button type="button" onClick={() => handleStartClick(r)} className="font-semibold text-green-700 hover:underline">▶ Start</button>}
-          {canWoPause(r.status) && <button type="button" onClick={() => handlePause(r)} className="font-semibold text-amber-700 hover:underline">⏸ Pause</button>}
-          {canWoStop(r.status) && <button type="button" onClick={() => handleStop(r)} className="font-semibold text-slate-600 hover:underline">⏹ Stop</button>}
-          <button type="button" onClick={() => handlePrintRow(r)} className="font-semibold text-slate-500 hover:underline">🖨 Print</button>
-          <button type="button" onClick={() => exportToPdf([r], exportCols, `WO ${r.work_order_number}`, r.work_order_number)} className="font-semibold text-slate-500 hover:underline">📄 PDF</button>
-        </div>
+        <WoRowActions
+          row={r}
+          onView={openWo}
+          onIssue={handleIssueMaterials}
+          onStart={handleStartClick}
+          onPause={handlePause}
+          onStop={handleStop}
+          onPrint={handlePrintRow}
+          onPdf={(row) => exportToPdf([row], exportCols, `WO ${row.work_order_number}`, row.work_order_number)}
+          issuing={issuingId === r.id}
+        />
       ),
     },
   ];
@@ -513,7 +645,7 @@ export default function WorkOrders() {
         )}
 
         <div className="ui-grid-kpi">
-          <KpiCard label="Total Work Orders" value={summary.total_work_orders} icon={ClipboardList} color="bg-[#2563EB]" />
+          <KpiCard label="Total Work Orders" value={summary.total_work_orders} icon={ClipboardList} color="bg-[var(--color-primary)]" />
           <KpiCard label="Planned" value={summary.planned_orders} icon={FileText} color="bg-blue-500" />
           <KpiCard label="In Progress" value={summary.in_progress_orders} icon={Play} color="bg-amber-500" />
           <KpiCard label="Completed" value={summary.completed_orders} icon={CheckCircle2} color="bg-green-500" />
@@ -529,7 +661,7 @@ export default function WorkOrders() {
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-icon)]" />
               <input
                 type="search"
-                placeholder="Search work orders..."
+                placeholder="Search WO, product, customer, machine…"
                 value={filters.work_order_number}
                 onChange={(e) => setFilters((f) => ({ ...f, work_order_number: e.target.value }))}
                 className="ui-input !rounded-full pl-10"
@@ -609,13 +741,17 @@ export default function WorkOrders() {
               showSearch={false}
               pagination={false}
               emptyState={
-                <div className="py-12 text-center">
-                  <ClipboardList className="mx-auto h-12 w-12 text-slate-300" />
-                  <p className="mt-4 text-sm font-medium text-slate-600">No work orders found.</p>
-                  {!isOperator(user) && (
-                    <button type="button" onClick={() => setShowQuickModal(true)} className="ui-btn-primary mt-4 inline-flex">Create Work Order</button>
-                  )}
-                </div>
+                <EmptyState
+                  icon="clipboard"
+                  title="No work orders found"
+                  description={
+                    Object.values(filters).some(Boolean)
+                      ? "No work orders match your filters. Clear filters or adjust search."
+                      : "Create a work order to start production execution and open its Job Card."
+                  }
+                  actionLabel={!isOperator(user) ? "New Work Order" : undefined}
+                  onAction={!isOperator(user) ? () => setShowQuickModal(true) : undefined}
+                />
               }
             />
           </div>

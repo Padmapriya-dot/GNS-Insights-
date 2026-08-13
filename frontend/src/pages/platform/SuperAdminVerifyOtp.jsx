@@ -138,7 +138,7 @@ export default function SuperAdminVerifyOtp() {
                 setOtp(devOtp);
                 setTimeout(() => handleVerify(devOtp), 50);
               }}
-              className="mt-2 text-xs font-semibold text-teal-700 hover:underline"
+              className="mt-2 text-xs font-semibold text-[var(--color-success)] hover:underline"
             >
               Use this OTP
             </button>

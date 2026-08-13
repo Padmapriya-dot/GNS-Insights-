@@ -173,7 +173,7 @@ function ConvertToPOModal({ row, onClose, onConverted }) {
             type="button"
             disabled={saving || loading}
             onClick={handleConvert}
-            className="rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             {saving ? "Converting…" : "Create PO"}
           </button>
@@ -267,7 +267,7 @@ function MRDetailModal({ row, onClose, onConvert, onApproved }) {
                 type="button"
                 disabled={approving}
                 onClick={() => handleApprove(true)}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="rounded-lg bg-[var(--color-success)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {approving ? "Saving…" : "Approve PR"}
               </button>
@@ -277,7 +277,7 @@ function MRDetailModal({ row, onClose, onConvert, onApproved }) {
             <button
               type="button"
               onClick={() => onConvert(row)}
-              className="rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white"
+              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white"
             >
               Convert to PO
             </button>
@@ -429,7 +429,7 @@ export default function MaterialRequests() {
               <button
                 type="button"
                 onClick={() => setConvertRow(r)}
-                className="text-xs font-semibold text-teal-700 hover:underline"
+                className="text-xs font-semibold text-[var(--color-success)] hover:underline"
               >
                 To PO
               </button>
@@ -477,7 +477,7 @@ export default function MaterialRequests() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Requests" value={summary.total_requests} icon={ClipboardList} color="bg-blue-600" />
+        <KpiCard label="Total Requests" value={summary.total_requests} icon={ClipboardList} color="bg-[var(--color-primary)]" />
         <KpiCard label="Pending Approval" value={summary.pending_approval} icon={AlertCircle} color="bg-amber-500" />
         <KpiCard label="Approved" value={summary.approved} icon={ClipboardList} color="bg-green-600" />
         <KpiCard label="Rejected" value={summary.rejected} icon={AlertCircle} color="bg-red-500" />

@@ -17,7 +17,7 @@ import { INDIAN_STATES, CITIES_BY_STATE } from "../../data/indiaLocations";
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
 
-const YELLOW = "#F5C518";
+const YELLOW = "var(--color-primary)";
 const PURPLE = "#6b4eff";
 
 const inputClass =
@@ -249,7 +249,7 @@ function AddressModal({ open, onClose, initial, onSave }) {
               onSave?.(address);
               onClose?.();
             }}
-            className="rounded-lg py-2.5 text-[14px] font-semibold text-[#1a1a1f]"
+            className="rounded-lg py-2.5 text-[14px] font-semibold text-white"
             style={{ background: YELLOW }}
           >
             Save
@@ -665,7 +665,7 @@ export default function AddNewPartyModal({
           <button
             type="submit"
             disabled={saving}
-            className="rounded-xl py-3 text-[14px] font-semibold text-[#1a1a1f] disabled:opacity-60"
+            className="rounded-xl py-3 text-[14px] font-semibold text-white disabled:opacity-60"
             style={{ background: YELLOW }}
           >
             {saving ? "Saving…" : "Submit"}

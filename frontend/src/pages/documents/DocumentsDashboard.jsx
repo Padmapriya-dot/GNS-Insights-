@@ -400,10 +400,10 @@ Description:  ${doc.description || "No description provided."}
 
       {/* KPI Cards Grid */}
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Documents" value={summary.total} icon={FolderOpen} color="bg-blue-600" />
+        <KpiCard label="Total Documents" value={summary.total} icon={FolderOpen} color="bg-[var(--color-primary)]" />
         <KpiCard label="PDF Files" value={summary.pdf} icon={FileText} color="bg-rose-600" />
         <KpiCard label="Images" value={summary.image} icon={FileImage} color="bg-violet-600" />
-        <KpiCard label="Excel Files" value={summary.excel} icon={FileSpreadsheet} color="bg-emerald-600" />
+        <KpiCard label="Excel Files" value={summary.excel} icon={FileSpreadsheet} color="bg-[var(--color-success)]" />
         <KpiCard label="Word Files" value={summary.word} icon={FileText} color="bg-sky-600" />
         <KpiCard label="Recent Uploads" value={summary.recent} icon={Plus} color="bg-amber-500" />
         <KpiCard
@@ -881,7 +881,7 @@ Description:  ${doc.description || "No description provided."}
               <button
                 type="button"
                 onClick={() => handleDownload(preview)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors shadow-xs"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)] transition-colors shadow-xs"
               >
                 <Download className="h-4 w-4" /> Download File
               </button>

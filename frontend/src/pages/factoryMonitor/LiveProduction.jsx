@@ -86,7 +86,7 @@ export default function LiveProduction() {
         <div className="min-w-[90px]">
           <div className="mb-0.5 text-xs text-slate-500">{r.progress_pct}%</div>
           <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full rounded-full bg-teal-500" style={{ width: `${r.progress_pct}%` }} />
+            <div className="h-full rounded-full bg-[var(--color-success-soft)]0" style={{ width: `${r.progress_pct}%` }} />
           </div>
         </div>
       ),
@@ -137,7 +137,7 @@ export default function LiveProduction() {
 
       <div className="ui-grid-kpi">
         <KpiCard label="Running Jobs" value={summary.running_jobs} icon={Factory} color="bg-teal-600" />
-        <KpiCard label="Active Machines" value={summary.active_machines} icon={Cpu} color="bg-[#2563EB]" />
+        <KpiCard label="Active Machines" value={summary.active_machines} icon={Cpu} color="bg-[var(--color-primary)]" />
         <KpiCard label="Operators Working" value={summary.operators_working} icon={Users} color="bg-indigo-500" />
         <KpiCard label="Today's Production" value={summary.todays_production?.toLocaleString()} icon={Zap} color="bg-green-500" />
         <KpiCard label="Today's Target" value={summary.todays_target?.toLocaleString()} icon={Target} color="bg-amber-500" />
@@ -161,7 +161,7 @@ export default function LiveProduction() {
                   <span className="w-14 text-xs font-semibold text-slate-500">{block.slot}</span>
                   <div className="flex-1">
                     <div
-                      className="rounded-lg bg-[#2563EB] px-3 py-2 text-xs font-semibold text-white"
+                      className="rounded-lg bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white"
                       style={{ width: `${(block.span_slots / 3) * 100}%`, minWidth: "120px" }}
                     >
                       {block.product_name}

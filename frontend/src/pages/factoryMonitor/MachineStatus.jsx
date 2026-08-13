@@ -79,14 +79,14 @@ export default function MachineStatus() {
         <div className="flex items-center gap-3">
           <Link
             to="/production"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:border-teal-300 dark:hover:border-teal-600 transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-[var(--color-success-soft)] dark:hover:bg-teal-900/20 hover:border-teal-300 dark:hover:border-teal-600 transition-colors"
           >
             Live Production
             <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
             to="/production/machines/create"
-            className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-teal-700 transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-[var(--color-success)] transition-colors"
           >
             <Plus className="h-4 w-4" />
             Add Machine
@@ -145,7 +145,7 @@ export default function MachineStatus() {
               </p>
               <Link
                 to="/production/machines/create"
-                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-700"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-[var(--color-success)]"
               >
                 <Plus className="h-4 w-4" />
                 Add Machine
@@ -181,7 +181,7 @@ export default function MachineStatus() {
                         <button
                           onClick={() => handleAction(m, "running")}
                           disabled={loading}
-                          className="rounded-lg bg-emerald-600 p-2 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                          className="rounded-lg bg-[var(--color-success)] p-2 text-white hover:bg-[var(--color-success-hover)] disabled:opacity-50 transition-colors"
                           title="Start"
                         >
                           <Play className="h-5 w-5" />

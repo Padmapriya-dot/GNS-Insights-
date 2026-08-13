@@ -33,7 +33,7 @@ import {
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 
 const PAGE_BG = "var(--color-bg)";
-const YELLOW = "#F5C518";
+const YELLOW = "var(--color-cta)";
 const PAGE_SIZES = [20, 50, 100];
 
 function SummaryCard({ label, value, icon: Icon, color, sub }) {
@@ -333,7 +333,7 @@ export default function MachineStatus() {
           <SummaryCard label="Total Machines" value={summary.total_machines} icon={Cpu} color="bg-slate-600" />
           <SummaryCard label="Running" value={summary.running} icon={Zap} color="bg-green-600" />
           <SummaryCard label="Idle" value={summary.idle} icon={Activity} color="bg-yellow-500" />
-          <SummaryCard label="Maintenance" value={summary.maintenance} icon={Wrench} color="bg-blue-600" />
+          <SummaryCard label="Maintenance" value={summary.maintenance} icon={Wrench} color="bg-[var(--color-primary)]" />
           <SummaryCard label="Breakdown" value={summary.breakdown} icon={Activity} color="bg-red-600" />
           <SummaryCard label="Offline" value={summary.offline} icon={Cpu} color="bg-slate-800" />
           <SummaryCard label="Utilization" value={`${summary.utilization_pct}%`} icon={Activity} color="bg-indigo-600" />
@@ -400,7 +400,7 @@ export default function MachineStatus() {
               <button
                 type="button"
                 onClick={() => setViewMode("grid")}
-                className={`rounded-md p-2 ${viewMode === "grid" ? "bg-[#2563EB] text-white" : "text-slate-500"}`}
+                className={`rounded-md p-2 ${viewMode === "grid" ? "bg-[var(--color-primary)] text-white" : "text-slate-500"}`}
                 title="Grid view"
               >
                 <Grid3X3 className="h-4 w-4" />
@@ -408,7 +408,7 @@ export default function MachineStatus() {
               <button
                 type="button"
                 onClick={() => setViewMode("list")}
-                className={`rounded-md p-2 ${viewMode === "list" ? "bg-[#2563EB] text-white" : "text-slate-500"}`}
+                className={`rounded-md p-2 ${viewMode === "list" ? "bg-[var(--color-primary)] text-white" : "text-slate-500"}`}
                 title="List view"
               >
                 <LayoutList className="h-4 w-4" />

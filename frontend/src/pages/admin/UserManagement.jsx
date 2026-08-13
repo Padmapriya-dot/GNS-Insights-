@@ -220,7 +220,7 @@ export default function UserManagement() {
               r.roles.map((role) => (
                 <span
                   key={role.id}
-                  className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
+                  className="inline-flex items-center gap-1 rounded-md bg-[var(--color-success-soft)] px-2 py-0.5 text-xs font-medium text-[var(--color-success)] dark:bg-teal-900/30 dark:text-teal-300"
                 >
                   {role.name === "Admin" && <ShieldCheck className="h-3 w-3" />}
                   {role.name}
@@ -267,7 +267,7 @@ export default function UserManagement() {
           <button
             type="button"
             onClick={() => openEdit(r)}
-            className="rounded-lg p-1.5 text-slate-500 hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-teal-900/20"
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-[var(--color-success-soft)] hover:text-teal-600 dark:hover:bg-teal-900/20"
             title="Edit user"
           >
             <Pencil className="h-4 w-4" />
@@ -459,7 +459,7 @@ export default function UserManagement() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-xl bg-teal-600 px-5 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+              className="rounded-xl bg-teal-600 px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--color-success)] disabled:opacity-50"
             >
               {saving ? "Saving…" : editing ? "Save Changes" : "Create User"}
             </button>

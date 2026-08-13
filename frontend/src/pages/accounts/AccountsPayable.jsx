@@ -62,7 +62,7 @@ function SectionTab({ id, label, icon: Icon, active, onClick, badge }) {
       {label}
       {badge != null && (
         <span className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-          active ? "bg-teal-50 text-[var(--color-primary)]" : "bg-slate-100 text-slate-600"
+          active ? "bg-[var(--color-success-soft)] text-[var(--color-primary)]" : "bg-slate-100 text-slate-600"
         }`}>{badge}</span>
       )}
     </button>
@@ -798,7 +798,7 @@ export default function AccountsPayable() {
             <span key={s} className="flex items-center gap-1">
               <span className={`rounded-lg px-2.5 py-1 ${
                 ["Vendor Bill","Accounts Payable","Payment"].includes(s)
-                  ? "bg-teal-700 text-white font-semibold"
+                  ? "bg-[var(--color-success)] text-white font-semibold"
                   : "bg-slate-50 text-slate-600 ring-1 ring-slate-200/80"
               }`}>{s}</span>
               {i < FINANCE_FLOW.length - 1 && <ChevronRight className="h-3 w-3 text-slate-400" />}
@@ -811,9 +811,9 @@ export default function AccountsPayable() {
           <KpiCard label="Outstanding Payables" value={formatInr(summary.outstanding_payables)} icon={IndianRupee} color="bg-rose-600" />
           <KpiCard label="Due This Week" value={summary.due_this_week} sub="bills" icon={Clock} color="bg-amber-500" />
           <KpiCard label="Overdue Bills" value={summary.overdue_bills} icon={AlertCircle} color="bg-orange-500" />
-          <KpiCard label="Paid This Month" value={formatInr(summary.paid_this_month)} icon={CheckCircle2} color="bg-emerald-600" />
+          <KpiCard label="Paid This Month" value={formatInr(summary.paid_this_month)} icon={CheckCircle2} color="bg-[var(--color-success)]" />
           <KpiCard label="Pending Approvals" value={summary.pending_approvals} icon={FileText} color="bg-indigo-600" />
-          <KpiCard label="Active Vendors" value={summary.vendor_count} icon={Building2} color="bg-teal-700" />
+          <KpiCard label="Active Vendors" value={summary.vendor_count} icon={Building2} color="bg-[var(--color-success)]" />
         </div>
 
         {/* ── Section Navigation ── */}
@@ -935,7 +935,7 @@ export default function AccountsPayable() {
                     billsTab === id
                       ? id === "overdue"
                         ? "bg-red-600 border-red-600 text-white"
-                        : "bg-blue-600 border-blue-600 text-white"
+                        : "bg-[var(--color-primary)] border-blue-600 text-white"
                       : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >

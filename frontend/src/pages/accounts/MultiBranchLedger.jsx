@@ -79,7 +79,7 @@ export default function MultiBranchLedger() {
       <PageHeader subtitle="Consolidated posting logs and branch-level financial comparison dashboard." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Consolidated Revenue" value={formatInr(summary.revenue)} icon={Building2} color="bg-blue-600" />
+        <KpiCard label="Total Consolidated Revenue" value={formatInr(summary.revenue)} icon={Building2} color="bg-[var(--color-primary)]" />
         <KpiCard label="Total Consolidated Expenses" value={formatInr(summary.expenses)} icon={TrendingDown} color="bg-red-500" />
         <KpiCard label="Consolidated Net Profit" value={formatInr(summary.revenue - summary.expenses)} icon={TrendingUp} color="bg-green-600" />
       </div>
@@ -136,7 +136,7 @@ export default function MultiBranchLedger() {
                       <span className="font-bold text-blue-600">{((b.revenue / consolidatedRev) * 100).toFixed(0)}% contribution</span>
                     </div>
                     <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                      <div className="bg-[#2563EB] h-full" style={{ width: `${(b.revenue / consolidatedRev) * 100}%` }} />
+                      <div className="bg-[var(--color-primary)] h-full" style={{ width: `${(b.revenue / consolidatedRev) * 100}%` }} />
                     </div>
                   </div>
                 ))}

@@ -366,7 +366,7 @@ function VendorComparisonPanel({ rfq, vendors, bestVendor, suppliers, onRefreshC
                         type="button"
                         disabled={awarding}
                         onClick={() => handleAward(v.supplier_id)}
-                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+                        className="inline-flex items-center gap-1 rounded-lg bg-[var(--color-success)] px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-[var(--color-success-hover)] disabled:opacity-50"
                       >
                         <Award className="h-3.5 w-3.5" /> Award
                       </button>
@@ -382,7 +382,7 @@ function VendorComparisonPanel({ rfq, vendors, bestVendor, suppliers, onRefreshC
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
           to="/procurement/purchase-orders/create"
-          className="rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)]"
         >
           Create Purchase Order
         </Link>
@@ -539,10 +539,10 @@ export default function RFQ() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Open Request for Quotation (RFQ)s" value={summary.open_rfqs} icon={FileSearch} color="bg-blue-600" />
+        <KpiCard label="Open Request for Quotation (RFQ)s" value={summary.open_rfqs} icon={FileSearch} color="bg-[var(--color-primary)]" />
         <KpiCard label="Vendor Responses" value={summary.vendor_responses} icon={FileSearch} color="bg-indigo-600" />
         <KpiCard label="Expired Request for Quotation (RFQ)s" value={summary.expired_rfqs} icon={FileSearch} color="bg-slate-500" />
-        <KpiCard label="Awarded Request for Quotation (RFQ)s" value={summary.awarded_rfqs} icon={Award} color="bg-emerald-600" />
+        <KpiCard label="Awarded Request for Quotation (RFQ)s" value={summary.awarded_rfqs} icon={Award} color="bg-[var(--color-success)]" />
       </div>
 
       <WorkflowStrip />

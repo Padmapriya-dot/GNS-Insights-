@@ -24,7 +24,7 @@ import { useToast } from "../../context/ToastContext";
 
 const LAVENDER = "#efeaf8";
 const PURPLE = "#6b4eff";
-const YELLOW = "#F5C518";
+const YELLOW = "var(--color-primary)";
 const emptyItem = () => ({
   item_description: "",
   hsn: "",
@@ -501,7 +501,7 @@ export default function PurchaseForm() {
           <button
             type="submit"
             disabled={saving}
-            className="rounded-lg px-5 py-2 text-[13px] font-semibold text-[#1a1a1f] shadow-sm disabled:opacity-60"
+            className="rounded-lg px-5 py-2 text-[13px] font-semibold text-white shadow-sm disabled:opacity-60"
             style={{ background: YELLOW }}
           >
             {saving ? "Saving…" : "Save"}

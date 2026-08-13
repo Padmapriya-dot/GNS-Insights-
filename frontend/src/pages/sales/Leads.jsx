@@ -141,7 +141,7 @@ export default function Leads() {
   };
 
   const columns = [
-    { key: "lead_id", label: "Lead ID", render: (r) => <span className="rounded bg-teal-50 px-2 py-0.5 font-mono text-xs font-bold text-teal-800">{r.lead_id || `LD-${r.id}`}</span> },
+    { key: "lead_id", label: "Lead ID", render: (r) => <span className="rounded bg-[var(--color-success-soft)] px-2 py-0.5 font-mono text-xs font-bold text-[var(--color-success)]">{r.lead_id || `LD-${r.id}`}</span> },
     { key: "customer_name", label: "Customer", render: (r) => <span className="font-bold text-slate-900">{r.customer_name}</span> },
     { key: "company", label: "Company" },
     { key: "contact", label: "Contact" },
@@ -196,12 +196,12 @@ export default function Leads() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Leads" value={summary.total_leads} icon={Users} color="bg-teal-700" />
+        <KpiCard label="Total Leads" value={summary.total_leads} icon={Users} color="bg-[var(--color-success)]" />
         <KpiCard label="New Leads" value={summary.new_leads} icon={UserPlus} color="bg-indigo-600" />
         <KpiCard label="Contacted" value={summary.contacted_leads} icon={PhoneCall} color="bg-cyan-600" />
         <KpiCard label="Qualified" value={summary.qualified_leads} icon={Target} color="bg-slate-600" />
         <KpiCard label="Lost Leads" value={summary.lost_leads} icon={XCircle} color="bg-rose-600" />
-        <KpiCard label="Conversion Rate" value={summary.conversion_rate} suffix="%" icon={TrendingUp} color="bg-emerald-600" />
+        <KpiCard label="Conversion Rate" value={summary.conversion_rate} suffix="%" icon={TrendingUp} color="bg-[var(--color-success)]" />
       </div>
 
       <div className="ui-toolbar ui-card px-4 py-3 text-[var(--text-xs)] font-medium text-[var(--color-text-secondary)]">
@@ -276,7 +276,7 @@ export default function Leads() {
                             <p className="mt-1.5 text-xs font-black text-blue-600">{formatInr(r.opportunity_value || r.estimated_value)}</p>
                           )}
                           <div className="mt-3 flex items-center justify-between border-t pt-2 text-xs">
-                            <button type="button" onClick={() => setSelected(r)} className="font-bold text-teal-800 hover:underline">
+                            <button type="button" onClick={() => setSelected(r)} className="font-bold text-[var(--color-success)] hover:underline">
                               View 360°
                             </button>
                             {isQualified ? (

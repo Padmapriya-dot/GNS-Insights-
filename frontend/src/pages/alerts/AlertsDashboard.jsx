@@ -431,7 +431,7 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
 
       {/* KPI Cards Grid */}
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Alerts" value={summary.total} icon={Bell} color="bg-blue-600" />
+        <KpiCard label="Total Alerts" value={summary.total} icon={Bell} color="bg-[var(--color-primary)]" />
         <KpiCard label="Critical" value={summary.critical} icon={AlertTriangle} color="bg-rose-600" />
         <KpiCard label="High Priority" value={summary.high} icon={ShieldAlert} color="bg-orange-500" />
         <KpiCard label="Medium Priority" value={summary.medium} icon={Clock} color="bg-amber-500" />

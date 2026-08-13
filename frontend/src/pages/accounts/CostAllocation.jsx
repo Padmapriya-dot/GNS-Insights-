@@ -128,7 +128,7 @@ export default function CostAllocation() {
         <div className="flex gap-2">
           <button
             onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] hover:bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all"
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all"
           >
             <Plus className="h-4 w-4" />
             New Allocation
@@ -137,7 +137,7 @@ export default function CostAllocation() {
       </header>
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Allocated Overhead" value={formatInr(totalAllocated)} icon={Layers} color="bg-blue-600" />
+        <KpiCard label="Total Allocated Overhead" value={formatInr(totalAllocated)} icon={Layers} color="bg-[var(--color-primary)]" />
         <KpiCard label="Production cost Center Share" value={formatInr(filtered.filter((a) => a.dept === "Production").reduce((s, a) => s + a.amount, 0))} icon={Award} color="bg-green-600" />
         <KpiCard label="General overhead Cost Center" value={formatInr(filtered.filter((a) => a.dept !== "Production").reduce((s, a) => s + a.amount, 0))} icon={ShieldAlert} color="bg-amber-50" />
       </div>
@@ -309,7 +309,7 @@ export default function CostAllocation() {
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] shadow-sm transition-all"
                 >
                   Allocate Cost
                 </button>

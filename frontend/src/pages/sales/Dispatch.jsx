@@ -114,7 +114,7 @@ function TrackingModal({ row, onClose, onPrintChallan, onShip }) {
           {row.shipped && !row.invoiced && (
             <Link
               to={`/sales/invoices/create?sales_order_id=${soId}`}
-              className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+              className="rounded-lg bg-[var(--color-success)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-success-hover)]"
             >
               Create Invoice
             </Link>
@@ -281,7 +281,7 @@ export default function Dispatch() {
         />
         <KpiCard label="Packed" value={summary.packed} icon={Package} color="bg-indigo-600" />
         <KpiCard label="In Transit" value={summary.in_transit} icon={Truck} color="bg-cyan-600" />
-        <KpiCard label="Delivered" value={summary.delivered} icon={Truck} color="bg-emerald-600" />
+        <KpiCard label="Delivered" value={summary.delivered} icon={Truck} color="bg-[var(--color-success)]" />
         <KpiCard label="Delayed" value={summary.delayed} icon={Truck} color="bg-rose-600" />
       </div>
 

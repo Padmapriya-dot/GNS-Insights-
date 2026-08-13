@@ -151,7 +151,7 @@ export default function SalesOrderDetail() {
                 <span className="ml-2 font-normal text-slate-400">· {orderWorkflow.viewer_role}</span>
               ) : null}
             </h3>
-            <Link to="/manufacturing/workflow" className="text-xs font-semibold text-teal-700 hover:underline">
+            <Link to="/manufacturing/workflow" className="text-xs font-semibold text-[var(--color-success)] hover:underline">
               Open board →
             </Link>
           </div>
@@ -304,7 +304,7 @@ export default function SalesOrderDetail() {
                     addToast(err.response?.data?.detail || "Update failed", "error");
                   }
                 }}
-                className="rounded-lg border border-teal-200 px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-50"
+                className="rounded-lg border border-teal-200 px-3 py-1.5 text-sm font-medium text-[var(--color-success)] hover:bg-[var(--color-success-soft)]"
               >
                 Mark packed
               </button>
@@ -367,7 +367,7 @@ export default function SalesOrderDetail() {
                     </div>
                     <Link
                       to={`/production/work-orders?production_order_id=${po.id}`}
-                      className="text-xs font-semibold text-teal-700 hover:underline"
+                      className="text-xs font-semibold text-[var(--color-success)] hover:underline"
                     >
                       Work Orders →
                     </Link>
@@ -415,7 +415,7 @@ export default function SalesOrderDetail() {
               ) : (
                 <p className="text-sm text-slate-500">No MRP run (no product lines or already confirmed).</p>
               )}
-              <Link to="/procurement/material-requests" className="mt-2 inline-block text-xs font-semibold text-teal-700 hover:underline">
+              <Link to="/procurement/material-requests" className="mt-2 inline-block text-xs font-semibold text-[var(--color-success)] hover:underline">
                 Purchase Requests →
               </Link>
             </div>
@@ -441,14 +441,14 @@ export default function SalesOrderDetail() {
                 <button
                   type="button"
                   onClick={() => navigate("/production/planning")}
-                  className="text-xs font-semibold text-teal-700 hover:underline"
+                  className="text-xs font-semibold text-[var(--color-success)] hover:underline"
                 >
                   Production Planning →
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate("/production/work-orders")}
-                  className="text-xs font-semibold text-teal-700 hover:underline"
+                  className="text-xs font-semibold text-[var(--color-success)] hover:underline"
                 >
                   Work Orders →
                 </button>
@@ -474,7 +474,7 @@ function BackLink() {
   return (
     <Link
       to="/sales/orders"
-      className="inline-flex items-center gap-2 text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400"
+      className="inline-flex items-center gap-2 text-sm font-medium text-teal-600 hover:text-[var(--color-success)] dark:text-teal-400"
     >
       <ArrowLeft className="h-4 w-4" />
       Back to sales orders

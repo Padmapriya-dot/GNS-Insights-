@@ -122,7 +122,7 @@ export default function CreateMaterialRequest() {
     <div className="mx-auto max-w-2xl space-y-6">
       <Link
         to="/procurement/material-requests"
-        className="inline-flex items-center gap-2 text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400"
+        className="inline-flex items-center gap-2 text-sm font-medium text-teal-600 hover:text-[var(--color-success)] dark:text-teal-400"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to material requests

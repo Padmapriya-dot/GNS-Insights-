@@ -114,7 +114,7 @@ export default function Shifts() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Configured Shifts" value={totalShifts} icon={Layers} color="bg-blue-600" />
+        <KpiCard label="Configured Shifts" value={totalShifts} icon={Layers} color="bg-[var(--color-primary)]" />
         <KpiCard label="Avg Capacity" value={avgCapacity} icon={Clock} color="bg-indigo-600" />
         <KpiCard label="Total Break Time" value={totalBreak} icon={Coffee} color="bg-teal-600" />
       </div>

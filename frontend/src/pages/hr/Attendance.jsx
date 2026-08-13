@@ -170,7 +170,7 @@ export default function Attendance() {
         <KpiCard label="Late" value={summary.late} icon={Clock} color="bg-amber-500" />
         <KpiCard label="Half Day" value={summary.half_day} icon={UserX} color="bg-orange-500" />
         <KpiCard label="Overtime (h)" value={summary.overtime} icon={Clock} color="bg-indigo-600" />
-        <KpiCard label="Day Shift" value={shiftCardValues.day} icon={Clock} color="bg-blue-600" />
+        <KpiCard label="Day Shift" value={shiftCardValues.day} icon={Clock} color="bg-[var(--color-primary)]" />
         <KpiCard label="Afternoon Shift" value={shiftCardValues.afternoon} icon={Clock} color="bg-orange-600" />
         <KpiCard label="Night Shift" value={summary.night_shift} icon={Moon} color="bg-purple-600" />
         <KpiCard label="Total Hours" value={summary.total_working_hours} icon={Timer} color="bg-teal-600" suffix="h" />

@@ -46,7 +46,7 @@ export default function SupplyChainDashboard() {
       <PageHeader subtitle="Purchase spend, vendor performance, pending orders, and procurement alerts." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Purchase Spend" value={formatInr(hub.purchase_spend)} icon={IndianRupee} color="bg-blue-600" />
+        <KpiCard label="Purchase Spend" value={formatInr(hub.purchase_spend)} icon={IndianRupee} color="bg-[var(--color-primary)]" />
         <KpiCard label="Pending Approvals" value={hub.pending_approvals} icon={ShoppingCart} color="bg-amber-500" />
         <KpiCard label="Open Request for Quotation (RFQ)s" value={hub.open_rfqs} icon={ShoppingCart} color="bg-indigo-600" />
         <KpiCard label="Active Vendors" value={hub.active_vendors} icon={Users} color="bg-teal-600" />

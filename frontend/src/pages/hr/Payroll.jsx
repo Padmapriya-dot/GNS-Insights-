@@ -308,7 +308,7 @@ export default function Payroll() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Monthly Payroll" value={formatInr(liveSummary.monthly_payroll)} icon={Wallet} color="bg-blue-600" />
+        <KpiCard label="Monthly Payroll" value={formatInr(liveSummary.monthly_payroll)} icon={Wallet} color="bg-[var(--color-primary)]" />
         <KpiCard label="Pending Salary" value={formatInr(liveSummary.pending_salary)} icon={Clock} color="bg-amber-500" />
         <KpiCard label="Processed" value={formatInr(liveSummary.processed_salary)} icon={CheckCircle} color="bg-green-600" />
         <KpiCard label="OT Cost" value={formatInr(liveSummary.overtime_cost)} icon={TrendingUp} color="bg-orange-500" />

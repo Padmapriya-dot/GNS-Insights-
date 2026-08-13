@@ -71,6 +71,14 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/production/job-card"
+        element={
+          <ProtectedRoute>
+            <P.JobCard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/production/machines"
         element={
           <ProtectedRoute>

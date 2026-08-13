@@ -317,7 +317,7 @@ export default function AddLedgerCustomerModal({ open, onClose, onSaved, custome
             </OutlinedField>
           </div>
 
-          <div className="my-5 rounded bg-[#F5C518] py-2 text-center text-[14px] font-bold text-[#1a1a1f]">
+          <div className="my-5 rounded bg-[var(--color-cta)] py-2 text-center text-[14px] font-bold text-[#1a1a1f]">
             Billing Address
           </div>
 

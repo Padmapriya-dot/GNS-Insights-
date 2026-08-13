@@ -353,7 +353,7 @@ export default function VendorManagement() {
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <SummaryCard label="Total Vendors" value={summary.total} icon={Building2} color="bg-[#2563EB]" />
+        <SummaryCard label="Total Vendors" value={summary.total} icon={Building2} color="bg-[var(--color-primary)]" />
         <SummaryCard label="Active Vendors" value={summary.active} icon={UserCheck} color="bg-green-500" />
         <SummaryCard label="Inactive Vendors" value={summary.inactive} icon={UserX} color="bg-slate-500" />
         <SummaryCard label="Pending Approval" value={summary.pendingApproval} icon={AlertCircle} color="bg-amber-500" />

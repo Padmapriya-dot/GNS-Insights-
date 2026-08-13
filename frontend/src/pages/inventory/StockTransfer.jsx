@@ -20,7 +20,7 @@ const STATUS_COLORS = {
   pending_approval: "bg-amber-100 text-amber-800",
   approved: "bg-blue-100 text-blue-800",
   in_transit: "bg-indigo-100 text-indigo-800",
-  received: "bg-teal-100 text-teal-800",
+  received: "bg-teal-100 text-[var(--color-success)]",
   completed: "bg-green-100 text-green-800",
   rejected: "bg-red-100 text-red-800",
 };
@@ -165,7 +165,7 @@ export default function StockTransfer() {
                 type="button"
                 disabled={isBusy}
                 onClick={() => handleStatusChange(r.id, "approved")}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg bg-[var(--color-success)] px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-[var(--color-success-hover)] disabled:opacity-50"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" /> Approve
               </button>
@@ -198,7 +198,7 @@ export default function StockTransfer() {
               type="button"
               disabled={isBusy}
               onClick={() => handleStatusChange(r.id, "completed")}
-              className="inline-flex items-center gap-1 rounded-lg bg-teal-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-teal-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-lg bg-teal-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-[var(--color-success)] disabled:opacity-50"
             >
               <CheckCircle2 className="h-3.5 w-3.5" /> Complete
             </button>
@@ -357,7 +357,7 @@ export default function StockTransfer() {
       <section className="ui-card p-4">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-            <Truck className="h-4 w-4 text-teal-700" /> Transfer History
+            <Truck className="h-4 w-4 text-[var(--color-success)]" /> Transfer History
           </h2>
         </div>
         <DataTable columns={historyColumns} data={transfers} showSearch={false} />

@@ -178,11 +178,11 @@ export default function PaymentTracking() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Amount" value={formatInr(computedSummary.total_amount)} icon={IndianRupee} color="bg-teal-700" />
+        <KpiCard label="Total Amount" value={formatInr(computedSummary.total_amount)} icon={IndianRupee} color="bg-[var(--color-success)]" />
         <KpiCard label="Customer Receipts" value={formatInr(computedSummary.customer_receipts)} icon={Users} color="bg-indigo-600" />
         <KpiCard label="Vendor Payments" value={formatInr(computedSummary.vendor_payments)} icon={Banknote} color="bg-slate-600" />
         <KpiCard label="Bank Transfers" value={formatInr(computedSummary.bank_transfers)} icon={CreditCard} color="bg-cyan-600" />
-        <KpiCard label="Completed" value={computedSummary.completed_payments} icon={CheckCircle} color="bg-emerald-600" />
+        <KpiCard label="Completed" value={computedSummary.completed_payments} icon={CheckCircle} color="bg-[var(--color-success)]" />
         <KpiCard label="Failed / Pending" value={`${computedSummary.failed_payments} / ${computedSummary.pending_payments}`} icon={XCircle} color="bg-rose-600" />
       </div>
 

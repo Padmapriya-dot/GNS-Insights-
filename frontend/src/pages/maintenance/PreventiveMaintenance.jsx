@@ -83,7 +83,7 @@ export default function PreventiveMaintenance() {
       <PageHeader subtitle="Schedule and track recurring maintenance tasks across all machines." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Machines" value={summary.total_machines} icon={Cog} color="bg-blue-600" />
+        <KpiCard label="Total Machines" value={summary.total_machines} icon={Cog} color="bg-[var(--color-primary)]" />
         <KpiCard label="Scheduled Today" value={summary.scheduled_today} icon={Calendar} color="bg-indigo-600" />
         <KpiCard label="Overdue Tasks" value={summary.overdue_tasks} icon={AlertTriangle} color="bg-red-500" />
         <KpiCard label="Completed This Month" value={summary.completed_this_month} icon={CheckCircle} color="bg-green-600" />

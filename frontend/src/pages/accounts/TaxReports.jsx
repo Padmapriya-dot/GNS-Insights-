@@ -87,7 +87,7 @@ export default function TaxReports() {
         <KpiCard label="State Goods & Services Tax (SGST)" value={formatInr(data.sgst)} icon={IndianRupee} color="bg-indigo-600" />
         <KpiCard label="Central Goods & Services Tax (CGST)" value={formatInr(data.cgst)} icon={IndianRupee} color="bg-purple-600" />
         <KpiCard label="Integrated Goods & Services Tax (IGST)" value={formatInr(data.igst)} icon={IndianRupee} color="bg-pink-600" />
-        <KpiCard label="Total Goods & Services Tax (GST)" value={formatInr(data.total_gst)} icon={IndianRupee} color="bg-blue-600" highlight />
+        <KpiCard label="Total Goods & Services Tax (GST)" value={formatInr(data.total_gst)} icon={IndianRupee} color="bg-[var(--color-primary)]" highlight />
         <KpiCard label="Taxable Value" value={formatInr(data.taxable_value)} icon={FileText} color="bg-slate-600" />
         <KpiCard label="Goods & Services Tax (GST) Payable" value={formatInr(data.gst_payable)} icon={IndianRupee} color="bg-red-500" />
         <KpiCard label="Goods & Services Tax (GST) Receivable" value={formatInr(data.gst_receivable)} icon={IndianRupee} color="bg-green-600" />
@@ -118,7 +118,7 @@ export default function TaxReports() {
             key={r}
             type="button"
             onClick={() => setActiveReport(r)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeReport === r ? "bg-[#2563EB] text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold ${activeReport === r ? "bg-[var(--color-primary)] text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
           >
             {r}
           </button>

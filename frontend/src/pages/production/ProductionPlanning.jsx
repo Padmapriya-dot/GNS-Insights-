@@ -109,7 +109,7 @@ function ProgressCell({ row }) {
         <span>{pct}%</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 print:border print:border-slate-300">
-        <div className="h-full rounded-full bg-[#2563EB] print:bg-slate-700" style={{ width: `${Math.min(pct, 100)}%` }} />
+        <div className="h-full rounded-full bg-[var(--color-primary)] print:bg-slate-700" style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
     </div>
   );
@@ -147,7 +147,7 @@ function OrderCreatedToast({ order, onClose }) {
 
   return (
     <div className="fixed bottom-6 right-6 z-[9999] w-full max-w-sm animate-in slide-in-from-bottom-5 duration-300 print:hidden">
-      <div className="relative overflow-hidden rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-yellow-400/40 border-l-6 border-[#F5C518]">
+      <div className="relative overflow-hidden rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-yellow-400/40 border-l-6 border-[var(--color-cta)]">
         {/* close */}
         <button
           onClick={onClose}
@@ -159,7 +159,7 @@ function OrderCreatedToast({ order, onClose }) {
 
         {/* Icon & Title */}
         <div className="flex items-start gap-3.5 mb-3 pr-6">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F5C518] shadow-sm text-gray-900">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-cta)] shadow-sm text-gray-900">
             <CheckCircle className="h-6 w-6 text-gray-900" />
           </div>
           <div>
@@ -183,7 +183,7 @@ function OrderCreatedToast({ order, onClose }) {
               </div>
             </div>
             {order.operator_id && order.operator_id !== "—" && (
-              <span className="text-[11px] font-bold text-gray-900 bg-[#F5C518] px-2 py-0.5 rounded-md shrink-0 shadow-xs">
+              <span className="text-[11px] font-bold text-gray-900 bg-[var(--color-cta)] px-2 py-0.5 rounded-md shrink-0 shadow-xs">
                 ID: {order.operator_id}
               </span>
             )}

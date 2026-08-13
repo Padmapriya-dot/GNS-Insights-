@@ -43,7 +43,7 @@ export default function HRDashboard() {
       <PageHeader subtitle="Workforce analytics, attendance, leave, payroll, and manufacturing HR insights." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Employees" value={hub.total_employees} icon={Users} color="bg-blue-600" />
+        <KpiCard label="Total Employees" value={hub.total_employees} icon={Users} color="bg-[var(--color-primary)]" />
         <KpiCard label="Present Today" value={hub.present_today} icon={UserCheck} color="bg-green-600" />
         <KpiCard label="Pending Leave" value={hub.pending_leave} icon={Briefcase} color="bg-amber-500" />
         <KpiCard label="Monthly Payroll" value={formatInr(hub.monthly_payroll)} icon={IndianRupee} color="bg-indigo-600" />
@@ -88,7 +88,7 @@ export default function HRDashboard() {
                     <span className="font-bold text-[var(--color-primary)]">{s.utilization}%</span>
                   </div>
                   <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
-                    <div className="h-full rounded-full bg-[#2563EB] transition-all duration-500" style={{ width: `${s.utilization}%` }} />
+                    <div className="h-full rounded-full bg-[var(--color-primary)] transition-all duration-500" style={{ width: `${s.utilization}%` }} />
                   </div>
                 </li>
               ))}

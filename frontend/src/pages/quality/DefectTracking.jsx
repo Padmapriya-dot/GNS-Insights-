@@ -110,7 +110,7 @@ export default function DefectTracking() {
       <PageHeader subtitle="Non-conformance, root cause analysis, corrective/preventive actions, and NCR workflow." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Defects" value={summary.total_defects} icon={ClipboardList} color="bg-blue-600" />
+        <KpiCard label="Total Defects" value={summary.total_defects} icon={ClipboardList} color="bg-[var(--color-primary)]" />
         <KpiCard label="Open" value={summary.open} icon={AlertTriangle} color="bg-orange-500" />
         <KpiCard label="In Progress" value={summary.in_progress} icon={User} color="bg-indigo-600" />
         <KpiCard label="Resolved" value={summary.resolved} icon={CheckCircle} color="bg-green-600" />

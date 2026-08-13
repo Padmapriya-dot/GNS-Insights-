@@ -155,7 +155,7 @@ export default function PurchaseOrders() {
           </button>
           <Link
             to={`/procurement/goods-receipt/create?po_id=${r.id}`}
-            className="text-xs font-semibold text-teal-700 hover:underline"
+            className="text-xs font-semibold text-[var(--color-success)] hover:underline"
           >
             GRN
           </Link>
@@ -169,10 +169,13 @@ export default function PurchaseOrders() {
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
-        subtitle="Approve Purchase Orders (POs) from material requests, then receive goods via Goods Receipt Note (GRN)."
         action={
           <>
-            <Link to="/procurement/purchase-orders/create" className="ui-btn-primary">
+            <Link
+              to="/procurement/purchase-orders/create"
+              className="inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--color-action-teal-hover)] active:bg-[var(--color-action-teal-active)]"
+              style={{ background: "var(--color-action-teal)" }}
+            >
             <Plus className="h-4 w-4" /> New Purchase Order (PO)
           </Link>
           <button
@@ -193,7 +196,7 @@ export default function PurchaseOrders() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Purchase Orders (POs)" value={summary.total_po} icon={ShoppingCart} color="bg-blue-600" />
+        <KpiCard label="Total Purchase Orders (POs)" value={summary.total_po} icon={ShoppingCart} color="bg-[var(--color-primary)]" />
         <KpiCard label="Pending" value={summary.pending} icon={ShoppingCart} color="bg-amber-500" />
         <KpiCard label="Approved" value={summary.approved} icon={ShoppingCart} color="bg-green-600" />
         <KpiCard label="Delivered" value={summary.delivered} icon={Truck} color="bg-teal-600" />

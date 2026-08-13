@@ -15,6 +15,7 @@ export const ProductionPlanning = lazy(() => import("../pages/production/Product
 export const ProductionDashboard = lazy(() => import("../pages/production/ProductionDashboard"));
 export const MaterialRequirementPlanning = lazy(() => import("../pages/production/MaterialRequirementPlanning"));
 export const WorkOrders = lazy(() => import("../pages/production/WorkOrders"));
+export const JobCard = lazy(() => import("../pages/production/JobCard"));
 export const ProductionSchedule = lazy(() => import("../pages/production/ProductionSchedule"));
 export const MachineAllocation = lazy(() => import("../pages/production/MachineAllocation"));
 export const BatchTracking = lazy(() => import("../pages/production/BatchTracking"));

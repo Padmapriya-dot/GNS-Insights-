@@ -54,7 +54,7 @@ export default function MaintenanceDashboard() {
       <PageHeader subtitle="Machine health, downtime, MTTR/MTBF, costs, calendar, and spare parts." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Machines" value={hub.total_machines} icon={Cog} color="bg-blue-600" />
+        <KpiCard label="Total Machines" value={hub.total_machines} icon={Cog} color="bg-[var(--color-primary)]" />
         <KpiCard label="Running" value={hub.running} icon={Play} color="bg-green-600" />
         <KpiCard label="Under Maintenance" value={hub.under_maintenance} icon={Wrench} color="bg-amber-500" />
         <KpiCard label="Breakdown" value={hub.breakdown} icon={Zap} color="bg-red-500" />
