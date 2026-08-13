@@ -6,7 +6,6 @@ import { AlertTriangle, CheckCircle2, Clock, Download, Pause, Search, XCircle } 
 import BatchDetailModal from "../../components/production/BatchDetailModal";
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
-import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { useToast } from "../../context/ToastContext";
 import { getBatchDetail, getBatchSummary, getBatchesEnriched } from "../../api/productionApi";
 import {
@@ -58,7 +57,6 @@ export default function BatchTracking() {
         getBatchSummary(),
         getBatchesEnriched(),
       ]);
-
 
       if (sumRes.status === "fulfilled" && sumRes.value?.data) {
         setSummary({ ...DEMO_BATCH_SUMMARY, ...sumRes.value.data });
@@ -141,7 +139,6 @@ export default function BatchTracking() {
             Full batch traceability from raw material to customer dispatch.
           </p>
         </div>
-
 
         <div className="mb-0 flex flex-wrap items-center justify-between gap-2 print:hidden">
           <div className="flex flex-wrap gap-2">

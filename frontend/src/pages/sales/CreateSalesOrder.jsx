@@ -4,7 +4,6 @@ import { ArrowLeft, Plus, Trash2, X } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
-import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { createProduct } from "../../api/productsApi";
 import { createSalesOrder } from "../../api/salesApi";
 import { fetchCustomersWithFallback, resolveCustomerId } from "../../utils/customerOptions";
@@ -32,6 +31,10 @@ function QuickAddProductModal({ onClose, onAdded }) {
 
   const handleSave = async () => {
     if (!name.trim() || saving) return;
+    if (unit_price !== "" && !isNaN(Number(unit_price)) && Number(unit_price) < 0) {
+      alert("Price cannot be negative.");
+      return;
+    }
     setSaving(true);
     try {
       const generatedSku = sku.trim() || `SKU-${Date.now()}`;
@@ -286,7 +289,6 @@ export default function CreateSalesOrder() {
         title={isEdit ? `Edit Sales Order — ${editKey}` : "New Sales Order"}
         subtitle={isEdit ? "Update order details and product lines." : "Add product lines so Confirm can run MRP and create production orders."}
       />
-      <ManufacturingWorkflowBar currentStepId="sales_order" compact />
 
       <form onSubmit={handleSubmit} className="ui-card space-y-4 p-6">
         {error && (

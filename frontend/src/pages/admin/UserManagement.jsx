@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, ShieldCheck, UserCog, KeyRound } from "lucide-rea
 
 import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
+import KpiCard from "../../components/common/KpiCard";
 import { Input } from "../../components/common/FormField";
 import AdminModal from "../../components/admin/AdminModal";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
@@ -35,14 +36,8 @@ const EMPTY_FORM = {
 
 function StatusBadge({ active }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-        active
-          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-          : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
-      }`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${active ? "bg-green-500" : "bg-slate-400"}`} />
+    <span className={`ui-badge ${active ? "ui-badge--success" : "ui-badge--neutral"}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${active ? "bg-[var(--color-success)]" : "bg-[var(--color-text-faint)]"}`} />
       {active ? "Active" : "Inactive"}
     </span>
   );
@@ -309,17 +304,19 @@ export default function UserManagement() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard label="Total Users" value={users.length} icon={UserCog} />
-        <StatCard
+      <div className="ui-grid-kpi">
+        <KpiCard label="Total Users" value={users.length} icon={UserCog} tone="primary" />
+        <KpiCard
           label="Active"
           value={users.filter((u) => u.is_active).length}
           icon={UserCog}
+          tone="success"
         />
-        <StatCard
+        <KpiCard
           label="Administrators"
           value={users.filter((u) => (u.roles || []).some((r) => r.name === "Admin")).length}
           icon={ShieldCheck}
+          tone="info"
         />
       </div>
 
@@ -479,20 +476,6 @@ export default function UserManagement() {
         onConfirm={handleDelete}
         onClose={() => setToDelete(null)}
       />
-    </div>
-  );
-}
-
-function StatCard({ label, value, icon: Icon }) {
-  return (
-    <div className="flex items-center gap-3 ui-card p-4">
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-700 text-white">
-        <Icon className="h-4 w-4" />
-      </div>
-      <div>
-        <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</div>
-        <div className="text-[11px] font-medium text-[var(--color-text-muted)] dark:text-slate-400">{label}</div>
-      </div>
     </div>
   );
 }

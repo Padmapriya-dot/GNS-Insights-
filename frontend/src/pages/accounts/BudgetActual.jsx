@@ -7,6 +7,8 @@ import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getInvoices } from "../../api/salesApi";
 import { formatInr } from "../../data/financeMasterData";
+import KpiCard from "../../components/common/KpiCard";
+import PageHeader from "../../components/common/PageHeader";
 
 const STORAGE_KEY = "smrt_budget_targets";
 const CATEGORIES  = ["Sales Revenue", "Cost of Goods Sold", "Operating Expenses", "Marketing", "HR & Payroll", "Admin & Overhead", "Other Income"];
@@ -130,17 +132,11 @@ export default function BudgetActual() {
   if (loading) return <Loader label="Loading Budget vs Actual..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="ui-subtitle font-medium">Monitor departmental budget targets against real spending data.</p>
-        </div>
-        <div className="flex gap-2">
-        </div>
-      </header>
+    <div className="space-y-5 pb-4">
+      <PageHeader subtitle="Monitor departmental budget targets against real spending data." />
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="ui-grid-kpi">
         <KpiCard label="Total Budget Target" value={formatInr(totalBudget)} icon={FileSpreadsheet} color="bg-blue-600" />
         <KpiCard label="Total Actual Spending" value={formatInr(totalActual)} icon={TrendingUp} color="bg-indigo-600" />
         <KpiCard label="Consolidated Variance" value={formatInr(Math.abs(totalVariance))} icon={HelpCircle}
@@ -229,7 +225,7 @@ export default function BudgetActual() {
         </div>
 
         {/* Bar chart */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="ui-card p-5">
           <h2 className="mb-1 font-semibold text-slate-900">Budget vs Actual</h2>
           <p className="text-xs text-slate-400 mb-4">Per category comparison</p>
           <div className="h-64">
@@ -305,21 +301,3 @@ export default function BudgetActual() {
   );
 }
 
-function KpiCard({ label, value, icon: Icon, color, sub }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{value}</p>
-          {sub && <p className="mt-0.5 text-xs text-slate-400">{sub}</p>}
-        </div>
-        {Icon && (
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}

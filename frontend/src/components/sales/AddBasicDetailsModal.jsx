@@ -19,9 +19,11 @@ const inputClass =
 
 export default function AddBasicDetailsModal({ open, onClose, initial, onSave }) {
   const [form, setForm] = useState(EMPTY);
+  const [emailError, setEmailError] = useState("");
 
   useEffect(() => {
     if (!open) return;
+    setEmailError("");
     setForm({
       payment_terms_days: initial?.payment_terms_days ?? "",
       opening_balance: initial?.opening_balance ?? "",
@@ -34,7 +36,20 @@ export default function AddBasicDetailsModal({ open, onClose, initial, onSave })
 
   const handleSave = (e) => {
     e.preventDefault();
-    onSave?.({ ...form });
+    const trimmedEmail = form.email.trim();
+    if (form.email && !trimmedEmail) {
+      setEmailError("Email cannot contain only spaces.");
+      return;
+    }
+    if (trimmedEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedEmail) || trimmedEmail.includes("..")) {
+        setEmailError("Please enter a valid email address.");
+        return;
+      }
+    }
+    setEmailError("");
+    onSave?.({ ...form, email: trimmedEmail || null });
     onClose?.();
   };
 
@@ -153,10 +168,16 @@ export default function AddBasicDetailsModal({ open, onClose, initial, onSave })
             <input
               type="email"
               value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, email: e.target.value }));
+                if (emailError) setEmailError("");
+              }}
               placeholder="Enter Email ID"
-              className={inputClass}
+              className={`${inputClass}${emailError ? " border-[#e11d48] focus:border-[#e11d48] focus:ring-[#fecdd3]" : ""}`}
             />
+            {emailError && (
+              <p className="mt-1 text-[11px] font-medium text-[#e11d48]">{emailError}</p>
+            )}
             <p className="mt-2 text-[11px] leading-relaxed text-[#9a9aa5]">
               This email id will be used to send vouchers and party statements when you
               use the &apos;Send Email&apos; feature in Insights Iva.

@@ -50,8 +50,6 @@ export const SIDEBAR_NAV = [
       { labelKey: "erpNav.productionSchedule", to: "/production/schedule", module: "production" },
       { labelKey: "erpNav.shopFloor", to: "/factory-monitor/live-production", module: "factoryMonitor" },
       { labelKey: "erpNav.machineAllocation", to: "/production/tasks", module: "production" },
-      { labelKey: "erpNav.assignTasks", to: "/production/assign-tasks", module: "production" },
-      { labelKey: "erpNav.batchTracking", to: "/production/batches", module: "production" },
       { labelKey: "erpNav.dailyProductionReports", to: "/production/reports", module: "production" },
     ],
   },
@@ -104,14 +102,6 @@ export const SIDEBAR_NAV = [
       { label: "Sales Debit Note", to: "/sales/debit-notes", module: "sales" },
       { label: "E-Waybill Login", to: "/ewaybill/login", module: "sales" },
       { label: "Digital Signature", to: "/digital-signature", module: "sales" },
-    ],
-  },
-  {
-    key: "hrMasters",
-    label: "Masters",
-    icon: Layers,
-    children: [
-      { label: "Departments", to: "/masters/departments", module: "hr" },
     ],
   },
   {

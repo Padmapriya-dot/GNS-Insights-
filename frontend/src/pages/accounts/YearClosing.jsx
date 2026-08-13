@@ -75,7 +75,7 @@ export default function YearClosing() {
   if (loading) return <Loader label="Loading Closing Parameters..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-5 pb-4">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="ui-subtitle font-medium">Perform fiscal period closure, transfer net earnings, and seal books for audit.</p>

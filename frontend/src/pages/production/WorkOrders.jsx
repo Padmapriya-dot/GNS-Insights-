@@ -3,9 +3,9 @@ import { Link, useSearchParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Download, FileSpreadsheet, FileText, Pause, Play, Plus, Printer, Search, Star } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
+import KpiCard from "../../components/common/KpiCard";
 import Loader from "../../components/common/Loader";
 import { calculateProgressPct } from "../../data/productionPlanningMasterData";
-import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import WorkOrderDetailModal, {
   WorkOrderCompleteModal,
   WorkOrderStartModal,
@@ -32,7 +32,6 @@ import {
   DEPARTMENTS,
   PRIORITIES,
   SHIFTS,
-  STATUS_FLOW,
   WO_STATUSES,
   canWoComplete,
   canWoIssueMaterials,
@@ -51,40 +50,7 @@ import {
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import { printWorkOrder } from "../../utils/printUtils";
 
-const PAGE_BG = "var(--color-bg)";
-const YELLOW = "#F5C518";
 const PAGE_SIZES = [20, 50, 100];
-
-function SummaryCard({ label, value, icon: Icon, color, onClick }) {
-  const displayVal =
-    value === null || value === undefined
-      ? "0"
-      : typeof value === "object"
-      ? (value?.value ?? value?.count ?? value?.total ?? JSON.stringify(value))
-      : String(value);
-
-  return (
-    <div
-      onClick={onClick}
-      className={`ui-card p-4 min-h-[86px] flex flex-col justify-between min-w-0 overflow-hidden ${
-        onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""
-      }`}
-      title={typeof label === "string" ? label : undefined}
-    >
-      <div className="flex items-center justify-between gap-1.5 min-w-0">
-        <p className="truncate text-[11px] font-medium text-[var(--color-text-muted)] leading-tight sm:text-xs min-w-0 flex-1">{label}</p>
-        {Icon && (
-          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${color}`}>
-            <Icon className="h-3.5 w-3.5 text-white" />
-          </div>
-        )}
-      </div>
-      <div className="mt-2">
-        <p className="truncate text-xl font-bold tabular-nums text-[var(--color-text)] leading-none">{displayVal}</p>
-      </div>
-    </div>
-  );
-}
 
 function PriorityPill({ priority }) {
   const p = priorityBadge(priority);
@@ -527,74 +493,59 @@ export default function WorkOrders() {
   if (loading) return <Loader label="Loading work orders..." />;
 
   return (
-    <div className="min-h-full pb-8" style={{ background: PAGE_BG }}>
-      <div className="mx-auto max-w-[1400px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
-        <div>
-          <p className="text-xs text-slate-400">
-            <Link to="/production/planning" className="hover:text-[#2563EB]">Production Planning</Link>
-            {" → "}
-            <Link to="/production/mrp" className="hover:text-[#2563EB]">MRP</Link>
-            {" → Work Orders"}
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Issue materials, assign machine/operator, run production, complete with QC and finished goods.
-          </p>
-        </div>
-
+    <div className="space-y-5 pb-4">
         {pendingView && (
-          <div className="flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm">
+          <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-3 text-[var(--text-sm)]">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-white text-xs font-bold">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-warning)] text-white text-xs font-bold">
                 {filtered.length}
               </span>
-              <span className="font-semibold text-orange-800">Pending Orders</span>
-              <span className="text-orange-600">— showing only <strong>Planned</strong> and <strong>In Progress</strong> work orders</span>
+              <span className="font-semibold text-[var(--color-warning)]">Pending Orders</span>
+              <span className="text-[var(--color-warning)]">— showing only <strong>Planned</strong> and <strong>In Progress</strong> work orders</span>
             </div>
             <Link
               to="/production/work-orders"
-              className="rounded-lg border border-orange-300 bg-white px-3 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-100 transition-colors"
+              className="ui-btn-secondary"
             >
               View All Orders
             </Link>
           </div>
         )}
 
-        <ManufacturingWorkflowBar currentStepId="work_order" />
-
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-          <SummaryCard label="Total Work Orders" value={summary.total_work_orders} icon={ClipboardList} color="bg-[#2563EB]" />
-          <SummaryCard label="Planned" value={summary.planned_orders} icon={FileText} color="bg-blue-500" />
-          <SummaryCard label="In Progress" value={summary.in_progress_orders} icon={Play} color="bg-amber-500" />
-          <SummaryCard label="Completed" value={summary.completed_orders} icon={CheckCircle2} color="bg-green-500" />
-          <SummaryCard label="Delayed" value={summary.delayed_orders} icon={AlertTriangle} color="bg-red-500" />
-          <SummaryCard label="High Priority" value={summary.high_priority_orders} icon={Star} color="bg-purple-500" />
+        <div className="ui-grid-kpi">
+          <KpiCard label="Total Work Orders" value={summary.total_work_orders} icon={ClipboardList} color="bg-[#2563EB]" />
+          <KpiCard label="Planned" value={summary.planned_orders} icon={FileText} color="bg-blue-500" />
+          <KpiCard label="In Progress" value={summary.in_progress_orders} icon={Play} color="bg-amber-500" />
+          <KpiCard label="Completed" value={summary.completed_orders} icon={CheckCircle2} color="bg-green-500" />
+          <KpiCard label="Delayed" value={summary.delayed_orders} icon={AlertTriangle} color="bg-red-500" />
+          <KpiCard label="High Priority" value={summary.high_priority_orders} icon={Star} color="bg-purple-500" />
         </div>
 
         {/* Card Container */}
         <div className="ui-card p-4 sm:p-5">
           {/* Action Bar */}
-          <div className="mb-4 flex flex-wrap items-center gap-2.5">
+          <div className="mb-4 ui-toolbar">
             <div className="relative min-w-[220px] flex-1">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9aa5]" />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-icon)]" />
               <input
                 type="search"
                 placeholder="Search work orders..."
                 value={filters.work_order_number}
                 onChange={(e) => setFilters((f) => ({ ...f, work_order_number: e.target.value }))}
-                className="w-full rounded-full border border-[#e8e8ee] bg-[#f3f3f6] py-2.5 pl-10 pr-4 text-[13px] outline-none placeholder:text-[#a0a0ab] focus:border-[#d0d0d8] focus:bg-white"
+                className="ui-input !rounded-full pl-10"
               />
             </div>
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              className="ui-btn-secondary"
             >
               {showAdvanced ? "Hide Filters" : "Advanced Filters"}
             </button>
             <button
               type="button"
               onClick={() => exportToExcel(filtered, exportCols, "work-orders")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              className="ui-btn-secondary"
             >
               <FileSpreadsheet className="h-4 w-4" />
               Export Excel
@@ -602,7 +553,7 @@ export default function WorkOrders() {
             <button
               type="button"
               onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#e4e4ea] bg-[#f3f3f6] px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f] hover:bg-[#ececf0]"
+              className="ui-btn-secondary"
             >
               <Printer className="h-4 w-4" />
               Print
@@ -611,8 +562,7 @@ export default function WorkOrders() {
               <button
                 type="button"
                 onClick={() => setShowQuickModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-[#1a1a1f]"
-                style={{ background: YELLOW }}
+                className="ui-btn-primary"
               >
                 <Plus className="h-4 w-4" />
                 New Work Order
@@ -622,17 +572,17 @@ export default function WorkOrders() {
 
           {showAdvanced && (
             <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-              <input placeholder="WO Number" value={filters.work_order_number} onChange={(e) => setFilters((f) => ({ ...f, work_order_number: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <input placeholder="Production Order" value={filters.production_order} onChange={(e) => setFilters((f) => ({ ...f, production_order: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <input placeholder="Product" value={filters.product} onChange={(e) => setFilters((f) => ({ ...f, product: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <input placeholder="Customer" value={filters.customer} onChange={(e) => setFilters((f) => ({ ...f, customer: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <input placeholder="Machine" value={filters.machine} onChange={(e) => setFilters((f) => ({ ...f, machine: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <input placeholder="Operator" value={filters.operator} onChange={(e) => setFilters((f) => ({ ...f, operator: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
-              <select value={filters.department} onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
+              <input placeholder="WO Number" value={filters.work_order_number} onChange={(e) => setFilters((f) => ({ ...f, work_order_number: e.target.value }))} className="ui-input" />
+              <input placeholder="Production Order" value={filters.production_order} onChange={(e) => setFilters((f) => ({ ...f, production_order: e.target.value }))} className="ui-input" />
+              <input placeholder="Product" value={filters.product} onChange={(e) => setFilters((f) => ({ ...f, product: e.target.value }))} className="ui-input" />
+              <input placeholder="Customer" value={filters.customer} onChange={(e) => setFilters((f) => ({ ...f, customer: e.target.value }))} className="ui-input" />
+              <input placeholder="Machine" value={filters.machine} onChange={(e) => setFilters((f) => ({ ...f, machine: e.target.value }))} className="ui-input" />
+              <input placeholder="Operator" value={filters.operator} onChange={(e) => setFilters((f) => ({ ...f, operator: e.target.value }))} className="ui-input" />
+              <select value={filters.department} onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))} className="ui-select">
                 <option value="">Department</option>
                 {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
-              <select value={filters.shift} onChange={(e) => setFilters((f) => ({ ...f, shift: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
+              <select value={filters.shift} onChange={(e) => setFilters((f) => ({ ...f, shift: e.target.value }))} className="ui-select">
                 <option value="">Shift</option>
                 {SHIFTS.map((s) => {
                   const id = typeof s === "object" ? s.id : s;
@@ -640,15 +590,15 @@ export default function WorkOrders() {
                   return <option key={id} value={id}>{label}</option>;
                 })}
               </select>
-              <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
+              <select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))} className="ui-select">
                 <option value="">Priority</option>
                 {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
-              <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm">
+              <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className="ui-select">
                 <option value="">Status</option>
                 {WO_STATUSES.map((s) => <option key={s} value={s}>{woStatusLabel(s)}</option>)}
               </select>
-              <button type="button" onClick={() => setFilters(defaultFilters)} className="rounded-lg border px-3 py-2 text-sm font-semibold">Clear</button>
+              <button type="button" onClick={() => setFilters(defaultFilters)} className="ui-btn-secondary">Clear</button>
             </div>
           )}
 
@@ -671,13 +621,13 @@ export default function WorkOrders() {
           </div>
 
           {/* Pagination Bar */}
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[12px] text-[#6b6b76]">
+          <div className="mt-4 ui-pagination justify-between">
             <div className="flex items-center gap-2">
               <span>Rows per page:</span>
               <select
                 value={pageSize}
                 onChange={(e) => setPageSize(Number(e.target.value))}
-                className="rounded border border-[#e2e2e8] bg-white px-2 py-1 outline-none"
+                className="ui-select min-h-0 w-auto py-1"
               >
                 {PAGE_SIZES.map((n) => (
                   <option key={n} value={n}>
@@ -692,15 +642,14 @@ export default function WorkOrders() {
                 type="button"
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
+                className="ui-page-btn"
                 aria-label="Previous page"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <button
                 type="button"
-                className="grid h-8 min-w-8 place-items-center rounded border border-[#e0b400] px-2 text-[13px] font-semibold"
-                style={{ background: "#fff2b8" }}
+                className="ui-page-btn ui-page-btn--active"
               >
                 {page}
               </button>
@@ -708,7 +657,7 @@ export default function WorkOrders() {
                 type="button"
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="grid h-8 w-8 place-items-center rounded border border-[#e2e2e8] bg-white disabled:opacity-40"
+                className="ui-page-btn"
                 aria-label="Next page"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -716,21 +665,6 @@ export default function WorkOrders() {
             </div>
           </div>
         </div>
-
-        <ManufacturingWorkflowBar currentStepId="material_issue" compact />
-
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-          <p className="mb-2 text-xs font-semibold text-slate-500">Status Workflow</p>
-          <div className="flex flex-wrap gap-2">
-            {STATUS_FLOW.map((s, i) => (
-              <span key={s} className="flex items-center gap-2 text-xs text-slate-600">
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium">{s}</span>
-                {i < STATUS_FLOW.length - 1 && <span className="text-slate-300">↓</span>}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
 
       {selected && (
         <WorkOrderDetailModal

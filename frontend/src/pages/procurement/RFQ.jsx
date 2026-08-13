@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import usePageRefresh from "../../hooks/usePageRefresh";
 import { Link } from "react-router-dom";
 import { Award, FileSearch, Plus, Star, Trophy, X } from "lucide-react";
+import KpiCard from "../../components/common/KpiCard";
+import PageHeader from "../../components/common/PageHeader";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -19,23 +21,6 @@ import {
 } from "../../api/procurementApi";
 import { statusColor } from "../../data/procurementMasterData";
 
-function KpiCard({ label, value, icon: Icon, color }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className="mt-1 text-xl font-bold text-slate-900">{value ?? 0}</p>
-        </div>
-        {Icon && (
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function WorkflowStrip() {
   const steps = [
@@ -518,7 +503,7 @@ export default function RFQ() {
           <button
             type="button"
             onClick={() => setSelectedRfq(r)}
-            className={`text-xs font-semibold ${selectedRfq?.id === r.id ? "text-emerald-700 font-bold" : "text-[#2563EB] hover:underline"}`}
+            className={`text-xs font-semibold ${selectedRfq?.id === r.id ? "text-emerald-700 font-bold" : "text-[var(--color-primary)] hover:underline"}`}
           >
             {selectedRfq?.id === r.id ? "Viewing Quotes" : "Compare Quotes"}
           </button>
@@ -537,25 +522,23 @@ export default function RFQ() {
   if (loading) return <Loader label="Loading Request for Quotation (RFQ)s..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="ui-subtitle">
-            Send Request for Quotation (RFQ)s to multiple vendors and automatically compare quotations.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
+    <div className="space-y-5 pb-4">
+      <PageHeader
+        subtitle="Send Request for Quotation (RFQ)s to multiple vendors and automatically compare quotations."
+        action={
+          <>
+            <button
             type="button"
             onClick={() => setIsCreateOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-blue-700"
+            className="ui-btn-primary"
           >
             <Plus className="h-4 w-4" /> Create Request for Quotation (RFQ)
           </button>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="ui-grid-kpi">
         <KpiCard label="Open Request for Quotation (RFQ)s" value={summary.open_rfqs} icon={FileSearch} color="bg-blue-600" />
         <KpiCard label="Vendor Responses" value={summary.vendor_responses} icon={FileSearch} color="bg-indigo-600" />
         <KpiCard label="Expired Request for Quotation (RFQ)s" value={summary.expired_rfqs} icon={FileSearch} color="bg-slate-500" />
@@ -564,7 +547,7 @@ export default function RFQ() {
 
       <WorkflowStrip />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+      <div className="ui-card p-4">
         <DataTable
           columns={columns}
           data={rows}

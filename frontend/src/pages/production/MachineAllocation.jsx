@@ -5,7 +5,6 @@ import { Cpu, Download, GripVertical, Settings, Users, Wrench } from "lucide-rea
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
-import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { useToast } from "../../context/ToastContext";
 import {
   assignAllocation,
@@ -78,7 +77,6 @@ export default function MachineAllocation() {
         getAllocations(),
         getAllocationMachines(),
       ]);
-
 
       if (sumRes.status === "fulfilled" && sumRes.value?.data) {
         setSummary({ ...DEMO_ALLOC_SUMMARY, ...sumRes.value.data });

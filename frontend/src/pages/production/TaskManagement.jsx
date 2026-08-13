@@ -4,7 +4,6 @@ import { ClipboardList, CheckCircle, Clock, XCircle, Loader2 } from "lucide-reac
 import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
 import { getTasks, createTask, updateTask } from "../../api/tasksApi";
-import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 
 const STATUSES = [
   { value: "open", label: "Open" },
@@ -186,7 +185,6 @@ export default function TaskManagement() {
             Production tasks auto-created from orders, plus manual assignments.
           </p>
         </div>
-
 
         <div className="mb-0 flex flex-wrap items-center justify-between gap-2 print:hidden">
           <div className="flex flex-wrap gap-2">

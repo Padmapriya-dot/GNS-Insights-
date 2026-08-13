@@ -409,7 +409,7 @@ export default function PurchaseForm() {
       const payload = {
         module: "purchases",
         doc_type: "purchase",
-        document_number: form.invoice_number || String(Date.now()).slice(-6),
+        ...(isEdit ? { document_number: form.invoice_number } : {}),
         party_name: selectedSeller?.name || selectedSeller?.vendor_name || null,
         document_date: form.issue_date,
         due_date: form.due_date || null,
@@ -449,11 +449,12 @@ export default function PurchaseForm() {
       if (isEdit) {
         await updateBizDocument(editId, payload);
         addToast("Purchase updated");
+        navigate(`/purchases/${editId}`);
       } else {
-        await createBizDocument(payload);
+        const res = await createBizDocument(payload);
         addToast("Purchase created");
+        navigate(res.data?.id ? `/purchases/${res.data.id}` : "/purchases");
       }
-      navigate("/purchases");
     } catch (err) {
       console.error(err);
       addToast(apiErrorMessage(err, "Failed to save purchase"), "error");

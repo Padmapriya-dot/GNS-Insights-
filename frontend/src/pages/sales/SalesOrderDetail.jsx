@@ -6,7 +6,6 @@ import { ArrowLeft, CheckCircle2, Factory, Package } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
 import EmptyState from "../../components/common/EmptyState";
-import ManufacturingWorkflowBar from "../../components/manufacturing/ManufacturingWorkflowBar";
 import { StatusBadge } from "../../components/common/Table";
 import { useToast } from "../../context/ToastContext";
 import {
@@ -141,10 +140,6 @@ export default function SalesOrderDetail() {
             <StatusBadge status={order.status} />
           </div>
         }
-      />
-
-      <ManufacturingWorkflowBar
-        currentStepId={orderWorkflow?.current_stage_id || "sales_order"}
       />
 
       {orderWorkflow?.stages?.length ? (

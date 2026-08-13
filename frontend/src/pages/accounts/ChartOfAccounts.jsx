@@ -6,6 +6,7 @@ import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
 import { getExtendedReports, createGLAccount } from "../../api/accountsApi";
 import { formatInr } from "../../data/financeMasterData";
+import PageHeader from "../../components/common/PageHeader";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
@@ -101,14 +102,15 @@ export default function ChartOfAccounts() {
   if (loading) return <Loader label="Loading Chart of Accounts..." />;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="ui-subtitle">Configure and manage General Ledger account structure codes and classifications.</p>
-        </div>
-        <div className="flex gap-2">
-        </div>
-      </header>
+    <div className="space-y-5 pb-4">
+      <PageHeader
+        subtitle="Configure and manage General Ledger account structure codes and classifications."
+        action={
+          <>
+            
+          </>
+        }
+      />
 
       <FinanceFilters
         search={search}
@@ -129,7 +131,7 @@ export default function ChartOfAccounts() {
             onClick={() => setActiveTab(tab)}
             className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
               activeTab === tab
-                ? "bg-white text-[#2563EB] shadow-sm font-bold border border-slate-200"
+                ? "bg-white text-[var(--color-primary)] shadow-sm font-bold border border-slate-200"
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >

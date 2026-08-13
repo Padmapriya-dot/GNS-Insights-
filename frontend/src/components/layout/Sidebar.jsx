@@ -155,8 +155,6 @@ const PROD_MANAGER_ALLOWED_CHILDREN = new Set([
   "/production/schedule",
   "/factory-monitor/live-production",
   "/production/tasks",
-  "/production/assign-tasks",
-  "/production/batches",
   "/production/reports",
   "/inventory",
   "/inventory/raw-materials",

@@ -17,7 +17,7 @@ import AddNewPartyModal from "../../components/sales/AddNewPartyModal";
 import { useToast } from "../../context/ToastContext";
 import usePageRefresh from "../../hooks/usePageRefresh";
 import { deleteCustomer, getCustomers } from "../../api/salesApi";
-import { enrichApiCustomer } from "../../data/customersMasterData";
+import { enrichApiCustomer, REPORT_TYPES, WORKFLOW_STEPS } from "../../data/customersMasterData";
 import { exportToExcel } from "../../utils/exportUtils";
 import { apiErrorMessage } from "../../utils/apiError";
 
@@ -339,6 +339,7 @@ export default function Customers() {
           </div>
         </div>
       </div>
+
 
       <AddNewPartyModal
         open={partyOpen}
