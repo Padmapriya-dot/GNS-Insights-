@@ -15,7 +15,7 @@ import usePageRefresh from "../../hooks/usePageRefresh";
 import { deptColor, formatInr, statusColor } from "../../data/hrMasterData";
 
 const inputClass =
-  "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#F5C518] focus:outline-none focus:ring-2 focus:ring-amber-100 transition-all";
+  "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[var(--color-cta)] focus:outline-none focus:ring-2 focus:ring-amber-100 transition-all";
 
 
 const defaultFilters = { department: "", employment_type: "", shift: "", status: "" };
@@ -171,7 +171,7 @@ export default function Employees() {
 
   const columns = [
     { key: "photo", label: "Photo", render: (r) => (
-      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2563EB] text-xs font-bold text-white">{r.initials || "?"}</div>
+      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs font-bold text-white">{r.initials || "?"}</div>
     )},
     { key: "employee_id", label: "Employee ID" },
     { key: "full_name", label: "Name", render: (r) => <span className="font-medium text-slate-900">{r.full_name}</span> },
@@ -207,7 +207,7 @@ export default function Employees() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Employees" value={summary.total_employees} icon={Users} color="bg-blue-600" />
+        <KpiCard label="Total Employees" value={summary.total_employees} icon={Users} color="bg-[var(--color-primary)]" />
         <KpiCard label="Present Today" value={summary.present_today} icon={UserCheck} color="bg-green-600" />
         <KpiCard label="Absent" value={summary.absent} icon={UserMinus} color="bg-red-500" />
         <KpiCard label="On Leave" value={summary.on_leave} icon={Briefcase} color="bg-amber-500" />

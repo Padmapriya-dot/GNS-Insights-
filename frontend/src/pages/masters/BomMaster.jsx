@@ -400,7 +400,7 @@ export default function BomMaster() {
       </header>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <SummaryCard label="Total Bill of Materials (BOM)" value={summary.total} icon={Layers} color="bg-[#2563EB]" />
+        <SummaryCard label="Total Bill of Materials (BOM)" value={summary.total} icon={Layers} color="bg-[var(--color-primary)]" />
         <SummaryCard label="Active Bill of Materials (BOM)" value={summary.active} icon={CheckCircle2} color="bg-green-500" />
         <SummaryCard label="Draft Bill of Materials (BOM)" value={summary.draft} icon={ClipboardList} color="bg-amber-500" />
         <SummaryCard label="Inactive Bill of Materials (BOM)" value={summary.inactive} icon={FileText} color="bg-slate-500" />
@@ -451,7 +451,7 @@ export default function BomMaster() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="mb-3 text-sm font-bold text-slate-800">Quick Actions</h3>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setFormBom({})} className="rounded-lg bg-[#2563EB] px-3 py-2 text-xs font-semibold text-white">Create Production Order</button>
+            <button type="button" onClick={() => setFormBom({})} className="rounded-lg bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white">Create Production Order</button>
             <button type="button" className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">Generate Material Requirement</button>
             <button type="button" onClick={() => handlePrintPdf(selected)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">Print BOM</button>
             <button type="button" onClick={handleDownloadTemplate} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">

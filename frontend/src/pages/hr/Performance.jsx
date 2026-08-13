@@ -131,8 +131,8 @@ export default function Performance() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Reviews" value={totalReviews} icon={Award} color="bg-blue-600" />
-        <KpiCard label="Avg Rating" value={avgRating} icon={CheckCircle2} color="bg-[#2563EB]" />
+        <KpiCard label="Total Reviews" value={totalReviews} icon={Award} color="bg-[var(--color-primary)]" />
+        <KpiCard label="Avg Rating" value={avgRating} icon={CheckCircle2} color="bg-[var(--color-primary)]" />
         <KpiCard label="Avg Productivity" value={avgProd} icon={BarChart2} color="bg-indigo-600" />
       </div>
 

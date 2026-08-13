@@ -137,7 +137,7 @@ export default function AccountsReceivable() {
       <PageHeader subtitle="Customer invoices, collections, and aging analysis for finance team." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Receivables" value={formatInr(summary.total_receivables)} icon={IndianRupee} color="bg-blue-600" />
+        <KpiCard label="Total Receivables" value={formatInr(summary.total_receivables)} icon={IndianRupee} color="bg-[var(--color-primary)]" />
         <KpiCard label="Received Today" value={formatInr(summary.received_today)} icon={Wallet} color="bg-green-600" />
         <KpiCard label="Overdue" value={formatInr(summary.overdue)} icon={TrendingDown} color="bg-red-500" />
         <KpiCard label="Pending Collection" value={formatInr(summary.pending_collection)} icon={IndianRupee} color="bg-amber-500" />

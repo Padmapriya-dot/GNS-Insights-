@@ -149,7 +149,7 @@ export default function BatchTracking() {
         </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <SummaryCard label="Total Batches" value={summary.total_batches} icon={Search} color="bg-[#2563EB]" />
+        <SummaryCard label="Total Batches" value={summary.total_batches} icon={Search} color="bg-[var(--color-primary)]" />
         <SummaryCard label="Running" value={summary.running} icon={Clock} color="bg-green-500" />
         <SummaryCard label="Completed" value={summary.completed} icon={CheckCircle2} color="bg-emerald-500" />
         <SummaryCard label="Hold" value={summary.hold} icon={Pause} color="bg-amber-500" />

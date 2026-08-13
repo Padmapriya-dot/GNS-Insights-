@@ -115,7 +115,7 @@ export default function ProductionDashboard() {
         <KpiCard label="Running Jobs" value={hub.running_jobs} accent icon={Cog} iconWrap="bg-violet-50 text-violet-700" />
         <KpiCard label="Production In Progress" value={hub.production_in_progress} icon={PlayCircle} iconWrap="bg-sky-50 text-sky-700" />
         <KpiCard label="Completed Today" value={hub.production_completed_today} tone="success" icon={CheckCircle2} iconWrap="bg-emerald-50 text-emerald-700" />
-        <KpiCard label="Quality Passed" value={hub.quality_passed} tone="success" icon={BadgeCheck} iconWrap="bg-teal-50 text-teal-700" />
+        <KpiCard label="Quality Passed" value={hub.quality_passed} tone="success" icon={BadgeCheck} iconWrap="bg-[var(--color-success-soft)] text-[var(--color-success)]" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -178,7 +178,7 @@ export default function ProductionDashboard() {
         <section className="ui-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-800">Running Jobs</h3>
-            <Link to="/production/work-orders" className="text-xs font-semibold text-teal-700 hover:underline">
+            <Link to="/production/work-orders" className="text-xs font-semibold text-[var(--color-success)] hover:underline">
               View all
             </Link>
           </div>
@@ -198,7 +198,7 @@ export default function ProductionDashboard() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs font-semibold tabular-nums text-teal-800">{j.progress_pct}%</p>
+                    <p className="text-xs font-semibold tabular-nums text-[var(--color-success)]">{j.progress_pct}%</p>
                     <p className="text-[10px] capitalize text-slate-500">{j.status}</p>
                   </div>
                 </div>
@@ -215,7 +215,7 @@ export default function ProductionDashboard() {
         <div className="flex flex-wrap items-center gap-2">
           {HUB_FLOW.map((step, i) => (
             <span key={step} className="flex items-center gap-2 text-xs text-slate-600">
-              <span className="rounded-md bg-white px-2 py-1 font-semibold text-teal-800 ring-1 ring-slate-200">{step}</span>
+              <span className="rounded-md bg-white px-2 py-1 font-semibold text-[var(--color-success)] ring-1 ring-slate-200">{step}</span>
               {i < HUB_FLOW.length - 1 ? <ArrowRight className="h-3 w-3 text-slate-300" aria-hidden /> : null}
             </span>
           ))}

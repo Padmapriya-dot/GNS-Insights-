@@ -80,7 +80,7 @@ export default function FinalQC() {
         <KpiCard label="Pending Final QC" value={summary.pending_final} icon={Clock} color="bg-orange-500" />
         <KpiCard label="Passed" value={summary.passed} icon={CheckCircle} color="bg-green-600" />
         <KpiCard label="Failed" value={summary.failed} icon={XCircle} color="bg-red-500" />
-        <KpiCard label="Packed" value={summary.packed} icon={Package} color="bg-blue-600" />
+        <KpiCard label="Packed" value={summary.packed} icon={Package} color="bg-[var(--color-primary)]" />
         <KpiCard label="Ready Dispatch" value={summary.ready_dispatch} icon={Truck} color="bg-teal-600" />
       </div>
 

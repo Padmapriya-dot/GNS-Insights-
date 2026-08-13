@@ -137,7 +137,7 @@ export default function BudgetActual() {
 
       {/* KPI Cards */}
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Budget Target" value={formatInr(totalBudget)} icon={FileSpreadsheet} color="bg-blue-600" />
+        <KpiCard label="Total Budget Target" value={formatInr(totalBudget)} icon={FileSpreadsheet} color="bg-[var(--color-primary)]" />
         <KpiCard label="Total Actual Spending" value={formatInr(totalActual)} icon={TrendingUp} color="bg-indigo-600" />
         <KpiCard label="Consolidated Variance" value={formatInr(Math.abs(totalVariance))} icon={HelpCircle}
           color={totalVariance >= 0 ? "bg-green-600" : "bg-red-500"}
@@ -154,7 +154,7 @@ export default function BudgetActual() {
             <p className="text-xs text-blue-600 mt-0.5">Click "Set Budget Targets" to enter monthly/annual targets for each category. Actuals are pulled from your real invoice and expense data.</p>
           </div>
           <button onClick={openModal}
-            className="ml-4 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">
+            className="ml-4 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)]">
             <Plus className="h-3.5 w-3.5" /> Set Targets
           </button>
         </div>
@@ -290,7 +290,7 @@ export default function BudgetActual() {
                 Cancel
               </button>
               <button onClick={saveBudgets}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all">
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] shadow-sm transition-all">
                 Save Budget Targets
               </button>
             </div>

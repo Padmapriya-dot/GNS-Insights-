@@ -90,7 +90,7 @@ function GRNDetailModal({ row, onClose, onQC }) {
               <button
                 type="button"
                 onClick={() => onQC(row, "pass")}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"
+                className="rounded-lg bg-[var(--color-success)] px-4 py-2 text-sm font-semibold text-white"
               >
                 Pass QC (post stock)
               </button>
@@ -281,7 +281,7 @@ export default function GoodsReceipt() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Today's GRN" value={summary.todays_grn} icon={Package} color="bg-blue-600" />
+        <KpiCard label="Today's GRN" value={summary.todays_grn} icon={Package} color="bg-[var(--color-primary)]" />
         <KpiCard label="Pending QC" value={summary.pending_qc} icon={Package} color="bg-amber-500" />
         <KpiCard label="Received" value={summary.received} icon={CheckCircle} color="bg-green-600" />
         <KpiCard label="Rejected" value={summary.rejected} icon={Package} color="bg-red-500" />

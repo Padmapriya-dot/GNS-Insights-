@@ -138,7 +138,7 @@ export default function FixedAssets() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Gross Block" value={formatInr(totalCost)} icon={Layers} color="bg-blue-600" />
+        <KpiCard label="Gross Block" value={formatInr(totalCost)} icon={Layers} color="bg-[var(--color-primary)]" />
         <KpiCard label="Accumulated Depreciation" value={formatInr(totalDep)} icon={Calculator} color="bg-red-500" />
         <KpiCard label="Net Book Value" value={formatInr(netValue)} icon={Award} color="bg-green-600" />
         <KpiCard label="Current Month Depreciation" value={formatInr(currentMonthDep)} icon={ShieldAlert} color="bg-indigo-600" />
@@ -343,7 +343,7 @@ export default function FixedAssets() {
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] shadow-sm transition-all"
                 >
                   Capitalize Asset
                 </button>

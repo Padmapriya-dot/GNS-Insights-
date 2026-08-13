@@ -298,7 +298,7 @@ export default function BankReconciliation() {
           <button
             type="button"
             onClick={handleMatch}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)]"
           >
             Confirm Match
           </button>

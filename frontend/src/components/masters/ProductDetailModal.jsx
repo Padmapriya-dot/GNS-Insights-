@@ -79,7 +79,7 @@ export default function ProductDetailModal({
               onClick={() => setTab(t.id)}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                 tab === t.id
-                  ? "bg-[#2563EB] text-white"
+                  ? "bg-[var(--color-primary)] text-white"
                   : "text-slate-600 hover:bg-slate-100"
               }`}
             >

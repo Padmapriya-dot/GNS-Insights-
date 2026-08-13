@@ -28,28 +28,50 @@
   --color-text-icon: #9a9aa5;
   --color-text-placeholder: #a0a0ab;
 
-  /* Brand / semantic */
-  --color-cta: #f5c518;
-  --color-cta-hover: #e6b800;
-  --color-primary: #5b5bd6;
-  --color-primary-dark: #4a4ac4;
-  --color-primary-soft: #eef0ff;
-  --color-primary-light: #818cf8;
-  --color-accent: #f5c518;
-  --color-accent-dark: #e6b800;
-  --color-accent-light: #fff2b8;
+  /* Brand / semantic — Insights Iva reference palette */
+  --color-cta: #f9c80a;
+  --color-cta-hover: #e0b400;
+  --color-primary: #0751b2;
+  --color-primary-hover: #0e71f0;
+  --color-primary-active: #0a4aa2;
+  --color-primary-dark: #020e56;
+  --color-primary-soft: #bbdefc;
+  --color-primary-light: #98dbf8;
+  --color-secondary: #5293bd;
+  --color-secondary-hover: #7590c7;
+  --color-accent: #f9c80a;
+  --color-accent-dark: #e0b400;
+  --color-accent-light: #fff795;
+  --color-neutral: #919191;
 
-  --color-info: #2563eb;
-  --color-info-soft: #eff6ff;
-  --color-danger: #ef4444;
+  --color-info: #0589dc;
+  --color-info-soft: #e8f5fc;
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
   --color-danger-soft: #fde8e8;
-  --color-success: #15803d;
-  --color-success-soft: #e8f8ef;
-  --color-warning: #b45309;
-  --color-warning-soft: #fff6e5;
-  --color-running: #22c55e;
-  --color-stopped: #ef4444;
-  --color-maintenance: #facc15;
+  --color-success: #036f71;
+  --color-success-hover: #02595b;
+  --color-success-soft: #e6f4f4;
+  /* Selective action accents (page CTAs — not global primary) */
+  --color-action-teal: #0f6d84;
+  --color-action-teal-hover: #0c5a6d;
+  --color-action-teal-active: #0a4d5c;
+  --color-action-blue: #7e93cc;
+  --color-action-blue-hover: #6a7fb8;
+  --color-action-blue-active: #5c6fad;
+  --color-warning: #f9c80a;
+  --color-warning-hover: #e0b400;
+  --color-warning-soft: #fff795;
+  --color-running: #036f71;
+  --color-stopped: #dc2626;
+  --color-maintenance: #f9c80a;
+
+  /* Navigation / chrome */
+  --color-nav-bg: #012f46;
+  --color-nav-bg-hover: #033858;
+  --color-nav-active: #0751b2;
+  --color-link: #0c73f4;
+  --color-focus-ring: rgba(14, 113, 240, 0.22);
 
   /* Spacing scale (4px base) */
   --space-1: 0.25rem;   /* 4 */
@@ -134,6 +156,13 @@ input[type="number"] {
   appearance: textfield;
 }
 
+/* Hide native clear control — GlobalSearch has its own clear button */
+.global-search-input::-webkit-search-cancel-button,
+.global-search-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -206,7 +235,7 @@ body {
 
 /* Selection – primary tint */
 ::selection {
-  background-color: rgba(91, 91, 214, 0.18);
+  background-color: var(--color-focus-ring);
   color: inherit;
 }
 
@@ -248,6 +277,9 @@ textarea {
 /* Button base */
 .ui-btn-primary,
 .ui-btn-secondary,
+.ui-btn-success,
+.ui-btn-warning,
+.ui-btn-cta,
 .ui-btn-danger,
 .ui-btn-ghost,
 .ui-btn-hr {
@@ -262,58 +294,114 @@ textarea {
   font-weight: 600;
   font-size: var(--text-sm);
   line-height: 1;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast);
   cursor: pointer;
 }
 .ui-btn-primary:active,
 .ui-btn-secondary:active,
+.ui-btn-success:active,
+.ui-btn-warning:active,
+.ui-btn-cta:active,
 .ui-btn-danger:active,
 .ui-btn-ghost:active,
 .ui-btn-hr:active {
   transform: scale(0.98);
 }
+.ui-btn-primary:focus-visible,
+.ui-btn-secondary:focus-visible,
+.ui-btn-success:focus-visible,
+.ui-btn-warning:focus-visible,
+.ui-btn-cta:focus-visible,
+.ui-btn-danger:focus-visible,
+.ui-btn-ghost:focus-visible,
+.ui-btn-hr:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
 .ui-btn-primary:disabled,
 .ui-btn-secondary:disabled,
+.ui-btn-success:disabled,
+.ui-btn-warning:disabled,
+.ui-btn-cta:disabled,
 .ui-btn-danger:disabled,
 .ui-btn-ghost:disabled,
-.ui-btn-hr:disabled {
-  opacity: 0.6;
+.ui-btn-hr:disabled,
+.ui-btn-primary.is-loading,
+.ui-btn-secondary.is-loading,
+.ui-btn-success.is-loading,
+.ui-btn-warning.is-loading,
+.ui-btn-cta.is-loading,
+.ui-btn-danger.is-loading,
+.ui-btn-ghost.is-loading,
+.ui-btn-hr.is-loading {
+  opacity: 0.55;
   cursor: not-allowed;
   transform: none;
+  pointer-events: none;
+  filter: grayscale(0.15);
 }
 
-/* Primary CTA */
+/* Primary — Save / Create / Submit / Confirm */
 .ui-btn-primary,
 .ui-btn-hr {
-  border: none;
+  border: 1px solid transparent;
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: var(--shadow-card);
+}
+.ui-btn-primary:hover:not(:disabled):not(.is-loading),
+.ui-btn-hr:hover:not(:disabled):not(.is-loading) {
+  background: var(--color-primary-hover);
+}
+.ui-btn-primary:active:not(:disabled):not(.is-loading),
+.ui-btn-hr:active:not(:disabled):not(.is-loading) {
+  background: var(--color-primary-active);
+}
+
+/* Accent CTA — yellow highlight actions (use sparingly) */
+.ui-btn-cta,
+.ui-btn-warning {
+  border: 1px solid transparent;
   background: var(--color-cta);
   color: var(--color-text);
   box-shadow: var(--shadow-card);
 }
-.ui-btn-primary:hover,
-.ui-btn-hr:hover {
+.ui-btn-cta:hover:not(:disabled):not(.is-loading),
+.ui-btn-warning:hover:not(:disabled):not(.is-loading) {
   background: var(--color-cta-hover);
 }
 
-/* Secondary */
+/* Success — Approve / Complete / Issue / Start */
+.ui-btn-success {
+  border: 1px solid transparent;
+  background: var(--color-success);
+  color: #fff;
+  box-shadow: var(--shadow-card);
+}
+.ui-btn-success:hover:not(:disabled):not(.is-loading) {
+  background: var(--color-success-hover);
+}
+
+/* Secondary — Cancel / Back / Close / Reset */
 .ui-btn-secondary {
   border: 1px solid var(--color-border);
-  background: var(--color-surface-muted);
+  background: var(--color-surface);
   color: var(--color-text);
   box-shadow: none;
 }
-.ui-btn-secondary:hover {
+.ui-btn-secondary:hover:not(:disabled):not(.is-loading) {
   background: var(--color-surface-hover);
+  border-color: var(--color-secondary);
 }
 
-/* Danger */
+/* Danger — Delete / destructive */
 .ui-btn-danger {
   border: 1px solid transparent;
   background: var(--color-danger);
   color: #fff;
 }
-.ui-btn-danger:hover {
-  background: #dc2626;
+.ui-btn-danger:hover:not(:disabled):not(.is-loading) {
+  background: var(--color-danger-hover);
 }
 
 /* Ghost / low priority */
@@ -323,9 +411,54 @@ textarea {
   color: var(--color-text-secondary);
   box-shadow: none;
 }
-.ui-btn-ghost:hover {
+.ui-btn-ghost:hover:not(:disabled):not(.is-loading) {
   background: var(--color-surface-hover);
-  color: var(--color-text);
+  color: var(--color-primary);
+}
+
+/* Status badges */
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: var(--radius-full);
+  padding: 0.2rem 0.625rem;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.25;
+  border: 1px solid transparent;
+}
+.ui-badge-success {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 22%, transparent);
+}
+.ui-badge-info,
+.ui-badge-progress {
+  background: var(--color-info-soft);
+  color: var(--color-info);
+  border-color: color-mix(in srgb, var(--color-info) 22%, transparent);
+}
+.ui-badge-pending {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+  border-color: color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+.ui-badge-warning {
+  background: var(--color-warning-soft);
+  color: #7a5a00;
+  border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+}
+.ui-badge-danger,
+.ui-badge-error {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 22%, transparent);
+}
+.ui-badge-neutral {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
 }
 
 /* Standard form input */
@@ -359,7 +492,7 @@ input.pl-9 {
 .ui-textarea:focus {
   border-color: var(--color-primary);
   background: var(--color-surface);
-  box-shadow: 0 0 0 3px rgba(91, 91, 214, 0.12);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
   outline: none;
 }
 .ui-input.is-error,

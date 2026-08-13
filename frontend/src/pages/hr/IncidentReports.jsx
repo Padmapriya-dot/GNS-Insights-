@@ -192,7 +192,7 @@ export default function IncidentReports({ autoOpenCreate }) {
 
       <div className="ui-grid-kpi">
         <KpiCard label="Total Safety Events" value={kpis.total} icon={AlertTriangle} color="bg-slate-600" />
-        <KpiCard label="Open Investigations" value={kpis.openCount} icon={ShieldAlert} color="bg-blue-600" />
+        <KpiCard label="Open Investigations" value={kpis.openCount} icon={ShieldAlert} color="bg-[var(--color-primary)]" />
         <KpiCard label="Critical Incidents" value={kpis.critical} icon={HeartPulse} color="bg-red-600" />
         <KpiCard label="Resolution Rate" value={`${kpis.resolved}%`} icon={ShieldCheck} color="bg-green-600" />
       </div>

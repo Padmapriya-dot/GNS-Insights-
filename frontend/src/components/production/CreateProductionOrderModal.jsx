@@ -453,7 +453,7 @@ export default function CreateProductionOrderModal({
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex items-center gap-2 rounded-full bg-[#F5C518] px-6 py-2.5 text-sm font-bold text-slate-900 shadow-md hover:bg-yellow-400 transition-all hover:shadow-lg disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--color-cta)] px-6 py-2.5 text-sm font-bold text-slate-900 shadow-md hover:bg-yellow-400 transition-all hover:shadow-lg disabled:opacity-50"
             >
               <CheckCircle className="h-4 w-4 stroke-[2.5]" />
               {submitting

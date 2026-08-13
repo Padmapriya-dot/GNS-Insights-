@@ -226,7 +226,7 @@ Description : ${doc.description || 'N/A'}
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Policy Docs" value={documents.length} icon={FileText} color="bg-blue-600" />
+        <KpiCard label="Total Policy Docs" value={documents.length} icon={FileText} color="bg-[var(--color-primary)]" />
         <KpiCard label="Secure Storage" value="Encrypted (AES-256)" icon={ShieldCheck} color="bg-green-600" />
         <KpiCard label="Access Control" value="HR Admin & Execs" icon={FolderCheck} color="bg-purple-600" />
       </div>
@@ -290,7 +290,7 @@ Description : ${doc.description || 'N/A'}
                 ) : (
                   <div className="flex items-center justify-between rounded-2xl border border-blue-200 bg-blue-50/60 p-3.5">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary)] text-white shadow-xs">
                         <CheckCircle className="h-5 w-5" />
                       </div>
                       <div className="min-w-0">

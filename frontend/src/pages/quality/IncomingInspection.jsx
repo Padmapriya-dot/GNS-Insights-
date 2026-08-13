@@ -100,7 +100,7 @@ export default function IncomingInspection() {
       <PageHeader subtitle="IQC for raw materials — PO, vendor, batch verification before inventory receipt." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Today's Inspections" value={summary.todays_inspections} icon={FileSearch} color="bg-blue-600" />
+        <KpiCard label="Today's Inspections" value={summary.todays_inspections} icon={FileSearch} color="bg-[var(--color-primary)]" />
         <KpiCard label="Pending Inspection" value={summary.pending_inspection} icon={Clock} color="bg-orange-500" />
         <KpiCard label="Passed" value={summary.passed} icon={CheckCircle} color="bg-green-600" />
         <KpiCard label="Failed" value={summary.failed} icon={XCircle} color="bg-red-500" />

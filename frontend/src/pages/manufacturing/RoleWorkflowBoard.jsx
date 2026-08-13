@@ -182,7 +182,7 @@ export default function RoleWorkflowBoard() {
                       <button
                         type="button"
                         onClick={() => openOrder(o.sales_order_id)}
-                        className="text-xs font-semibold text-teal-700 hover:underline"
+                        className="text-xs font-semibold text-[var(--color-success)] hover:underline"
                       >
                         View stages
                       </button>

@@ -124,7 +124,7 @@ export default function SalesBills() {
     {
       key: "invoice_number",
       label: "Bill No.",
-      render: (r) => <span className="font-semibold text-teal-800">{r.invoice_number || r.bill_number}</span>,
+      render: (r) => <span className="font-semibold text-[var(--color-success)]">{r.invoice_number || r.bill_number}</span>,
     },
     { key: "customer_name", label: "Customer" },
     {
@@ -218,7 +218,7 @@ export default function SalesBills() {
       label: "Actions",
       render: (r) => (
         <div className="flex gap-2">
-          <Link to={`/sales/bills/${r.id}`} className="text-xs font-semibold text-teal-800 hover:underline">View</Link>
+          <Link to={`/sales/bills/${r.id}`} className="text-xs font-semibold text-[var(--color-success)] hover:underline">View</Link>
           {String(r.status || "").toLowerCase() !== "paid" && (
             <button type="button" onClick={() => handleUpdateBillStatus(r.id, "paid")}
               className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100">

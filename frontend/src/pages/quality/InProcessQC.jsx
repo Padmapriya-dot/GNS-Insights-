@@ -76,7 +76,7 @@ export default function InProcessQC() {
       <PageHeader subtitle="Real-time quality checks during manufacturing — work order, machine, shift, operator." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Production Running" value={summary.production_running} icon={Cog} color="bg-blue-600" />
+        <KpiCard label="Production Running" value={summary.production_running} icon={Cog} color="bg-[var(--color-primary)]" />
         <KpiCard label="Quality Control (QC) Pending" value={summary.qc_pending} icon={Clock} color="bg-orange-500" />
         <KpiCard label="Passed" value={summary.passed} icon={CheckCircle} color="bg-green-600" />
         <KpiCard label="Failed" value={summary.failed} icon={XCircle} color="bg-red-500" />

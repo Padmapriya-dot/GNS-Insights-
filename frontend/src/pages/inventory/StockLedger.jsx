@@ -85,12 +85,12 @@ export default function StockLedger() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Transactions" value={(summary.total_transactions ?? 0).toLocaleString()} icon={Repeat} color="bg-[#2563EB]" />
+        <KpiCard label="Total Transactions" value={(summary.total_transactions ?? 0).toLocaleString()} icon={Repeat} color="bg-[var(--color-primary)]" />
         <KpiCard label="Stock In" value={(summary.stock_in ?? 0).toLocaleString()} icon={ArrowDown} color="bg-green-500" />
         <KpiCard label="Stock Out" value={(summary.stock_out ?? 0).toLocaleString()} icon={ArrowUp} color="bg-red-500" />
         <KpiCard label="Transfers" value={summary.transfers ?? 0} icon={Repeat} color="bg-indigo-500" />
         <KpiCard label="Adjustments" value={summary.adjustments ?? 0} icon={Repeat} color="bg-amber-500" />
-        <KpiCard label="Stock Value" value={formatInr(summary.current_stock_value ?? 0)} icon={Repeat} color="bg-teal-500" />
+        <KpiCard label="Stock Value" value={formatInr(summary.current_stock_value ?? 0)} icon={Repeat} color="bg-[var(--color-success-soft)]0" />
       </div>
 
       <div className="ui-card p-4">

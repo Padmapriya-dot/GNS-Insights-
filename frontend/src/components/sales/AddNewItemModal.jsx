@@ -17,7 +17,7 @@ import { useToast } from "../../context/ToastContext";
 import useTenantId from "../../hooks/useTenantId";
 import { apiErrorMessage } from "../../utils/apiError";
 
-const YELLOW = "#F5C518";
+const YELLOW = "var(--color-primary)";
 const PURPLE = "#6b4eff";
 const BLUE = "#2563eb";
 
@@ -210,7 +210,7 @@ function ViewBarcodeModal({ open, code, onClose }) {
           <button
             type="button"
             onClick={download}
-            className="rounded-xl py-2.5 text-[14px] font-semibold text-[#1a1a1f]"
+            className="rounded-xl py-2.5 text-[14px] font-semibold text-white"
             style={{ background: YELLOW }}
           >
             Download
@@ -570,7 +570,7 @@ export default function AddNewItemModal({
                     onClick={() => setForm((f) => ({ ...f, item_type: opt.id }))}
                     className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-[13px] font-semibold transition ${
                       active
-                        ? "border-[#F5C518] bg-[#FFF6D6] text-[#1a1a1f]"
+                        ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] text-[#1a1a1f]"
                         : "border-[#e4e4ea] bg-white text-[#4a4a55]"
                     }`}
                   >
@@ -962,7 +962,7 @@ export default function AddNewItemModal({
                           }
                           className={`rounded-full border px-3 py-1.5 text-[12px] font-medium ${
                             active
-                              ? "border-[#F5C518] bg-[#FFF6D6] text-[#1a1a1f]"
+                              ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] text-[#1a1a1f]"
                               : "border-[#d8d8e0] bg-white text-[#6b6b76]"
                           }`}
                         >
@@ -1113,7 +1113,7 @@ export default function AddNewItemModal({
           <button
             type="submit"
             disabled={saving}
-            className="rounded-xl py-3 text-[14px] font-semibold text-[#1a1a1f] disabled:opacity-60"
+            className="rounded-xl py-3 text-[14px] font-semibold text-white disabled:opacity-60"
             style={{ background: YELLOW }}
           >
             {saving ? "Saving…" : "Save"}

@@ -175,9 +175,9 @@ export default function AccountsDashboard() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Receivables" value={formatInr(hub.total_receivables)} icon={ArrowUpRight} color="bg-teal-700" />
+        <KpiCard label="Total Receivables" value={formatInr(hub.total_receivables)} icon={ArrowUpRight} color="bg-[var(--color-success)]" />
         <KpiCard label="Outstanding Payables" value={formatInr(hub.outstanding_payables)} icon={ArrowDownRight} color="bg-rose-600" />
-        <KpiCard label="Cash Balance" value={formatInr(hub.cash_balance)} icon={IndianRupee} color="bg-emerald-600" />
+        <KpiCard label="Cash Balance" value={formatInr(hub.cash_balance)} icon={IndianRupee} color="bg-[var(--color-success)]" />
         <KpiCard label="Monthly Revenue" value={formatInr(hub.monthly_revenue)} icon={TrendingUp} color="bg-indigo-600" />
         <KpiCard label="Monthly Expenses" value={formatInr(hub.monthly_expenses)} icon={TrendingDown} color="bg-amber-500" />
         <KpiCard label="Net Profit" value={formatInr(hub.net_profit)} icon={IndianRupee} color="bg-cyan-600" sub={`GST Payable: ${formatInr(hub.gst_payable)}`} />

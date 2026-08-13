@@ -362,7 +362,7 @@ export default function ProductsMaster() {
                                 setEditing(p);
                                 setAddOpen(true);
                               }}
-                              className="grid h-8 w-8 place-items-center rounded-full bg-[#eef0ff] text-[#5b5bd6] hover:bg-[#e4e6fc]"
+                              className="grid h-8 w-8 place-items-center rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] hover:bg-[#e4e6fc]"
                               title="Edit"
                               aria-label="Edit product"
                             >

@@ -52,7 +52,7 @@ export default function TrialBalance() {
       <PageHeader subtitle="Unadjusted closing balances consolidated across assets, liabilities, equity, and operations." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Debits" value={formatInr(totalDebit)} icon={TrendingUp} color="bg-blue-600" />
+        <KpiCard label="Total Debits" value={formatInr(totalDebit)} icon={TrendingUp} color="bg-[var(--color-primary)]" />
         <KpiCard label="Total Credits" value={formatInr(totalCredit)} icon={ShieldCheck} color="bg-indigo-600" />
         <div className={`rounded-2xl border p-4 shadow-sm ${difference < 1.0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
           <div className="flex items-center justify-between">

@@ -198,12 +198,12 @@ export default function SalesOrders() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Orders" value={summary.total_orders ?? 0} icon={ShoppingCart} color="bg-teal-700" />
+        <KpiCard label="Total Orders" value={summary.total_orders ?? 0} icon={ShoppingCart} color="bg-[var(--color-success)]" />
         <KpiCard label="Pending" value={summary.pending ?? 0} icon={ShoppingCart} color="bg-amber-500" />
         <KpiCard label="Confirmed" value={summary.confirmed ?? 0} icon={ShoppingCart} color="bg-indigo-600" />
         <KpiCard label="Packed" value={summary.packed ?? 0} icon={ShoppingCart} color="bg-slate-600" />
         <KpiCard label="Shipped" value={summary.shipped ?? 0} icon={Truck} color="bg-cyan-600" />
-        <KpiCard label="Delivered" value={summary.delivered ?? 0} icon={Truck} color="bg-emerald-600" />
+        <KpiCard label="Delivered" value={summary.delivered ?? 0} icon={Truck} color="bg-[var(--color-success)]" />
         <KpiCard label="Cancelled" value={summary.cancelled ?? 0} icon={ShoppingCart} color="bg-rose-600" />
         <KpiCard label="Revenue" value={formatInr(summary.revenue ?? 0)} icon={IndianRupee} color="bg-emerald-700" />
       </div>

@@ -341,7 +341,7 @@ export default function TaskManagement() {
                             <button
                               disabled={updatingId === task.id}
                               onClick={() => setTaskStatusDirect(task, "completed")}
-                              className="flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-[11px] font-semibold text-teal-700 hover:bg-teal-100 disabled:opacity-50 transition-colors"
+                              className="flex items-center gap-1 rounded-full border border-teal-200 bg-[var(--color-success-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-success)] hover:bg-teal-100 disabled:opacity-50 transition-colors"
                             >
                               {updatingId === task.id ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />

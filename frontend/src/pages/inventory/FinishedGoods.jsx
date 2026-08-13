@@ -118,8 +118,8 @@ export default function FinishedGoods() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Products" value={displaySummary.total_products ?? 0} icon={Package} color="bg-teal-700" />
-        <KpiCard label="Available" value={displaySummary.available ?? 0} icon={Box} color="bg-emerald-600" />
+        <KpiCard label="Total Products" value={displaySummary.total_products ?? 0} icon={Package} color="bg-[var(--color-success)]" />
+        <KpiCard label="Available" value={displaySummary.available ?? 0} icon={Box} color="bg-[var(--color-success)]" />
         <KpiCard label="Reserved" value={displaySummary.reserved ?? 0} icon={Package} color="bg-amber-500" />
         <KpiCard label="Ready to Dispatch" value={displaySummary.ready_to_dispatch ?? 0} icon={Truck} color="bg-cyan-600" />
         <KpiCard label="Damaged" value={displaySummary.damaged ?? 0} icon={AlertTriangle} color="bg-rose-600" />

@@ -47,7 +47,7 @@ export default function QualityDashboard() {
       <PageHeader subtitle="Inspection KPIs, yield trends, defect analysis, and QC performance." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Inspections" value={hub.total_inspections} icon={ClipboardCheck} color="bg-blue-600" />
+        <KpiCard label="Total Inspections" value={hub.total_inspections} icon={ClipboardCheck} color="bg-[var(--color-primary)]" />
         <KpiCard label="Passed" value={hub.passed} icon={CheckCircle} color="bg-green-600" />
         <KpiCard label="Failed" value={hub.failed} icon={XCircle} color="bg-red-500" />
         <KpiCard label="Rejected" value={hub.rejected} icon={XCircle} color="bg-red-600" />

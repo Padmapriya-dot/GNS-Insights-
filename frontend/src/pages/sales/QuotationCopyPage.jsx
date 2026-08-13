@@ -52,7 +52,7 @@ export default function QuotationCopyPage() {
   return (
     <div className="space-y-4 pb-8">
       <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <Link to="/sales/quotations" className="text-sm font-semibold text-teal-700 hover:underline">
+        <Link to="/sales/quotations" className="text-sm font-semibold text-[var(--color-success)] hover:underline">
           ← Back to Quotations
         </Link>
         <div className="flex flex-wrap items-center gap-2">
@@ -62,7 +62,7 @@ export default function QuotationCopyPage() {
           <button type="button" onClick={handleDownloadPdf} disabled={busy === "pdf"} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">
             <Download className="h-4 w-4" /> {busy === "pdf" ? "Downloading…" : "Download PDF"}
           </button>
-          <Link to={`/sales/quotations/${id}/edit`} className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700">
+          <Link to={`/sales/quotations/${id}/edit`} className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-success)]">
             Edit Quotation
           </Link>
         </div>

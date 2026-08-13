@@ -183,7 +183,7 @@ export default function AssetManagement({ autoOpenCreate }) {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Registered Assets" value={kpis.total} icon={Briefcase} color="bg-blue-600" />
+        <KpiCard label="Total Registered Assets" value={kpis.total} icon={Briefcase} color="bg-[var(--color-primary)]" />
         <KpiCard label="Active / Assigned" value={kpis.active} icon={ShieldCheck} color="bg-green-600" />
         <KpiCard label="Under Repair" value={kpis.repair} icon={Tag} color="bg-amber-500" />
         <KpiCard label="Retired / Disposed" value={kpis.retired} icon={MapPin} color="bg-slate-400" />

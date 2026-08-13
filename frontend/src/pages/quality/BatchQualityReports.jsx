@@ -81,7 +81,7 @@ export default function BatchQualityReports() {
       <PageHeader subtitle="Batch-wise yield, rejection, and quality trend analysis." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Batches" value={summary.total_batches} icon={Layers} color="bg-blue-600" />
+        <KpiCard label="Total Batches" value={summary.total_batches} icon={Layers} color="bg-[var(--color-primary)]" />
         <KpiCard label="Passed" value={summary.passed} icon={CheckCircle} color="bg-green-600" />
         <KpiCard label="Failed" value={summary.failed} icon={XCircle} color="bg-red-500" />
         <KpiCard label="Yield %" value={formatPct(summary.yield_pct)} icon={CheckCircle} color="bg-teal-600" />

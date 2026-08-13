@@ -266,7 +266,7 @@ export default function Customers() {
                               setEditing(c);
                               setPartyOpen(true);
                             }}
-                            className="grid h-8 w-8 place-items-center rounded-full bg-[#eef0ff] text-[#5b5bd6] hover:bg-[#e4e6fc]"
+                            className="grid h-8 w-8 place-items-center rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] hover:bg-[#e4e6fc]"
                             title="Edit"
                             aria-label="Edit customer"
                           >
@@ -321,7 +321,7 @@ export default function Customers() {
               </button>
               <button
                 type="button"
-                className="grid h-8 min-w-8 place-items-center rounded border border-[#e0b400] px-2 text-[13px] font-semibold"
+                className="grid h-8 min-w-8 place-items-center rounded border border-[var(--color-primary)] px-2 text-[13px] font-semibold"
                 style={{ background: "#fff2b8" }}
               >
                 {page}

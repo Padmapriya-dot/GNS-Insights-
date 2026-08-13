@@ -323,7 +323,7 @@ export default function VendorBills() {
                 type="button"
                 disabled={isBusy}
                 onClick={() => handleStatusChange(r.id, "approved")}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg bg-[var(--color-success)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--color-success-hover)] disabled:opacity-50"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" /> Approve
               </button>
@@ -346,7 +346,7 @@ export default function VendorBills() {
                 type="button"
                 disabled={isBusy}
                 onClick={() => handleStatusChange(r.id, "paid")}
-                className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg bg-[var(--color-primary)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" /> Mark Paid
               </button>
@@ -384,9 +384,9 @@ export default function VendorBills() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Bills" value={summary.total_bills} icon={FileText} color="bg-blue-600" />
+        <KpiCard label="Bills" value={summary.total_bills} icon={FileText} color="bg-[var(--color-primary)]" />
         <KpiCard label="Due Bills" value={summary.due_bills} icon={FileText} color="bg-amber-500" />
-        <KpiCard label="Paid" value={summary.paid} icon={FileText} color="bg-emerald-600" />
+        <KpiCard label="Paid" value={summary.paid} icon={FileText} color="bg-[var(--color-success)]" />
         <KpiCard label="Outstanding" value={formatInr(summary.outstanding)} icon={IndianRupee} color="bg-red-500" />
       </div>
 

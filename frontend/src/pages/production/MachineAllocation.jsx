@@ -222,7 +222,7 @@ export default function MachineAllocation() {
         </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <SummaryCard label="Total Machines" value={summary.total_machines} icon={Cpu} color="bg-[#2563EB]" />
+        <SummaryCard label="Total Machines" value={summary.total_machines} icon={Cpu} color="bg-[var(--color-primary)]" />
         <SummaryCard label="Allocated" value={summary.allocated} icon={Settings} color="bg-violet-500" />
         <SummaryCard label="Free Machines" value={summary.free_machines} icon={Cpu} color="bg-green-500" />
         <SummaryCard label="Under Maintenance" value={summary.under_maintenance} icon={Wrench} color="bg-red-500" />

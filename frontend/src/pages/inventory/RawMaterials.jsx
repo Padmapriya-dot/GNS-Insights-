@@ -159,8 +159,8 @@ export default function RawMaterials() {
       />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Materials" value={displaySummary.total_items?.toLocaleString()} icon={Package} color="bg-teal-700" />
-        <KpiCard label="Available Stock" value={displaySummary.available_stock?.toLocaleString()} icon={Box} color="bg-emerald-600" />
+        <KpiCard label="Total Materials" value={displaySummary.total_items?.toLocaleString()} icon={Package} color="bg-[var(--color-success)]" />
+        <KpiCard label="Available Stock" value={displaySummary.available_stock?.toLocaleString()} icon={Box} color="bg-[var(--color-success)]" />
         <KpiCard label="Low Stock" value={displaySummary.low_stock} icon={AlertTriangle} color="bg-amber-500" />
         <KpiCard label="Out of Stock" value={displaySummary.out_of_stock} icon={Trash2} color="bg-rose-600" />
         <KpiCard label="Stock Value" value={formatInr(displaySummary.stock_value)} icon={Package} color="bg-indigo-600" />

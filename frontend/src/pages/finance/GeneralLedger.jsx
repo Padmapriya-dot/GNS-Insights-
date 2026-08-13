@@ -109,10 +109,10 @@ export default function GeneralLedger() {
       <PageHeader subtitle="Central accounting ledger — vouchers, journal entries, and cost center allocation." />
 
       <div className="ui-grid-kpi">
-        <KpiCard label="Total Assets" value={formatInr(summary.total_assets)} icon={Building2} color="bg-teal-700" />
+        <KpiCard label="Total Assets" value={formatInr(summary.total_assets)} icon={Building2} color="bg-[var(--color-success)]" />
         <KpiCard label="Total Liabilities" value={formatInr(summary.total_liabilities)} icon={Scale} color="bg-amber-500" />
         <KpiCard label="Equity" value={formatInr(summary.equity)} icon={Landmark} color="bg-indigo-600" />
-        <KpiCard label="Revenue" value={formatInr(summary.revenue)} icon={TrendingUp} color="bg-emerald-600" />
+        <KpiCard label="Revenue" value={formatInr(summary.revenue)} icon={TrendingUp} color="bg-[var(--color-success)]" />
         <KpiCard label="Expenses" value={formatInr(summary.expenses)} icon={IndianRupee} color="bg-rose-600" />
         <KpiCard label="Cash Balance" value={formatInr(summary.cash_balance)} icon={BookOpen} color="bg-cyan-600" />
       </div>
@@ -124,7 +124,7 @@ export default function GeneralLedger() {
           <p className="mt-2 text-sm text-slate-500">Journal entries will auto-post from AP, AR, and payment workflows.</p>
           <ul className="mx-auto mt-6 grid max-w-lg gap-2 text-left text-sm text-slate-600 sm:grid-cols-2">
             {GL_PLANNED_FEATURES.map((f) => (
-              <li key={f} className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-teal-700" />{f}</li>
+              <li key={f} className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[var(--color-success)]" />{f}</li>
             ))}
           </ul>
         </div>
