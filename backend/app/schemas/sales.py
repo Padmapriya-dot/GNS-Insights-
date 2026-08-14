@@ -24,6 +24,8 @@ class CustomerBase(BaseModel):
     outstanding: float | None = 0.0
     status: str = "active"
 
+
+class CustomerCreate(CustomerBase):
     @field_validator("name", mode="before")
     @classmethod
     def validate_name(cls, value: Any) -> str:
@@ -65,10 +67,6 @@ class CustomerBase(BaseModel):
         return validate_gstin(val_str)
 
 
-class CustomerCreate(CustomerBase):
-    pass
-
-
 class CustomerUpdate(BaseModel):
     name: str | None = None
     contact_name: str | None = None
@@ -79,6 +77,12 @@ class CustomerUpdate(BaseModel):
     state: str | None = None
     state_code: str | None = None
     gstin: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    customer_code: str | None = None
+    credit_limit: float | None = None
+    outstanding: float | None = None
+    status: str | None = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -94,7 +98,7 @@ class CustomerUpdate(BaseModel):
 
     @field_validator("phone", mode="before")
     @classmethod
-    def validate_update_phone(cls, value: Any) -> str | None:
+    def validate_phone(cls, value: Any) -> str | None:
         if value is None:
             return None
         val_str = str(value).strip()
@@ -106,26 +110,6 @@ class CustomerUpdate(BaseModel):
             raise ValueError("Phone number must be between 7 and 15 numeric digits")
         if val_str[0] not in "6789":
             raise ValueError(f"Mobile No. cannot start with {val_str[0]} and must begin with a valid digit (6, 7, 8, or 9)")
-        return val_str
-    email: str | None = None
-    phone: str | None = None
-    customer_code: str | None = None
-    credit_limit: float | None = None
-    outstanding: float | None = None
-    status: str | None = None
-
-    @field_validator("phone", mode="before")
-    @classmethod
-    def validate_phone(cls, value: Any) -> str | None:
-        if value is None:
-            return None
-        val_str = str(value).strip()
-        if not val_str:
-            return None
-        if not val_str.isdigit():
-            raise ValueError("Phone field must accept only numeric digits (0-9)")
-        if len(val_str) > 15 or len(val_str) < 7:
-            raise ValueError("Phone number must be between 7 and 15 numeric digits")
         return val_str
 
     @field_validator("gstin", mode="before")

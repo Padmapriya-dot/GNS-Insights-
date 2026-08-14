@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
@@ -77,18 +77,30 @@ export default function Customers() {
   const [deleting, setDeleting] = useState(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
 
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const loadCustomers = useCallback(async (isRefresh = false) => {
+    if (!isMountedRef.current) return;
     if (!isRefresh) setLoading(true);
     try {
       const res = await getCustomers();
+      if (!isMountedRef.current) return;
       const rows = Array.isArray(res.data) ? res.data : [];
       setCustomers(rows.map((row) => enrichApiCustomer(row)));
     } catch (err) {
+      if (!isMountedRef.current) return;
       if (isRefresh) throw err;
       setCustomers([]);
-      addToast("Could not load customers", "error");
+      addToast(apiErrorMessage(err, "Could not load customers"), "error");
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }, [addToast]);
 
