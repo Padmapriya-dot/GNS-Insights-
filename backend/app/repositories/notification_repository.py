@@ -1,4 +1,4 @@
-"""Data access for ERP notifications."""
+from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -29,7 +29,11 @@ class NotificationRepository(BaseRepository):
 
         rows = self.db.scalars(
             self._base_query()
-            .order_by(ErpNotification.is_read.asc(), ErpNotification.created_at.desc())
+            .order_by(
+                ErpNotification.is_read.asc(),
+                ErpNotification.created_at.desc(),
+                ErpNotification.id.desc(),
+            )
             .offset(offset)
             .limit(page_size)
         ).all()
@@ -92,6 +96,8 @@ class NotificationRepository(BaseRepository):
         return count
 
     def create(self, **kwargs) -> ErpNotification:
+        if "created_at" not in kwargs:
+            kwargs["created_at"] = datetime.now(timezone.utc)
         row = ErpNotification(
             tenant_id=self.tenant_id,
             user_id=self.user_id,

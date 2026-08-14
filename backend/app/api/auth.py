@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, func
@@ -28,6 +30,7 @@ from app.services.auth_service import (
     ROLE_MISMATCH_MESSAGE,
     assert_user_has_role,
     build_access_token_for_user,
+    decode_access_token,
     find_user_by_email,
     get_user_with_role,
     issue_auth_response_data,
@@ -44,6 +47,7 @@ from app.services.security_service import (
     record_login_attempt,
     register_failed_login,
     rotate_refresh_token,
+    revoke_access_token,
     revoke_refresh_token,
     touch_user_activity,
     validate_refresh_token,
@@ -166,6 +170,7 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
             email=email,
             user=authenticated,
             details=ROLE_MISMATCH_MESSAGE,
+            role=req.role,
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -357,14 +362,37 @@ def logout(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    auth_header = request.headers.get("Authorization") or ""
+    access_token = (
+        auth_header.split(" ", 1)[1].strip()
+        if auth_header.lower().startswith("bearer ")
+        else None
+    )
+
     user = validate_refresh_token(db, req.refresh_token)
+    if not user and access_token:
+        payload = decode_access_token(access_token) or {}
+        sub = payload.get("sub") or payload.get("user_id")
+        if sub:
+            try:
+                user = db.get(User, int(sub))
+            except (TypeError, ValueError):
+                pass
+
     if req.all_devices and user:
         from app.services.security_service import revoke_all_refresh_tokens_for_user
 
         revoke_all_refresh_tokens_for_user(db, user.id)
     else:
         revoke_refresh_token(db, req.refresh_token)
+
+    if access_token:
+        revoke_access_token(db, access_token, user_id=user.id if user else None)
+
     if user:
+        user.tokens_revoked_at = datetime.now(timezone.utc)
+        db.commit()
         mark_logout(db, user_id=user.id, email=user.email)
         AuditLogService.log_logout(db, request=request, user=user)
+
     return MessageResponse(message="Logged out successfully.")

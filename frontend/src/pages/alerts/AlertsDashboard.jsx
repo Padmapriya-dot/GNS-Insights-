@@ -239,7 +239,9 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
     list.sort((a, b) => {
       const av = a[sortKey] ?? "";
       const bv = b[sortKey] ?? "";
-      if (av === bv) return 0;
+      if (av === bv) {
+        return sortDir === "asc" ? ((a.id || 0) - (b.id || 0)) : ((b.id || 0) - (a.id || 0));
+      }
       const cmp = av > bv ? 1 : -1;
       return sortDir === "asc" ? cmp : -cmp;
     });

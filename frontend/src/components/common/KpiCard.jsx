@@ -1,15 +1,18 @@
+import { Link } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
+
 /**
  * Shared KPI card — use across dashboards and list pages.
- * Props: label, value, icon, meta/sub/trend, tone (optional semantic icon tint).
+ * Props: label, value, icon, meta/sub/trend, tone (optional semantic icon tint), to, onClick.
  * Legacy `color` (Tailwind bg-*) is accepted but mapped to a quiet semantic tone.
  */
 const TONE_CLASS = {
-  primary: "!bg-[#e0e7ff] !text-[#4f46e5]",
-  info: "!bg-[#dbeafe] !text-[#2563eb]",
-  success: "!bg-[#dcfce7] !text-[#16a34a]",
-  warning: "!bg-[#ffedd5] !text-[#ea580c]",
-  danger: "!bg-[#fee2e2] !text-[#ef4444]",
-  neutral: "!bg-[var(--color-surface-muted)] !text-[var(--color-text-muted)]",
+  primary: "bg-[var(--color-primary-soft)] text-[var(--color-primary)]",
+  info: "bg-[var(--color-info-soft)] text-[var(--color-info)]",
+  success: "bg-[var(--color-success-soft)] text-[var(--color-success)]",
+  warning: "bg-[var(--color-warning-soft)] text-[var(--color-warning)]",
+  danger: "bg-[var(--color-danger-soft)] text-[#b91c1c]",
+  neutral: "bg-[var(--color-surface-muted)] text-[var(--color-text-muted)]",
 };
 
 function resolveTone(tone, color) {
@@ -36,6 +39,8 @@ export default function KpiCard({
   color,
   className = "",
   title,
+  to,
+  onClick,
 }) {
   const resolved = resolveTone(tone, color);
   const supporting = meta ?? sub ?? trend;
@@ -47,8 +52,10 @@ export default function KpiCard({
         ? `${value}${suffix}`
         : value;
 
-  return (
-    <article className={`ui-kpi ${className}`.trim()} title={tip}>
+  const isClickable = Boolean(to || onClick);
+
+  const inner = (
+    <>
       <div className="ui-kpi__top">
         <p className="ui-kpi__label">{label}</p>
         {Icon ? (
@@ -59,6 +66,28 @@ export default function KpiCard({
       </div>
       <p className="ui-kpi__value">{displayValue}</p>
       {supporting ? <p className="ui-kpi__meta">{supporting}</p> : null}
+    </>
+  );
+
+  const cardClass = `ui-kpi group ${isClickable ? "cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md" : ""} ${className}`.trim();
+
+  if (to) {
+    return (
+      <Link to={to} className={cardClass} title={tip}>
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <article
+      className={cardClass}
+      title={tip}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
+      {inner}
     </article>
   );
 }

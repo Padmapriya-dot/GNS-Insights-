@@ -480,19 +480,13 @@ def list_activities(
         for u in db.scalars(select(User).where(User.id.in_(user_ids))).all():
             names[u.id] = u.full_name
 
-    items = [
-        {
-            "id": r.id,
-            "user_id": r.user_id,
-            "user_name": names.get(r.user_id, "System") if r.user_id else "System",
-            "action": r.action,
-            "resource": r.resource,
-            "resource_id": r.resource_id,
-            "ip_address": r.ip_address,
-            "logged_at": r.logged_at.isoformat() if r.logged_at else None,
-        }
-        for r in rows
-    ]
+    from app.services.audit_log_service import format_audit_row
+
+    items = []
+    for r in rows:
+        formatted = format_audit_row(r)
+        formatted["user_name"] = names.get(r.user_id, r.full_name or "System") if r.user_id else (r.full_name or "System")
+        items.append(formatted)
 
     if search:
         needle = search.strip().lower()

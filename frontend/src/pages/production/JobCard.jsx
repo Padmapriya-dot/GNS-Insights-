@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
@@ -2951,27 +2951,41 @@ export default function JobCard() {
     setSearchParams(next);
   };
 
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const loadList = useCallback(async () => {
+    if (!isMountedRef.current) return;
     setLoading(true);
     try {
       const res = await getJobCards();
+      if (!isMountedRef.current) return;
       setList(Array.isArray(res?.data) ? res.data : []);
     } catch (e) {
+      if (!isMountedRef.current) return;
       addToast(e?.response?.data?.detail || "Failed to load job cards", "error");
       setList([]);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }, [addToast]);
 
   const loadCard = useCallback(
     async (id) => {
+      if (!isMountedRef.current) return;
       setLoading(true);
       try {
         const [cardRes, machRes] = await Promise.all([
           getJobCard(id),
           getMachines().catch(() => ({ data: [] })),
         ]);
+        if (!isMountedRef.current) return;
         const data = cardRes?.data;
         if (!data) throw new Error("not found");
         setCard(data);
@@ -2985,10 +2999,11 @@ export default function JobCard() {
           operation: data.machine?.operation || "Manufacturing",
         }));
       } catch (e) {
+        if (!isMountedRef.current) return;
         addToast(e?.response?.data?.detail || "Failed to load job card", "error");
         setCard(null);
       } finally {
-        setLoading(false);
+        if (isMountedRef.current) setLoading(false);
       }
     },
     [addToast]

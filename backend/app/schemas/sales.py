@@ -24,6 +24,20 @@ class CustomerBase(BaseModel):
     outstanding: float | None = 0.0
     status: str = "active"
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value: Any) -> str:
+        if value is None:
+            raise ValueError("Company Name is required")
+        val_str = str(value).strip()
+        if not val_str:
+            raise ValueError("Company Name is required")
+        if len(val_str) > 100:
+            raise ValueError("Company Name cannot exceed 100 characters")
+        if not any(c.isalpha() for c in val_str):
+            raise ValueError("Company Name must contain at least one letter")
+        return val_str
+
     @field_validator("phone", mode="before")
     @classmethod
     def validate_phone(cls, value: Any) -> str | None:
@@ -36,6 +50,8 @@ class CustomerBase(BaseModel):
             raise ValueError("Phone field must accept only numeric digits (0-9)")
         if len(val_str) > 15 or len(val_str) < 7:
             raise ValueError("Phone number must be between 7 and 15 numeric digits")
+        if val_str[0] not in "6789":
+            raise ValueError(f"Mobile No. cannot start with {val_str[0]} and must begin with a valid digit (6, 7, 8, or 9)")
         return val_str
 
     @field_validator("gstin", mode="before")
@@ -63,6 +79,34 @@ class CustomerUpdate(BaseModel):
     state: str | None = None
     state_code: str | None = None
     gstin: str | None = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        val_str = str(value).strip()
+        if not val_str:
+            return None
+        if len(val_str) > 100:
+            raise ValueError("Company Name cannot exceed 100 characters")
+        return val_str
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def validate_update_phone(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        val_str = str(value).strip()
+        if not val_str:
+            return None
+        if not val_str.isdigit():
+            raise ValueError("Phone field must accept only numeric digits (0-9)")
+        if len(val_str) > 15 or len(val_str) < 7:
+            raise ValueError("Phone number must be between 7 and 15 numeric digits")
+        if val_str[0] not in "6789":
+            raise ValueError(f"Mobile No. cannot start with {val_str[0]} and must begin with a valid digit (6, 7, 8, or 9)")
+        return val_str
     email: str | None = None
     phone: str | None = None
     customer_code: str | None = None

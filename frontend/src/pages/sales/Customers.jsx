@@ -98,12 +98,12 @@ export default function Customers() {
     loadCustomers();
   }, [loadCustomers]);
 
-  // Deep-link: /sales/customers?create=1 or /sales/customers/create → open create modal
+  // Deep-link: /masters/customers?create=1 or /masters/customers/create → open create modal
   useEffect(() => {
     if (searchParams.get("create") !== "1") return;
     setEditing(null);
     setPartyOpen(true);
-    navigate("/sales/customers", { replace: true });
+    navigate("/masters/customers", { replace: true });
   }, [searchParams, navigate]);
 
   const filtered = useMemo(() => {
@@ -193,7 +193,7 @@ export default function Customers() {
             </div>
             <Button
               variant="outline"
-              to="/sales/customers/bulk-import"
+              to="/masters/customers/bulk-import"
               leftIcon={<Upload className="h-4 w-4" />}
             >
               Bulk Import
@@ -238,11 +238,13 @@ export default function Customers() {
                 <tbody>
                   {rows.map((c) => (
                     <tr key={c.id} className="border-b border-[#f0f0f4] text-[#1a1a1f] last:border-b-0">
-                      <td className="px-4 py-3.5">{c.company || c.name || ""}</td>
+                      <td className="max-w-[220px] truncate px-4 py-3.5 font-medium text-[#1a1a1f]" title={c.company || c.name || ""}>
+                        {c.company || c.name || ""}
+                      </td>
                       <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.gstin)}</td>
-                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.email)}</td>
+                      <td className="max-w-[180px] truncate px-4 py-3.5 text-[#4a4a55]" title={c.email || ""}>{blankOr(c.email)}</td>
                       <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.phone)}</td>
-                      <td className="px-4 py-3.5 text-[#4a4a55]">
+                      <td className="max-w-[220px] truncate px-4 py-3.5 text-[#4a4a55]" title={c.address_line1 || c.billing_address || ""}>
                         {blankOr(c.address_line1 || c.billing_address)}
                       </td>
                       <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.city)}</td>

@@ -434,6 +434,14 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/sales"
+        element={
+          <ProtectedRoute>
+            <P.SalesDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/sales/dashboard"
         element={
           <ProtectedRoute>
@@ -593,8 +601,10 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/masters" element={<Navigate to="/masters/products" replace />} />
+      <Route path="/procurement" element={<Navigate to="/procurement/purchase-orders" replace />} />
       <Route
-        path="/sales/customers"
+        path="/masters/customers"
         element={
           <ProtectedRoute>
             <P.Customers />
@@ -602,7 +612,7 @@ export default function AppRoutes() {
         }
       />
       <Route
-        path="/sales/customers/bulk-import"
+        path="/masters/customers/bulk-import"
         element={
           <ProtectedRoute>
             <P.BulkImportBuyer />
@@ -610,13 +620,16 @@ export default function AppRoutes() {
         }
       />
       <Route
-        path="/sales/customers/create"
+        path="/masters/customers/create"
         element={
           <ProtectedRoute>
             <P.CreateCustomer />
           </ProtectedRoute>
         }
       />
+      <Route path="/sales/customers" element={<Navigate to="/masters/customers" replace />} />
+      <Route path="/sales/customers/bulk-import" element={<Navigate to="/masters/customers/bulk-import" replace />} />
+      <Route path="/sales/customers/create" element={<Navigate to="/masters/customers/create" replace />} />
       <Route
         path="/sales/payments"
         element={

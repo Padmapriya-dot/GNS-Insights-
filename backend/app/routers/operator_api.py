@@ -123,12 +123,14 @@ def api_login(
         role = assert_user_has_role(authenticated, payload.role)
     except HTTPException as exc:
         detail = str(exc.detail)
+        target_user = authenticated if 'authenticated' in locals() and authenticated else user
         AuditLogService.log_login_failed(
             db,
             request=request,
             email=email,
-            user=user,
+            user=target_user,
             details=detail if detail == ROLE_MISMATCH_MESSAGE else None,
+            role=payload.role,
         )
         return JSONResponse(
             status_code=exc.status_code,

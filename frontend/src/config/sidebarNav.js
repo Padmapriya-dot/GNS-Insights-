@@ -34,7 +34,7 @@ export const SIDEBAR_NAV = [
     label: "Masters",
     icon: Layers,
     children: [
-      { label: "Customers", to: "/sales/customers", module: "masters" },
+      { label: "Customers", to: "/masters/customers", module: "masters" },
       { label: "Vendors", to: "/procurement/vendors", module: "masters" },
       { label: "Products", to: "/masters/products", module: "masters" },
     ],

@@ -743,15 +743,60 @@ export default function ProductionSchedule() {
   const [tableSearch, setTableSearch] = useState("");
   const [showNewModal, setShowNewModal] = useState(false);
 
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const load = useCallback(async (isRefresh = false) => {
-    if (!isRefresh) setLoading(true);
+    if (!isRefresh && timeline.length === 0) {
+      setLoading(true);
+    }
     try {
-      const [
-        dashRes, timelineRes, shiftRes, liveRes, queueRes,
-        matRes, conflictRes, calRes,
-      ] = await Promise.allSettled([
+      // 1. Fetch core primary data first for instant page availability
+      const [dashRes, timelineRes] = await Promise.allSettled([
         getScheduleDashboard(),
         getScheduleTimeline(),
+      ]);
+
+      if (!isMountedRef.current) return;
+
+      if (dashRes.status === "fulfilled" && dashRes.value?.data) {
+        setDashboard({ ...DEMO_DASHBOARD, ...dashRes.value.data });
+      }
+      if (timelineRes.status === "fulfilled" && Array.isArray(timelineRes.value?.data)) {
+        const rows = timelineRes.value.data;
+        setTimeline(rows);
+
+        const kb = { planned: [], ready: [], running: [], quality: [], completed: [] };
+        rows.forEach((r) => {
+          const status = r.status === "in_progress" ? "running" : r.status;
+          if (kb[status]) {
+            kb[status].push({
+              id: r.work_order_id || `m-${r.machine_id}`,
+              work_order_number: r.work_order_number || "—",
+              product_name: r.job_label || r.machine_name,
+              quantity: 0,
+              machine_name: r.machine_name,
+              priority: r.priority || "medium",
+            });
+          }
+        });
+        setKanban(kb);
+      }
+
+      // Unblock page loading as soon as core view data is ready
+      setLoading(false);
+
+      // 2. Fetch secondary panel widget data concurrently in background
+      const [
+        shiftRes, liveRes, queueRes,
+        matRes, conflictRes, calRes,
+      ] = await Promise.allSettled([
         getScheduleShifts(),
         getScheduleLiveMachines(),
         getScheduleQueue(),
@@ -760,12 +805,8 @@ export default function ProductionSchedule() {
         getScheduleCalendar(),
       ]);
 
-      if (dashRes.status === "fulfilled" && dashRes.value?.data) {
-        setDashboard({ ...DEMO_DASHBOARD, ...dashRes.value.data });
-      }
-      if (timelineRes.status === "fulfilled" && Array.isArray(timelineRes.value?.data)) {
-        setTimeline(timelineRes.value.data);
-      }
+      if (!isMountedRef.current) return;
+
       if (shiftRes.status === "fulfilled" && Array.isArray(shiftRes.value?.data)) {
         setShifts(shiftRes.value.data);
       }
@@ -784,35 +825,20 @@ export default function ProductionSchedule() {
       if (calRes.status === "fulfilled" && Array.isArray(calRes.value?.data)) {
         setCalendarEvents(calRes.value.data);
       }
-      // Build Kanban from work orders in timeline
-      if (timelineRes.status === "fulfilled" && Array.isArray(timelineRes.value?.data)) {
-        const rows = timelineRes.value.data;
-        const kb = { planned: [], ready: [], running: [], quality: [], completed: [] };
-        rows.forEach((r) => {
-          const status = r.status === "in_progress" ? "running" : r.status;
-          if (kb[status]) {
-            kb[status].push({
-              id: r.work_order_id || `m-${r.machine_id}`,
-              work_order_number: r.work_order_number || "—",
-              product_name: r.job_label || r.machine_name,
-              quantity: 0,
-              machine_name: r.machine_name,
-              priority: r.priority || "medium",
-            });
-          }
-        });
-        setKanban(kb);
-      }
     } catch {
       // silently handled
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [timeline.length]);
 
   usePageRefresh(() => load(true));
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const tableRows = useMemo(
     () => buildTableFromTimeline(timeline, shifts),
