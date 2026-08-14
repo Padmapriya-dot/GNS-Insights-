@@ -220,7 +220,7 @@ export default function InventoryDashboard() {
   }, [warehouses, warehouseId]);
 
   const hasLiveData = useMemo(() => {
-    return asArray(invItems).length > 0 || asArray(ledger).length > 0 || asArray(transfers).length > 0 || Number(dash.total_products) > 0;
+    return (asArray(invItems).length > 2 || asArray(ledger).length > 0 || asArray(transfers).length > 0) && Number(dash.total_products) > 2;
   }, [invItems, ledger, transfers, dash]);
 
   const liveStockValue = useMemo(() => {
