@@ -3,9 +3,11 @@
    ═══════════════════════════════════════════════════════════ */
 
 .invoice-page {
-  font-family: "Times New Roman", Times, serif;
+  font-family: "IBM Plex Sans", "Segoe UI", "Noto Sans", Calibri, Arial, Helvetica, sans-serif;
   font-size: 10px;
-  color: #000;
+  color: #111;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background: #fff;
   width: min(210mm, 100%);
   max-width: 100%;

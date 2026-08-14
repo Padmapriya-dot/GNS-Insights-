@@ -45,7 +45,6 @@ from app.services.production_service import (
     update_production_order_status,
     update_work_order,
 )
-from app.services.shop_floor_service import get_shop_floor_grid, get_shop_floor_summary
 from app.services.work_order_service import (
     complete_work_order,
     get_work_order_detail,
@@ -457,18 +456,6 @@ def run_mrp_endpoint(
         "Produce" if result["enough_stock"] else "Purchase required — material request created",
         result,
     )
-
-
-# ── Shop Floor ─────────────────────────────────────────────────────────────
-
-
-@router.get("/shop-floor")
-def shop_floor(user_tenant: tuple[User, int] = Depends(require_tenant("shopfloor")), db: Session = Depends(get_db)):
-    _, tenant_id = user_tenant
-    return success_response("Shop floor retrieved", {
-        "summary": _dump(get_shop_floor_summary(db, tenant_id)),
-        "grid": _dump(get_shop_floor_grid(db, tenant_id)),
-    })
 
 
 # ── Machine Allocation ─────────────────────────────────────────────────────

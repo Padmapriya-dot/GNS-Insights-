@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, Loader2, Search, Trash2 } from "lucide-react";
 
+import Button from "../common/Button";
+
 import {
   deleteAuditLog,
   exportAuditLogs,
@@ -175,30 +177,33 @@ export default function AuditLogsPanel() {
               ))}
             </div>
           )}
-          <button
+          <Button
+            variant="secondary"
             type="button"
             disabled={exporting}
             onClick={() => handleExport("csv")}
-            className="ui-btn-secondary text-xs"
+            className="text-xs"
           >
             <Download className="h-3.5 w-3.5" /> CSV
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             disabled={exporting}
             onClick={() => handleExport("excel")}
-            className="ui-btn-secondary text-xs"
+            className="text-xs"
           >
             <Download className="h-3.5 w-3.5" /> Excel
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             disabled={exporting}
             onClick={() => handleExport("pdf")}
-            className="ui-btn-secondary text-xs"
+            className="text-xs"
           >
             <Download className="h-3.5 w-3.5" /> PDF
-          </button>
+          </Button>
         </div>
       </div>
 

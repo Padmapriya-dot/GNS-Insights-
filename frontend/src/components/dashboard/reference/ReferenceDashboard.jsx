@@ -340,12 +340,21 @@ function PendingTasks({ overview, inventoryBlocks = [], alerts = [], profile }) 
     violet: "bg-[#f3eefc] text-[#6d28d9]",
   };
 
+  const viewAllTo = profile === "store" ? "/sales/dispatch" : "/production/work-orders";
+
   return (
     <CardShell
       title={t("refDashboard.pendingTasks", "Pending Tasks")}
       subtitle={t("refDashboard.pendingTasksHint", "Items that need attention today")}
       action={
-        <ListTodo className="h-4 w-4 text-[#9a9aa5]" aria-hidden />
+        <Link
+          to={viewAllTo}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#6b6b76] transition hover:bg-[#f3f3f6] hover:text-[var(--color-primary)]"
+          title={t("refDashboard.viewAllTasks", "View all tasks")}
+          aria-label={t("refDashboard.viewAllTasks", "View all tasks")}
+        >
+          <ListTodo className="h-4 w-4" />
+        </Link>
       }
     >
       {!tasks.length ? (

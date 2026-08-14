@@ -4,12 +4,12 @@
  * Legacy `color` (Tailwind bg-*) is accepted but mapped to a quiet semantic tone.
  */
 const TONE_CLASS = {
-  primary: "bg-[var(--color-primary-soft)] text-[var(--color-primary)]",
-  info: "bg-[var(--color-info-soft)] text-[var(--color-info)]",
-  success: "bg-[var(--color-success-soft)] text-[var(--color-success)]",
-  warning: "bg-[var(--color-warning-soft)] text-[var(--color-warning)]",
-  danger: "bg-[var(--color-danger-soft)] text-[#b91c1c]",
-  neutral: "bg-[var(--color-surface-muted)] text-[var(--color-text-muted)]",
+  primary: "!bg-[#e0e7ff] !text-[#4f46e5]",
+  info: "!bg-[#dbeafe] !text-[#2563eb]",
+  success: "!bg-[#dcfce7] !text-[#16a34a]",
+  warning: "!bg-[#ffedd5] !text-[#ea580c]",
+  danger: "!bg-[#fee2e2] !text-[#ef4444]",
+  neutral: "!bg-[var(--color-surface-muted)] !text-[var(--color-text-muted)]",
 };
 
 function resolveTone(tone, color) {
