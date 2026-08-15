@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { columnsIncludeSerial } from "../../utils/serialNumber";
 
 function StatusBadge({ status }) {
   const val =
@@ -40,57 +41,87 @@ function StatusBadge({ status }) {
   return <span className={`ui-badge ui-badge--${tone}`}>{val}</span>;
 }
 
-export default function Table({ columns, data, emptyState, sortable }) {
+export default function Table({
+  columns,
+  data,
+  emptyState,
+  sortable,
+  compact = false,
+  showSerialNumber = true,
+  serialOffset = 0,
+}) {
   const [sortKey, setSortKey] = useState(null);
-  const [sortDir, setSortDir] = useState("asc");
-  const rows = Array.isArray(data) ? data : [];
+  const [sortOrder, setSortOrder] = useState("asc");
 
   const handleSort = (key) => {
     if (!sortable || !key) return;
-    const nextDir = sortKey === key && sortDir === "asc" ? "desc" : "asc";
-    setSortKey(key);
-    setSortDir(nextDir);
+    if (sortKey === key) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortOrder("asc");
+    }
   };
 
-  const sortedData = [...rows];
+  const rows = data || [];
+  const includeSerial = showSerialNumber && !columnsIncludeSerial(columns);
+
+  let sortedData = [...rows];
   if (sortKey && sortable) {
     sortedData.sort((a, b) => {
-      const aVal = a[sortKey];
-      const bVal = b[sortKey];
-      const cmp =
-        aVal == null && bVal == null
-          ? 0
-          : (aVal ?? "") < (bVal ?? "")
-            ? -1
-            : (aVal ?? "") > (bVal ?? "")
-              ? 1
-              : 0;
-      return sortDir === "asc" ? cmp : -cmp;
+      let valA = a[sortKey];
+      let valB = b[sortKey];
+
+      if (typeof valA === "object" && valA !== null) {
+        valA = valA.label || valA.name || valA.id || "";
+      }
+      if (typeof valB === "object" && valB !== null) {
+        valB = valB.label || valB.name || valB.id || "";
+      }
+
+      if (valA == null) return 1;
+      if (valB == null) return -1;
+
+      if (typeof valA === "number" && typeof valB === "number") {
+        return sortOrder === "asc" ? valA - valB : valB - valA;
+      }
+
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      return sortOrder === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
     });
   }
+
+  const headerPadding = compact ? "px-2.5 py-2 text-[11px]" : "px-4 py-3 text-[var(--text-xs)]";
+  const cellPadding = compact ? "px-2.5 py-2 text-xs" : "px-4 py-3.5 text-[var(--text-sm)]";
 
   return (
     <div className="ui-table-wrap overflow-x-auto print:overflow-visible print:rounded-none print:border-none print:shadow-none">
       <table className="w-full border-collapse text-left text-[var(--text-sm)]">
         <thead>
-          <tr className="border-b border-[var(--color-border-soft)] bg-[var(--color-surface-thead)] text-[var(--text-xs)] font-medium text-[var(--color-text-muted)]">
+          <tr className="border-b border-[var(--color-border-soft)] bg-[var(--color-surface-thead)] font-medium text-[var(--color-text-muted)]">
+            {includeSerial ? (
+              <th className="w-12 min-w-[3rem] px-2 py-3 text-center font-medium">S.No.</th>
+            ) : null}
             {columns.map((col) => {
               const isActionsCol = col.key === "actions" || col.printHidden;
               const align =
                 col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left";
+              const colClass = col.className || "";
               return (
                 <th
                   key={col.key}
-                  className={`px-4 py-3 font-medium ${align} ${
+                  className={`${headerPadding} font-semibold ${align} ${colClass} ${
                     isActionsCol ? "print:hidden" : ""
                   } ${
                     sortable && col.sortable !== false
                       ? "cursor-pointer select-none hover:bg-[var(--color-surface-hover)]"
                       : ""
                   }`}
+                  style={col.width ? { width: col.width, minWidth: col.minWidth } : col.minWidth ? { minWidth: col.minWidth } : undefined}
                   onClick={() => col.sortable !== false && sortable && handleSort(col.key)}
                 >
-                  <span className="inline-flex items-center gap-1.5">{col.label}</span>
+                  <span className="inline-flex items-center gap-1">{col.label}</span>
                 </th>
               );
             })}
@@ -102,20 +133,27 @@ export default function Table({ columns, data, emptyState, sortable }) {
               key={row.id ?? idx}
               className="border-b border-[var(--color-border-muted)] text-[var(--color-text)] last:border-b-0 hover:bg-[var(--color-surface-muted)]/60 transition-colors"
             >
+              {includeSerial ? (
+                <td className="ui-num w-12 min-w-[3rem] px-2 py-3.5 text-center text-[var(--text-sm)] text-[var(--color-text-muted)]">
+                  {serialOffset + idx + 1}
+                </td>
+              ) : null}
               {columns.map((col) => {
                 const isActionsCol = col.key === "actions" || col.printHidden;
                 const align =
                   col.align === "right"
-                    ? "text-right tabular-nums"
+                    ? "ui-num text-right"
                     : col.align === "center"
                       ? "text-center"
                       : "";
+                const colClass = col.className || col.cellClassName || "";
                 return (
                   <td
                     key={col.key}
-                    className={`px-4 py-3.5 text-[var(--text-sm)] ${align} ${
+                    className={`${cellPadding} ${align} ${colClass} ${
                       isActionsCol ? "print:hidden" : ""
                     }`}
+                    style={col.width ? { width: col.width, minWidth: col.minWidth } : col.minWidth ? { minWidth: col.minWidth } : undefined}
                   >
                     {col.render
                       ? col.render(row)

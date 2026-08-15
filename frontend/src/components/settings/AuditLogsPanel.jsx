@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, Loader2, Search, Trash2 } from "lucide-react";
 
 import Button from "../common/Button";
+import { SerialNumberCell, SerialNumberHeader } from "../common/SerialNumberCell";
 
 import {
   deleteAuditLog,
@@ -36,6 +37,7 @@ const ACTIONS = ["", "login", "login_failed", "logout", "create", "update", "del
 function statusClass(status) {
   if (status === "Success") return "bg-emerald-50 text-emerald-700";
   if (status === "Failed") return "bg-red-50 text-red-700";
+  if (status === "Logged Out") return "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300";
   return "bg-slate-100 text-slate-600";
 }
 
@@ -237,6 +239,7 @@ export default function AuditLogsPanel() {
           <option value="">All statuses</option>
           <option value="Success">Success</option>
           <option value="Failed">Failed</option>
+          <option value="Logged Out">Logged Out</option>
         </select>
         <input
           className={inputCls}
@@ -259,6 +262,7 @@ export default function AuditLogsPanel() {
           <table className="min-w-full divide-y divide-slate-200 text-xs dark:divide-slate-700">
             <thead className="bg-slate-50 dark:bg-slate-800/80">
               <tr className="text-left font-semibold uppercase tracking-wide text-slate-500">
+                <SerialNumberHeader className="px-2.5 py-2.5" />
                 {[
                   ["date", "Date"],
                   ["time", "Time"],
@@ -275,6 +279,7 @@ export default function AuditLogsPanel() {
                   ["device_type", "Device"],
                   ["logout_time", "Logout"],
                   ["session_duration", "Duration"],
+                  ["details", "Details"],
                 ].map(([key, label]) => (
                   <th
                     key={key}
@@ -293,8 +298,9 @@ export default function AuditLogsPanel() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900/40">
-              {data.items.map((row) => (
+              {data.items.map((row, rowIndex) => (
                 <tr key={row.id} className="text-slate-700 dark:text-slate-300">
+                  <SerialNumberCell rowIndex={rowIndex} page={data.page || page} pageSize={pageSize} className="px-2.5 py-2" />
                   <td className="whitespace-nowrap px-2.5 py-2">{row.date || "—"}</td>
                   <td className="whitespace-nowrap px-2.5 py-2">{row.time || "—"}</td>
                   <td className="whitespace-nowrap px-2.5 py-2">{row.company_name || "—"}</td>
@@ -320,6 +326,7 @@ export default function AuditLogsPanel() {
                   <td className="whitespace-nowrap px-2.5 py-2">{row.device_type || "—"}</td>
                   <td className="whitespace-nowrap px-2.5 py-2">{row.logout_time || "—"}</td>
                   <td className="whitespace-nowrap px-2.5 py-2">{row.session_duration || "—"}</td>
+                  <td className="whitespace-nowrap px-2.5 py-2 max-w-xs truncate" title={row.details || ""}>{row.details || "—"}</td>
                   {isAdmin && (
                     <td className="whitespace-nowrap px-2.5 py-2">
                       <button

@@ -1,15 +1,22 @@
+import { Link } from "react-router-dom";
+
 /**
  * Shared KPI card — use across dashboards and list pages.
- * Props: label, value, icon, meta/sub/trend, tone (optional semantic icon tint).
+ * Props: label, value, icon, meta/sub/trend, tone (optional semantic icon tint), to, onClick.
  * Legacy `color` (Tailwind bg-*) is accepted but mapped to a quiet semantic tone.
+ * Optional `to` or `onClick` makes the card navigable / filterable.
  */
 const TONE_CLASS = {
-  primary: "!bg-[#e0e7ff] !text-[#4f46e5]",
-  info: "!bg-[#dbeafe] !text-[#2563eb]",
-  success: "!bg-[#dcfce7] !text-[#16a34a]",
-  warning: "!bg-[#ffedd5] !text-[#ea580c]",
-  danger: "!bg-[#fee2e2] !text-[#ef4444]",
-  neutral: "!bg-[var(--color-surface-muted)] !text-[var(--color-text-muted)]",
+  primary: "!bg-[var(--kpi-primary-soft)] !text-[var(--kpi-primary)]",
+  info: "!bg-[var(--kpi-info-soft)] !text-[var(--kpi-info)]",
+  success: "!bg-[var(--kpi-success-soft)] !text-[var(--kpi-success)]",
+  warning: "!bg-[var(--kpi-warning-soft)] !text-[var(--kpi-warning)]",
+  danger: "!bg-[var(--kpi-danger-soft)] !text-[var(--kpi-danger)]",
+  yellow: "!bg-[var(--kpi-warning-soft)] !text-[var(--kpi-warning)]",
+  violet: "!bg-[var(--kpi-violet-soft)] !text-[var(--kpi-violet)]",
+  teal: "!bg-[var(--kpi-teal-soft)] !text-[var(--kpi-teal)]",
+  orange: "!bg-[var(--kpi-orange-soft)] !text-[var(--kpi-orange)]",
+  neutral: "!bg-[var(--kpi-neutral-soft)] !text-[var(--kpi-neutral)]",
 };
 
 function resolveTone(tone, color) {
@@ -19,7 +26,9 @@ function resolveTone(tone, color) {
   if (/amber|yellow|orange/.test(c)) return "warning";
   if (/red|rose|danger/.test(c)) return "danger";
   if (/blue|sky|cyan/.test(c)) return "info";
-  if (/indigo|violet|purple/.test(c)) return "primary";
+  if (/indigo|violet|purple/.test(c)) return "violet";
+  if (/teal/.test(c)) return "teal";
+  if (/orange/.test(c)) return "orange";
   if (/slate|gray|neutral/.test(c)) return "neutral";
   return "primary";
 }
@@ -36,6 +45,8 @@ export default function KpiCard({
   color,
   className = "",
   title,
+  to,
+  onClick,
 }) {
   const resolved = resolveTone(tone, color);
   const supporting = meta ?? sub ?? trend;
@@ -47,8 +58,11 @@ export default function KpiCard({
         ? `${value}${suffix}`
         : value;
 
-  return (
-    <article className={`ui-kpi ${className}`.trim()} title={tip}>
+  const interactive = Boolean(to || onClick);
+  const cardClass = `ui-kpi group ${interactive ? "cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]" : ""} ${className}`.trim();
+
+  const inner = (
+    <>
       <div className="ui-kpi__top">
         <p className="ui-kpi__label">{label}</p>
         {Icon ? (
@@ -59,6 +73,28 @@ export default function KpiCard({
       </div>
       <p className="ui-kpi__value">{displayValue}</p>
       {supporting ? <p className="ui-kpi__meta">{supporting}</p> : null}
+    </>
+  );
+
+  if (to) {
+    return (
+      <Link to={to} className={cardClass} title={tip} onClick={onClick}>
+        {inner}
+      </Link>
+    );
+  }
+
+  if (onClick) {
+    return (
+      <button type="button" className={`${cardClass} w-full text-left`} title={tip} onClick={onClick}>
+        {inner}
+      </button>
+    );
+  }
+
+  return (
+    <article className={cardClass} title={tip}>
+      {inner}
     </article>
   );
 }

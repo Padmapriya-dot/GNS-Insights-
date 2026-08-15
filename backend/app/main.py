@@ -39,6 +39,8 @@ from app.api.inventory import router as inventory_router
 from app.api.inventory_v2 import router as inventory_v2_router
 from app.api.iot import router as iot_router
 from app.api.maintenance import router as maintenance_router
+from app.api.meetings import google_router as google_calendar_router
+from app.api.meetings import router as meetings_router
 from app.api.procurement import router as procurement_router
 from app.api.production_scheduling import router as production_scheduling_router
 from app.api.quality import router as quality_router
@@ -72,6 +74,7 @@ from app.models import (  # noqa: F401
     inventory,
     machine,
     maintenance,
+    meeting,
     notification,
     permission,
     platform,
@@ -485,6 +488,42 @@ def on_startup():
     try:
         with engine.begin() as conn:
             conn.execute(text("UPDATE access_logs SET company_id = tenant_id WHERE company_id IS NULL"))
+            conn.execute(
+                text(
+                    "UPDATE access_logs SET details = 'User logged in successfully.' "
+                    "WHERE action = 'login' AND details = 'User logged out successfully.'"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE access_logs SET login_status = 'Logged Out' "
+                    "WHERE action = 'logout' AND (login_status = 'Success' OR login_status IS NULL)"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE access_logs SET session_id = 'failed-sess-' || id "
+                    "WHERE (action = 'login_failed' OR login_status = 'Failed') AND session_id IS NULL"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE access_logs SET session_id = 'sess-' || id "
+                    "WHERE session_id IS NULL"
+                )
+            )
+            conn.execute(
+                text(
+                    "DELETE FROM access_logs "
+                    "WHERE action = 'logout' AND session_id IS NOT NULL AND id NOT IN ("
+                    "  SELECT min_id FROM ("
+                    "    SELECT MIN(id) AS min_id FROM access_logs "
+                    "    WHERE action = 'logout' AND session_id IS NOT NULL "
+                    "    GROUP BY session_id"
+                    "  ) AS t"
+                    ")"
+                )
+            )
     except Exception:
         pass
     _production_columns = [
@@ -501,6 +540,7 @@ def on_startup():
         "ALTER TABLE users ADD COLUMN plant_code VARCHAR(64)",
         "ALTER TABLE users ADD COLUMN department VARCHAR(128)",
         "ALTER TABLE users ADD COLUMN assigned_machine_id INTEGER REFERENCES machines(id)",
+        "ALTER TABLE users ADD COLUMN tokens_revoked_at DATETIME",
         "ALTER TABLE work_orders ADD COLUMN assigned_user_id INTEGER REFERENCES users(id)",
         "ALTER TABLE work_orders ADD COLUMN plant_code VARCHAR(64)",
         "ALTER TABLE machines ADD COLUMN plant_code VARCHAR(64)",
@@ -820,6 +860,8 @@ app.include_router(dispatch_addresses_router)
 app.include_router(factory_monitor_router)
 app.include_router(forecasting_router)
 app.include_router(integration_router)
+app.include_router(meetings_router)
+app.include_router(google_calendar_router)
 app.include_router(iot_router)
 app.include_router(production_scheduling_router)
 app.include_router(task_management_router)

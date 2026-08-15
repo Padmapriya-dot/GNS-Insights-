@@ -304,7 +304,7 @@ export default function CreateSalesOrder() {
           </select>
         </label>
         {customers.length === 0 && (
-          <p className="text-sm text-slate-500">No customers yet. <Link to="/sales/customers" className="font-medium text-teal-600 hover:underline">Add a customer first</Link>.</p>
+          <p className="text-sm text-slate-500">No customers yet. <Link to="/masters/customers" className="font-medium text-teal-600 hover:underline">Add a customer first</Link>.</p>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">

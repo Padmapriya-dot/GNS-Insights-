@@ -54,14 +54,6 @@ export default function AppRoutes() {
         }
       />
       <Route
-        path="/production/mrp"
-        element={
-          <ProtectedRoute>
-            <P.MaterialRequirementPlanning />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/production/work-orders"
         element={
           <ProtectedRoute>
@@ -314,6 +306,38 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/hr/attendance/daily"
+        element={
+          <ProtectedRoute>
+            <P.Attendance />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hr/attendance/calendar"
+        element={
+          <ProtectedRoute>
+            <P.Attendance />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hr/attendance/leave-summary"
+        element={
+          <ProtectedRoute>
+            <P.Attendance />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hr/attendance/reports"
+        element={
+          <ProtectedRoute>
+            <P.Attendance />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/hr/leave"
         element={
           <ProtectedRoute>
@@ -430,6 +454,62 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <P.HRDocuments />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hr/recruitment"
+        element={
+          <ProtectedRoute>
+            <P.Recruitment />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hr/recruitment/candidates"
+        element={
+          <ProtectedRoute>
+            <P.Recruitment />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hr/recruitment/interviews"
+        element={
+          <ProtectedRoute>
+            <P.Recruitment />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hr/training"
+        element={
+          <ProtectedRoute>
+            <P.Training />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hr/training/sessions"
+        element={
+          <ProtectedRoute>
+            <P.Training />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hr/settings"
+        element={
+          <ProtectedRoute>
+            <P.HRSettings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales"
+        element={
+          <ProtectedRoute>
+            <P.SalesDashboard />
           </ProtectedRoute>
         }
       />
@@ -593,8 +673,10 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/masters" element={<Navigate to="/masters/products" replace />} />
+      <Route path="/procurement" element={<Navigate to="/procurement/purchase-orders" replace />} />
       <Route
-        path="/sales/customers"
+        path="/masters/customers"
         element={
           <ProtectedRoute>
             <P.Customers />
@@ -602,7 +684,7 @@ export default function AppRoutes() {
         }
       />
       <Route
-        path="/sales/customers/bulk-import"
+        path="/masters/customers/bulk-import"
         element={
           <ProtectedRoute>
             <P.BulkImportBuyer />
@@ -610,13 +692,16 @@ export default function AppRoutes() {
         }
       />
       <Route
-        path="/sales/customers/create"
+        path="/masters/customers/create"
         element={
           <ProtectedRoute>
             <P.CreateCustomer />
           </ProtectedRoute>
         }
       />
+      <Route path="/sales/customers" element={<Navigate to="/masters/customers" replace />} />
+      <Route path="/sales/customers/bulk-import" element={<Navigate to="/masters/customers/bulk-import" replace />} />
+      <Route path="/sales/customers/create" element={<Navigate to="/masters/customers/create" replace />} />
       <Route
         path="/sales/payments"
         element={
@@ -722,6 +807,7 @@ export default function AppRoutes() {
       <Route path="/quality/batch-reports" element={<ProtectedRoute><P.BatchQualityReports /></ProtectedRoute>} />
       <Route path="/quality/compliance" element={<ProtectedRoute><P.ComplianceLogs /></ProtectedRoute>} />
       <Route path="/maintenance" element={<ProtectedRoute><P.MaintenanceDashboard /></ProtectedRoute>} />
+      <Route path="/maintenance/equipment" element={<ProtectedRoute><P.EquipmentSpareParts /></ProtectedRoute>} />
       <Route path="/maintenance/machines" element={<ProtectedRoute><P.MachineMaintenance /></ProtectedRoute>} />
       <Route path="/maintenance/preventive" element={<ProtectedRoute><P.PreventiveMaintenance /></ProtectedRoute>} />
       <Route path="/maintenance/breakdowns" element={<ProtectedRoute><P.BreakdownReports /></ProtectedRoute>} />
@@ -753,6 +839,8 @@ export default function AppRoutes() {
       <Route path="/admin/access-logs" element={<Navigate to="/admin/audit-logs" replace />} />
       <Route path="/admin/integrations" element={<ProtectedRoute><P.IntegrationsDashboard /></ProtectedRoute>} />
       <Route path="/documents" element={<ProtectedRoute><P.DocumentsDashboard /></ProtectedRoute>} />
+      <Route path="/meetings" element={<ProtectedRoute><P.MeetingsList /></ProtectedRoute>} />
+      <Route path="/meetings/:id" element={<ProtectedRoute><P.MeetingDetail /></ProtectedRoute>} />
       <Route path="/documents/purchase" element={<ProtectedRoute><P.PurchaseDocuments /></ProtectedRoute>} />
       <Route path="/documents/production" element={<ProtectedRoute><P.ProductionFiles /></ProtectedRoute>} />
       <Route path="/documents/quality" element={<ProtectedRoute><P.QualityCertificates /></ProtectedRoute>} />

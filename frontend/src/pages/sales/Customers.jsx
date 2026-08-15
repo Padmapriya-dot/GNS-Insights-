@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 
 import Button from "../../components/common/Button";
 import Loader from "../../components/common/Loader";
+import { SerialNumberCell, SerialNumberHeader } from "../../components/common/SerialNumberCell";
 import AddNewPartyModal from "../../components/sales/AddNewPartyModal";
 import { useToast } from "../../context/ToastContext";
 import usePageRefresh from "../../hooks/usePageRefresh";
@@ -77,18 +78,30 @@ export default function Customers() {
   const [deleting, setDeleting] = useState(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
 
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const loadCustomers = useCallback(async (isRefresh = false) => {
+    if (!isMountedRef.current) return;
     if (!isRefresh) setLoading(true);
     try {
       const res = await getCustomers();
+      if (!isMountedRef.current) return;
       const rows = Array.isArray(res.data) ? res.data : [];
       setCustomers(rows.map((row) => enrichApiCustomer(row)));
     } catch (err) {
+      if (!isMountedRef.current) return;
       if (isRefresh) throw err;
       setCustomers([]);
-      addToast("Could not load customers", "error");
+      addToast(apiErrorMessage(err, "Could not load customers"), "error");
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }, [addToast]);
 
@@ -98,12 +111,12 @@ export default function Customers() {
     loadCustomers();
   }, [loadCustomers]);
 
-  // Deep-link: /sales/customers?create=1 or /sales/customers/create → open create modal
+  // Deep-link: /masters/customers?create=1 or /masters/customers/create → open create modal
   useEffect(() => {
     if (searchParams.get("create") !== "1") return;
     setEditing(null);
     setPartyOpen(true);
-    navigate("/sales/customers", { replace: true });
+    navigate("/masters/customers", { replace: true });
   }, [searchParams, navigate]);
 
   const filtered = useMemo(() => {
@@ -193,7 +206,7 @@ export default function Customers() {
             </div>
             <Button
               variant="outline"
-              to="/sales/customers/bulk-import"
+              to="/masters/customers/bulk-import"
               leftIcon={<Upload className="h-4 w-4" />}
             >
               Bulk Import
@@ -224,6 +237,7 @@ export default function Customers() {
               <table className="w-full min-w-[980px] border-collapse text-left text-[13px]">
                 <thead>
                   <tr className="border-b border-[#e8e8ee] bg-[#f5f5f5] text-[12px] font-medium text-[#6b6b76]">
+                    <SerialNumberHeader />
                     <th className="px-4 py-3 font-medium">Customer Name</th>
                     <th className="px-4 py-3 font-medium">GSTIN</th>
                     <th className="px-4 py-3 font-medium">Email</th>
@@ -236,13 +250,16 @@ export default function Customers() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((c) => (
+                  {rows.map((c, rowIndex) => (
                     <tr key={c.id} className="border-b border-[#f0f0f4] text-[#1a1a1f] last:border-b-0">
-                      <td className="px-4 py-3.5">{c.company || c.name || ""}</td>
+                      <SerialNumberCell rowIndex={rowIndex} page={page} pageSize={pageSize} />
+                      <td className="max-w-[220px] truncate px-4 py-3.5 font-medium text-[#1a1a1f]" title={c.company || c.name || ""}>
+                        {c.company || c.name || ""}
+                      </td>
                       <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.gstin)}</td>
-                      <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.email)}</td>
+                      <td className="max-w-[180px] truncate px-4 py-3.5 text-[#4a4a55]" title={c.email || ""}>{blankOr(c.email)}</td>
                       <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.phone)}</td>
-                      <td className="px-4 py-3.5 text-[#4a4a55]">
+                      <td className="max-w-[220px] truncate px-4 py-3.5 text-[#4a4a55]" title={c.address_line1 || c.billing_address || ""}>
                         {blankOr(c.address_line1 || c.billing_address)}
                       </td>
                       <td className="px-4 py-3.5 text-[#4a4a55]">{blankOr(c.city)}</td>

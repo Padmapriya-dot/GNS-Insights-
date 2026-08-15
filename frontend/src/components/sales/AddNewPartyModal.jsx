@@ -337,6 +337,10 @@ export default function AddNewPartyModal({
       addToast("Company Name is required", "error");
       return;
     }
+    if (form.name.trim().length > 100) {
+      addToast("Company Name cannot exceed 100 characters", "error");
+      return;
+    }
     if (!/[a-zA-Z]/.test(form.name)) {
       addToast("Company Name must contain at least one letter", "error");
       return;
@@ -349,6 +353,10 @@ export default function AddNewPartyModal({
       }
       if (phoneVal.length !== 10) {
         addToast("Mobile No. must be exactly 10 digits", "error");
+        return;
+      }
+      if (!/^[6-9]/.test(phoneVal)) {
+        addToast(`Mobile No. cannot start with ${phoneVal[0]} and must begin with a valid digit (6, 7, 8, or 9)`, "error");
         return;
       }
     }
@@ -532,6 +540,7 @@ export default function AddNewPartyModal({
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="Enter Company Name"
+                  maxLength={100}
                   required
                   className={inputClass}
                 />
