@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { columnsIncludeSerial } from "../../utils/serialNumber";
 
 function StatusBadge({ status }) {
   const val =
@@ -40,7 +41,14 @@ function StatusBadge({ status }) {
   return <span className={`ui-badge ui-badge--${tone}`}>{val}</span>;
 }
 
-export default function Table({ columns, data, emptyState, sortable }) {
+export default function Table({
+  columns,
+  data,
+  emptyState,
+  sortable,
+  showSerialNumber = true,
+  serialOffset = 0,
+}) {
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
   const rows = Array.isArray(data) ? data : [];
@@ -51,6 +59,8 @@ export default function Table({ columns, data, emptyState, sortable }) {
     setSortKey(key);
     setSortDir(nextDir);
   };
+
+  const includeSerial = showSerialNumber && !columnsIncludeSerial(columns);
 
   const sortedData = [...rows];
   if (sortKey && sortable) {
@@ -74,20 +84,25 @@ export default function Table({ columns, data, emptyState, sortable }) {
       <table className="w-full border-collapse text-left text-[var(--text-sm)]">
         <thead>
           <tr className="border-b border-[var(--color-border-soft)] bg-[var(--color-surface-thead)] text-[var(--text-xs)] font-medium text-[var(--color-text-muted)]">
+            {includeSerial ? (
+              <th className="w-12 min-w-[3rem] px-2 py-3 text-center font-medium">S.No.</th>
+            ) : null}
             {columns.map((col) => {
               const isActionsCol = col.key === "actions" || col.printHidden;
               const align =
                 col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left";
+              const colClass = col.className || "";
               return (
                 <th
                   key={col.key}
-                  className={`px-4 py-3 font-medium ${align} ${
+                  className={`px-4 py-3 font-medium ${align} ${colClass} ${
                     isActionsCol ? "print:hidden" : ""
                   } ${
                     sortable && col.sortable !== false
                       ? "cursor-pointer select-none hover:bg-[var(--color-surface-hover)]"
                       : ""
                   }`}
+                  style={col.width ? { width: col.width, minWidth: col.minWidth } : col.minWidth ? { minWidth: col.minWidth } : undefined}
                   onClick={() => col.sortable !== false && sortable && handleSort(col.key)}
                 >
                   <span className="inline-flex items-center gap-1.5">{col.label}</span>
@@ -102,20 +117,27 @@ export default function Table({ columns, data, emptyState, sortable }) {
               key={row.id ?? idx}
               className="border-b border-[var(--color-border-muted)] text-[var(--color-text)] last:border-b-0 hover:bg-[var(--color-surface-muted)]/60 transition-colors"
             >
+              {includeSerial ? (
+                <td className="ui-num w-12 min-w-[3rem] px-2 py-3.5 text-center text-[var(--text-sm)] text-[var(--color-text-muted)]">
+                  {serialOffset + idx + 1}
+                </td>
+              ) : null}
               {columns.map((col) => {
                 const isActionsCol = col.key === "actions" || col.printHidden;
                 const align =
                   col.align === "right"
-                    ? "text-right tabular-nums"
+                    ? "ui-num text-right"
                     : col.align === "center"
                       ? "text-center"
                       : "";
+                const colClass = col.className || col.cellClassName || "";
                 return (
                   <td
                     key={col.key}
-                    className={`px-4 py-3.5 text-[var(--text-sm)] ${align} ${
+                    className={`px-4 py-3.5 text-[var(--text-sm)] ${align} ${colClass} ${
                       isActionsCol ? "print:hidden" : ""
                     }`}
+                    style={col.width ? { width: col.width, minWidth: col.minWidth } : col.minWidth ? { minWidth: col.minWidth } : undefined}
                   >
                     {col.render
                       ? col.render(row)

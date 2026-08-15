@@ -1,9 +1,35 @@
+import re
 from datetime import date
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.utils.gst import validate_gstin
+
+_EMAIL_RE = re.compile(
+    r"^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}$"
+)
+
+
+def _optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    val_str = str(value).strip()
+    return val_str or None
+
+
+def _require_letter(value: str, field_label: str) -> str:
+    if not re.search(r"[A-Za-z]", value):
+        raise ValueError(f"{field_label} must contain at least one letter")
+    return value
+
+
+def _validate_email(value: str) -> str:
+    if ".." in value:
+        raise ValueError("Invalid email format")
+    if not _EMAIL_RE.match(value):
+        raise ValueError("Invalid email format")
+    return value
 
 
 class CustomerBase(BaseModel):
@@ -24,18 +50,40 @@ class CustomerBase(BaseModel):
     outstanding: float | None = 0.0
     status: str = "active"
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value: Any) -> str:
+        val_str = _optional_text(value)
+        if not val_str:
+            raise ValueError("Company Name is required and cannot be blank or whitespace-only")
+        return _require_letter(val_str, "Company Name")
+
+    @field_validator("contact_name", mode="before")
+    @classmethod
+    def validate_contact_name(cls, value: Any) -> str | None:
+        val_str = _optional_text(value)
+        if val_str is None:
+            return None
+        return _require_letter(val_str, "Contact Person name")
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, value: Any) -> str | None:
+        val_str = _optional_text(value)
+        if val_str is None:
+            return None
+        return _validate_email(val_str)
+
     @field_validator("phone", mode="before")
     @classmethod
     def validate_phone(cls, value: Any) -> str | None:
-        if value is None:
-            return None
-        val_str = str(value).strip()
-        if not val_str:
+        val_str = _optional_text(value)
+        if val_str is None:
             return None
         if not val_str.isdigit():
             raise ValueError("Phone field must accept only numeric digits (0-9)")
-        if len(val_str) > 15 or len(val_str) < 7:
-            raise ValueError("Phone number must be between 7 and 15 numeric digits")
+        if len(val_str) != 10:
+            raise ValueError("Phone number must be exactly 10 numeric digits")
         return val_str
 
     @field_validator("gstin", mode="before")
@@ -43,10 +91,12 @@ class CustomerBase(BaseModel):
     def validate_gst(cls, value: Any) -> str | None:
         if value is None:
             return None
-        val_str = str(value).strip().upper()
-        if not val_str:
+        raw = str(value).strip()
+        if not raw:
             return None
-        return validate_gstin(val_str)
+        if raw != raw.upper() or any(ch.islower() for ch in raw):
+            raise ValueError("GSTIN must contain only uppercase letters and numeric values")
+        return validate_gstin(raw.upper())
 
 
 class CustomerCreate(CustomerBase):
@@ -70,18 +120,40 @@ class CustomerUpdate(BaseModel):
     outstanding: float | None = None
     status: str | None = None
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value: Any) -> str | None:
+        val_str = _optional_text(value)
+        if val_str is None:
+            return None
+        return _require_letter(val_str, "Company Name")
+
+    @field_validator("contact_name", mode="before")
+    @classmethod
+    def validate_contact_name(cls, value: Any) -> str | None:
+        val_str = _optional_text(value)
+        if val_str is None:
+            return None
+        return _require_letter(val_str, "Contact Person name")
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, value: Any) -> str | None:
+        val_str = _optional_text(value)
+        if val_str is None:
+            return None
+        return _validate_email(val_str)
+
     @field_validator("phone", mode="before")
     @classmethod
     def validate_phone(cls, value: Any) -> str | None:
-        if value is None:
-            return None
-        val_str = str(value).strip()
-        if not val_str:
+        val_str = _optional_text(value)
+        if val_str is None:
             return None
         if not val_str.isdigit():
             raise ValueError("Phone field must accept only numeric digits (0-9)")
-        if len(val_str) > 15 or len(val_str) < 7:
-            raise ValueError("Phone number must be between 7 and 15 numeric digits")
+        if len(val_str) != 10:
+            raise ValueError("Phone number must be exactly 10 numeric digits")
         return val_str
 
     @field_validator("gstin", mode="before")
@@ -89,10 +161,12 @@ class CustomerUpdate(BaseModel):
     def validate_gst(cls, value: Any) -> str | None:
         if value is None:
             return None
-        val_str = str(value).strip().upper()
-        if not val_str:
+        raw = str(value).strip()
+        if not raw:
             return None
-        return validate_gstin(val_str)
+        if raw != raw.upper() or any(ch.islower() for ch in raw):
+            raise ValueError("GSTIN must contain only uppercase letters and numeric values")
+        return validate_gstin(raw.upper())
 
 
 class CustomerRead(CustomerBase):
