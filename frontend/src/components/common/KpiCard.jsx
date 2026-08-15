@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 /**
  * Shared KPI card — use across dashboards and list pages.
- * Props: label, value, icon, meta/sub/trend, tone (optional semantic icon tint).
+ * Props: label, value, icon, meta/sub/trend, tone (optional semantic icon tint), to, onClick.
  * Legacy `color` (Tailwind bg-*) is accepted but mapped to a quiet semantic tone.
  * Optional `to` or `onClick` makes the card navigable / filterable.
  */
@@ -59,7 +59,7 @@ export default function KpiCard({
         : value;
 
   const interactive = Boolean(to || onClick);
-  const cardClass = `ui-kpi ${interactive ? "cursor-pointer transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]" : ""} ${className}`.trim();
+  const cardClass = `ui-kpi group ${interactive ? "cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]" : ""} ${className}`.trim();
 
   const inner = (
     <>

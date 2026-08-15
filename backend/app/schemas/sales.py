@@ -50,13 +50,56 @@ class CustomerBase(BaseModel):
     outstanding: float | None = 0.0
     status: str = "active"
 
+
+def _validate_customer_name(value: Any, *, required: bool) -> str | None:
+    if value is None:
+        if required:
+            raise ValueError("Company Name is required")
+        return None
+    val_str = str(value).strip()
+    if not val_str:
+        if required:
+            raise ValueError("Company Name is required")
+        return None
+    if len(val_str) > 100:
+        raise ValueError("Company Name cannot exceed 100 characters")
+    if not any(c.isalpha() for c in val_str):
+        raise ValueError("Company Name must contain at least one letter")
+    return val_str
+
+
+def _validate_customer_phone(value: Any) -> str | None:
+    val_str = _optional_text(value)
+    if val_str is None:
+        return None
+    if not val_str.isdigit():
+        raise ValueError("Phone field must accept only numeric digits (0-9)")
+    if len(val_str) > 15 or len(val_str) < 7:
+        raise ValueError("Phone number must be between 7 and 15 numeric digits")
+    if val_str[0] not in "6789":
+        raise ValueError(
+            f"Mobile No. cannot start with {val_str[0]} and must begin with a valid digit (6, 7, 8, or 9)"
+        )
+    return val_str
+
+
+def _validate_gstin(value: Any) -> str | None:
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+    normalized = raw.upper()
+    return validate_gstin(normalized)
+
+
+class CustomerCreate(CustomerBase):
     @field_validator("name", mode="before")
     @classmethod
     def validate_name(cls, value: Any) -> str:
-        val_str = _optional_text(value)
-        if not val_str:
-            raise ValueError("Company Name is required and cannot be blank or whitespace-only")
-        return _require_letter(val_str, "Company Name")
+        validated = _validate_customer_name(value, required=True)
+        assert validated is not None
+        return validated
 
     @field_validator("contact_name", mode="before")
     @classmethod
@@ -77,30 +120,12 @@ class CustomerBase(BaseModel):
     @field_validator("phone", mode="before")
     @classmethod
     def validate_phone(cls, value: Any) -> str | None:
-        val_str = _optional_text(value)
-        if val_str is None:
-            return None
-        if not val_str.isdigit():
-            raise ValueError("Phone field must accept only numeric digits (0-9)")
-        if len(val_str) != 10:
-            raise ValueError("Phone number must be exactly 10 numeric digits")
-        return val_str
+        return _validate_customer_phone(value)
 
     @field_validator("gstin", mode="before")
     @classmethod
     def validate_gst(cls, value: Any) -> str | None:
-        if value is None:
-            return None
-        raw = str(value).strip()
-        if not raw:
-            return None
-        if raw != raw.upper() or any(ch.islower() for ch in raw):
-            raise ValueError("GSTIN must contain only uppercase letters and numeric values")
-        return validate_gstin(raw.upper())
-
-
-class CustomerCreate(CustomerBase):
-    pass
+        return _validate_gstin(value)
 
 
 class CustomerUpdate(BaseModel):
@@ -123,10 +148,7 @@ class CustomerUpdate(BaseModel):
     @field_validator("name", mode="before")
     @classmethod
     def validate_name(cls, value: Any) -> str | None:
-        val_str = _optional_text(value)
-        if val_str is None:
-            return None
-        return _require_letter(val_str, "Company Name")
+        return _validate_customer_name(value, required=False)
 
     @field_validator("contact_name", mode="before")
     @classmethod
@@ -147,26 +169,12 @@ class CustomerUpdate(BaseModel):
     @field_validator("phone", mode="before")
     @classmethod
     def validate_phone(cls, value: Any) -> str | None:
-        val_str = _optional_text(value)
-        if val_str is None:
-            return None
-        if not val_str.isdigit():
-            raise ValueError("Phone field must accept only numeric digits (0-9)")
-        if len(val_str) != 10:
-            raise ValueError("Phone number must be exactly 10 numeric digits")
-        return val_str
+        return _validate_customer_phone(value)
 
     @field_validator("gstin", mode="before")
     @classmethod
     def validate_gst(cls, value: Any) -> str | None:
-        if value is None:
-            return None
-        raw = str(value).strip()
-        if not raw:
-            return None
-        if raw != raw.upper() or any(ch.islower() for ch in raw):
-            raise ValueError("GSTIN must contain only uppercase letters and numeric values")
-        return validate_gstin(raw.upper())
+        return _validate_gstin(value)
 
 
 class CustomerRead(CustomerBase):

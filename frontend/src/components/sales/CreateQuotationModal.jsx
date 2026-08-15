@@ -127,7 +127,7 @@ export default function CreateQuotationModal({ open, onClose, onSubmit, saving }
               {!loadingCustomers && customers.length === 0 ? (
                 <p className="mt-1 text-xs text-slate-500">
                   No customers yet.{" "}
-                  <Link to="/sales/customers?create=1" className="font-semibold text-[var(--color-success)] hover:underline">
+                  <Link to="/masters/customers?create=1" className="font-semibold text-[var(--color-success)] hover:underline">
                     Add a customer
                   </Link>{" "}
                   or type a name below.
