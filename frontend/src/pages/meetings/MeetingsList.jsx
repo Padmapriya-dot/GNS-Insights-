@@ -65,6 +65,7 @@ export default function MeetingsList() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [showConnectedBanner, setShowConnectedBanner] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -136,15 +137,7 @@ export default function MeetingsList() {
     if (connected === "1") {
       setSearchParams({}, { replace: true });
       load();
-      // Open Google Calendar in a new tab — done via a link click to bypass popup blockers
-      const a = document.createElement("a");
-      a.href = "https://calendar.google.com";
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      addToast("Google Calendar connected! Your meetings will now sync automatically.", "success");
+      setShowConnectedBanner(true);
     } else if (error) {
       const decoded = decodeURIComponent(error);
       const isRefreshTokenError = decoded.toLowerCase().includes("refresh token") || decoded.toLowerCase().includes("revoke");
@@ -422,6 +415,47 @@ export default function MeetingsList() {
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
       />
+
+      {/* ── Google Calendar Connected Overlay ── */}
+      {showConnectedBanner && (
+        <div
+          className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowConnectedBanner(false)}
+        >
+          <div
+            className="relative mx-4 w-full max-w-sm rounded-2xl bg-white p-8 shadow-2xl text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Green check circle */}
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+              <svg className="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Google Calendar Connected!</h2>
+            <p className="text-sm text-gray-500 mb-6">Your meetings will now sync automatically between this app and Google Calendar.</p>
+            <a
+              href="https://calendar.google.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#4285f4] px-5 py-3 text-sm font-semibold text-white hover:bg-[#3367d6] transition-colors mb-3"
+              onClick={() => setShowConnectedBanner(false)}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.5 3h-3V1.5h-1.5V3h-9V1.5H4.5V3h-3C.675 3 0 3.675 0 4.5v18C0 23.325.675 24 1.5 24h18c.825 0 1.5-.675 1.5-1.5v-18C21 3.675 20.325 3 19.5 3zM19.5 22.5h-18v-15h18v15z"/>
+              </svg>
+              Open Google Calendar
+            </a>
+            <button
+              type="button"
+              className="w-full rounded-xl border border-gray-200 px-5 py-2.5 text-sm text-gray-500 hover:bg-gray-50 transition-colors"
+              onClick={() => setShowConnectedBanner(false)}
+            >
+              Stay on Meetings
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
