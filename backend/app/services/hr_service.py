@@ -1,7 +1,12 @@
+import logging
 from datetime import date, datetime, timedelta
 
+from fastapi import HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.models.hr import (
     AttendanceRecord,
@@ -85,10 +90,27 @@ def record_clock_in(db: Session, tenant_id: int, employee_id: int, record_date: 
         )
     ).first()
     if existing:
+        if existing.clock_in is not None:
+            # Preserve existing clock-in time and prevent overwrite
+            return existing
         existing.clock_in = datetime.utcnow()
-        db.commit()
-        db.refresh(existing)
-        return existing
+        try:
+            db.commit()
+            db.refresh(existing)
+            return existing
+        except HTTPException:
+            raise
+        except SQLAlchemyError as exc:
+            logger.exception("Database error during clock in for employee_id=%s: %s", employee_id, exc)
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database error while recording clock in.",
+            ) from exc
+
     rec = AttendanceRecord(
         tenant_id=tenant_id,
         employee_id=employee_id,
@@ -96,10 +118,23 @@ def record_clock_in(db: Session, tenant_id: int, employee_id: int, record_date: 
         clock_in=datetime.utcnow(),
         capacity_hours=8.0,
     )
-    db.add(rec)
-    db.commit()
-    db.refresh(rec)
-    return rec
+    try:
+        db.add(rec)
+        db.commit()
+        db.refresh(rec)
+        return rec
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Database error during clock in for employee_id=%s: %s", employee_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while recording clock in.",
+        ) from exc
 
 
 def record_clock_out(
@@ -122,9 +157,22 @@ def record_clock_out(
         reg, ot = _calc_work_overtime(work_hours, cap)
         rec.work_hours = work_hours
         rec.overtime_hours = ot
-    db.commit()
-    db.refresh(rec)
-    return rec
+    try:
+        db.commit()
+        db.refresh(rec)
+        return rec
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Database error during clock out for employee_id=%s: %s", employee_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while recording clock out.",
+        ) from exc
 
 
 def list_attendance(
@@ -153,6 +201,9 @@ def create_payroll_record(db: Session, payload: PayrollRecordCreate) -> PayrollR
     return pr
 
 
+VALID_PAYROLL_STATUSES = {"draft", "pending", "approved", "processed", "paid", "cancelled"}
+
+
 def update_payroll_status(db: Session, tenant_id: int, payroll_id: int, new_status: str) -> PayrollRecord | None:
     pr = db.scalar(
         select(PayrollRecord).where(
@@ -161,10 +212,41 @@ def update_payroll_status(db: Session, tenant_id: int, payroll_id: int, new_stat
     )
     if not pr:
         return None
-    pr.status = new_status
-    db.commit()
-    db.refresh(pr)
-    return pr
+
+    status_clean = (new_status or "").strip().lower()
+    if status_clean not in VALID_PAYROLL_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid payroll status '{new_status}'. Valid statuses are: {', '.join(sorted(VALID_PAYROLL_STATUSES))}.",
+        )
+
+    pr.status = status_clean
+    try:
+        db.commit()
+        db.refresh(pr)
+        return pr
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Database error updating payroll status payroll_id=%s tenant_id=%s: %s", payroll_id, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while updating payroll status.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error updating payroll status payroll_id=%s tenant_id=%s: %s", payroll_id, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update payroll status.",
+        ) from exc
 
 
 def list_payroll(
@@ -298,11 +380,58 @@ def update_leave_request(
     ).first()
     if not leave:
         return None
-    for field, value in payload.model_dump(exclude_unset=True).items():
+
+    update_dict = payload.model_dump(exclude_unset=True)
+
+    # Pre-validate updated date range before applying attributes
+    new_start = update_dict.get("start_date", leave.start_date)
+    new_end = update_dict.get("end_date", leave.end_date)
+    if new_start and new_end and new_end < new_start:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="end_date must be on or after start_date.",
+        )
+
+    for field, value in update_dict.items():
         setattr(leave, field, value)
-    db.commit()
-    db.refresh(leave)
-    return leave
+
+    if leave.end_date < leave.start_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="end_date must be on or after start_date.",
+        )
+
+    # Recalculate leave days if start_date or end_date changed and days was not explicitly provided
+    if "start_date" in update_dict or "end_date" in update_dict:
+        if "days" not in update_dict:
+            leave.days = _leave_days(leave.start_date, leave.end_date)
+
+    try:
+        db.commit()
+        db.refresh(leave)
+        return leave
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Database error updating leave_request_id=%s tenant_id=%s: %s", leave_id, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while updating leave request.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error updating leave_request_id=%s tenant_id=%s: %s", leave_id, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update leave request.",
+        ) from exc
 
 
 # ── HR Assets ──────────────────────────────────────────────────────────────

@@ -1,5 +1,9 @@
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.models.maintenance import (
     BreakdownReport,
@@ -8,6 +12,7 @@ from app.models.maintenance import (
     PreventiveMaintenance,
 )
 from app.schemas.maintenance import (
+    VALID_BREAKDOWN_STATUSES,
     BreakdownReportCreate,
     MaintenanceRecordCreate,
     MaintenanceScheduleCreate,
@@ -16,10 +21,19 @@ from app.schemas.maintenance import (
 
 
 def create_maintenance_record(db: Session, payload: MaintenanceRecordCreate) -> MaintenanceRecord:
-    mr = MaintenanceRecord(**payload.model_dump())
-    db.add(mr)
-    db.commit()
-    db.refresh(mr)
+    try:
+        mr = MaintenanceRecord(**payload.model_dump())
+        db.add(mr)
+        db.commit()
+        db.refresh(mr)
+    except Exception as exc:
+        logger.exception("Database error creating maintenance record: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+
     try:
         from app.services.alert_event_service import emit_alert
 
@@ -35,8 +49,12 @@ def create_maintenance_record(db: Session, payload: MaintenanceRecordCreate) -> 
             reference_id=mr.id,
             created_by="Maintenance",
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.exception("Failed to emit alert for maintenance record id=%s: %s", mr.id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
     return mr
 
 
@@ -46,10 +64,19 @@ def list_maintenance_records(db: Session, tenant_id: int) -> list[MaintenanceRec
 
 
 def create_preventive_maintenance(db: Session, payload: PreventiveMaintenanceCreate) -> PreventiveMaintenance:
-    pm = PreventiveMaintenance(**payload.model_dump())
-    db.add(pm)
-    db.commit()
-    db.refresh(pm)
+    try:
+        pm = PreventiveMaintenance(**payload.model_dump())
+        db.add(pm)
+        db.commit()
+        db.refresh(pm)
+    except Exception as exc:
+        logger.exception("Database error creating preventive maintenance: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+
     try:
         from app.services.alert_event_service import emit_alert
 
@@ -65,8 +92,12 @@ def create_preventive_maintenance(db: Session, payload: PreventiveMaintenanceCre
             reference_id=pm.id,
             created_by="Maintenance",
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.exception("Failed to emit alert for preventive maintenance id=%s: %s", pm.id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
     return pm
 
 
@@ -76,10 +107,19 @@ def list_preventive_maintenance(db: Session, tenant_id: int) -> list[PreventiveM
 
 
 def create_breakdown_report(db: Session, payload: BreakdownReportCreate) -> BreakdownReport:
-    br = BreakdownReport(**payload.model_dump())
-    db.add(br)
-    db.commit()
-    db.refresh(br)
+    try:
+        br = BreakdownReport(**payload.model_dump())
+        db.add(br)
+        db.commit()
+        db.refresh(br)
+    except Exception as exc:
+        logger.exception("Database error creating breakdown report: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+
     try:
         from app.services.alert_event_service import emit_alert
 
@@ -95,8 +135,12 @@ def create_breakdown_report(db: Session, payload: BreakdownReportCreate) -> Brea
             reference_id=br.id,
             created_by="Maintenance",
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.exception("Failed to emit alert for breakdown report id=%s: %s", br.id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
     return br
 
 
@@ -108,26 +152,45 @@ def list_breakdown_reports(db: Session, tenant_id: int) -> list[BreakdownReport]
 def update_breakdown_status(
     db: Session, tenant_id: int, breakdown_id: int, status: str
 ) -> BreakdownReport | None:
-    br = db.scalars(
-        select(BreakdownReport).where(
-            BreakdownReport.id == breakdown_id,
-            BreakdownReport.tenant_id == tenant_id,
-        )
-    ).first()
-    if not br:
-        return None
-    br.status = status
-    db.commit()
-    db.refresh(br)
-    return br
+    s = (status or "").strip().lower()
+    if s not in VALID_BREAKDOWN_STATUSES:
+        raise ValueError(f"Invalid breakdown status '{status}'. Must be one of {', '.join(sorted(VALID_BREAKDOWN_STATUSES))}.")
+    try:
+        br = db.scalars(
+            select(BreakdownReport).where(
+                BreakdownReport.id == breakdown_id,
+                BreakdownReport.tenant_id == tenant_id,
+            )
+        ).first()
+        if not br:
+            return None
+        br.status = s
+        db.commit()
+        db.refresh(br)
+        return br
+    except Exception as exc:
+        logger.exception("Database error updating breakdown status id=%s: %s", breakdown_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
 
 
 def create_maintenance_schedule(db: Session, payload: MaintenanceScheduleCreate) -> MaintenanceSchedule:
-    ms = MaintenanceSchedule(**payload.model_dump())
-    db.add(ms)
-    db.commit()
-    db.refresh(ms)
-    return ms
+    try:
+        ms = MaintenanceSchedule(**payload.model_dump())
+        db.add(ms)
+        db.commit()
+        db.refresh(ms)
+        return ms
+    except Exception as exc:
+        logger.exception("Database error creating maintenance schedule: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
 
 
 def list_maintenance_schedules(db: Session, tenant_id: int) -> list[MaintenanceSchedule]:

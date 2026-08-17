@@ -1067,8 +1067,8 @@ export default function ReferenceDashboard() {
       const todayProdCount = allOrders.filter((o) => {
         const sDate = o.start_date ? String(o.start_date).slice(0, 10) : "";
         const cDate = o.created_at ? String(o.created_at).slice(0, 10) : "";
-        const dDate = o.due_date ? String(o.due_date).slice(0, 10) : "";
-        return sDate === todayIso || cDate === todayIso || dDate === todayIso || sDate === "2026-08-13" || cDate === "2026-08-13";
+        const st = (o.status || "").toLowerCase();
+        return (sDate === todayIso || (!sDate && cDate === todayIso)) && st !== "cancelled";
       }).length;
 
       setLiveCounts({

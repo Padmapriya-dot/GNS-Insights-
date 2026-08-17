@@ -253,10 +253,15 @@ def update_payroll_status_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)),
     db: Session = Depends(get_db),
 ):
-    pr = update_payroll_status(db, tenant_id, payroll_id, status)
-    if not pr:
-        raise HTTPException(status_code=404, detail="Payroll record not found")
-    return pr
+    try:
+        pr = update_payroll_status(db, tenant_id, payroll_id, status)
+        if not pr:
+            raise HTTPException(status_code=404, detail="Payroll record not found")
+        return pr
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/performance", response_model=PerformanceReviewRead)
@@ -310,10 +315,15 @@ def update_leave_endpoint(
     user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ):
-    leave = update_leave_request(db, user.tenant_id, leave_id, payload)
-    if not leave:
-        raise HTTPException(404, "Leave request not found")
-    return leave
+    try:
+        leave = update_leave_request(db, user.tenant_id, leave_id, payload)
+        if not leave:
+            raise HTTPException(404, "Leave request not found")
+        return leave
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @router.get("/departments/summary", response_model=DepartmentSummaryRead)
@@ -339,7 +349,7 @@ def create_department_endpoint(
     db: Session = Depends(get_db),
 ) -> DepartmentListRead:
     payload.tenant_id = user.tenant_id
-    dept = create_department(db, payload)
+    dept = create_department(db, user.tenant_id, payload)
     enriched = list_departments_enriched(db, user.tenant_id)
     match = next((d for d in enriched if d.id == dept.id), None)
     return match or _to_list_read(db, user.tenant_id, dept)
@@ -428,9 +438,15 @@ def leave_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session =
     return list_leave_enriched(db, tenant_id)
 
 
+@router.post("/payroll/summary", response_model=PayrollSummaryRead)
 @router.get("/payroll/summary", response_model=PayrollSummaryRead)
-def payroll_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
-    return get_payroll_summary(db, tenant_id)
+def payroll_summary(
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    month: str | None = Query(None),
+    year: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    return get_payroll_summary(db, tenant_id, month=month, year=year)
 
 
 @router.get("/payroll/enriched", response_model=list[PayrollListRead])

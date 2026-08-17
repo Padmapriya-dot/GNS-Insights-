@@ -66,9 +66,37 @@ def get_ap_summary(db: Session, tenant_id: int) -> APSummaryRead:
     )
     
     payments = list(db.scalars(select(SupplierPayment).where(SupplierPayment.tenant_id == tenant_id)).all())
-    payments_by_supplier = {}
+    
+    po_map = {po.id: po for po in pos_without_bills}
+    po_num_map = {po.po_number: po.id for po in pos_without_bills if getattr(po, "po_number", None)}
+
+    specific_po_payments: dict[int, float] = {}
+    unallocated_supplier_payments: dict[int, float] = {}
+
     for p in payments:
-        payments_by_supplier[p.supplier_id] = payments_by_supplier.get(p.supplier_id, 0.0) + float(p.amount or 0)
+        p_amt = float(p.amount or 0)
+        po_id = getattr(p, "purchase_order_id", None)
+        matched_po_id = None
+
+        if po_id and po_id in po_map:
+            matched_po_id = po_id
+        else:
+            ref_str = (getattr(p, "reference", "") or "") + " " + (getattr(p, "notes", "") or "")
+            if ref_str.strip():
+                for num, pid in po_num_map.items():
+                    if num and num in ref_str:
+                        matched_po_id = pid
+                        break
+                if not matched_po_id:
+                    for pid in po_map:
+                        if f"PO-{pid}" in ref_str or f"PO#{pid}" in ref_str or f"po_{pid}" in ref_str:
+                            matched_po_id = pid
+                            break
+
+        if matched_po_id:
+            specific_po_payments[matched_po_id] = specific_po_payments.get(matched_po_id, 0.0) + p_amt
+        else:
+            unallocated_supplier_payments[p.supplier_id] = unallocated_supplier_payments.get(p.supplier_id, 0.0) + p_amt
         
     vendors = int(db.scalar(select(func.count(Supplier.id)).where(Supplier.tenant_id == tenant_id)) or 0)
     
@@ -98,8 +126,14 @@ def get_ap_summary(db: Session, tenant_id: int) -> APSummaryRead:
         amt = float(po.total_amount or 0) + float(po.gst_amount or 0)
         if amt <= 0:
             continue
-        p_paid = min(amt, payments_by_supplier.get(po.supplier_id, 0.0))
-        bal = max(0.0, amt - p_paid)
+        spec_paid = specific_po_payments.get(po.id, 0.0)
+        rem_amt = max(0.0, amt - spec_paid)
+        if rem_amt > 0 and unallocated_supplier_payments.get(po.supplier_id, 0.0) > 0:
+            alloc = min(rem_amt, unallocated_supplier_payments[po.supplier_id])
+            unallocated_supplier_payments[po.supplier_id] -= alloc
+            rem_amt -= alloc
+        bal = max(0.0, rem_amt)
+
         po_due = po.expected_date or po.order_date
         if bal > 0:
             outstanding += bal
@@ -341,18 +375,48 @@ def get_payment_summary(db: Session, tenant_id: int) -> PaymentSummaryRead:
     cust_pays = list(db.scalars(select(Payment).where(Payment.tenant_id == tenant_id)).all())
     vend_pays = list(db.scalars(select(SupplierPayment).where(SupplierPayment.tenant_id == tenant_id)).all())
     cash_today = sum(float(p.amount or 0) for p in cust_pays if p.payment_date == today and p.method == "cash")
-    cash_today += sum(float(p.amount or 0) for p in vend_pays if p.payment_date == today and p.payment_method == "cash")
+    cash_today -= sum(float(p.amount or 0) for p in vend_pays if p.payment_date == today and p.payment_method == "cash")
     online = sum(float(p.amount or 0) for p in cust_pays if p.method in ("upi", "online", "card"))
     cash_all = sum(float(p.amount or 0) for p in cust_pays if p.method == "cash")
     bank = sum(float(p.amount or 0) for p in cust_pays if p.method in ("neft", "rtgs", "bank", "cheque"))
     bank += sum(float(p.amount or 0) for p in vend_pays if p.payment_method in ("neft", "rtgs", "bank"))
+
+    failed = sum(
+        1 for p in cust_pays
+        if getattr(p, "status", None) in ("failed", "bounced", "rejected", "cancelled")
+        or "failed" in (getattr(p, "notes", None) or "").lower()
+    ) + sum(
+        1 for p in vend_pays
+        if getattr(p, "status", None) in ("failed", "bounced", "rejected", "cancelled")
+        or "failed" in (getattr(p, "notes", None) or "").lower()
+    )
+
+    pending_cust = sum(
+        1 for p in cust_pays
+        if getattr(p, "status", None) in ("pending", "processing", "unpaid", "draft")
+        or "pending" in (getattr(p, "notes", None) or "").lower()
+    )
+    pending_vend = sum(
+        1 for p in vend_pays
+        if getattr(p, "status", None) in ("pending", "processing", "unpaid", "draft")
+        or "pending" in (getattr(p, "notes", None) or "").lower()
+    )
+    pending_inv = len(list(db.scalars(
+        select(Invoice).where(
+            Invoice.tenant_id == tenant_id,
+            Invoice.payment_status.in_(("unpaid", "pending", "partial")),
+        )
+    ).all()))
+
+    pending = pending_cust + pending_vend + pending_inv
+
     return PaymentSummaryRead(
         cash_received_today=cash_today,
         online_payments=online,
         cash_payments=cash_all,
         bank_transfers=bank,
-        failed_payments=2,
-        pending_payments=5,
+        failed_payments=failed,
+        pending_payments=pending,
     )
 
 
@@ -683,7 +747,30 @@ def get_gst_extended(db: Session, tenant_id: int, year: int, month: str | None =
         product_gst_map[product_name or "Unspecified"] = product_gst
     
     by_prod = [{"name": k, "gst": v} for k, v in product_gst_map.items()]
-    
+
+    # Calculate actual Input GST (Receivable) from Purchase Orders and Vendor Bills
+    vb_gst_stmt = select(func.coalesce(func.sum(VendorBill.gst_amount), 0)).where(
+        VendorBill.tenant_id == tenant_id,
+        func.extract("year", VendorBill.bill_date) == year,
+    )
+    po_gst_stmt = select(func.coalesce(func.sum(PurchaseOrder.gst_amount), 0)).where(
+        PurchaseOrder.tenant_id == tenant_id,
+        func.extract("year", PurchaseOrder.order_date) == year,
+    )
+    if month_filter:
+        vb_gst_stmt = vb_gst_stmt.where(func.extract("month", VendorBill.bill_date) == month_filter)
+        po_gst_stmt = po_gst_stmt.where(func.extract("month", PurchaseOrder.order_date) == month_filter)
+    if branch:
+        vb_gst_stmt = vb_gst_stmt.where(getattr(VendorBill, "branch", True) == branch)
+        po_gst_stmt = po_gst_stmt.where(getattr(PurchaseOrder, "branch", True) == branch)
+
+    vb_gst = float(db.scalar(vb_gst_stmt) or 0)
+    po_gst = float(db.scalar(po_gst_stmt) or 0)
+    gst_receivable = vb_gst + po_gst
+
+    # GST Payable (Net Output GST Payable = Output GST collected on sales - Input GST paid on purchases)
+    gst_payable = max(0.0, total - gst_receivable) if total > 0 else 0.0
+
     return GSTExtendedRead(
         year=year,
         sgst=sgst,
@@ -691,8 +778,8 @@ def get_gst_extended(db: Session, tenant_id: int, year: int, month: str | None =
         igst=igst,
         total_gst=total,
         taxable_value=taxable,
-        gst_payable=total * 0.6,
-        gst_receivable=total * 0.4,
+        gst_payable=gst_payable,
+        gst_receivable=gst_receivable,
         monthly_collection=monthly,
         gst_trend=trend,
         gst_by_customer=by_cust,
@@ -868,7 +955,7 @@ def get_finance_hub(db: Session, tenant_id: int, current_user=None) -> FinanceHu
         {"name": "Labour",       "amount": total_expense * 0.25},
         {"name": "Machine",      "amount": total_expense * 0.12},
         {"name": "Electricity",  "amount": total_expense * 0.08},
-        {"name": "Maintenance",  "amount": total_expense * 0.05},
+        {"name": "Maintenance",  "amount": total_expense * 0.10},
     ]
 
     cur_month        = date.today().month
@@ -970,18 +1057,33 @@ def get_extended_reports(
     # Date filter checks
     if financial_year and financial_year != "All Years":
         parts = financial_year.split("-")
-        if len(parts) == 2:
-            try:
+        try:
+            if len(parts) == 1:
                 start_yr = int(parts[0])
                 end_yr = start_yr + 1
-                inv_stmt = inv_stmt.where(Invoice.issue_date >= date(start_yr, 4, 1), Invoice.issue_date <= date(end_yr, 3, 31))
-                inc_stmt = inc_stmt.where(Income.income_date >= date(start_yr, 4, 1), Income.income_date <= date(end_yr, 3, 31))
-                exp_stmt = exp_stmt.where(Expense.expense_date >= date(start_yr, 4, 1), Expense.expense_date <= date(end_yr, 3, 31))
-                pmt_stmt = pmt_stmt.where(Payment.payment_date >= date(start_yr, 4, 1), Payment.payment_date <= date(end_yr, 3, 31))
-                bill_stmt = bill_stmt.where(VendorBill.bill_date >= date(start_yr, 4, 1), VendorBill.bill_date <= date(end_yr, 3, 31))
-                sp_stmt = sp_stmt.where(SupplierPayment.payment_date >= date(start_yr, 4, 1), SupplierPayment.payment_date <= date(end_yr, 3, 31))
-            except ValueError:
-                pass
+            elif len(parts) == 2:
+                start_yr = int(parts[0])
+                if len(parts[1]) == 2:
+                    end_yr = int(str(start_yr)[:2] + parts[1])
+                else:
+                    end_yr = int(parts[1])
+            else:
+                raise ValueError(f"Invalid financial year format: {financial_year}")
+
+            if start_yr < 1900 or start_yr > 2100:
+                raise ValueError(f"Financial year out of range: {financial_year}")
+
+            inv_stmt = inv_stmt.where(Invoice.issue_date >= date(start_yr, 4, 1), Invoice.issue_date <= date(end_yr, 3, 31))
+            inc_stmt = inc_stmt.where(Income.income_date >= date(start_yr, 4, 1), Income.income_date <= date(end_yr, 3, 31))
+            exp_stmt = exp_stmt.where(Expense.expense_date >= date(start_yr, 4, 1), Expense.expense_date <= date(end_yr, 3, 31))
+            pmt_stmt = pmt_stmt.where(Payment.payment_date >= date(start_yr, 4, 1), Payment.payment_date <= date(end_yr, 3, 31))
+            bill_stmt = bill_stmt.where(VendorBill.bill_date >= date(start_yr, 4, 1), VendorBill.bill_date <= date(end_yr, 3, 31))
+            sp_stmt = sp_stmt.where(SupplierPayment.payment_date >= date(start_yr, 4, 1), SupplierPayment.payment_date <= date(end_yr, 3, 31))
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid financial year filter: '{financial_year}'. Expected format 'YYYY-YYYY' or 'YYYY-YY'.",
+            ) from exc
 
     invs = list(db.scalars(inv_stmt).all())
     incomes = list(db.scalars(inc_stmt).all())
@@ -992,17 +1094,31 @@ def get_extended_reports(
 
     # Month Filter
     if month and month != "All Months":
-        month_names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-        try:
-            m_idx = month_names.index(month) + 1
-            invs = [i for i in invs if i.issue_date and i.issue_date.month == m_idx]
-            incomes = [inc for inc in incomes if inc.income_date and inc.income_date.month == m_idx]
-            exps = [e for e in exps if e.expense_date and e.expense_date.month == m_idx]
-            payments = [p for p in payments if p.payment_date and p.payment_date.month == m_idx]
-            bills = [b for b in bills if b.bill_date and b.bill_date.month == m_idx]
-            supplier_payments = [sp for sp in supplier_payments if sp.payment_date and sp.payment_date.month == m_idx]
-        except ValueError:
-            pass
+        month_names_full = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
+        month_names_short = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+        target_m = month.strip().lower()
+        m_idx = None
+        if target_m in month_names_full:
+            m_idx = month_names_full.index(target_m) + 1
+        elif target_m in month_names_short:
+            m_idx = month_names_short.index(target_m) + 1
+        elif target_m.isdigit():
+            val = int(target_m)
+            if 1 <= val <= 12:
+                m_idx = val
+
+        if m_idx is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid month filter: '{month}'. Expected a valid month name or month number (1-12).",
+            )
+
+        invs = [i for i in invs if i.issue_date and i.issue_date.month == m_idx]
+        incomes = [inc for inc in incomes if inc.income_date and inc.income_date.month == m_idx]
+        exps = [e for e in exps if e.expense_date and e.expense_date.month == m_idx]
+        payments = [p for p in payments if p.payment_date and p.payment_date.month == m_idx]
+        bills = [b for b in bills if b.bill_date and b.bill_date.month == m_idx]
+        supplier_payments = [sp for sp in supplier_payments if sp.payment_date and sp.payment_date.month == m_idx]
 
     # Branch Filter - only filter by actual stored branch values, do not use dummy defaults
     if branch:

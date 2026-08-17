@@ -196,6 +196,7 @@ export const UserManagement = lazy(() => import("../pages/admin/UserManagement")
 export const RolesPermissions = lazy(() => import("../pages/admin/RolesPermissions"));
 export const AccessLogs = lazy(() => import("../pages/admin/AccessLogs"));
 export const IntegrationsDashboard = lazy(() => import("../pages/admin/IntegrationsDashboard"));
+export const PendingApprovals = lazy(() => import("../pages/admin/PendingApprovals"));
 export const DocumentsDashboard = lazy(() => import("../pages/documents/DocumentsDashboard"));
 export const MeetingsList = lazy(() => import("../pages/meetings/MeetingsList"));
 export const MeetingDetail = lazy(() => import("../pages/meetings/MeetingDetail"));

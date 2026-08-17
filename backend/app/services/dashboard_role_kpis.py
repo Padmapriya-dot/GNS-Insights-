@@ -89,7 +89,8 @@ def _out_of_stock_count(db: Session, tenant_id: int) -> int:
     )
     if not items:
         return 0
-    levels = list(db.scalars(select(StockLevel)).all())
+    item_ids = [i.id for i in items]
+    levels = list(db.scalars(select(StockLevel).where(StockLevel.item_id.in_(item_ids))).all())
     qty_by_item: dict[int, float] = {}
     for sl in levels:
         qty_by_item[sl.item_id] = qty_by_item.get(sl.item_id, 0.0) + float(sl.quantity or 0)
@@ -170,9 +171,9 @@ def build_admin_kpis(db: Session, tenant_id: int, user: User | None, ctx: dict[s
     approvals = int(get_pending_approvals(db, tenant_id).get("total") or 0)
     today = ctx["today"]
     return [
-        _kpi("total-users", "Total Users", stats["total_users"], trend_label="registered users", link="/settings"),
+        _kpi("total-users", "Total Users", stats["total_users"], trend_label="registered users", link="/admin/users"),
         _kpi("total-employees", "Total Employees", emp.total_employees, trend_label="active employees", link="/hr/employees"),
-        _kpi("pending-approvals", "Pending Approvals", approvals, trend_label="awaiting action", link="/procurement/purchase-orders"),
+        _kpi("pending-approvals", "Pending Approvals", approvals, trend_label="awaiting action", link="/admin/approvals"),
         _kpi("total-orders", "Total Orders", ctx["total_orders"], trend_label="production orders", link="/production/planning"),
         _kpi(
             "today-production",

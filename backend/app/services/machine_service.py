@@ -1,10 +1,14 @@
-"""Machine master — enriched list, summary, detail."""
-
+import logging
 from datetime import date, datetime, timezone
 
+from fastapi import HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+logger = logging.getLogger(__name__)
+
+from app.models.maintenance import MaintenanceRecord, PreventiveMaintenance
 from app.models.machine import Machine, MachineStatusEvent
 from app.models.production import DailyProductionReport, WorkOrder
 from app.models.user import User
@@ -114,8 +118,12 @@ def get_machine_summary(
 def get_machine_detail(
     db: Session, tenant_id: int, machine_id: int, user: User | None = None
 ) -> MachineDetailRead | None:
-    machines = list_machines(db, tenant_id, user=user)
-    machine = next((m for m in machines if m.id == machine_id), None)
+    stmt = select(Machine).where(Machine.id == machine_id, Machine.tenant_id == tenant_id)
+    if user is not None and user.assigned_machine_id and "Operator" in {r.name for r in user.roles}:
+        stmt = stmt.where(Machine.id == user.assigned_machine_id)
+    elif user is not None and user.plant_code and "Production Manager" in {r.name for r in user.roles}:
+        stmt = stmt.where((Machine.plant_code == user.plant_code) | (Machine.plant_code.is_(None)))
+    machine = db.scalars(stmt).first()
     if not machine:
         return None
 
@@ -133,7 +141,44 @@ def get_machine_detail(
         ).all()
     )
     detail.work_orders = [MachineWorkOrderRead.model_validate(w) for w in work_orders]
-    detail.maintenance_history = []
+
+    maintenance_records = list(
+        db.scalars(
+            select(MaintenanceRecord)
+            .where(
+                MaintenanceRecord.machine_id == machine_id,
+                MaintenanceRecord.tenant_id == tenant_id,
+            )
+            .order_by(MaintenanceRecord.maintenance_date.desc(), MaintenanceRecord.id.desc())
+            .limit(15)
+        ).all()
+    )
+    if maintenance_records:
+        detail.maintenance_history = [
+            MachineMaintenanceRead.model_validate(r) for r in maintenance_records
+        ]
+    else:
+        pm_records = list(
+            db.scalars(
+                select(PreventiveMaintenance)
+                .where(
+                    PreventiveMaintenance.machine_id == machine_id,
+                    PreventiveMaintenance.tenant_id == tenant_id,
+                )
+                .order_by(PreventiveMaintenance.schedule_date.desc(), PreventiveMaintenance.id.desc())
+                .limit(15)
+            ).all()
+        )
+        detail.maintenance_history = [
+            MachineMaintenanceRead(
+                id=pm.id,
+                maintenance_date=pm.schedule_date,
+                maintenance_type=pm.maintenance_type or "preventive",
+                description=pm.task_description,
+                performed_by=pm.assigned_engineer,
+            )
+            for pm in pm_records
+        ]
 
     logs = list(
         db.scalars(
@@ -153,23 +198,71 @@ def get_machine_detail(
 
 
 def create_machine_extended(db: Session, payload: MachineCreateExtended) -> Machine:
-    machine = Machine(**payload.model_dump())
-    db.add(machine)
-    db.commit()
-    db.refresh(machine)
-    return machine
+    try:
+        machine = Machine(**payload.model_dump())
+        db.add(machine)
+        db.commit()
+        db.refresh(machine)
+        return machine
+    except HTTPException:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Database error creating machine code=%s: %s", getattr(payload, "code", None), exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while creating machine.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error creating machine: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
 
 
 def update_machine_full(
     db: Session, tenant_id: int, machine_id: int, payload: MachineFullUpdate
 ) -> Machine | None:
-    machine = db.scalars(
-        select(Machine).where(Machine.id == machine_id, Machine.tenant_id == tenant_id)
-    ).first()
-    if not machine:
-        return None
-    for key, value in payload.model_dump(exclude_unset=True).items():
-        setattr(machine, key, value)
-    db.commit()
-    db.refresh(machine)
-    return machine
+    try:
+        machine = db.scalars(
+            select(Machine).where(Machine.id == machine_id, Machine.tenant_id == tenant_id)
+        ).first()
+        if not machine:
+            return None
+        for key, value in payload.model_dump(exclude_unset=True).items():
+            setattr(machine, key, value)
+        db.commit()
+        db.refresh(machine)
+        return machine
+    except HTTPException:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Database error updating machine_id=%s tenant_id=%s: %s", machine_id, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while updating machine.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error updating machine_id=%s tenant_id=%s: %s", machine_id, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
