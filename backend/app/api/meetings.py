@@ -24,6 +24,7 @@ from app.services.meeting_service import (
     create_meeting,
     delete_meeting,
     get_meeting,
+    import_from_google_calendar,
     list_meetings,
     sync_meeting_to_google,
     update_meeting,
@@ -115,6 +116,17 @@ def delete_meeting_endpoint(
     )
     if not deleted:
         raise HTTPException(status_code=404, detail="Meeting not found.")
+
+
+@router.post("/import-google", status_code=200)
+def import_google_calendar_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    current_user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+):
+    """Import all Google Calendar events as ERP meetings (skips already-imported ones)."""
+    result = import_from_google_calendar(db, tenant_id=tenant_id, user=current_user)
+    return result
 
 
 @router.post("/{meeting_id}/sync-google", response_model=MeetingRead)

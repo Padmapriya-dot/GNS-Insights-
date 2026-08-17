@@ -14,6 +14,8 @@ export const createMeetingGoogleMeet = (id) => api.post(`/meetings/${id}/google-
 
 export const syncMeetingToGoogle = (id) => api.post(`/meetings/${id}/sync-google`);
 
+export const importFromGoogleCalendar = () => api.post("/meetings/import-google");
+
 export const getGoogleCalendarStatus = () =>
   api.get("/integrations/google/calendar/status");
 

@@ -16,6 +16,7 @@ import {
   disconnectGoogleCalendar,
   getGoogleCalendarStatus,
   getMeetings,
+  importFromGoogleCalendar,
   syncMeetingToGoogle,
   updateMeeting,
 } from "../../api/meetingsApi";
@@ -208,6 +209,26 @@ export default function MeetingsList() {
     }
   };
 
+  const handleImportGoogle = async () => {
+    try {
+      const res = await importFromGoogleCalendar();
+      const { imported, skipped, error } = res?.data || {};
+      if (error) {
+        addToast(`Import failed: ${error}`, "error");
+      } else {
+        addToast(
+          imported > 0
+            ? `Imported ${imported} meeting${imported !== 1 ? "s" : ""} from Google Calendar.${ skipped > 0 ? ` (${skipped} already existed)` : ""}`
+            : `All Google Calendar events are already in your meetings. (${skipped} skipped)`,
+          imported > 0 ? "success" : "info"
+        );
+        if (imported > 0) load();
+      }
+    } catch (err) {
+      addToast(apiErrorMessage(err, "Unable to import from Google Calendar."), "error");
+    }
+  };
+
   const handleSyncGoogle = async (row) => {
     try {
       const res = await syncMeetingToGoogle(row.id);
@@ -341,6 +362,7 @@ export default function MeetingsList() {
         onOpenCalendar={openCalendar}
         onConnectGoogle={handleConnect}
         onDisconnectGoogle={handleDisconnect}
+        onImportGoogle={handleImportGoogle}
         onRefresh={load}
       />
 

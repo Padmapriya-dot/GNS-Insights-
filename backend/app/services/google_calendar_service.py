@@ -613,3 +613,78 @@ def add_meet_to_existing_event(
             detail=f"Google Meet generation failed: {getattr(exc, 'reason', str(exc))}",
         ) from exc
     return meeting
+
+
+def fetch_google_calendar_events(
+    db: Session,
+    *,
+    tenant_id: int,
+    user_id: int,
+    days_back: int = 30,
+    days_ahead: int = 60,
+) -> list[dict[str, Any]]:
+    """Fetch events from the user's primary Google Calendar for a date window.
+
+    Returns a list of simplified event dicts ready for the frontend to display
+    or the import service to consume.
+    """
+    _, creds = get_valid_credentials(db, tenant_id=tenant_id, user_id=user_id)
+    service = _calendar_service(creds)
+
+    now = datetime.now(timezone.utc)
+    time_min = (now - timedelta(days=days_back)).isoformat()
+    time_max = (now + timedelta(days=days_ahead)).isoformat()
+
+    try:
+        result = (
+            service.events()
+            .list(
+                calendarId="primary",
+                timeMin=time_min,
+                timeMax=time_max,
+                maxResults=250,
+                singleEvents=True,
+                orderBy="startTime",
+            )
+            .execute()
+        )
+    except HttpError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Google Calendar API error: {getattr(exc, 'reason', str(exc))}",
+        ) from exc
+
+    items = result.get("items", [])
+    events: list[dict[str, Any]] = []
+    for ev in items:
+        if ev.get("status") == "cancelled":
+            continue
+        start = ev.get("start", {})
+        end = ev.get("end", {})
+        # All-day events use 'date', timed events use 'dateTime'
+        start_dt = start.get("dateTime") or start.get("date") or ""
+        end_dt = end.get("dateTime") or end.get("date") or ""
+        meet_url = ev.get("hangoutLink")
+        if not meet_url:
+            for ep in (ev.get("conferenceData") or {}).get("entryPoints", []):
+                if ep.get("entryPointType") == "video":
+                    meet_url = ep.get("uri")
+                    break
+        attendees = [a.get("email") for a in ev.get("attendees") or [] if a.get("email")]
+        events.append(
+            {
+                "google_event_id": ev.get("id"),
+                "title": ev.get("summary") or "(No title)",
+                "description": ev.get("description"),
+                "location": ev.get("location"),
+                "start": start_dt,
+                "end": end_dt,
+                "timezone": start.get("timeZone") or end.get("timeZone") or "UTC",
+                "organizer_email": (ev.get("organizer") or {}).get("email"),
+                "attendees": attendees,
+                "google_meet_url": meet_url,
+                "google_calendar_event_url": ev.get("htmlLink"),
+                "all_day": "date" in start and "dateTime" not in start,
+            }
+        )
+    return events
