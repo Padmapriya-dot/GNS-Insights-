@@ -171,10 +171,10 @@ def google_calendar_callback_endpoint(
         return RedirectResponse(f"{frontend}/meetings?google_error={quote(str(error))}")
     if not code or not state:
         return RedirectResponse(f"{frontend}/meetings?google_error={quote('missing_code')}")
-    user_id, tenant_id = gcal.decode_oauth_state(state)
     try:
+        user_id, tenant_id, code_verifier = gcal.decode_oauth_state(state)
         gcal.exchange_authorization_code(
-            db, tenant_id=tenant_id, user_id=user_id, code=code
+            db, tenant_id=tenant_id, user_id=user_id, code=code, code_verifier=code_verifier
         )
     except HTTPException as exc:
         detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)

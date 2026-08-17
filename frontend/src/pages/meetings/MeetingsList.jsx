@@ -104,6 +104,9 @@ export default function MeetingsList() {
       addToast("Google Calendar connected successfully.", "success");
       setSearchParams({}, { replace: true });
       load();
+      try {
+        window.open("https://calendar.google.com", "_blank", "noopener,noreferrer");
+      } catch {}
     } else if (error) {
       addToast(`Google Calendar connection failed: ${decodeURIComponent(error)}`, "error");
       setSearchParams({}, { replace: true });

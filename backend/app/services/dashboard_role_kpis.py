@@ -163,7 +163,7 @@ def _po_status_counts(db: Session, tenant_id: int) -> dict[str, int]:
 
 def build_admin_kpis(db: Session, tenant_id: int, user: User | None, ctx: dict[str, Any]) -> list[dict]:
     from app.services.approval_service import get_pending_approvals
-    from app.services.hr_service import get_employee_summary
+    from app.services.hr_extended_service import get_employee_summary
     from app.services.rbac_service import get_user_stats
 
     stats = get_user_stats(db, tenant_id)
@@ -346,7 +346,7 @@ def build_store_kpis(db: Session, tenant_id: int, ctx: dict[str, Any]) -> list[d
 
 
 def build_hr_kpis(db: Session, tenant_id: int) -> list[dict]:
-    from app.services.hr_service import get_employee_summary
+    from app.services.hr_extended_service import get_employee_summary
 
     emp = get_employee_summary(db, tenant_id)
     return [

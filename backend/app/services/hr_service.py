@@ -532,3 +532,10 @@ def delete_safety_incident(db: Session, tenant_id: int, incident_id: int) -> boo
     db.delete(row)
     db.commit()
     return True
+
+
+# Re-export from hr_extended_service for backwards compatibility
+def get_employee_summary(db: Session, tenant_id: int):
+    from app.services.hr_extended_service import get_employee_summary as _get_employee_summary
+    return _get_employee_summary(db, tenant_id)
+

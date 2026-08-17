@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -73,18 +74,20 @@ def _require_configured() -> None:
         )
 
 
-def create_oauth_state(*, user_id: int, tenant_id: int) -> str:
+def create_oauth_state(*, user_id: int, tenant_id: int, code_verifier: str | None = None) -> str:
     settings = _settings()
-    payload = {
+    payload: dict[str, Any] = {
         "sub": str(user_id),
         "tenant_id": tenant_id,
         "purpose": "google_calendar_oauth",
         "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
     }
+    if code_verifier:
+        payload["code_verifier"] = code_verifier
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
-def decode_oauth_state(state: str) -> tuple[int, int]:
+def decode_oauth_state(state: str) -> tuple[int, int, str | None]:
     settings = _settings()
     try:
         payload = jwt.decode(
@@ -102,9 +105,10 @@ def decode_oauth_state(state: str) -> tuple[int, int]:
     try:
         user_id = int(payload["sub"])
         tenant_id = int(payload["tenant_id"])
+        code_verifier = payload.get("code_verifier")
     except (KeyError, TypeError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state.") from exc
-    return user_id, tenant_id
+    return user_id, tenant_id, code_verifier
 
 
 def build_authorization_url(*, user_id: int, tenant_id: int) -> str:
@@ -123,7 +127,9 @@ def build_authorization_url(*, user_id: int, tenant_id: int) -> str:
         scopes=SCOPES,
         redirect_uri=settings.google_oauth_redirect,
     )
-    state = create_oauth_state(user_id=user_id, tenant_id=tenant_id)
+    code_verifier = secrets.token_urlsafe(64)
+    flow.code_verifier = code_verifier
+    state = create_oauth_state(user_id=user_id, tenant_id=tenant_id, code_verifier=code_verifier)
     auth_url, _ = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
@@ -189,6 +195,7 @@ def exchange_authorization_code(
     tenant_id: int,
     user_id: int,
     code: str,
+    code_verifier: str | None = None,
 ) -> GoogleCalendarCredential:
     _ensure_oauth_transport()
     _require_configured()
@@ -205,8 +212,13 @@ def exchange_authorization_code(
         scopes=SCOPES,
         redirect_uri=settings.google_oauth_redirect,
     )
+    if code_verifier:
+        flow.code_verifier = code_verifier
     try:
-        flow.fetch_token(code=code)
+        if code_verifier:
+            flow.fetch_token(code=code, code_verifier=code_verifier)
+        else:
+            flow.fetch_token(code=code)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
