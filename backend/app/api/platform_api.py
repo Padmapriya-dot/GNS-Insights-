@@ -18,6 +18,7 @@ from app.schemas.platform import (
     UpdateCompanyRequest,
     UpdateLicenseRequest,
 )
+from app.middleware.security import check_rate_limit
 from app.services.platform_company_service import PlatformCompanyService
 from app.services.super_admin_service import SuperAdminService
 from app.services.address_lookup_service import lookup_indian_pincode
@@ -49,6 +50,7 @@ def super_admin_login(
     db: Session = Depends(get_db),
 ):
     """Validate Super Admin credentials, then send OTP to registered mobile."""
+    check_rate_limit(request, email=req.email, scope="login")
     return SuperAdminService(db).initiate_login(
         req.email,
         req.password,

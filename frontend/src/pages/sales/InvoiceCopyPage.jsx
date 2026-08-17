@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { Download, Mail, MessageCircle, Printer, Share2 } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
@@ -17,6 +17,11 @@ import { apiErrorMessage } from "../../utils/apiError";
 
 export default function InvoiceCopyPage() {
   const { id } = useParams();
+  const location = useLocation();
+  const isDebitNote = location.pathname.includes("/debit-notes/");
+  const listPath = isDebitNote ? "/sales/debit-notes" : "/sales/invoices";
+  const listLabel = isDebitNote ? "Debit Notes" : "Invoices";
+  const docLabel = isDebitNote ? "Debit Note" : "Invoice";
   const { settings } = useCompanySettings();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(Boolean(id));
@@ -64,7 +69,7 @@ export default function InvoiceCopyPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Invoice-${invoiceNo}.pdf`;
+      a.download = `${isDebitNote ? "DebitNote" : "Invoice"}-${invoiceNo}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
       addToast("PDF downloaded.", "success");
@@ -73,7 +78,7 @@ export default function InvoiceCopyPage() {
     } finally {
       setBusy("");
     }
-  }, [id, invoiceNo, addToast]);
+  }, [id, invoiceNo, addToast, isDebitNote]);
 
   const handleEmail = useCallback(async () => {
     if (!id) {
@@ -104,13 +109,13 @@ export default function InvoiceCopyPage() {
     window.open(url, "_blank", "noopener,noreferrer");
   }, [copyData, invoiceNo]);
 
-  if (loading) return <Loader label="Loading invoice preview..." />;
+  if (loading) return <Loader label={`Loading ${docLabel.toLowerCase()} preview...`} />;
 
   return (
     <div className="space-y-4 pb-8">
       <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <Link to="/sales/invoices" className="text-sm font-semibold text-[var(--color-success)] hover:underline">
-          ← Back to Invoices
+        <Link to={listPath} className="text-sm font-semibold text-[var(--color-success)] hover:underline">
+          ← Back to {listLabel}
         </Link>
         <div className="flex flex-wrap items-center gap-2">
           {!id && <span className="text-sm text-slate-500">Select an invoice to preview.</span>}
@@ -146,10 +151,10 @@ export default function InvoiceCopyPage() {
           </button>
           {id ? (
             <Link
-              to={`/sales/invoices/${id}/edit`}
+              to={isDebitNote ? `/sales/debit-notes/${id}/edit` : `/sales/invoices/${id}/edit`}
               className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-success)]"
             >
-              <Share2 className="h-4 w-4" /> Edit Invoice
+              <Share2 className="h-4 w-4" /> Edit {docLabel}
             </Link>
           ) : null}
         </div>
