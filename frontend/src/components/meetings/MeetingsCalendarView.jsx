@@ -374,14 +374,22 @@ export default function MeetingsCalendarView({
             ) : (
               <>
                 <StatusBadge tone="neutral">Not Connected</StatusBadge>
+                <a
+                  href="https://calendar.google.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="meetings-cal__btn mt-2 w-full justify-center text-xs inline-flex items-center gap-1.5"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> Open Google Calendar
+                </a>
                 <button
                   type="button"
-                  className="meetings-cal__btn mt-2 w-full justify-center text-xs"
+                  className="meetings-cal__btn mt-1.5 w-full justify-center text-xs"
                   onClick={onConnectGoogle}
                   disabled={connecting || !googleStatus.configured}
                 >
                   <Link2 className="h-3.5 w-3.5" />
-                  {connecting ? "Redirecting…" : "Connect"}
+                  {connecting ? "Redirecting…" : "Connect for Auto-Sync"}
                 </button>
               </>
             )}
