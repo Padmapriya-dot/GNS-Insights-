@@ -255,6 +255,51 @@ def delete_meeting(
     return True
 
 
+def sync_meeting_to_google(
+    db: Session,
+    *,
+    tenant_id: int,
+    user: User,
+    meeting_id: int,
+) -> tuple[dict | None, str | None]:
+    """Push an existing (unsynced) meeting to Google Calendar, or update if already there."""
+    meeting = get_meeting(db, tenant_id=tenant_id, meeting_id=meeting_id)
+    if not meeting:
+        return None, None
+    google_status = gcal.get_connection_status(db, tenant_id=tenant_id, user_id=user.id)
+    if not google_status["connected"]:
+        return meeting_to_read(meeting, google_status=google_status), (
+            "Connect Google Calendar first."
+        )
+    warning: str | None = None
+    try:
+        if meeting.google_calendar_event_id:
+            # Already on Google Calendar — update it
+            gcal.update_calendar_event(
+                db,
+                tenant_id=tenant_id,
+                user_id=user.id,
+                meeting=meeting,
+                include_meet=bool(meeting.create_google_meet_requested),
+            )
+        else:
+            # Not yet on Google Calendar — create it
+            gcal.create_calendar_event(
+                db,
+                tenant_id=tenant_id,
+                user_id=user.id,
+                meeting=meeting,
+                include_meet=bool(meeting.create_google_meet_requested),
+            )
+        db.commit()
+        db.refresh(meeting)
+    except Exception as exc:
+        warning = str(getattr(exc, "detail", exc)) if hasattr(exc, "detail") else str(exc)
+    google_status = gcal.get_connection_status(db, tenant_id=tenant_id, user_id=user.id)
+    return meeting_to_read(meeting, google_status=google_status), warning
+
+
+
 def create_meet_for_meeting(
     db: Session,
     *,

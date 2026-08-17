@@ -389,7 +389,7 @@ export default function MeetingsCalendarView({
                   disabled={connecting || !googleStatus.configured}
                 >
                   <Link2 className="h-3.5 w-3.5" />
-                  {connecting ? "Redirecting…" : "Connect for Auto-Sync"}
+                  {connecting ? "Redirecting…" : "Connect"}
                 </button>
               </>
             )}

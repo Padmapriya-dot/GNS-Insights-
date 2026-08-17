@@ -16,6 +16,7 @@ import {
   disconnectGoogleCalendar,
   getGoogleCalendarStatus,
   getMeetings,
+  syncMeetingToGoogle,
   updateMeeting,
 } from "../../api/meetingsApi";
 import { apiErrorMessage } from "../../utils/apiError";
@@ -200,6 +201,20 @@ export default function MeetingsList() {
     }
   };
 
+  const handleSyncGoogle = async (row) => {
+    try {
+      const res = await syncMeetingToGoogle(row.id);
+      const warning = res?.data?.warning;
+      addToast(
+        warning || "Meeting synced to Google Calendar.",
+        warning ? "warning" : "success"
+      );
+      load();
+    } catch (err) {
+      addToast(apiErrorMessage(err, "Unable to sync meeting to Google Calendar."), "error");
+    }
+  };
+
   const openCalendar = (row) => {
     if (row.google_calendar_event_url) {
       window.open(row.google_calendar_event_url, "_blank", "noopener,noreferrer");
@@ -279,8 +294,10 @@ export default function MeetingsList() {
               onDelete={() => setDeleteTarget(r)}
               onOpenCalendar={() => openCalendar(r)}
               onJoinMeeting={() => joinMeeting(r)}
+              onSyncGoogle={() => handleSyncGoogle(r)}
               hasCalendarLink={Boolean(r.google_calendar_event_url)}
               hasMeetLink={Boolean(r.google_meet_url)}
+              googleConnected={Boolean(googleStatus?.connected)}
             />
           </div>
         ),
