@@ -267,7 +267,8 @@ def _fetch_account_email(creds: Credentials) -> str | None:
 def _build_credentials(row: GoogleCalendarCredential) -> Credentials:
     settings = _settings()
     expiry = row.token_expiry
-    if expiry and expiry.tzinfo is None:
+    # SQLite stores datetimes without timezone info — always attach UTC when reading back
+    if expiry is not None and expiry.tzinfo is None:
         expiry = expiry.replace(tzinfo=timezone.utc)
     scopes = json.loads(row.scopes) if row.scopes else SCOPES
     return Credentials(
@@ -298,7 +299,14 @@ def get_valid_credentials(
         raise GoogleCalendarNotConnectedError("Google Calendar is not connected for this user.")
     _require_configured()
     creds = _build_credentials(row)
-    if creds.expired and creds.refresh_token:
+    # Check expiry — SQLite may return naive datetimes which cause a TypeError
+    # when compared with timezone-aware datetimes inside google-auth library.
+    # We catch TypeError and force a refresh in that case.
+    try:
+        needs_refresh = creds.expired and creds.refresh_token
+    except TypeError:
+        needs_refresh = bool(creds.refresh_token)  # assume expired, just refresh
+    if needs_refresh:
         creds.refresh(GoogleAuthRequest())
         _persist_refreshed_token(db, row, creds)
     return row, creds
