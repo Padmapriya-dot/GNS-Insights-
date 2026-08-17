@@ -1,7 +1,7 @@
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.api.auth_deps import get_current_user
@@ -212,19 +212,7 @@ def google_calendar_callback_endpoint(
         return RedirectResponse(f"{frontend}/meetings?google_error={quote(detail)}")
     except Exception as exc:
         return RedirectResponse(f"{frontend}/meetings?google_error={quote(str(exc))}")
-    # Return a tiny HTML page that:
-    #  1. Opens Google Calendar in a NEW tab (synchronous — browser always allows this)
-    #  2. Immediately navigates THIS tab back to the ERP Meetings page
-    meetings_url = f"{frontend}/meetings?google_connected=1"
-    html = f"""
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<script>
-  window.open('https://calendar.google.com', '_blank');
-  window.location.replace('{meetings_url}');
-</script>
-<body>Redirecting…</body></html>
-"""
-    return HTMLResponse(content=html)
+    return RedirectResponse(f"{frontend}/meetings?google_connected=1")
 
 
 @google_router.delete("/disconnect", status_code=204)
