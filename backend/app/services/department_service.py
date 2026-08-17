@@ -1,9 +1,14 @@
 """Department master — enriched list, summary, detail."""
 
+import logging
 from datetime import date
 
+from fastapi import HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.models.department import Department
 from app.models.machine import Machine
@@ -191,29 +196,90 @@ def get_department_detail(
     return detail
 
 
-def create_department(db: Session, payload: DepartmentCreate) -> Department:
-    dept = Department(**payload.model_dump())
-    db.add(dept)
-    db.commit()
-    db.refresh(dept)
-    return dept
+def create_department(
+    db: Session,
+    tenant_id: int | DepartmentCreate,
+    payload: DepartmentCreate | None = None,
+) -> Department:
+    if payload is None and isinstance(tenant_id, DepartmentCreate):
+        payload = tenant_id
+        tenant_id = getattr(payload, "tenant_id", None)
+
+    if not tenant_id or not isinstance(tenant_id, int) or tenant_id <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid tenant ID for department creation.",
+        )
+
+    data = payload.model_dump()
+    data["tenant_id"] = tenant_id  # Explicitly assign & enforce current tenant_id
+
+    try:
+        dept = Department(**data)
+        db.add(dept)
+        db.commit()
+        db.refresh(dept)
+        return dept
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Database error creating department for tenant_id=%s: %s", tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while creating department.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error creating department for tenant_id=%s: %s", tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create department.",
+        ) from exc
 
 
 def update_department(
     db: Session, tenant_id: int, department_id: int, payload: DepartmentUpdate
 ) -> Department | None:
-    dept = db.scalars(
-        select(Department).where(
-            Department.id == department_id, Department.tenant_id == tenant_id
-        )
-    ).first()
-    if not dept:
-        return None
-    for key, value in payload.model_dump(exclude_unset=True).items():
-        setattr(dept, key, value)
-    db.commit()
-    db.refresh(dept)
-    return dept
+    try:
+        dept = db.scalars(
+            select(Department).where(
+                Department.id == department_id, Department.tenant_id == tenant_id
+            )
+        ).first()
+        if not dept:
+            return None
+        for key, value in payload.model_dump(exclude_unset=True).items():
+            setattr(dept, key, value)
+        db.commit()
+        db.refresh(dept)
+        return dept
+    except SQLAlchemyError as exc:
+        logger.exception("Database error updating department_id=%s for tenant_id=%s: %s", department_id, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while updating department.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error updating department_id=%s for tenant_id=%s: %s", department_id, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update department.",
+        ) from exc
 
 
 def deactivate_department(

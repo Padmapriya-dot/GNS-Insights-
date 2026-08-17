@@ -115,10 +115,16 @@ def create_document(
     user: User = Depends(require_any_permission("sales", "procurement")),
     db: Session = Depends(get_db),
 ):
+    if payload.tenant_id is not None and payload.tenant_id != user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot create business document for another tenant",
+        )
+    target_tenant_id = user.tenant_id
     doc_type = payload.doc_type
-    number = payload.document_number or _next_number(db, user.tenant_id, doc_type)
+    number = payload.document_number or _next_number(db, target_tenant_id, doc_type)
     row = BusinessDocument(
-        tenant_id=user.tenant_id,
+        tenant_id=target_tenant_id,
         module=payload.module or "sales",
         doc_type=doc_type,
         document_number=number,

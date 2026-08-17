@@ -1,13 +1,19 @@
 """Data access for authentication and password-reset tokens."""
 
+import logging
 from datetime import datetime, timezone
 
+from fastapi import HTTPException, status
 from sqlalchemy import select, update
+from sqlalchemy.exc import InvalidRequestError, SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm.exc import UnmappedInstanceError
 
 from app.models.security import PasswordResetToken
 from app.models.user import User
 from app.utils.token import generate_token, hash_token
+
+logger = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
@@ -19,27 +25,48 @@ class AuthRepository:
         self.db = db
 
     def get_user_by_email(self, email: str) -> User | None:
-        return self.db.scalars(
-            select(User)
-            .where(User.email == email.lower().strip())
-            .options(selectinload(User.tenant))
-        ).first()
+        try:
+            return self.db.scalars(
+                select(User)
+                .where(User.email == email.lower().strip())
+                .options(selectinload(User.tenant))
+            ).first()
+        except HTTPException:
+            raise
+        except SQLAlchemyError as exc:
+            logger.exception("Database error getting user by email: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database connection unavailable",
+            ) from exc
 
     def get_user_by_id(self, user_id: int, tenant_id: int | None = None) -> User | None:
-        stmt = select(User).where(User.id == user_id)
-        if tenant_id is not None:
-            stmt = stmt.where(User.tenant_id == tenant_id)
-        return self.db.scalars(stmt).first()
+        try:
+            stmt = select(User).where(User.id == user_id)
+            if tenant_id is not None:
+                stmt = stmt.where(User.tenant_id == tenant_id)
+            return self.db.scalars(stmt).first()
+        except HTTPException:
+            raise
+        except SQLAlchemyError as exc:
+            logger.exception("Database error getting user by id: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database connection unavailable",
+            ) from exc
 
     def invalidate_active_reset_tokens(self, user_id: int) -> None:
-        self.db.execute(
-            update(PasswordResetToken)
-            .where(
-                PasswordResetToken.user_id == user_id,
-                PasswordResetToken.used.is_(False),
+        try:
+            self.db.execute(
+                update(PasswordResetToken)
+                .where(
+                    PasswordResetToken.user_id == user_id,
+                    PasswordResetToken.used.is_(False),
+                )
+                .values(used=True)
             )
-            .values(used=True)
-        )
+        except Exception as exc:
+            logger.exception("Error invalidating reset tokens: %s", exc)
 
     def create_password_reset_token(
         self, user_id: int, *, expires_at: datetime
@@ -58,11 +85,12 @@ class AuthRepository:
         self.db.flush()
         return raw
 
-    def get_reset_token_row(self, raw_token: str) -> PasswordResetToken | None:
+    def get_reset_token_row(self, raw_token: str, for_update: bool = False) -> PasswordResetToken | None:
         token_hash = hash_token(raw_token)
-        return self.db.scalars(
-            select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash)
-        ).first()
+        stmt = select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash)
+        if for_update:
+            stmt = stmt.with_for_update()
+        return self.db.scalars(stmt).first()
 
     def mark_reset_token_used(self, row: PasswordResetToken) -> None:
         row.used = True
@@ -74,13 +102,53 @@ class AuthRepository:
         self.db.flush()
 
     def update_user_password(self, user: User, hashed_password: str) -> None:
-        user.hashed_password = hashed_password
-        user.failed_login_attempts = 0
-        user.locked_until = None
-        self.db.flush()
+        try:
+            user.hashed_password = hashed_password
+            user.failed_login_attempts = 0
+            user.locked_until = None
+            self.db.flush()
+        except HTTPException:
+            raise
+        except SQLAlchemyError as exc:
+            self.db.rollback()
+            logger.exception("Database error updating user password: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database error updating password. Transaction has been rolled back.",
+            ) from exc
+        except Exception as exc:
+            self.db.rollback()
+            logger.exception("Unexpected error updating user password: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update password. Transaction has been rolled back.",
+            ) from exc
 
     def commit(self) -> None:
-        self.db.commit()
+        try:
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            logger.exception("Database commit error: %s", exc)
+            raise
 
-    def refresh(self, obj) -> None:
-        self.db.refresh(obj)
+    def refresh(self, obj, attribute_names=None) -> None:
+        try:
+            if attribute_names:
+                self.db.refresh(obj, attribute_names=attribute_names)
+            else:
+                self.db.refresh(obj)
+        except HTTPException:
+            raise
+        except (InvalidRequestError, UnmappedInstanceError, SQLAlchemyError) as exc:
+            logger.exception("Failed to refresh entity: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to refresh invalid or detached object",
+            ) from exc
+        except Exception as exc:
+            logger.exception("Unexpected error refreshing entity: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to refresh invalid or detached object",
+            ) from exc

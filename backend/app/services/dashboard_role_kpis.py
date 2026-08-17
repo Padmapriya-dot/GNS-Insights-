@@ -89,7 +89,8 @@ def _out_of_stock_count(db: Session, tenant_id: int) -> int:
     )
     if not items:
         return 0
-    levels = list(db.scalars(select(StockLevel)).all())
+    item_ids = [i.id for i in items]
+    levels = list(db.scalars(select(StockLevel).where(StockLevel.item_id.in_(item_ids))).all())
     qty_by_item: dict[int, float] = {}
     for sl in levels:
         qty_by_item[sl.item_id] = qty_by_item.get(sl.item_id, 0.0) + float(sl.quantity or 0)

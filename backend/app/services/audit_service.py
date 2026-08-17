@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from fastapi import Request
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models.security import AccessLog
@@ -63,65 +64,126 @@ def write_audit_log(
     details: str | None = None,
     commit: bool = True,
 ) -> AccessLog | None:
-    """Compatibility wrapper around AuditLogService.log()."""
-    current_user = user
-    if current_user is None and user_id is not None:
-        current_user = db.get(User, user_id)
+    """Compatibility wrapper around AuditLogService.log().
 
-    # If callers pass denormalized fields without a user object, still log via service
-    # then patch any explicit overrides that were provided.
-    row = AuditLogService.log(
-        db=db,
-        request=request,
-        current_user=current_user,
-        action=action,
-        module_name=module_name,
-        details=details,
-        resource=resource,
-        resource_id=resource_id,
-        login_status=login_status,
-        session_id=session_id,
-        login_at=login_at,
-        logout_at=logout_at,
-        email_override=email,
-        commit=False,
-    )
-    if row is None:
+    Raises:
+        SQLAlchemyError: Re-raised after rollback when db.commit(),
+            db.refresh(), or db.flush() fails, so callers can surface a
+            meaningful error instead of leaving the transaction incomplete.
+        Exception: Re-raised after rollback for any other unexpected failure.
+    """
+    try:
+        current_user = user
+        if current_user is None and user_id is not None:
+            current_user = db.get(User, user_id)
+
+        # If callers pass denormalized fields without a user object, still log via service
+        # then patch any explicit overrides that were provided.
+        row = AuditLogService.log(
+            db=db,
+            request=request,
+            current_user=current_user,
+            action=action,
+            module_name=module_name,
+            details=details,
+            resource=resource,
+            resource_id=resource_id,
+            login_status=login_status,
+            session_id=session_id,
+            login_at=login_at,
+            logout_at=logout_at,
+            email_override=email,
+            commit=False,
+        )
+        if row is None:
+            if commit:
+                try:
+                    db.commit()
+                except SQLAlchemyError as exc:
+                    logger.exception(
+                        "write_audit_log commit failed (row=None) action=%s user_id=%s: %s",
+                        action, user_id, exc,
+                    )
+                    db.rollback()
+                    raise
+                except Exception as exc:
+                    logger.exception(
+                        "write_audit_log unexpected commit error (row=None) action=%s user_id=%s: %s",
+                        action, user_id, exc,
+                    )
+                    db.rollback()
+                    raise
+            return None
+
+        # Apply any explicit overrides from legacy call sites
+        dirty = False
+        if company_id is not None and row.company_id != company_id:
+            row.company_id = company_id
+            dirty = True
+        if company_name and row.company_name != company_name:
+            row.company_name = company_name
+            dirty = True
+        if full_name and row.full_name != full_name:
+            row.full_name = full_name
+            dirty = True
+        if role and row.role != role:
+            row.role = role
+            dirty = True
+        if tenant_id is not None and row.tenant_id != tenant_id:
+            row.tenant_id = tenant_id
+            dirty = True
+        if ip_address and not row.ip_address:
+            row.ip_address = ip_address
+            dirty = True
+        if user_agent and not row.user_agent:
+            row.user_agent = user_agent[:512]
+            dirty = True
+        if dirty:
+            db.add(row)
         if commit:
-            db.commit()
-        return None
-
-    # Apply any explicit overrides from legacy call sites
-    dirty = False
-    if company_id is not None and row.company_id != company_id:
-        row.company_id = company_id
-        dirty = True
-    if company_name and row.company_name != company_name:
-        row.company_name = company_name
-        dirty = True
-    if full_name and row.full_name != full_name:
-        row.full_name = full_name
-        dirty = True
-    if role and row.role != role:
-        row.role = role
-        dirty = True
-    if tenant_id is not None and row.tenant_id != tenant_id:
-        row.tenant_id = tenant_id
-        dirty = True
-    if ip_address and not row.ip_address:
-        row.ip_address = ip_address
-        dirty = True
-    if user_agent and not row.user_agent:
-        row.user_agent = user_agent[:512]
-        dirty = True
-    if dirty:
-        db.add(row)
-    if commit:
-        db.commit()
-        db.refresh(row)
-    else:
-        db.flush()
-    return row
+            try:
+                db.commit()
+                db.refresh(row)
+            except SQLAlchemyError as exc:
+                logger.exception(
+                    "write_audit_log commit/refresh failed action=%s user_id=%s: %s",
+                    action, user_id, exc,
+                )
+                db.rollback()
+                raise
+            except Exception as exc:
+                logger.exception(
+                    "write_audit_log unexpected commit/refresh error action=%s user_id=%s: %s",
+                    action, user_id, exc,
+                )
+                db.rollback()
+                raise
+        else:
+            try:
+                db.flush()
+            except SQLAlchemyError as exc:
+                logger.exception(
+                    "write_audit_log flush failed action=%s user_id=%s: %s",
+                    action, user_id, exc,
+                )
+                db.rollback()
+                raise
+            except Exception as exc:
+                logger.exception(
+                    "write_audit_log unexpected flush error action=%s user_id=%s: %s",
+                    action, user_id, exc,
+                )
+                db.rollback()
+                raise
+        return row
+    except SQLAlchemyError as exc:
+        logger.exception("write_audit_log database error action=%s user_id=%s: %s", action, user_id, exc)
+        db.rollback()
+        raise
+    except Exception as exc:
+        logger.exception("write_audit_log unexpected error action=%s user_id=%s: %s", action, user_id, exc)
+        db.rollback()
+        raise
 
 
 def record_login_audit(
@@ -148,7 +210,16 @@ def mark_logout_audit(
     user: User,
     request: Request | None = None,
 ) -> AccessLog | None:
-    return AuditLogService.log_logout(db, request=request, user=user)
+    try:
+        return AuditLogService.log_logout(db, request=request, user=user)
+    except SQLAlchemyError as exc:
+        logger.exception("mark_logout_audit database error for user %s: %s", getattr(user, "id", None), exc)
+        db.rollback()
+        raise
+    except Exception as exc:
+        logger.exception("mark_logout_audit unexpected error for user %s: %s", getattr(user, "id", None), exc)
+        db.rollback()
+        raise
 
 
 def log_audit(
@@ -162,18 +233,49 @@ def log_audit(
     ip_address: str | None = None,
     details: str | None = None,
 ) -> None:
-    user = db.get(User, user_id) if user_id is not None else None
-    row = AuditLogService.log(
-        db=db,
-        current_user=user,
-        action=action,
-        module_name=resolve_module(action, resource),
-        details=details,
-        resource=resource,
-        resource_id=resource_id,
-        email_override=user.email if user else None,
-        commit=True,
-    )
-    if row is not None and ip_address and not row.ip_address:
-        row.ip_address = ip_address
-        db.commit()
+    """Write a minimal audit entry and optionally patch the ip_address field.
+
+    Raises:
+        SQLAlchemyError: Re-raised after rollback when the ip_address patch
+            commit fails, so the transaction does not remain incomplete.
+        Exception: Re-raised after rollback for any other unexpected failure.
+    """
+    try:
+        user = db.get(User, user_id) if user_id is not None else None
+        row = AuditLogService.log(
+            db=db,
+            current_user=user,
+            action=action,
+            module_name=resolve_module(action, resource),
+            details=details,
+            resource=resource,
+            resource_id=resource_id,
+            email_override=user.email if user else None,
+            commit=True,
+        )
+        if row is not None and ip_address and not row.ip_address:
+            row.ip_address = ip_address
+            try:
+                db.commit()
+            except SQLAlchemyError as exc:
+                logger.exception(
+                    "log_audit ip_address patch commit failed action=%s user_id=%s: %s",
+                    action, user_id, exc,
+                )
+                db.rollback()
+                raise
+            except Exception as exc:
+                logger.exception(
+                    "log_audit ip_address patch unexpected error action=%s user_id=%s: %s",
+                    action, user_id, exc,
+                )
+                db.rollback()
+                raise
+    except SQLAlchemyError as exc:
+        logger.exception("log_audit database error action=%s user_id=%s: %s", action, user_id, exc)
+        db.rollback()
+        raise
+    except Exception as exc:
+        logger.exception("log_audit unexpected error action=%s user_id=%s: %s", action, user_id, exc)
+        db.rollback()
+        raise

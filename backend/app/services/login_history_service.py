@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.permissions import user_is_admin
@@ -65,52 +66,71 @@ def record_login_history(
     role: str | None = None,
 ) -> LoginHistory:
     """Insert a login_history row for success or failure."""
-    parsed = parse_user_agent(user_agent)
-    company_id = None
-    company_name = None
-    full_name = None
-    user_id = None
-    resolved_role = role
+    try:
+        parsed = parse_user_agent(user_agent)
+        company_id = None
+        company_name = None
+        full_name = None
+        user_id = None
+        resolved_role = role
 
-    if user is not None:
-        user_id = user.id
-        full_name = user.full_name
-        company_id = user.tenant_id
-        if getattr(user, "tenant", None) is not None:
-            company_name = user.tenant.name
-        else:
-            db.refresh(user, ["tenant"])
-            company_name = user.tenant.name if user.tenant else None
-        if not resolved_role:
-            resolved_role = user.roles[0].name if user.roles else None
+        if user is not None:
+            user_id = user.id
+            full_name = user.full_name
+            company_id = user.tenant_id
+            if getattr(user, "tenant", None) is not None:
+                company_name = user.tenant.name
+            elif company_id:
+                try:
+                    from app.models.tenant import Tenant
+                    t = db.get(Tenant, company_id)
+                    company_name = t.name if t else None
+                except Exception:
+                    company_name = None
+            if not resolved_role:
+                resolved_role = user.roles[0].name if user.roles else None
 
-    row = LoginHistory(
-        user_id=user_id,
-        company_id=company_id,
-        full_name=full_name,
-        company_name=company_name,
-        email=(email or "").lower().strip(),
-        role=resolved_role,
-        ip_address=ip_address,
-        browser=parsed["browser"],
-        operating_system=parsed["operating_system"],
-        device_type=parsed["device_type"],
-        login_status=STATUS_SUCCESS if success else STATUS_FAILED,
-        login_at=_utcnow(),
-        logout_at=None,
-        user_agent=(user_agent or "")[:512] or None,
-    )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
-    logger.info(
-        "login_history_recorded status=%s email=%s user_id=%s company_id=%s",
-        row.login_status,
-        row.email,
-        row.user_id,
-        row.company_id,
-    )
-    return row
+        row = LoginHistory(
+            user_id=user_id,
+            company_id=company_id,
+            full_name=full_name,
+            company_name=company_name,
+            email=(email or "").lower().strip(),
+            role=resolved_role,
+            ip_address=ip_address,
+            browser=parsed["browser"],
+            operating_system=parsed["operating_system"],
+            device_type=parsed["device_type"],
+            login_status=STATUS_SUCCESS if success else STATUS_FAILED,
+            login_at=_utcnow(),
+            logout_at=None,
+            user_agent=(user_agent or "")[:512] or None,
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        logger.info(
+            "login_history_recorded status=%s email=%s user_id=%s company_id=%s",
+            row.login_status,
+            row.email,
+            row.user_id,
+            row.company_id,
+        )
+        return row
+    except SQLAlchemyError as exc:
+        logger.exception("record_login_history database error for email %s: %s", email, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+    except Exception as exc:
+        logger.exception("record_login_history unexpected error for email %s: %s", email, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
 
 
 def mark_logout(
@@ -118,31 +138,114 @@ def mark_logout(
     *,
     user_id: int | None = None,
     email: str | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    history_id: int | None = None,
+    all_sessions: bool = False,
 ) -> LoginHistory | None:
-    """Set logout_at on the latest open successful session for the user."""
-    stmt = (
-        select(LoginHistory)
-        .where(
-            LoginHistory.login_status == STATUS_SUCCESS,
-            LoginHistory.logout_at.is_(None),
-        )
-        .order_by(LoginHistory.login_at.desc())
-    )
-    if user_id is not None:
-        stmt = stmt.where(LoginHistory.user_id == user_id)
-    elif email:
-        stmt = stmt.where(LoginHistory.email == email.lower().strip())
-    else:
-        return None
+    """Set logout_at on the specific open successful session matching user, device/IP, or history_id."""
+    try:
+        if history_id is not None:
+            stmt = select(LoginHistory).where(
+                LoginHistory.id == history_id,
+                LoginHistory.login_status == STATUS_SUCCESS,
+                LoginHistory.logout_at.is_(None),
+            )
+            row = db.scalars(stmt).first()
+            if row:
+                now = _utcnow()
+                if row.login_at and now < row.login_at:
+                    raise ValueError("logout_at timestamp cannot be earlier than login_at timestamp.")
+                row.logout_at = now
+                db.commit()
+                db.refresh(row)
+                return row
+            return None
 
-    row = db.scalars(stmt).first()
-    if not row:
-        return None
-    row.logout_at = _utcnow()
-    db.commit()
-    db.refresh(row)
-    logger.info("login_history_logout id=%s user_id=%s", row.id, row.user_id)
-    return row
+        base_stmt = (
+            select(LoginHistory)
+            .where(
+                LoginHistory.login_status == STATUS_SUCCESS,
+                LoginHistory.logout_at.is_(None),
+            )
+            .order_by(LoginHistory.login_at.desc())
+        )
+        if user_id is not None:
+            base_stmt = base_stmt.where(LoginHistory.user_id == user_id)
+        elif email:
+            base_stmt = base_stmt.where(LoginHistory.email == email.lower().strip())
+        else:
+            return None
+
+        has_device_info = bool(ip_address or user_agent)
+        matched_rows: list[LoginHistory] = []
+
+        if ip_address and user_agent:
+            ua_clean = (user_agent or "")[:512]
+            exact_stmt = base_stmt.where(
+                LoginHistory.ip_address == ip_address,
+                LoginHistory.user_agent == ua_clean,
+            )
+            matched_rows = list(db.scalars(exact_stmt).all())
+
+        if not matched_rows and user_agent:
+            ua_clean = (user_agent or "")[:512]
+            ua_stmt = base_stmt.where(LoginHistory.user_agent == ua_clean)
+            matched_rows = list(db.scalars(ua_stmt).all())
+
+        if not matched_rows and ip_address:
+            ip_stmt = base_stmt.where(LoginHistory.ip_address == ip_address)
+            matched_rows = list(db.scalars(ip_stmt).all())
+
+        if not matched_rows and not has_device_info:
+            all_open = list(db.scalars(base_stmt).all())
+            if len(all_open) > 1 and not all_sessions:
+                raise ValueError(
+                    "Multiple active sessions exist for user; specify history_id, ip_address, or user_agent to identify the session to log out."
+                )
+            matched_rows = all_open
+
+        if not matched_rows:
+            return None
+
+        now = _utcnow()
+        if all_sessions:
+            for r in matched_rows:
+                if r.login_at and now < r.login_at:
+                    raise ValueError("logout_at timestamp cannot be earlier than login_at timestamp.")
+                r.logout_at = now
+            db.commit()
+            db.refresh(matched_rows[0])
+            return matched_rows[0]
+
+        target = matched_rows[0]
+        if target.login_at and now < target.login_at:
+            raise ValueError("logout_at timestamp cannot be earlier than login_at timestamp.")
+        target.logout_at = now
+        db.commit()
+        db.refresh(target)
+        logger.info("login_history_logout id=%s user_id=%s", target.id, target.user_id)
+        return target
+    except ValueError:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("mark_logout database error for user_id=%s email=%s: %s", user_id, email, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+    except Exception as exc:
+        logger.exception("mark_logout unexpected error for user_id=%s email=%s: %s", user_id, email, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
 
 
 def list_for_user(db: Session, user_id: int, *, limit: int = 200) -> list[dict]:
@@ -178,13 +281,37 @@ def delete_history(db: Session, *, history_id: int, admin: User) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrator privileges are required.",
         )
-    row = db.get(LoginHistory, history_id)
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Login history not found.")
-    if row.company_id != admin.tenant_id:
+    try:
+        row = db.get(LoginHistory, history_id)
+        if not row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Login history not found.")
+        if row.company_id != admin.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot delete login history outside your company.",
+            )
+        db.delete(row)
+        db.commit()
+    except HTTPException:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("delete_history database error for history_id=%s: %s", history_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cannot delete login history outside your company.",
-        )
-    db.delete(row)
-    db.commit()
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while deleting login history.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("delete_history unexpected error for history_id=%s: %s", history_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise

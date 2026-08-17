@@ -2,6 +2,8 @@
 
 from datetime import datetime
 
+import re
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.utils.gst import normalize_gstin, normalize_indian_mobile, normalize_indian_pin, validate_gstin
@@ -13,15 +15,31 @@ VALID_BILLING_CYCLES = frozenset({"monthly", "quarterly", "yearly", "annual", "f
 VALID_COMPANY_STATUSES = frozenset(
     {"trial", "active", "suspended", "expired", "cancelled", "deleted"}
 )
+VALID_LICENSE_STATUSES = frozenset(
+    {"trial", "active", "suspended", "expired", "cancelled", "deleted", "licensed"}
+)
+
+
+# Matches local@domain.tld — rejects leading/trailing dots, consecutive dots,
+# multiple @, missing TLD, and other malformed structures.
+_EMAIL_REGEX = re.compile(
+    r"^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+"
+    r"(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+    r"@"
+    r"(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+"
+    r"[a-zA-Z]{2,}$"
+)
 
 
 def _normalize_email(value: str) -> str:
-    email = sanitize_email_local_part(value).lower()
-    if "@" not in email or email.startswith("@") or email.endswith("@"):
+    email = sanitize_email_local_part(value).lower().strip()
+    if not email or email.count("@") != 1:
         raise ValueError("Invalid email address")
-    local, _, domain = email.partition("@")
-    if not local or not domain or "." not in domain:
-        raise ValueError("Invalid email address")
+    if not _EMAIL_REGEX.match(email):
+        raise ValueError(
+            "Invalid email address: must be in the form local@domain.tld "
+            "with a valid domain structure"
+        )
     return email
 
 
@@ -52,10 +70,10 @@ class SuperAdminVerifyOtpRequest(BaseModel):
     @field_validator("otp")
     @classmethod
     def digits_only(cls, value: str) -> str:
-        cleaned = "".join(c for c in value if c.isdigit())
-        if len(cleaned) != 6:
-            raise ValueError("OTP must be a 6-digit code")
-        return cleaned
+        s = str(value).strip() if value else ""
+        if not s.isdigit() or len(s) != 6:
+            raise ValueError("OTP must be a 6-digit numeric code")
+        return s
 
 
 class SuperAdminResendOtpRequest(BaseModel):
@@ -206,6 +224,41 @@ class UpdateCompanyRequest(BaseModel):
     trial_days: int | None = Field(None, ge=0, le=365)
     status: str | None = Field(None, max_length=32)
 
+    @field_validator("company_email")
+    @classmethod
+    def validate_company_email(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not str(value).strip():
+            raise ValueError("Invalid email address format")
+        return _normalize_email(value)
+
+    @field_validator("mobile_number")
+    @classmethod
+    def validate_mobile(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not str(value).strip():
+            raise ValueError("Mobile Number must be a valid 10-digit Indian number")
+        return normalize_indian_mobile(value)
+
+    @field_validator("pin_code")
+    @classmethod
+    def validate_pin(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        return normalize_indian_pin(value)
+
+    @field_validator("subscription_plan")
+    @classmethod
+    def validate_plan(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        plan = str(value).strip().lower()
+        if plan not in VALID_PLANS:
+            raise ValueError(f"Invalid plan. Allowed: {', '.join(sorted(VALID_PLANS))}")
+        return plan
+
     @field_validator("gst_number")
     @classmethod
     def validate_gst(cls, value: str | None) -> str | None:
@@ -240,6 +293,26 @@ class UpdateLicenseRequest(BaseModel):
     max_users: int | None = Field(None, ge=1, le=10000)
     expires_at: datetime | None = None
 
+    @field_validator("plan")
+    @classmethod
+    def validate_plan(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        plan = str(value).strip().lower()
+        if plan not in VALID_PLANS:
+            raise ValueError(f"Invalid plan. Allowed: {', '.join(sorted(VALID_PLANS))}")
+        return plan
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        status = str(value).strip().lower()
+        if status not in VALID_LICENSE_STATUSES:
+            raise ValueError(f"Invalid status. Allowed: {', '.join(sorted(VALID_LICENSE_STATUSES))}")
+        return status
+
 
 class CompanyResponse(BaseModel):
     id: int
@@ -268,7 +341,7 @@ class CreateCompanyResponse(BaseModel):
     company: CompanyResponse
     company_id: str
     admin_email: str
-    temporary_password: str
+    temporary_password: str | None = None
     message: str
     subscription_plan: str | None = None
     trial_expires_at: datetime | None = None

@@ -1,12 +1,12 @@
-"""Inventory V2 service — product items, categories, add/remove stock + timeline."""
-
-from __future__ import annotations
-
+import logging
 from datetime import date
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.models.product import InventoryCategory, Product, ProductStockEvent
 from app.schemas.inventory_v2 import (
@@ -106,7 +106,11 @@ def create_item(db: Session, tenant_id: int, payload: InventoryItemV2Create) -> 
     if existing:
         raise HTTPException(400, detail="SKU already exists")
 
-    stock = _f(payload.current_stock)
+    min_stk = int(payload.min_stock or 0)
+    max_stk = int(payload.max_stock) if payload.max_stock is not None else None
+    if max_stk is not None and min_stk > max_stk:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="max_stock cannot be less than min_stock.")
+
     product = Product(
         tenant_id=tenant_id,
         sku=sku,
@@ -120,27 +124,54 @@ def create_item(db: Session, tenant_id: int, payload: InventoryItemV2Create) -> 
         category=payload.category or "No Category",
         gst_percent=payload.gst_percent or 0,
         cess_percent=payload.cess_percent or 0,
-        min_stock=int(payload.min_stock or 0),
-        max_stock=int(payload.max_stock) if payload.max_stock is not None else 100,
+        min_stock=min_stk,
+        max_stock=max_stk if max_stk is not None else 100,
         current_stock=stock,
     )
-    db.add(product)
-    db.flush()
-    db.add(
-        ProductStockEvent(
-            tenant_id=tenant_id,
-            product_id=product.id,
-            activity="First Stock",
-            subtitle="Opening Stock",
-            change_qty=stock,
-            final_qty=stock,
-            unit=product.unit,
-            event_date=_today_label(),
+    try:
+        db.add(product)
+        db.flush()
+        db.add(
+            ProductStockEvent(
+                tenant_id=tenant_id,
+                product_id=product.id,
+                activity="First Stock",
+                subtitle="Opening Stock",
+                change_qty=stock,
+                final_qty=stock,
+                unit=product.unit,
+                event_date=_today_label(),
+            )
         )
-    )
-    db.commit()
-    db.refresh(product)
-    return serialize_item(product)
+        db.commit()
+        db.refresh(product)
+        return serialize_item(product)
+    except HTTPException:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Database error creating product item for sku=%s tenant_id=%s: %s", sku, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while creating product item.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error creating product item for sku=%s tenant_id=%s: %s", sku, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create product item.",
+        ) from exc
 
 
 def update_item(
@@ -163,9 +194,42 @@ def update_item(
         if key == "max_stock" and value is not None:
             value = int(value)
         setattr(product, attr, value)
-    db.commit()
-    db.refresh(product)
-    return serialize_item(product)
+
+    cur_min = product.min_stock if product.min_stock is not None else 0
+    cur_max = product.max_stock
+    if cur_max is not None and cur_min > cur_max:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="max_stock cannot be less than min_stock.")
+    try:
+        db.commit()
+        db.refresh(product)
+        return serialize_item(product)
+    except HTTPException:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Database error updating product_id=%s tenant_id=%s: %s", product_id, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while updating product item.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error updating product_id=%s tenant_id=%s: %s", product_id, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update product item.",
+        ) from exc
 
 
 def delete_item(db: Session, tenant_id: int, product_id: int) -> bool:
@@ -186,15 +250,20 @@ def list_timeline(db: Session, tenant_id: int, product_id: int) -> list[dict]:
         ).all()
     )
     if not rows:
+        product = db.scalars(
+            select(Product).where(Product.id == product_id, Product.tenant_id == tenant_id)
+        ).first()
+        stock = _f(product.current_stock) if product else 0.0
+        unit = (product.unit if product else None) or "PCS"
         return [
             {
                 "id": "opening",
                 "activity": "First Stock",
                 "subtitle": "Opening Stock",
                 "date": _today_label(),
-                "change": 0.0,
-                "final": 0.0,
-                "unit": None,
+                "change": stock,
+                "final": stock,
+                "unit": unit,
             }
         ]
     return [
@@ -228,9 +297,11 @@ def _adjust_stock(
     previous = _f(product.current_stock)
     qty = float(payload.quantity)
     if not adding and qty > previous:
-        raise HTTPException(400, detail="Cannot remove more than available stock")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot remove more than available stock.")
 
-    next_stock = previous + qty if adding else max(0.0, previous - qty)
+    next_stock = previous + qty if adding else previous - qty
+    if next_stock < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Resulting stock quantity cannot be negative.")
     product.current_stock = next_stock
     entry = ProductStockEvent(
         tenant_id=tenant_id,
@@ -244,9 +315,36 @@ def _adjust_stock(
         event_date=_today_label(),
     )
     db.add(entry)
-    db.commit()
-    db.refresh(product)
-    db.refresh(entry)
+    try:
+        db.commit()
+        db.refresh(product)
+        db.refresh(entry)
+    except HTTPException:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Database error during stock adjustment for product_id=%s tenant_id=%s: %s", product_id, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while adjusting product stock.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error during stock adjustment for product_id=%s tenant_id=%s: %s", product_id, tenant_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to adjust product stock.",
+        ) from exc
     timeline_entry = {
         "id": entry.id,
         "activity": entry.activity,
@@ -286,15 +384,6 @@ def list_categories(db: Session, tenant_id: int) -> list[dict]:
             .order_by(InventoryCategory.name)
         ).all()
     )
-    # Ensure defaults exist
-    names = {c.name for c in cats}
-    if "No Category" not in names:
-        row = InventoryCategory(tenant_id=tenant_id, name="No Category")
-        db.add(row)
-        db.commit()
-        db.refresh(row)
-        cats.insert(0, row)
-
     counts = dict(
         db.execute(
             select(Product.category, func.count(Product.id))
@@ -302,7 +391,7 @@ def list_categories(db: Session, tenant_id: int) -> list[dict]:
             .group_by(Product.category)
         ).all()
     )
-    return [
+    result = [
         {
             "id": c.id,
             "name": c.name,
@@ -310,6 +399,11 @@ def list_categories(db: Session, tenant_id: int) -> list[dict]:
         }
         for c in cats
     ]
+    names = {c.name for c in cats}
+    if "No Category" not in names:
+        no_cat_count = int(counts.get("No Category") or 0)
+        result.insert(0, {"id": 0, "name": "No Category", "stock": no_cat_count})
+    return result
 
 
 def category_wise(db: Session, tenant_id: int) -> list[dict]:
