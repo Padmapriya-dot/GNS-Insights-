@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
@@ -98,6 +98,37 @@ export default function MeetingsList() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // ─── Auto-sync from Google Calendar ──────────────────────────────────────
+  // Silently poll every 60 s when Google Calendar is connected.
+  // If new events are found they are imported automatically and the list refreshes.
+  const autoSyncRef = useRef(null);
+  useEffect(() => {
+    if (!googleStatus.connected) {
+      if (autoSyncRef.current) clearInterval(autoSyncRef.current);
+      autoSyncRef.current = null;
+      return;
+    }
+    const runAutoSync = async () => {
+      try {
+        const res = await importFromGoogleCalendar();
+        const { imported } = res?.data || {};
+        if (imported > 0) {
+          load(); // refresh the meetings list silently
+        }
+      } catch {
+        // silent — don't disturb the user on background poll failures
+      }
+    };
+    // Run once immediately on connect, then every 60 s
+    runAutoSync();
+    autoSyncRef.current = setInterval(runAutoSync, 60_000);
+    return () => {
+      if (autoSyncRef.current) clearInterval(autoSyncRef.current);
+      autoSyncRef.current = null;
+    };
+  }, [googleStatus.connected, load]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const connected = searchParams.get("google_connected");
