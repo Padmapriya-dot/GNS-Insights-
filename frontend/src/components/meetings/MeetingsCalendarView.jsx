@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
-  DownloadCloud,
   ExternalLink,
   HelpCircle,
   Link2,
@@ -176,7 +175,6 @@ export default function MeetingsCalendarView({
   onOpenCalendar,
   onConnectGoogle,
   onDisconnectGoogle,
-  onImportGoogle,
   onRefresh,
   connecting = false,
   listColumns,
@@ -188,7 +186,6 @@ export default function MeetingsCalendarView({
   const [selectedDate, setSelectedDate] = useState(() => toIsoDate(new Date()));
   const [miniMonth, setMiniMonth] = useState(() => new Date());
   const [meetQuery, setMeetQuery] = useState("");
-  const [importing, setImporting] = useState(false);
   const [enabledLayers, setEnabledLayers] = useState(() =>
     Object.fromEntries(CALENDAR_LAYERS.map((l) => [l.id, true]))
   );
@@ -370,20 +367,6 @@ export default function MeetingsCalendarView({
                 >
                   <ExternalLink className="h-3.5 w-3.5" /> Open Google Calendar
                 </a>
-                <button
-                  type="button"
-                  className="meetings-cal__btn mt-1.5 w-full justify-center text-xs text-emerald-700 hover:text-emerald-800 font-medium"
-                  disabled={importing}
-                  onClick={async () => {
-                    if (!onImportGoogle) return;
-                    setImporting(true);
-                    await onImportGoogle();
-                    setImporting(false);
-                  }}
-                >
-                  <DownloadCloud className="h-3.5 w-3.5" />
-                  {importing ? "Importing…" : "Import from Google Calendar"}
-                </button>
                 <button type="button" className="meetings-cal__btn mt-1.5 w-full justify-center text-xs text-red-600 hover:text-red-700" onClick={onDisconnectGoogle}>
                   <Unlink className="h-3.5 w-3.5" /> Disconnect
                 </button>
