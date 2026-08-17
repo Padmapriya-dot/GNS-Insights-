@@ -109,7 +109,14 @@ export default function MeetingsList() {
         window.open("https://calendar.google.com", "_blank", "noopener,noreferrer");
       } catch {}
     } else if (error) {
-      addToast(`Google Calendar connection failed: ${decodeURIComponent(error)}`, "error");
+      const decoded = decodeURIComponent(error);
+      const isRefreshTokenError = decoded.toLowerCase().includes("refresh token") || decoded.toLowerCase().includes("revoke");
+      addToast(
+        isRefreshTokenError
+          ? "Google connection failed: Please go to myaccount.google.com/permissions, remove 'Insights Iva' access, then click Connect again."
+          : `Google Calendar connection failed: ${decoded}`,
+        "error"
+      );
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams, addToast, load]);
