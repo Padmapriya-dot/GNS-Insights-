@@ -134,12 +134,17 @@ export default function MeetingsList() {
     const connected = searchParams.get("google_connected");
     const error = searchParams.get("google_error");
     if (connected === "1") {
-      addToast("Google Calendar connected successfully.", "success");
       setSearchParams({}, { replace: true });
       load();
-      try {
-        window.open("https://calendar.google.com", "_blank", "noopener,noreferrer");
-      } catch {}
+      // Open Google Calendar in a new tab — done via a link click to bypass popup blockers
+      const a = document.createElement("a");
+      a.href = "https://calendar.google.com";
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      addToast("Google Calendar connected! Your meetings will now sync automatically.", "success");
     } else if (error) {
       const decoded = decodeURIComponent(error);
       const isRefreshTokenError = decoded.toLowerCase().includes("refresh token") || decoded.toLowerCase().includes("revoke");
