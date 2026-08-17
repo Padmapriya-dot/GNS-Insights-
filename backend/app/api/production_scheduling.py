@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.core.permissions import tenant_scope
-from app.models.hr import Employee
 from app.models.machine import Machine
 from app.models.product import Product
 from app.models.production import DailyProductionReport, ProductionOrder, WorkOrder
@@ -89,14 +88,7 @@ def get_schedule_dashboard(
     ) or 0
     utilization_pct = round((running_machines / total_machines * 100) if total_machines else 0, 1)
 
-    # Operators present today
-    operators_present = db.scalar(
-        select(func.count()).select_from(Employee)
-        .where(
-            Employee.tenant_id == tenant_id,
-            Employee.is_active == True,
-        )
-    ) or 0
+    operators_present = 0
 
     overall_pct = round((completed / total * 100) if total else 0, 1)
 

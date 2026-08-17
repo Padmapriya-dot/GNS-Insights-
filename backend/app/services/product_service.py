@@ -118,7 +118,7 @@ def update_product(
 
 
 def _delete_related_for_product(db: Session, tenant_id: int, product_id: int) -> None:
-    """Remove FK dependents so a product row can be deleted (SQLite has no ON DELETE CASCADE)."""
+    """Remove FK dependents so a product row can be deleted when ON DELETE CASCADE is absent."""
     for event in db.scalars(
         select(ProductStockEvent).where(
             ProductStockEvent.product_id == product_id,

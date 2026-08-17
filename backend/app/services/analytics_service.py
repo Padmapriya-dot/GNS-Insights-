@@ -3,7 +3,6 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.hr import Employee
 from app.models.inventory import InventoryItem, StockLevel, StockMovement
 from app.models.machine import Machine
 from app.models.production import DailyProductionReport
@@ -133,18 +132,12 @@ def get_inventory_turnover_rate(db: Session, tenant_id: int) -> dict:
 
 
 def get_worker_performance_score(db: Session, tenant_id: int) -> dict:
-    """Worker performance metrics (HR performance reviews removed)."""
-    active_employees = db.scalar(
-        select(func.count(Employee.id)).where(
-            Employee.tenant_id == tenant_id,
-            Employee.is_active == True,
-        )
-    ) or 0
+    """Worker performance metrics (employee module removed)."""
     return {
         "average_score": 0.0,
         "reviews_count": 0,
         "top_performer_ids": [],
-        "active_employees": int(active_employees),
+        "active_employees": 0,
     }
 
 

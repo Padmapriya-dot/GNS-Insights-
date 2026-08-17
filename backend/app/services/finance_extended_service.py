@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.sql_compat import column_matches_month_number
 from app.models.accounts import Expense, FixedAsset, GLAccount, Income, JournalEntry
 from app.models.inventory import InventoryItem, StockLevel, Supplier
 from app.models.department import Department
@@ -1164,7 +1165,7 @@ def get_extended_reports(
                        "July","August","September","October","November","December"]
         try:
             m_idx = month_names.index(month) + 1
-            fa_stmt = fa_stmt.where(func.strftime("%m", FixedAsset.purchase_date) == f"{m_idx:02d}")
+            fa_stmt = fa_stmt.where(column_matches_month_number(FixedAsset.purchase_date, m_idx))
         except ValueError:
             pass
     db_assets = list(db.scalars(fa_stmt).all())

@@ -4,6 +4,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.sql_compat import column_matches_year_month
 from app.models.accounts import Expense, Income
 from app.models.sales import Invoice, Payment
 from app.schemas.accounts import ExpenseCreate, IncomeCreate
@@ -221,12 +222,12 @@ def get_accounts_dashboard(db: Session, tenant_id: int) -> dict:
         month_paid = db.execute(
             select(func.coalesce(func.sum(Invoice.amount_paid), 0))
             .where(Invoice.tenant_id == tenant_id)
-            .where(func.strftime("%Y-%m", Invoice.issue_date) == month_key)
+            .where(column_matches_year_month(Invoice.issue_date, month_key))
         ).scalar()
         month_count = db.execute(
             select(func.count(Invoice.id))
             .where(Invoice.tenant_id == tenant_id)
-            .where(func.strftime("%Y-%m", Invoice.issue_date) == month_key)
+            .where(column_matches_year_month(Invoice.issue_date, month_key))
             .where(Invoice.status != "draft")
         ).scalar()
         monthly_settlement.append({

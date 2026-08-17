@@ -1084,36 +1084,7 @@ class OperatorService:
         }
 
     def _resolve_hr_employee(self, user: User):
-        from sqlalchemy import func, or_, select
-        from app.models.hr import Employee
-
-        email = (user.email or "").strip().lower()
-        full_name = (user.full_name or "").strip().lower()
-        employee_code = (user.employee_id or "").strip()
-
-        filters = []
-        if email:
-            filters.append(func.lower(Employee.email) == email)
-        if full_name:
-            filters.append(func.lower(Employee.full_name) == full_name)
-        if employee_code:
-            if employee_code.isdigit():
-                filters.append(Employee.id == int(employee_code))
-            filters.append(func.lower(Employee.employee_code) == employee_code.lower())
-        if user.id is not None:
-            filters.append(Employee.id == user.id)
-        first_name = full_name.split(" ", 1)[0] if full_name else ""
-        if len(first_name) >= 3:
-            filters.append(func.lower(Employee.full_name).like(f"{first_name}%"))
-
-        if not filters:
-            return None
-
-        return self.db.scalar(
-            select(Employee)
-            .where(Employee.tenant_id == self.tenant_id, or_(*filters))
-            .limit(1)
-        )
+        return None
 
     def _resolve_attendance_employee_id(self, user: User) -> int:
         employee = self._resolve_hr_employee(user)
