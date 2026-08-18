@@ -8,11 +8,16 @@ refactoring callers.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+from fastapi import HTTPException, status as http_status
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
+
+logger = logging.getLogger(__name__)
 
 from app.models.alert import Alert
 from app.models.user import User
@@ -96,8 +101,8 @@ _ALERT_TO_NOTIF_TYPE: dict[str, str] = {
     "preventive_maintenance_due": "maintenance",
     "machine_service_completed": "maintenance",
     "maintenance_reminder": "maintenance",
-    "leave_request": "hr",
-    "attendance_exception": "hr",
+    "leave_request": "general",
+    "attendance_exception": "general",
     "login_failure": "system",
     "license_expiry": "system",
     "trial_expiry": "system",
@@ -133,8 +138,8 @@ _MODULE_DEFAULTS: dict[str, str] = {
     "preventive_maintenance_due": "maintenance",
     "machine_service_completed": "maintenance",
     "maintenance_reminder": "maintenance",
-    "leave_request": "hr",
-    "attendance_exception": "hr",
+    "leave_request": "general",
+    "attendance_exception": "general",
     "login_failure": "admin",
     "license_expiry": "admin",
     "trial_expiry": "admin",
@@ -170,8 +175,8 @@ DEFAULT_LINKS: dict[str, str] = {
     "preventive_maintenance_due": "/maintenance/preventive",
     "machine_service_completed": "/maintenance",
     "maintenance_reminder": "/alerts/maintenance",
-    "leave_request": "/hr/employees",
-    "attendance_exception": "/hr/attendance",
+    "leave_request": "/masters/departments",
+    "attendance_exception": "/dashboard",
     "login_failure": "/admin/access-logs",
     "license_expiry": "/settings",
     "trial_expiry": "/settings",
@@ -209,24 +214,41 @@ def _resolve_audience_user_ids(
     alert_type: str,
     target_roles: list[str] | None = None,
 ) -> list[int]:
-    roles = list(target_roles) if target_roles else list(ALERT_AUDIENCE.get(alert_type, []))
-    if "Admin" not in roles:
-        roles.append("Admin")
+    try:
+        roles = list(target_roles) if target_roles else list(ALERT_AUDIENCE.get(alert_type, []))
+        if "Admin" not in roles:
+            roles.append("Admin")
 
-    users = list(
-        db.scalars(
-            select(User)
-            .options(joinedload(User.roles))
-            .where(User.tenant_id == tenant_id, User.is_active.is_(True))
-        ).unique().all()
-    )
-    role_set = {r.lower() for r in roles}
-    ids: list[int] = []
-    for u in users:
-        names = {r.name.lower() for r in (u.roles or [])}
-        if names & role_set:
-            ids.append(u.id)
-    return ids
+        users = list(
+            db.scalars(
+                select(User)
+                .options(joinedload(User.roles))
+                .where(User.tenant_id == tenant_id, User.is_active.is_(True))
+            ).unique().all()
+        )
+        role_set = {r.lower() for r in roles}
+        ids: list[int] = []
+        for u in users:
+            names = {r.name.lower() for r in (u.roles or [])}
+            if names & role_set:
+                ids.append(u.id)
+        return ids
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.exception("Database error resolving audience user IDs for tenant_id=%s: %s", tenant_id, exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection unavailable",
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Failed to resolve audience user IDs for tenant_id=%s: %s", tenant_id, exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to resolve audience user IDs",
+        ) from exc
 
 
 def fanout_alert_notifications(
@@ -246,20 +268,29 @@ def fanout_alert_notifications(
     link = alert.link or DEFAULT_LINKS.get(alert.alert_type, "/alerts")
     created = 0
     for uid in user_ids:
-        NotificationManagementService.create_for_user(
-            db,
-            tenant_id=alert.tenant_id,
-            user_id=uid,
-            title=alert.title,
-            message=alert.message or alert.title,
-            type=ntype,
-            priority=priority,
-            module=module,
-            action_url=link,
-            created_by=alert.created_by or "System",
-            created_by_user_id=created_by_user_id,
-        )
-        created += 1
+        try:
+            with db.begin_nested():
+                NotificationManagementService.create_for_user(
+                    db,
+                    tenant_id=alert.tenant_id,
+                    user_id=uid,
+                    title=alert.title,
+                    message=alert.message or alert.title,
+                    type=ntype,
+                    priority=priority,
+                    module=module,
+                    action_url=link,
+                    created_by=alert.created_by or "System",
+                    created_by_user_id=created_by_user_id,
+                )
+            created += 1
+        except Exception as exc:
+            logger.exception(
+                "Failed to create notification for user_id=%s during fanout of alert id=%s: %s",
+                uid,
+                getattr(alert, "id", None),
+                exc,
+            )
     return created
 
 
@@ -284,39 +315,56 @@ def emit_alert(
     commit: bool = True,
 ) -> Alert:
     """Persist an Alert and fan out role-targeted bell notifications."""
-    roles = target_roles if target_roles is not None else ALERT_AUDIENCE.get(alert_type, ["Admin"])
-    target_role_str = ",".join(roles) if roles else None
-    mod = module or _MODULE_DEFAULTS.get(alert_type, "system")
-    action_link = link or DEFAULT_LINKS.get(alert_type, "/alerts")
+    try:
+        roles = target_roles if target_roles is not None else ALERT_AUDIENCE.get(alert_type, ["Admin"])
+        target_role_str = ",".join(roles) if roles else None
+        mod = module or _MODULE_DEFAULTS.get(alert_type, "system")
+        action_link = link or DEFAULT_LINKS.get(alert_type, "/alerts")
 
-    alert = Alert(
-        tenant_id=tenant_id,
-        alert_type=alert_type,
-        title=title,
-        message=message,
-        severity=severity,
-        status=status,
-        triggered_at=datetime.now(timezone.utc),
-        reference_type=reference_type,
-        reference_id=reference_id,
-        module=mod,
-        link=action_link,
-        target_role=target_role_str,
-        metadata_json=json.dumps(metadata) if metadata else None,
-        created_by=created_by or "System",
-        is_read=False,
-    )
-    db.add(alert)
-    db.flush()
-
-    if fanout:
-        fanout_alert_notifications(db, alert, created_by_user_id=created_by_user_id)
-
-    if commit:
-        db.commit()
-        db.refresh(alert)
-    else:
+        alert = Alert(
+            tenant_id=tenant_id,
+            alert_type=alert_type,
+            title=title,
+            message=message,
+            severity=severity,
+            status=status,
+            triggered_at=datetime.now(timezone.utc),
+            reference_type=reference_type,
+            reference_id=reference_id,
+            module=mod,
+            link=action_link,
+            target_role=target_role_str,
+            metadata_json=json.dumps(metadata) if metadata else None,
+            created_by=created_by or "System",
+            is_read=False,
+        )
+        db.add(alert)
         db.flush()
 
-    _notify_listeners(alert)
-    return alert
+        if fanout:
+            fanout_alert_notifications(db, alert, created_by_user_id=created_by_user_id)
+
+        if commit:
+            db.commit()
+            db.refresh(alert)
+        else:
+            db.flush()
+
+        _notify_listeners(alert)
+        return alert
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.exception("Database error during emit_alert: %s", exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection unavailable",
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Failed to emit alert: %s", exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to emit alert",
+        ) from exc

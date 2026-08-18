@@ -579,29 +579,97 @@ def run_mrp_endpoint(
 
 @router.get("/allocation")
 def machine_allocation(user_tenant: tuple[User, int] = Depends(require_tenant("allocation")), db: Session = Depends(get_db)):
-    _, tenant_id = user_tenant
-    return success_response("Machine allocation retrieved", {
-        "summary": _dump(get_allocation_summary(db, tenant_id)),
-        "rows": _dump(get_allocation_list(db, tenant_id)),
-    })
+    try:
+        _, tenant_id = user_tenant
+        return success_response("Machine allocation retrieved", {
+            "summary": _dump(get_allocation_summary(db, tenant_id)),
+            "rows": _dump(get_allocation_list(db, tenant_id)),
+        })
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.exception("Database error getting machine allocation in API: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection unavailable",
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Failed to get machine allocation in API: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve machine allocation",
+        ) from exc
 
 
 @router.get("/allocation/summary")
 def allocation_summary(user_tenant: tuple[User, int] = Depends(require_tenant("allocation")), db: Session = Depends(get_db)):
-    _, tenant_id = user_tenant
-    return success_response("Allocation summary retrieved", _dump(get_allocation_summary(db, tenant_id)))
+    try:
+        _, tenant_id = user_tenant
+        return success_response("Allocation summary retrieved", _dump(get_allocation_summary(db, tenant_id)))
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.exception("Database error getting allocation summary in API: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection unavailable",
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Failed to get allocation summary in API: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve allocation summary",
+        ) from exc
 
 
 @router.get("/allocation/rows")
 def allocation_rows(user_tenant: tuple[User, int] = Depends(require_tenant("allocation")), db: Session = Depends(get_db)):
-    _, tenant_id = user_tenant
-    return success_response("Allocation rows retrieved", _dump(get_allocation_list(db, tenant_id)))
+    try:
+        _, tenant_id = user_tenant
+        return success_response("Allocation rows retrieved", _dump(get_allocation_list(db, tenant_id)))
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.exception("Database error getting allocation rows in API: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection unavailable",
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Failed to get allocation rows in API: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve allocation rows",
+        ) from exc
 
 
 @router.get("/allocation/machines")
 def allocation_machines(user_tenant: tuple[User, int] = Depends(require_tenant("allocation")), db: Session = Depends(get_db)):
-    _, tenant_id = user_tenant
-    return success_response("Allocation machines retrieved", _dump(get_machine_availability(db, tenant_id)))
+    try:
+        _, tenant_id = user_tenant
+        return success_response("Allocation machines retrieved", _dump(get_machine_availability(db, tenant_id)))
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.exception("Database error getting allocation machines in API: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection unavailable",
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Failed to get allocation machines in API: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve allocation machines",
+        ) from exc
 
 
 @router.post("/allocation/assign")
@@ -610,9 +678,26 @@ def assign_machine(
     user_tenant: tuple[User, int] = Depends(require_tenant("allocation")),
     db: Session = Depends(get_db),
 ):
-    _, tenant_id = user_tenant
-    result = assign_allocation(db, tenant_id, payload)
-    return success_response("Machine allocated", _dump(result))
+    try:
+        _, tenant_id = user_tenant
+        result = assign_allocation(db, tenant_id, payload)
+        return success_response("Machine allocated", _dump(result))
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.exception("Database error assigning machine allocation in API: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection unavailable",
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Failed to assign machine allocation in API: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to assign work order allocation",
+        ) from exc
 
 
 # ── Batch Tracking ─────────────────────────────────────────────────────────

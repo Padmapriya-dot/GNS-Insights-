@@ -84,36 +84,61 @@ def lookup_bank_details(ifsc: str, account_number: str | None = None) -> dict:
     try:
         data = resp.json()
     except Exception as exc:
+        logger.exception("IFSC API returned non-JSON response for %s: %s", code, exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Unable to verify bank details right now. Please try again.",
         ) from exc
 
-    bank_name = (data.get("BANK") or data.get("BANKNAME") or "").strip()
-    centre = (data.get("CENTRE") or data.get("CITY") or "").strip()
-    address = (data.get("ADDRESS") or "").strip()
-    # Some IFSC records return the literal "BRANCH" — fall back to centre / address
-    branch = _clean_branch(
-        data.get("BRANCH"),
-        centre,
-        address.split(",")[0] if address else None,
-    )
-    if not bank_name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid IFSC code",
+    # Guard against non-dict payloads (e.g. list, null, scalar) from the external API.
+    if not isinstance(data, dict):
+        logger.error(
+            "IFSC API returned unexpected response type %s for %s: %r",
+            type(data).__name__,
+            code,
+            data,
         )
-    if not branch:
-        branch = centre or bank_name
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to verify bank details right now. Please try again.",
+        )
 
-    return {
-        "valid": True,
-        "ifsc": code,
-        "account_number": account,
-        "bank_name": bank_name,
-        "branch": branch,
-        "bank_branch": branch,
-        "centre": centre or None,
-        "state": (data.get("STATE") or "").strip() or None,
-        "address": address or None,
-    }
+    try:
+        bank_name = (data.get("BANK") or data.get("BANKNAME") or "").strip()
+        centre = (data.get("CENTRE") or data.get("CITY") or "").strip()
+        address = (data.get("ADDRESS") or "").strip()
+        # Some IFSC records return the literal "BRANCH" — fall back to centre / address
+        branch = _clean_branch(
+            data.get("BRANCH"),
+            centre,
+            address.split(",")[0] if address else None,
+        )
+        if not bank_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid IFSC code",
+            )
+        if not branch:
+            branch = centre or bank_name
+
+        return {
+            "valid": True,
+            "ifsc": code,
+            "account_number": account,
+            "bank_name": bank_name,
+            "branch": branch,
+            "bank_branch": branch,
+            "centre": centre or None,
+            "state": (data.get("STATE") or "").strip() or None,
+            "address": address or None,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Unexpected error processing IFSC API response for %s: %s", code, exc
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to verify bank details right now. Please try again.",
+        ) from exc

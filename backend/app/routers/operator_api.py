@@ -1,7 +1,7 @@
 """Operator REST API — all /api/* endpoints."""
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -79,11 +79,11 @@ def api_register(payload: dict, db: Session = Depends(get_db)):
     settings = get_settings()
     if settings.email_verification_required:
         raw_token = create_email_verification(db, user)
+        send_verification_email(user.email, raw_token)
         return success_response(
             "Registration successful. Please verify your email before signing in.",
             {
                 "email_verification_required": True,
-                "verification_token": raw_token if settings.environment == "development" else None,
             },
         )
 
@@ -99,8 +99,9 @@ def api_login(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    from fastapi import HTTPException
+    from fastapi import HTTPException, status
     from fastapi.responses import JSONResponse
+    from sqlalchemy.exc import SQLAlchemyError
 
     from app.services.audit_log_service import AuditLogService
     from app.services.auth_service import (
@@ -113,38 +114,61 @@ def api_login(
     from app.services.security_service import is_account_locked
     from app.utils.api_response import error_response
 
-    email = payload.email
-    user = find_user_by_email(db, email)
-    if user and is_account_locked(user):
-        AuditLogService.log_login_failed(db, request=request, email=email, user=user)
-        return JSONResponse(
-            status_code=429,
-            content=error_response("Account temporarily locked. Try again later."),
-        )
     try:
-        authenticated = login_user(db, email, payload.password)
-        db.refresh(authenticated, ["roles", "tenant"])
-        role = assert_user_has_role(authenticated, payload.role)
-    except HTTPException as exc:
-        detail = str(exc.detail)
-        target_user = authenticated if 'authenticated' in locals() and authenticated else user
-        AuditLogService.log_login_failed(
-            db,
-            request=request,
-            email=email,
-            user=target_user,
-            details=detail if detail == ROLE_MISMATCH_MESSAGE else None,
-            role=payload.role,
+        email = payload.email
+        user = find_user_by_email(db, email)
+        if user and is_account_locked(user):
+            try:
+                AuditLogService.log_login_failed(db, request=request, email=email, user=user)
+            except Exception:
+                logger.exception("Failed to log locked login attempt for email %s", email)
+            return JSONResponse(
+                status_code=429,
+                content=error_response("Account temporarily locked. Try again later."),
+            )
+        try:
+            authenticated = login_user(db, email, payload.password)
+            db.refresh(authenticated, ["roles", "tenant"])
+            role = assert_user_has_role(authenticated, payload.role)
+        except HTTPException as exc:
+            detail = str(exc.detail)
+            target_user = authenticated if 'authenticated' in locals() and authenticated else user
+            try:
+                AuditLogService.log_login_failed(
+                    db,
+                    request=request,
+                    email=email,
+                    user=target_user,
+                    details=detail if detail == ROLE_MISMATCH_MESSAGE else None,
+                    role=payload.role,
+                )
+            except Exception:
+                logger.exception("Failed to log failed login attempt for email %s", email)
+            return JSONResponse(
+                status_code=exc.status_code,
+                content=error_response(detail, errors=[detail]),
+            )
+        AuditLogService.log_login_success(
+            db, request=request, user=authenticated, role=role
         )
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=error_response(detail, errors=[detail]),
-        )
-    AuditLogService.log_login_success(
-        db, request=request, user=authenticated, role=role
-    )
-    data = issue_auth_response_data(db, authenticated, role_name=role)
-    return success_response("Login successful", data)
+        data = issue_auth_response_data(db, authenticated, role_name=role)
+        return success_response("Login successful", data)
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("api_login database error for email %s: %s", payload.email, exc)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database connection or transaction failure during login.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("api_login unexpected error for email %s: %s", payload.email, exc)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred during login. Please try again.",
+        ) from exc
 
 
 @router.post("/auth/logout")
@@ -155,8 +179,23 @@ def api_logout(
 ):
     from app.services.audit_log_service import AuditLogService
 
-    AuditLogService.log_logout(db, request=request, user=current_user)
-    return success_response("Logged out successfully. Discard your access token on the client.")
+    try:
+        AuditLogService.log_logout(db, request=request, user=current_user)
+        return success_response("Logged out successfully. Discard your access token on the client.")
+    except SQLAlchemyError:
+        logger.exception("api_logout database error for user %s", current_user.id)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Logout failed due to a database error.",
+        )
+    except Exception:
+        logger.exception("api_logout unexpected error for user %s", current_user.id)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred during logout.",
+        )
 
 
 @router.get("/auth/profile")
